@@ -1,0 +1,14 @@
+// wayvid autostart for niri
+// Add this to your niri config file
+
+// Method 1: Direct spawn (recommended)
+spawn-at-startup "wayvid" "run"
+
+// Method 2: With custom config
+// spawn-at-startup "wayvid" "run" "--config" "/home/user/.config/wayvid/custom.yaml"
+
+// Method 3: Via systemd (alternative)
+// spawn-at-startup "systemctl" "--user" "start" "wayvid.service"
+
+// Note: Ensure wayvid is in your PATH or use full path:
+// spawn-at-startup "/home/user/.local/bin/wayvid" "run"

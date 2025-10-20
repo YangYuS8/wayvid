@@ -1,0 +1,31 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.deb
+*.rpm
+*.AppImage
+packaging/*/*.tar.gz
+packaging/*/*.pkg.tar.zst
+
+# Local config (for testing)
+config.yaml
+test-videos/
+
+# Nix
+result
+result-*

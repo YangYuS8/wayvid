@@ -1,0 +1,18 @@
+[Unit]
+Description=wayvid - Wayland Video Wallpaper Engine
+Documentation=https://github.com/yourusername/wayvid
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/wayvid run --config %h/.config/wayvid/config.yaml
+Restart=on-failure
+RestartSec=5
+
+# Resource limits (optional, adjust as needed)
+# MemoryMax=2G
+# CPUQuota=50%
+
+[Install]
+WantedBy=graphical-session.target

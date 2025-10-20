@@ -1,0 +1,50 @@
+# Maintainer: Your Name <your.email@example.com>
+pkgname=wayvid-git
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Dynamic video wallpaper engine for Wayland compositors"
+arch=('x86_64' 'aarch64')
+url="https://github.com/yourusername/wayvid"
+license=('MIT' 'Apache')
+depends=('wayland' 'mpv' 'mesa')
+makedepends=('rust' 'cargo' 'git')
+provides=('wayvid')
+conflicts=('wayvid')
+source=("git+https://github.com/yourusername/wayvid.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/wayvid"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cd "$srcdir/wayvid"
+    cargo build --release --locked --all-features
+}
+
+check() {
+    cd "$srcdir/wayvid"
+    cargo test --release --locked
+}
+
+package() {
+    cd "$srcdir/wayvid"
+    
+    # Binary
+    install -Dm755 "target/release/wayvid" "$pkgdir/usr/bin/wayvid"
+    
+    # Example config
+    install -Dm644 "configs/config.example.yaml" \
+        "$pkgdir/usr/share/doc/wayvid/config.example.yaml"
+    
+    # Systemd service
+    install -Dm644 "systemd/wayvid.service" \
+        "$pkgdir/usr/lib/systemd/user/wayvid.service"
+    
+    # License
+    install -Dm644 "LICENSE-MIT" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+    
+    # Docs
+    install -Dm644 "README.md" "$pkgdir/usr/share/doc/wayvid/README.md"
+}

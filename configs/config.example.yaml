@@ -1,0 +1,68 @@
+# wayvid configuration example
+# Copy to ~/.config/wayvid/config.yaml and customize
+
+# Video source - can be a single file, directory, or Wallpaper Engine project
+source:
+  type: File
+  path: "/home/user/Videos/wallpaper.mp4"
+
+# Alternative sources (comment out the one above and uncomment one below):
+# source:
+#   type: Directory
+#   path: "/home/user/Videos/wallpapers/"
+
+# source:
+#   type: WeProject
+#   path: "/home/user/.steam/steam/steamapps/workshop/content/431960/123456789"
+
+# Layout mode: Fill, Contain, Stretch, Cover, or Centre
+# - Fill: Scale and crop to fill the entire screen (maintains aspect ratio)
+# - Contain: Scale to fit inside screen with letterbox bars (maintains aspect ratio)
+# - Stretch: Stretch to fill screen (ignores aspect ratio)
+# - Cover: Alias for Fill
+# - Centre: Display at original size, centered
+layout: Fill
+
+# Loop playback (default: true)
+loop: true
+
+# Start time in seconds (default: 0.0)
+start_time: 0.0
+
+# Playback rate/speed (default: 1.0)
+playback_rate: 1.0
+
+# Mute audio (default: true, recommended for wallpapers)
+mute: true
+
+# Volume (0.0 - 1.0, only applies if mute is false)
+volume: 0.0
+
+# Enable hardware decoding (default: true)
+# Set to false if experiencing issues
+hwdec: true
+
+# Power saving options
+power:
+  # Pause when output is hidden/turned off
+  pause_when_hidden: true
+  
+  # Pause when on battery power
+  pause_on_battery: false
+  
+  # Maximum FPS limit (0 = unlimited)
+  max_fps: 0
+
+# Per-output overrides
+# Use output names from `wayland-info` or `wayvid check`
+per_output:
+  # Example: Different layout for external monitor
+  HDMI-A-1:
+    layout: Contain
+    
+  # Example: Different video for laptop screen
+  eDP-1:
+    source:
+      type: File
+      path: "/home/user/Videos/lowpower.mp4"
+    start_time: 5.0
