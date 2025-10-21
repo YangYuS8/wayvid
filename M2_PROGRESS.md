@@ -67,10 +67,11 @@
 ### ⏳ 待办
 
 #### M2 Phase 2 - mpv 集成 (预计 1-2 周)
-- [ ] **解决 libmpv 版本问题**
-  - [ ] 选项A: 使用 libmpv-sys 直接 FFI
-  - [ ] 选项B: 切换到 GStreamer
-  - [ ] 重新启用 video 初始化代码
+- [x] **解决 libmpv 版本问题** ✅
+  - [x] 选项A: 使用 libmpv-sys 直接 FFI ✅
+  - [x] 重写 MpvPlayer 使用原始 libmpv API ✅
+  - [x] 重新启用 video 初始化代码 ✅
+  - [x] 测试 MPV 初始化和视频加载 ✅
   
 - [ ] **mpv_render_context 创建**
   - [ ] 初始化 OpenGL render context
@@ -173,9 +174,9 @@
 
 ## 当前焦点
 
-**刚完成**: OpenGL 清屏渲染测试 ✅  
-**下一步**: 解决 libmpv 版本冲突 → 集成 mpv_render_context  
-**阻塞项**: libmpv 版本冲突 (VersionMismatch) - 需要解决才能继续 M2 Phase 2
+**刚完成**: 修复 libmpv 版本冲突 ✅ (切换到 libmpv-sys 3.1)  
+**下一步**: 集成 mpv_render_context → 实现 OpenGL 视频渲染  
+**阻塞项**: 无 - 可以继续 M2 Phase 2
 
 ---
 
@@ -246,10 +247,11 @@ let egl_context = unsafe {
 
 ### 已知问题
 
-1. **libmpv 版本冲突** (M1遗留)
-   - 错误: `VersionMismatch { linked: 65644, loaded: 131077 }`
-   - 计划: M2.2 使用 libmpv-sys 或 GStreamer
-   - 影响: 暂时无法测试视频播放
+1. ~~**libmpv 版本冲突**~~ ✅ **已解决**
+   - 问题: `VersionMismatch { linked: 65644, loaded: 131077 }`
+   - 解决方案: 切换到 libmpv-sys 3.1 直接 FFI
+   - 结果: MPV 初始化成功，视频加载成功
+   - 提交: commit 24704a4
 
 2. **wayland-egl API**
    - 需要 FFI bindings: `wl_egl_window_create`, `wl_egl_window_resize`, `wl_egl_window_destroy`
@@ -297,5 +299,42 @@ Layer 556b3b55da10: xywh: 1639 1437 2160 1440, namespace: wayvid, pid: 394855
 
 ---
 
+---
+
+## 🚀 M2 Phase 2 开始！
+
+**开始日期**: 2025-10-21
+
+### libmpv 版本冲突修复 ✅
+
+**问题描述**:
+- libmpv crate 2.0.1 的版本检查机制导致 `VersionMismatch`
+- 系统 libmpv 版本: 2.5.0 (loaded: 131077)
+- crate 期望版本: 1.x (linked: 65644)
+
+**解决方案**:
+- 切换到 libmpv-sys 3.1.0 (直接 FFI 绑定，无版本检查)
+- 重写 MpvPlayer 使用原始 libmpv C API
+- 实现全部配置选项 (loop, hwdec, mute, volume, speed 等)
+
+**测试结果**:
+```
+✅ libmpv-sys 编译成功
+✅ mpv_create(): 成功创建实例
+✅ mpv_initialize(): 初始化成功
+✅ mpv_command("loadfile"): 视频加载成功
+✅ 与 EGL/OpenGL 共存: 无冲突
+✅ 日志输出: "🎬 Initializing libmpv for output output-61"
+✅ 日志输出: "✓ MPV initialized successfully"
+✅ 日志输出: "📁 Loading video: ~/Videos/test.mp4"
+✅ 日志输出: "✓ Video loaded successfully"
+```
+
+**提交**: commit 24704a4
+
+---
+
 **最后更新**: 2025-10-21  
-**当前进度**: M2 Phase 1 完成 ✅ - 准备进入 Phase 2 (mpv 集成)
+**当前进度**: M2 Phase 2 开始 - libmpv 集成完成，下一步实现 mpv_render_context
+
+````
