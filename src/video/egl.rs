@@ -158,6 +158,19 @@ impl EglContext {
             .context("Failed to swap EGL buffers")?;
         Ok(())
     }
+
+    /// Get OpenGL function address (for loading GL functions)
+    pub fn get_proc_address(&self, name: &str) -> *const std::ffi::c_void {
+        self.instance
+            .get_proc_address(name)
+            .map(|f| f as *const std::ffi::c_void)
+            .unwrap_or(std::ptr::null())
+    }
+    
+    /// Load OpenGL functions using this context
+    pub fn load_gl_functions(&self) {
+        gl::load_with(|s| self.get_proc_address(s));
+    }
 }
 
 impl EglWindow {

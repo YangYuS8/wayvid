@@ -20,6 +20,7 @@ pub struct WaylandSurface {
 
     // EGL/OpenGL rendering
     egl_window: Option<EglWindow>,
+    gl_loaded: bool,
 
     // Video player
     #[cfg(feature = "video-mpv")]
@@ -69,6 +70,7 @@ impl WaylandSurface {
             output_info,
             config,
             egl_window: None,
+            gl_loaded: false,
             #[cfg(feature = "video-mpv")]
             player: None,
             configured: false,
@@ -155,19 +157,30 @@ impl WaylandSurface {
             return Ok(());
         }
 
-        // Test EGL rendering (swap buffers)
+        // OpenGL rendering with clear screen test
         if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {
             // Make context current
             if let Err(e) = egl_ctx.make_current(egl_win) {
                 error!("Failed to make EGL context current: {}", e);
-            } else {
-                // TODO: Add OpenGL rendering here once we integrate mpv_render_context
-                // For now, just swap buffers to test EGL functionality
-                
-                // Swap buffers to display
-                if let Err(e) = egl_ctx.swap_buffers(egl_win) {
-                    error!("Failed to swap buffers: {}", e);
-                }
+                return Ok(());
+            }
+
+            // Load OpenGL functions on first render
+            if !self.gl_loaded {
+                egl_ctx.load_gl_functions();
+                self.gl_loaded = true;
+                info!("OpenGL functions loaded for output {}", self.output_info.name);
+            }
+
+            // Clear screen to dark blue (test rendering)
+            unsafe {
+                gl::ClearColor(0.1, 0.1, 0.3, 1.0);
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
+
+            // Swap buffers to display
+            if let Err(e) = egl_ctx.swap_buffers(egl_win) {
+                error!("Failed to swap buffers: {}", e);
             }
         }
 

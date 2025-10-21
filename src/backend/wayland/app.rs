@@ -343,6 +343,16 @@ pub fn run(config: Config) -> Result<()> {
 
     info!("Created {} surfaces", state.surfaces.len());
 
+    // Initial render to test OpenGL
+    info!("Performing initial render...");
+    let egl_ctx = state.egl_context.as_ref();
+    for surface in state.surfaces.values_mut() {
+        if let Err(e) = surface.render(egl_ctx) {
+            warn!("Initial render error: {}", e);
+        }
+    }
+    info!("Initial render complete");
+
     // Main event loop
     while state.running {
         event_queue
