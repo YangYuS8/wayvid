@@ -166,7 +166,7 @@ impl EglContext {
             .map(|f| f as *const std::ffi::c_void)
             .unwrap_or(std::ptr::null())
     }
-    
+
     /// Load OpenGL functions using this context
     pub fn load_gl_functions(&self) {
         gl::load_with(|s| self.get_proc_address(s));

@@ -23,7 +23,7 @@ gl = "0.14"
 wayland-egl = "0.32"
 
 # Video playback (libmpv)
-libmpv = { version = "2.0.1", optional = true }
+libmpv-sys = { version = "3.1", optional = true }
 
 # Configuration
 serde = { version = "1.0", features = ["derive"] }
@@ -55,7 +55,7 @@ tempfile = "3.8"
 default = ["video-mpv", "backend-wayland"]
 
 # Video backends
-video-mpv = ["dep:libmpv"]
+video-mpv = ["dep:libmpv-sys"]
 video-gst = []  # Reserved for future gstreamer support
 
 # Platform backends

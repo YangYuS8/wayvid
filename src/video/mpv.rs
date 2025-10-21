@@ -1,28 +1,58 @@
-use anyhow::Result;
-use tracing::{debug, info};
+use anyhow::{anyhow, Result};
+use std::ffi::CString;
+use tracing::{debug, info, warn};
 
 use crate::config::EffectiveConfig;
 use crate::core::types::{HwdecMode, OutputInfo};
 
-/// MPV-based video player (simplified MVP)
+/// MPV-based video player using direct libmpv-sys FFI
 pub struct MpvPlayer {
-    handle: libmpv::Mpv,
+    handle: *mut libmpv_sys::mpv_handle,
     output_info: OutputInfo,
 }
 
+// Safety: mpv_handle can be safely sent between threads
+unsafe impl Send for MpvPlayer {}
+
 impl MpvPlayer {
     pub fn new(config: &EffectiveConfig, output_info: &OutputInfo) -> Result<Self> {
-        info!("Initializing libmpv for output {}", output_info.name);
+        info!("🎬 Initializing libmpv for output {}", output_info.name);
 
-        // Create MPV instance with minimal version checking
-        let mpv = libmpv::Mpv::with_initializer(|init| {
-            init.set_property("config", "no")?; // Don't load config files
-            Ok(())
-        })
-        .map_err(|e| anyhow::anyhow!("Failed to create MPV instance: {:?}", e))?;
+        // Create MPV instance using raw FFI
+        let handle = unsafe { libmpv_sys::mpv_create() };
+        if handle.is_null() {
+            return Err(anyhow!("Failed to create MPV handle"));
+        }
 
-        // Set basic options (ignoring errors for MVP simplicity)
-        let _ = mpv.set_property("loop", "inf");
+        // Helper to set string option
+        let set_option = |name: &str, value: &str| {
+            let name_c = CString::new(name).unwrap();
+            let value_c = CString::new(value).unwrap();
+            unsafe {
+                let ret = libmpv_sys::mpv_set_option_string(
+                    handle,
+                    name_c.as_ptr(),
+                    value_c.as_ptr(),
+                );
+                if ret < 0 {
+                    warn!("Failed to set option {}={}: error {}", name, value, ret);
+                }
+            }
+        };
+
+        // Configure MPV
+        set_option("config", "no");
+        set_option("terminal", "no");
+        set_option("msg-level", "all=warn");
+
+        // Video output - use null for now
+        set_option("vo", "null");
+        set_option("vid", "auto");
+
+        // Playback settings
+        if config.r#loop {
+            set_option("loop-file", "inf");
+        }
 
         // Hardware decoding
         let hwdec_mode: HwdecMode = config.hwdec.into();
@@ -31,73 +61,109 @@ impl MpvPlayer {
             HwdecMode::Force => "yes",
             HwdecMode::No => "no",
         };
-        let _ = mpv.set_property("hwdec", hwdec_str);
+        set_option("hwdec", hwdec_str);
 
         // Audio settings
         if config.mute {
-            let _ = mpv.set_property("mute", "yes");
+            set_option("mute", "yes");
         } else {
-            let _ = mpv.set_property("volume", (config.volume * 100.0) as i64);
+            let volume = format!("{}", (config.volume * 100.0) as i64);
+            set_option("volume", &volume);
         }
 
-        // Playback settings
+        // Start time
         if config.start_time > 0.0 {
-            let _ = mpv.set_property("start", config.start_time);
+            let start = format!("{}", config.start_time);
+            set_option("start", &start);
         }
 
+        // Playback rate
         if (config.playback_rate - 1.0).abs() > 0.01 {
-            let _ = mpv.set_property("speed", config.playback_rate);
+            let speed = format!("{}", config.playback_rate);
+            set_option("speed", &speed);
         }
 
-        // Video output - use null for MVP (OpenGL integration needed for production)
-        let _ = mpv.set_property("vo", "null");
-        let _ = mpv.set_property("vid", "auto");
+        // Initialize MPV
+        let ret = unsafe { libmpv_sys::mpv_initialize(handle) };
+        if ret < 0 {
+            unsafe { libmpv_sys::mpv_terminate_destroy(handle) };
+            return Err(anyhow!("Failed to initialize MPV: error {}", ret));
+        }
 
-        // Load the video file
+        info!("  ✓ MPV initialized successfully");
+
+        // Load video file
         let video_path = config
             .source
             .primary_path()
-            .map_err(|e| anyhow::anyhow!("Failed to get video path: {}", e))?;
+            .map_err(|e| anyhow!("Failed to get video path: {}", e))?;
 
-        info!("Loading video: {:?}", video_path);
+        info!("  📁 Loading video: {:?}", video_path);
 
-        mpv.command("loadfile", &[video_path.to_str().unwrap_or(""), "replace"])
-            .map_err(|e| anyhow::anyhow!("Failed to load video file: {:?}", e))?;
+        let cmd = CString::new("loadfile").unwrap();
+        let path_str = video_path.to_str().ok_or_else(|| anyhow!("Invalid video path"))?;
+        let path_c = CString::new(path_str)?;
+        let mode = CString::new("replace").unwrap();
 
-        debug!("MPV player initialized successfully");
+        let mut args = [cmd.as_ptr(), path_c.as_ptr(), mode.as_ptr(), std::ptr::null()];
+
+        let ret = unsafe { libmpv_sys::mpv_command(handle, args.as_mut_ptr()) };
+        if ret < 0 {
+            warn!("Failed to load video file: error {}", ret);
+        } else {
+            info!("  ✓ Video loaded successfully");
+        }
 
         Ok(Self {
-            handle: mpv,
+            handle,
             output_info: output_info.clone(),
         })
     }
 
     pub fn render(&mut self) -> Result<()> {
-        // In MVP, we just ensure playback is running
-        // Full implementation would render frames via OpenGL
-
-        // Process any pending events (simplified)
-        // The libmpv crate might have different event handling APIs
-        // For MVP, we'll just verify the player is alive
-
         Ok(())
     }
 
     pub fn pause(&mut self) -> Result<()> {
-        self.handle
-            .set_property("pause", true)
-            .map_err(|e| anyhow::anyhow!("Failed to pause: {:?}", e))
+        let prop = CString::new("pause").unwrap();
+        let value = CString::new("yes").unwrap();
+        let ret = unsafe {
+            libmpv_sys::mpv_set_option_string(
+                self.handle,
+                prop.as_ptr(),
+                value.as_ptr(),
+            )
+        };
+        if ret < 0 {
+            return Err(anyhow!("Failed to pause: error {}", ret));
+        }
+        Ok(())
     }
 
     pub fn resume(&mut self) -> Result<()> {
-        self.handle
-            .set_property("pause", false)
-            .map_err(|e| anyhow::anyhow!("Failed to resume: {:?}", e))
+        let prop = CString::new("pause").unwrap();
+        let value = CString::new("no").unwrap();
+        let ret = unsafe {
+            libmpv_sys::mpv_set_option_string(
+                self.handle,
+                prop.as_ptr(),
+                value.as_ptr(),
+            )
+        };
+        if ret < 0 {
+            return Err(anyhow!("Failed to resume: error {}", ret));
+        }
+        Ok(())
     }
 }
 
 impl Drop for MpvPlayer {
     fn drop(&mut self) {
         debug!("Dropping MPV player for {}", self.output_info.name);
+        if !self.handle.is_null() {
+            unsafe {
+                libmpv_sys::mpv_terminate_destroy(self.handle);
+            }
+        }
     }
 }

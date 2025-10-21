@@ -126,16 +126,15 @@ impl WaylandSurface {
         }
 
         // Initialize player after first configuration
-        // TODO: Fix libmpv version mismatch before enabling
-        // #[cfg(feature = "video-mpv")]
-        // {
-        //     if is_first && self.player.is_none() {
-        //         match self.init_player() {
-        //             Ok(()) => info!("Player initialized for {}", self.output_info.name),
-        //             Err(e) => error!("Failed to initialize player: {}", e),
-        //         }
-        //     }
-        // }
+        #[cfg(feature = "video-mpv")]
+        {
+            if is_first && self.player.is_none() {
+                match self.init_player() {
+                    Ok(()) => info!("✓ MPV player initialized for {}", self.output_info.name),
+                    Err(e) => error!("Failed to initialize player: {}", e),
+                }
+            }
+        }
 
         self.layer_surface.ack_configure(serial);
 
@@ -169,7 +168,10 @@ impl WaylandSurface {
             if !self.gl_loaded {
                 egl_ctx.load_gl_functions();
                 self.gl_loaded = true;
-                info!("OpenGL functions loaded for output {}", self.output_info.name);
+                info!(
+                    "OpenGL functions loaded for output {}",
+                    self.output_info.name
+                );
             }
 
             // Clear screen to dark blue (test rendering)
