@@ -7,6 +7,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_l
 
 use crate::config::EffectiveConfig;
 use crate::core::types::OutputInfo;
+use crate::video::egl::{EglContext, EglWindow};
 
 #[cfg(feature = "video-mpv")]
 use crate::video::mpv::MpvPlayer;
@@ -16,6 +17,9 @@ pub struct WaylandSurface {
     pub layer_surface: zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
     pub output_info: OutputInfo,
     pub config: EffectiveConfig,
+
+    // EGL/OpenGL rendering
+    egl_window: Option<EglWindow>,
 
     // Video player
     #[cfg(feature = "video-mpv")]
@@ -64,6 +68,7 @@ impl WaylandSurface {
             layer_surface,
             output_info,
             config,
+            egl_window: None,
             #[cfg(feature = "video-mpv")]
             player: None,
             configured: false,
@@ -71,7 +76,13 @@ impl WaylandSurface {
         })
     }
 
-    pub fn configure(&mut self, width: u32, height: u32, serial: u32) {
+    pub fn configure(
+        &mut self,
+        width: u32,
+        height: u32,
+        serial: u32,
+        egl_context: Option<&EglContext>,
+    ) {
         // Only log and process first configure
         let is_first = !self.initial_configure_done;
 
@@ -86,6 +97,31 @@ impl WaylandSurface {
         self.output_info.width = width as i32;
         self.output_info.height = height as i32;
         self.configured = true;
+
+        // Initialize EGL window on first configure
+        if is_first && self.egl_window.is_none() {
+            if let Some(egl_ctx) = egl_context {
+                match egl_ctx.create_window(&self.wl_surface, width as i32, height as i32) {
+                    Ok(egl_win) => {
+                        self.egl_window = Some(egl_win);
+                        info!(
+                            "  ✓ EGL window created for output {}",
+                            self.output_info.name
+                        );
+                    }
+                    Err(e) => {
+                        error!("Failed to create EGL window: {}", e);
+                    }
+                }
+            }
+        }
+
+        // Resize EGL window if dimensions changed
+        if let Some(ref mut egl_win) = self.egl_window {
+            if let Err(e) = egl_win.resize(width as i32, height as i32) {
+                error!("Failed to resize EGL window: {}", e);
+            }
+        }
 
         // Initialize player after first configuration
         // TODO: Fix libmpv version mismatch before enabling
@@ -114,12 +150,28 @@ impl WaylandSurface {
         Ok(())
     }
 
-    pub fn render(&mut self) -> Result<()> {
+    pub fn render(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
         if !self.configured {
             return Ok(());
         }
 
-        // Render video
+        // Test EGL rendering (swap buffers)
+        if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {
+            // Make context current
+            if let Err(e) = egl_ctx.make_current(egl_win) {
+                error!("Failed to make EGL context current: {}", e);
+            } else {
+                // TODO: Add OpenGL rendering here once we integrate mpv_render_context
+                // For now, just swap buffers to test EGL functionality
+                
+                // Swap buffers to display
+                if let Err(e) = egl_ctx.swap_buffers(egl_win) {
+                    error!("Failed to swap buffers: {}", e);
+                }
+            }
+        }
+
+        // Render video (when mpv is fixed)
         #[cfg(feature = "video-mpv")]
         {
             if let Some(ref mut player) = self.player {

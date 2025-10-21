@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use khronos_egl as egl;
-use wayland_client::Proxy;
 use wayland_client::protocol::wl_surface::WlSurface;
+use wayland_client::Proxy;
 use wayland_egl as wegl;
 
 /// EGL context manager for OpenGL rendering on Wayland
@@ -40,7 +40,7 @@ impl EglContext {
         let (major, minor) = instance
             .initialize(display)
             .context("Failed to initialize EGL")?;
-        
+
         tracing::info!("EGL initialized: {}.{}", major, minor);
 
         // 4. Bind OpenGL API
@@ -111,7 +111,7 @@ impl EglContext {
         // 1. Create Wayland EGL window
         // Extract the ObjectId from the WlSurface proxy
         let surface_id = wl_surface.id();
-        
+
         // Create wegl surface using ObjectId directly
         let egl_window = wegl::WlEglSurface::new(surface_id, width, height)
             .context("Failed to create wl_egl_window")?;

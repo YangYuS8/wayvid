@@ -11,6 +11,7 @@ use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_l
 use crate::backend::wayland::output::Output;
 use crate::backend::wayland::surface::WaylandSurface;
 use crate::config::Config;
+use crate::video::egl::EglContext;
 
 pub struct AppState {
     pub config: Config,
@@ -19,6 +20,7 @@ pub struct AppState {
     pub outputs: HashMap<u32, Output>,
     pub surfaces: HashMap<u32, WaylandSurface>,
     pub running: bool,
+    pub egl_context: Option<EglContext>,
 }
 
 impl AppState {
@@ -30,6 +32,7 @@ impl AppState {
             outputs: HashMap::new(),
             surfaces: HashMap::new(),
             running: true,
+            egl_context: None,
         }
     }
 
@@ -186,9 +189,10 @@ impl Dispatch<zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, ()> for AppState {
                 );
 
                 // Find the surface and configure it
+                let egl_ctx = state.egl_context.as_ref();
                 for surface in state.surfaces.values_mut() {
                     if surface.layer_surface == *layer_surface {
-                        surface.configure(width, height, serial);
+                        surface.configure(width, height, serial, egl_ctx);
                         break;
                     }
                 }
@@ -286,6 +290,20 @@ pub fn run(config: Config) -> Result<()> {
     }
     info!("  ✓ {} outputs", output_count);
 
+    // Initialize EGL context
+    info!("Initializing EGL context...");
+    let wl_display_ptr = conn.backend().display_ptr() as *mut std::ffi::c_void;
+    match EglContext::new(wl_display_ptr) {
+        Ok(egl_ctx) => {
+            state.egl_context = Some(egl_ctx);
+            info!("  ✓ EGL context initialized");
+        }
+        Err(e) => {
+            warn!("  ✗ Failed to initialize EGL: {}", e);
+            warn!("    Continuing without OpenGL rendering");
+        }
+    }
+
     // Initial roundtrip to get output information
     info!("Performing initial roundtrip to get output info...");
     event_queue
@@ -332,8 +350,9 @@ pub fn run(config: Config) -> Result<()> {
             .context("Event dispatch failed")?;
 
         // Render all surfaces
+        let egl_ctx = state.egl_context.as_ref();
         for surface in state.surfaces.values_mut() {
-            if let Err(e) = surface.render() {
+            if let Err(e) = surface.render(egl_ctx) {
                 warn!("Render error: {}", e);
             }
         }
