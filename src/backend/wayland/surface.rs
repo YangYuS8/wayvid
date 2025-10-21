@@ -22,6 +22,7 @@ pub struct WaylandSurface {
     player: Option<MpvPlayer>,
 
     configured: bool,
+    initial_configure_done: bool,
 }
 
 impl WaylandSurface {
@@ -66,32 +67,44 @@ impl WaylandSurface {
             #[cfg(feature = "video-mpv")]
             player: None,
             configured: false,
+            initial_configure_done: false,
         })
     }
 
     pub fn configure(&mut self, width: u32, height: u32, serial: u32) {
-        info!(
-            "Configuring surface {} to {}x{}",
-            self.output_info.name, width, height
-        );
+        // Only log and process first configure
+        let is_first = !self.initial_configure_done;
+        
+        if is_first {
+            info!(
+                "Initial configure for surface {} to {}x{}",
+                self.output_info.name, width, height
+            );
+            self.initial_configure_done = true;
+        }
 
         self.output_info.width = width as i32;
         self.output_info.height = height as i32;
         self.configured = true;
 
-        // Initialize player after configuration
-        #[cfg(feature = "video-mpv")]
-        {
-            if self.player.is_none() {
-                match self.init_player() {
-                    Ok(()) => info!("Player initialized for {}", self.output_info.name),
-                    Err(e) => error!("Failed to initialize player: {}", e),
-                }
-            }
-        }
+        // Initialize player after first configuration
+        // TODO: Fix libmpv version mismatch before enabling
+        // #[cfg(feature = "video-mpv")]
+        // {
+        //     if is_first && self.player.is_none() {
+        //         match self.init_player() {
+        //             Ok(()) => info!("Player initialized for {}", self.output_info.name),
+        //             Err(e) => error!("Failed to initialize player: {}", e),
+        //         }
+        //     }
+        // }
 
         self.layer_surface.ack_configure(serial);
-        self.wl_surface.commit();
+        
+        // Only commit on initial configure to avoid loops
+        if is_first {
+            self.wl_surface.commit();
+        }
     }
 
     #[cfg(feature = "video-mpv")]

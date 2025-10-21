@@ -90,7 +90,7 @@ impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
             version,
         } = event
         {
-            debug!("Registry: {} v{} ({})", interface, version, name);
+            info!("Registry global: {} v{} (id={})", interface, version, name);
 
             match &interface[..] {
                 "wl_compositor" => {
@@ -248,18 +248,56 @@ pub fn run(config: Config) -> Result<()> {
 
     let conn = Connection::connect_to_env().context("Failed to connect to Wayland compositor")?;
 
-    let (_globals, mut event_queue) =
+    let (globals, mut event_queue) =
         registry_queue_init::<AppState>(&conn).context("Failed to initialize registry")?;
 
-    let _qh = event_queue.handle();
+    let qh = event_queue.handle();
     let mut state = AppState::new(config);
 
-    // Initial roundtrip to discover globals
+    // Bind necessary globals
+    info!("Binding Wayland globals...");
+    
+    // Bind compositor
+    let compositor: wl_compositor::WlCompositor = globals
+        .bind(&qh, 1..=4, ())
+        .context("Failed to bind wl_compositor")?;
+    state.compositor = Some(compositor);
+    info!("  ✓ wl_compositor");
+
+    // Bind layer shell
+    let layer_shell: zwlr_layer_shell_v1::ZwlrLayerShellV1 = globals
+        .bind(&qh, 1..=4, ())
+        .context("Failed to bind zwlr_layer_shell_v1")?;
+    state.layer_shell = Some(layer_shell);
+    info!("  ✓ zwlr_layer_shell_v1");
+
+    // Bind outputs - iterate through globals list
+    let mut output_count = 0;
+    for global in globals.contents().with_list(|list| list.to_vec()) {
+        if global.interface == "wl_output" {
+            let wl_output: wl_output::WlOutput = globals.registry().bind(
+                global.name,
+                global.version.min(3),
+                &qh,
+                global.name,
+            );
+            let output = Output::new(wl_output, format!("output-{}", global.name));
+            state.outputs.insert(global.name, output);
+            output_count += 1;
+        }
+    }
+    info!("  ✓ {} outputs", output_count);
+
+    // Initial roundtrip to get output information
+    info!("Performing initial roundtrip to get output info...");
     event_queue
         .roundtrip(&mut state)
         .context("Initial roundtrip failed")?;
 
-    info!("Discovered {} outputs", state.outputs.len());
+    info!("First roundtrip complete");
+    info!("  Compositor: {}", if state.compositor.is_some() { "✓" } else { "✗" });
+    info!("  Layer shell: {}", if state.layer_shell.is_some() { "✓" } else { "✗" });
+    info!("  Outputs discovered: {}", state.outputs.len());
 
     if state.compositor.is_none() {
         anyhow::bail!("wl_compositor not available");

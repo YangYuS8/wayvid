@@ -14,8 +14,12 @@ impl MpvPlayer {
     pub fn new(config: &EffectiveConfig, output_info: &OutputInfo) -> Result<Self> {
         info!("Initializing libmpv for output {}", output_info.name);
 
-        let mpv = libmpv::Mpv::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create MPV instance: {:?}", e))?;
+        // Create MPV instance with minimal version checking
+        let mpv = libmpv::Mpv::with_initializer(|init| {
+            init.set_property("config", "no")?; // Don't load config files
+            Ok(())
+        })
+        .map_err(|e| anyhow::anyhow!("Failed to create MPV instance: {:?}", e))?;
 
         // Set basic options (ignoring errors for MVP simplicity)
         let _ = mpv.set_property("loop", "inf");
