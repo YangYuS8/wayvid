@@ -173,9 +173,9 @@
 
 ## 当前焦点
 
-**刚完成**: EGL 集成到 Wayland Surface ✅  
-**下一步**: OpenGL 渲染测试 或 mpv_render_context 集成  
-**阻塞项**: libmpv 版本冲突 (VersionMismatch)
+**刚完成**: OpenGL 清屏渲染测试 ✅  
+**下一步**: 解决 libmpv 版本冲突 → 集成 mpv_render_context  
+**阻塞项**: libmpv 版本冲突 (VersionMismatch) - 需要解决才能继续 M2 Phase 2
 
 ---
 
@@ -272,6 +272,9 @@ let egl_context = unsafe {
 ✅ EGL window: 2160x1440 (output-61)
 ✅ make_current(): 正常工作
 ✅ swap_buffers(): 正常工作
+✅ OpenGL 函数加载: 成功
+✅ glClearColor/glClear: 正常工作
+✅ 深蓝色背景: 渲染成功
 ✅ Hyprland 集成: Layer surface 可见
 ✅ 稳定性: 无崩溃，无错误
 ```
