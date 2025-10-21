@@ -74,7 +74,7 @@ impl WaylandSurface {
     pub fn configure(&mut self, width: u32, height: u32, serial: u32) {
         // Only log and process first configure
         let is_first = !self.initial_configure_done;
-        
+
         if is_first {
             info!(
                 "Initial configure for surface {} to {}x{}",
@@ -100,7 +100,7 @@ impl WaylandSurface {
         // }
 
         self.layer_surface.ack_configure(serial);
-        
+
         // Only commit on initial configure to avoid loops
         if is_first {
             self.wl_surface.commit();

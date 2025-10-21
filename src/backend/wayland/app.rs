@@ -256,7 +256,7 @@ pub fn run(config: Config) -> Result<()> {
 
     // Bind necessary globals
     info!("Binding Wayland globals...");
-    
+
     // Bind compositor
     let compositor: wl_compositor::WlCompositor = globals
         .bind(&qh, 1..=4, ())
@@ -275,12 +275,10 @@ pub fn run(config: Config) -> Result<()> {
     let mut output_count = 0;
     for global in globals.contents().with_list(|list| list.to_vec()) {
         if global.interface == "wl_output" {
-            let wl_output: wl_output::WlOutput = globals.registry().bind(
-                global.name,
-                global.version.min(3),
-                &qh,
-                global.name,
-            );
+            let wl_output: wl_output::WlOutput =
+                globals
+                    .registry()
+                    .bind(global.name, global.version.min(3), &qh, global.name);
             let output = Output::new(wl_output, format!("output-{}", global.name));
             state.outputs.insert(global.name, output);
             output_count += 1;
@@ -295,8 +293,22 @@ pub fn run(config: Config) -> Result<()> {
         .context("Initial roundtrip failed")?;
 
     info!("First roundtrip complete");
-    info!("  Compositor: {}", if state.compositor.is_some() { "✓" } else { "✗" });
-    info!("  Layer shell: {}", if state.layer_shell.is_some() { "✓" } else { "✗" });
+    info!(
+        "  Compositor: {}",
+        if state.compositor.is_some() {
+            "✓"
+        } else {
+            "✗"
+        }
+    );
+    info!(
+        "  Layer shell: {}",
+        if state.layer_shell.is_some() {
+            "✓"
+        } else {
+            "✗"
+        }
+    );
     info!("  Outputs discovered: {}", state.outputs.len());
 
     if state.compositor.is_none() {
