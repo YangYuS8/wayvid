@@ -174,6 +174,16 @@ impl EglContext {
 }
 
 impl EglWindow {
+    /// Get window width
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+
+    /// Get window height
+    pub fn height(&self) -> i32 {
+        self.height
+    }
+
     /// Resize the EGL window
     pub fn resize(&mut self, width: i32, height: i32) -> Result<()> {
         if self.width == width && self.height == height {

@@ -129,7 +129,7 @@ impl WaylandSurface {
         #[cfg(feature = "video-mpv")]
         {
             if is_first && self.player.is_none() {
-                match self.init_player() {
+                match self.init_player(egl_context) {
                     Ok(()) => info!("✓ MPV player initialized for {}", self.output_info.name),
                     Err(e) => error!("Failed to initialize player: {}", e),
                 }
@@ -145,8 +145,21 @@ impl WaylandSurface {
     }
 
     #[cfg(feature = "video-mpv")]
-    fn init_player(&mut self) -> Result<()> {
-        let player = MpvPlayer::new(&self.config, &self.output_info)?;
+    fn init_player(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
+        let mut player = MpvPlayer::new(&self.config, &self.output_info)?;
+        
+        // Initialize render context if EGL is available
+        if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {
+            // Make OpenGL context current before initializing render context
+            if let Err(e) = egl_ctx.make_current(egl_win) {
+                error!("Failed to make context current: {}", e);
+            } else if let Err(e) = player.init_render_context(egl_ctx) {
+                error!("Failed to init render context: {}", e);
+            } else {
+                info!("  ✓ Render context initialized");
+            }
+        }
+        
         self.player = Some(player);
         Ok(())
     }
@@ -186,11 +199,12 @@ impl WaylandSurface {
             }
         }
 
-        // Render video (when mpv is fixed)
+        // Render video
         #[cfg(feature = "video-mpv")]
         {
-            if let Some(ref mut player) = self.player {
-                if let Err(e) = player.render() {
+            if let (Some(ref mut player), Some(ref egl_win)) = (&mut self.player, &self.egl_window) {
+                // Render to default FBO (0)
+                if let Err(e) = player.render(egl_win.width(), egl_win.height(), 0) {
                     error!("Render error: {}", e);
                 }
             }
