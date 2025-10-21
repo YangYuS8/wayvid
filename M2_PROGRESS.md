@@ -73,15 +73,18 @@
   - [x] 重新启用 video 初始化代码 ✅
   - [x] 测试 MPV 初始化和视频加载 ✅
   
-- [ ] **mpv_render_context 创建**
-  - [ ] 初始化 OpenGL render context
-  - [ ] 实现 get_proc_address 回调
-  - [ ] 绑定到 EGL context
+- [x] **mpv_render_context 创建** ✅
+  - [x] 初始化 OpenGL render context ✅
+  - [x] 实现 get_proc_address 回调 ✅
+  - [x] 绑定到 EGL context ✅
+  - [x] make_current 在创建前调用 ✅
 
 - [ ] **实现帧渲染**
-  - [ ] mpv_render_context_render()
-  - [ ] FBO 绑定
-  - [ ] 纹理上传
+  - [x] mpv_render_context_render() 实现 ✅
+  - [x] FBO 绑定 (使用默认 FBO 0) ✅
+  - [x] FLIP_Y 参数支持 ✅
+  - [ ] 验证视频帧实际渲染
+  - [ ] 测试视频播放
 
 #### M2 Phase 3 - 帧同步 (预计 1 周)
 - [ ] **wl_callback 集成**
@@ -332,9 +335,62 @@ Layer 556b3b55da10: xywh: 1639 1437 2160 1440, namespace: wayvid, pid: 394855
 
 **提交**: commit 24704a4
 
+### mpv_render_context OpenGL 集成 ✅
+
+**完成日期**: 2025-10-21
+
+**实现内容**:
+- 添加 `render_context` 字段到 MpvPlayer
+- 实现 `init_render_context(egl_context)` 方法
+- 实现 `render(width, height, fbo)` 方法
+- 添加 `get_proc_address_wrapper` 回调
+- 定义 mpv_render_param_type 常量
+- 配置 OpenGL FBO 渲染参数
+- 在 make_current 后初始化 render context
+- 添加 EglWindow getter 方法 (width, height)
+- 更新 Drop 清理 render context
+
+**技术细节**:
+```rust
+// mpv_render_param_type constants
+const MPV_RENDER_PARAM_INVALID: u32 = 0;
+const MPV_RENDER_PARAM_API_TYPE: u32 = 1;
+const MPV_RENDER_PARAM_OPENGL_INIT_PARAMS: u32 = 2;
+const MPV_RENDER_PARAM_OPENGL_FBO: u32 = 3;
+const MPV_RENDER_PARAM_FLIP_Y: u32 = 4;
+
+// get_proc_address 回调
+extern "C" fn get_proc_address_wrapper(ctx: *mut c_void, name: *const c_char) -> *mut c_void {
+    let egl_ctx = &*(ctx as *const EglContext);
+    let name_str = CStr::from_ptr(name).to_str().unwrap_or("");
+    egl_ctx.get_proc_address(name_str) as *mut c_void
+}
+
+// FBO 渲染参数
+let fbo_data = mpv_opengl_fbo {
+    fbo: 0,  // 默认 framebuffer
+    w: width,
+    h: height,
+    internal_format: 0,  // auto
+};
+```
+
+**测试结果**:
+```
+✅ mpv_render_context_create: 成功
+✅ 日志: "🎨 Initializing mpv render context for OpenGL"
+✅ 日志: "✓ Render context created successfully"
+✅ 日志: "✓ Render context initialized"
+✅ 与 EGL make_current 协同工作
+✅ OpenGL 函数加载正常
+✅ 准备渲染视频帧
+```
+
+**提交**: commit 32c8177
+
 ---
 
 **最后更新**: 2025-10-21  
-**当前进度**: M2 Phase 2 开始 - libmpv 集成完成，下一步实现 mpv_render_context
+**当前进度**: M2 Phase 2 核心完成 ✅ - mpv_render_context 集成成功，准备测试视频渲染
 
 ````
