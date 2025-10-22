@@ -1,0 +1,35 @@
+# Example configuration demonstrating power management features
+
+source:
+  File: "/path/to/video.mp4"
+
+layout: Fill
+loop: true
+mute: true
+hwdec: true
+
+# Power management settings
+power:
+  # Pause playback when output is not visible/active
+  # Useful for saving resources when outputs are turned off
+  pause_when_hidden: true
+
+  # Pause playback when running on battery power
+  # Helps extend battery life on laptops
+  pause_on_battery: true
+
+  # Maximum FPS limit (0 = unlimited)
+  # Lower values reduce CPU/GPU usage
+  # Example: 30 = cap at 30 FPS
+  max_fps: 60
+
+# Per-output overrides (optional)
+per_output:
+  # Example: Different settings for laptop screen
+  eDP-1:
+    layout: Contain
+    # Can override power settings per output if needed
+    
+  # Example: External monitor
+  HDMI-A-1:
+    layout: Fill

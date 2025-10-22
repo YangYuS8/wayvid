@@ -6,14 +6,13 @@ use wayland_client::{
     protocol::{wl_callback, wl_compositor, wl_output, wl_registry, wl_surface},
     Connection, Dispatch, QueueHandle,
 };
-use wayland_protocols::xdg::xdg_output::zv1::client::{
-    zxdg_output_manager_v1, zxdg_output_v1,
-};
+use wayland_protocols::xdg::xdg_output::zv1::client::{zxdg_output_manager_v1, zxdg_output_v1};
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 use crate::backend::wayland::output::Output;
 use crate::backend::wayland::surface::WaylandSurface;
 use crate::config::Config;
+use crate::core::power::PowerManager;
 use crate::video::egl::EglContext;
 
 pub struct AppState {
@@ -25,6 +24,8 @@ pub struct AppState {
     pub surfaces: HashMap<u32, WaylandSurface>,
     pub running: bool,
     pub egl_context: Option<EglContext>,
+    pub power_manager: PowerManager,
+    pub last_frame_time: std::time::Instant,
 }
 
 impl AppState {
@@ -38,6 +39,8 @@ impl AppState {
             surfaces: HashMap::new(),
             running: true,
             egl_context: None,
+            power_manager: PowerManager::new(),
+            last_frame_time: std::time::Instant::now(),
         }
     }
 
@@ -81,6 +84,50 @@ impl AppState {
 
         Ok(())
     }
+
+    /// Apply power management: check battery, pause/resume players
+    fn apply_power_management(&mut self) {
+        let power_config = &self.config.power;
+
+        // Check if pause_on_battery is enabled and we're on battery
+        if power_config.pause_on_battery && self.power_manager.is_on_battery() {
+            // Pause all players
+            #[cfg(feature = "video-mpv")]
+            for surface in self.surfaces.values_mut() {
+                if let Err(e) = surface.pause_playback() {
+                    warn!("Failed to pause playback: {}", e);
+                }
+            }
+            debug!("Paused playback due to battery power");
+        } else {
+            // Resume all players
+            #[cfg(feature = "video-mpv")]
+            for surface in self.surfaces.values_mut() {
+                if let Err(e) = surface.resume_playback() {
+                    warn!("Failed to resume playback: {}", e);
+                }
+            }
+        }
+    }
+
+    /// Check if FPS limiting should throttle rendering
+    fn should_throttle_fps(&mut self) -> bool {
+        let max_fps = self.config.power.max_fps;
+        
+        if max_fps == 0 {
+            return false; // No FPS limit
+        }
+
+        let frame_duration = std::time::Duration::from_secs_f64(1.0 / max_fps as f64);
+        let elapsed = self.last_frame_time.elapsed();
+
+        if elapsed < frame_duration {
+            true // Throttle
+        } else {
+            self.last_frame_time = std::time::Instant::now();
+            false // Allow render
+        }
+    }
 }
 
 // Dispatch implementations
@@ -113,39 +160,46 @@ impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
                         info!("Bound wl_compositor");
                     }
                     "zwlr_layer_shell_v1" => {
-                        let layer_shell = registry.bind::<zwlr_layer_shell_v1::ZwlrLayerShellV1, _, _>(
-                            name,
-                            version.min(4),
-                            qh,
-                            (),
-                        );
+                        let layer_shell = registry
+                            .bind::<zwlr_layer_shell_v1::ZwlrLayerShellV1, _, _>(
+                                name,
+                                version.min(4),
+                                qh,
+                                (),
+                            );
                         state.layer_shell = Some(layer_shell);
                         info!("Bound zwlr_layer_shell_v1");
                     }
                     "wl_output" => {
-                        let wl_output =
-                            registry.bind::<wl_output::WlOutput, _, _>(name, version.min(3), qh, name);
+                        let wl_output = registry.bind::<wl_output::WlOutput, _, _>(
+                            name,
+                            version.min(3),
+                            qh,
+                            name,
+                        );
 
                         let output = Output::new(wl_output, format!("output-{}", name));
                         state.outputs.insert(name, output);
                         info!("Added output: {}", name);
-                        
+
                         // Get xdg_output if manager is available
                         if let Some(ref manager) = state.xdg_output_manager {
                             if let Some(output) = state.outputs.get_mut(&name) {
-                                let xdg_output = manager.get_xdg_output(&output.wl_output, qh, name);
+                                let xdg_output =
+                                    manager.get_xdg_output(&output.wl_output, qh, name);
                                 output.set_xdg_output(xdg_output);
                                 debug!("Requested xdg_output for output {}", name);
                             }
                         }
                     }
                     "zxdg_output_manager_v1" => {
-                        let manager = registry.bind::<zxdg_output_manager_v1::ZxdgOutputManagerV1, _, _>(
-                            name,
-                            version.min(3),
-                            qh,
-                            (),
-                        );
+                        let manager = registry
+                            .bind::<zxdg_output_manager_v1::ZxdgOutputManagerV1, _, _>(
+                                name,
+                                version.min(3),
+                                qh,
+                                (),
+                            );
                         state.xdg_output_manager = Some(manager);
                         info!("Bound zxdg_output_manager_v1");
                     }
@@ -154,11 +208,11 @@ impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
             }
             wl_registry::Event::GlobalRemove { name } => {
                 info!("Registry global removed: {}", name);
-                
+
                 // Remove output and associated surface
                 if state.outputs.remove(&name).is_some() {
                     info!("Removed output: {}", name);
-                    
+
                     // Destroy surface associated with this output
                     if let Some(_surface) = state.surfaces.remove(&name) {
                         info!("Destroyed surface for output: {}", name);
@@ -434,6 +488,14 @@ pub fn run(config: Config) -> Result<()> {
             .blocking_dispatch(&mut state)
             .context("Event dispatch failed")?;
 
+        // Apply power management (battery check, pause/resume)
+        state.apply_power_management();
+
+        // Check FPS throttling
+        if state.should_throttle_fps() {
+            continue; // Skip rendering this frame
+        }
+
         // Render surfaces that have pending frames (triggered by frame callbacks)
         let egl_ctx = state.egl_context.as_ref();
         let qh = event_queue.handle();
@@ -480,7 +542,7 @@ impl Dispatch<zxdg_output_v1::ZxdgOutputV1, u32> for AppState {
         _: &QueueHandle<Self>,
     ) {
         use zxdg_output_v1::Event;
-        
+
         match event {
             Event::Name { name } => {
                 if let Some(output) = state.outputs.get_mut(output_id) {

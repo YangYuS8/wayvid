@@ -310,4 +310,22 @@ impl WaylandSurface {
         self.wl_surface.destroy();
         info!("Destroyed surface for output {}", self.output_info.name);
     }
+
+    /// Pause video playback (for power management)
+    #[cfg(feature = "video-mpv")]
+    pub fn pause_playback(&mut self) -> Result<()> {
+        if let Some(ref mut player) = self.player {
+            player.pause()?;
+        }
+        Ok(())
+    }
+
+    /// Resume video playback (for power management)
+    #[cfg(feature = "video-mpv")]
+    pub fn resume_playback(&mut self) -> Result<()> {
+        if let Some(ref mut player) = self.player {
+            player.resume()?;
+        }
+        Ok(())
+    }
 }
