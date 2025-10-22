@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::ffi::CString;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use wayland_client::protocol::wl_surface;
 use wayland_client::QueueHandle;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
@@ -147,7 +147,7 @@ impl WaylandSurface {
     #[cfg(feature = "video-mpv")]
     fn init_player(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
         let mut player = MpvPlayer::new(&self.config, &self.output_info)?;
-        
+
         // Initialize render context if EGL is available
         if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {
             // Make OpenGL context current before initializing render context
@@ -159,7 +159,7 @@ impl WaylandSurface {
                 info!("  ✓ Render context initialized");
             }
         }
-        
+
         self.player = Some(player);
         Ok(())
     }
@@ -187,26 +187,25 @@ impl WaylandSurface {
                 );
             }
 
-            // Clear screen to dark blue (test rendering)
+            // Clear to black background (will be covered by video)
             unsafe {
-                gl::ClearColor(0.1, 0.1, 0.3, 1.0);
+                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
+
+            // Render video frame
+            #[cfg(feature = "video-mpv")]
+            {
+                if let Some(ref mut player) = self.player {
+                    if let Err(e) = player.render(egl_win.width(), egl_win.height(), 0) {
+                        warn!("Video render error: {}", e);
+                    }
+                }
             }
 
             // Swap buffers to display
             if let Err(e) = egl_ctx.swap_buffers(egl_win) {
                 error!("Failed to swap buffers: {}", e);
-            }
-        }
-
-        // Render video
-        #[cfg(feature = "video-mpv")]
-        {
-            if let (Some(ref mut player), Some(ref egl_win)) = (&mut self.player, &self.egl_window) {
-                // Render to default FBO (0)
-                if let Err(e) = player.render(egl_win.width(), egl_win.height(), 0) {
-                    error!("Render error: {}", e);
-                }
             }
         }
 

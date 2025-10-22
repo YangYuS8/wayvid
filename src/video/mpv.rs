@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use std::ffi::{CString, c_void, c_char};
+use std::ffi::{c_char, c_void, CString};
 use std::ptr;
 use tracing::{debug, info, warn};
 
@@ -19,7 +19,7 @@ extern "C" fn get_proc_address_wrapper(ctx: *mut c_void, name: *const c_char) ->
     if ctx.is_null() || name.is_null() {
         return ptr::null_mut();
     }
-    
+
     unsafe {
         let egl_ctx = &*(ctx as *const EglContext);
         let name_str = std::ffi::CStr::from_ptr(name).to_str().unwrap_or("");
@@ -65,8 +65,8 @@ impl MpvPlayer {
         set_option("terminal", "no");
         set_option("msg-level", "all=warn");
 
-        // Video output - use null for now
-        set_option("vo", "null");
+        // Video output - use libmpv for render API
+        set_option("vo", "libmpv");
         set_option("vid", "auto");
 
         // Playback settings
@@ -157,7 +157,8 @@ impl MpvPlayer {
         info!("🎨 Initializing mpv render context for OpenGL");
 
         // OpenGL initialization parameters
-        let get_proc_address: extern "C" fn(*mut c_void, *const i8) -> *mut c_void = get_proc_address_wrapper;
+        let get_proc_address: extern "C" fn(*mut c_void, *const i8) -> *mut c_void =
+            get_proc_address_wrapper;
         let get_proc_address_ctx = egl_context as *const _ as *mut c_void;
 
         let opengl_init_params = libmpv_sys::mpv_opengl_init_params {
@@ -193,7 +194,10 @@ impl MpvPlayer {
         };
 
         if ret < 0 {
-            return Err(anyhow!("Failed to create mpv render context: error {}", ret));
+            return Err(anyhow!(
+                "Failed to create mpv render context: error {}",
+                ret
+            ));
         }
 
         self.render_context = Some(render_context);
@@ -205,8 +209,11 @@ impl MpvPlayer {
     /// Render a video frame to the current OpenGL context
     pub fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<()> {
         let Some(render_ctx) = self.render_context else {
+            debug!("No render context available");
             return Ok(());
         };
+
+        debug!("🎬 Rendering frame: {}x{} to FBO {}", width, height, fbo);
 
         // FBO parameters
         let fbo_data = libmpv_sys::mpv_opengl_fbo {
@@ -233,10 +240,13 @@ impl MpvPlayer {
             },
         ];
 
-        let ret = unsafe { libmpv_sys::mpv_render_context_render(render_ctx, params.as_ptr() as *mut _) };
+        let ret =
+            unsafe { libmpv_sys::mpv_render_context_render(render_ctx, params.as_ptr() as *mut _) };
 
         if ret < 0 {
             warn!("mpv render error: {}", ret);
+        } else {
+            debug!("  ✓ Frame rendered successfully");
         }
 
         Ok(())
@@ -270,14 +280,14 @@ impl MpvPlayer {
 impl Drop for MpvPlayer {
     fn drop(&mut self) {
         debug!("Dropping MPV player for {}", self.output_info.name);
-        
+
         // Free render context first
         if let Some(render_ctx) = self.render_context {
             unsafe {
                 libmpv_sys::mpv_render_context_free(render_ctx);
             }
         }
-        
+
         // Then terminate MPV handle
         if !self.handle.is_null() {
             unsafe {
