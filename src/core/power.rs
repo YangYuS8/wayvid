@@ -28,7 +28,7 @@ impl PowerManager {
         }
 
         self.last_check = std::time::Instant::now();
-        
+
         // Try to detect battery status
         let on_battery = Self::detect_battery_status();
         self.on_battery = Some(on_battery);
@@ -38,7 +38,7 @@ impl PowerManager {
     /// Detect if running on battery by checking /sys/class/power_supply
     fn detect_battery_status() -> bool {
         let power_supply_path = Path::new("/sys/class/power_supply");
-        
+
         if !power_supply_path.exists() {
             return false;
         }
@@ -47,7 +47,7 @@ impl PowerManager {
         if let Ok(entries) = fs::read_dir(power_supply_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                
+
                 // Check if it's a battery (BAT0, BAT1, etc.)
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                     if name.starts_with("BAT") {

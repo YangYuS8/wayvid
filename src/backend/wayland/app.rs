@@ -113,7 +113,7 @@ impl AppState {
     /// Check if FPS limiting should throttle rendering
     fn should_throttle_fps(&mut self) -> bool {
         let max_fps = self.config.power.max_fps;
-        
+
         if max_fps == 0 {
             return false; // No FPS limit
         }
