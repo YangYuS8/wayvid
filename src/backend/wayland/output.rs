@@ -1,10 +1,12 @@
 use crate::core::types::OutputInfo;
+use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_v1;
 
 /// Output tracking
 #[derive(Debug, Clone)]
 pub struct Output {
     pub info: OutputInfo,
     pub wl_output: wayland_client::protocol::wl_output::WlOutput,
+    pub xdg_output: Option<zxdg_output_v1::ZxdgOutputV1>,
 }
 
 impl Output {
@@ -19,7 +21,12 @@ impl Output {
                 active: true,
             },
             wl_output,
+            xdg_output: None,
         }
+    }
+
+    pub fn set_xdg_output(&mut self, xdg_output: zxdg_output_v1::ZxdgOutputV1) {
+        self.xdg_output = Some(xdg_output);
     }
 
     pub fn update_mode(&mut self, width: i32, height: i32) {

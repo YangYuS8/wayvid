@@ -6,6 +6,9 @@ use wayland_client::{
     protocol::{wl_callback, wl_compositor, wl_output, wl_registry, wl_surface},
     Connection, Dispatch, QueueHandle,
 };
+use wayland_protocols::xdg::xdg_output::zv1::client::{
+    zxdg_output_manager_v1, zxdg_output_v1,
+};
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 use crate::backend::wayland::output::Output;
@@ -17,6 +20,7 @@ pub struct AppState {
     pub config: Config,
     pub compositor: Option<wl_compositor::WlCompositor>,
     pub layer_shell: Option<zwlr_layer_shell_v1::ZwlrLayerShellV1>,
+    pub xdg_output_manager: Option<zxdg_output_manager_v1::ZxdgOutputManagerV1>,
     pub outputs: HashMap<u32, Output>,
     pub surfaces: HashMap<u32, WaylandSurface>,
     pub running: bool,
@@ -29,6 +33,7 @@ impl AppState {
             config,
             compositor: None,
             layer_shell: None,
+            xdg_output_manager: None,
             outputs: HashMap::new(),
             surfaces: HashMap::new(),
             running: true,
@@ -124,6 +129,25 @@ impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
                     let output = Output::new(wl_output, format!("output-{}", name));
                     state.outputs.insert(name, output);
                     info!("Added output: {}", name);
+                    
+                    // Get xdg_output if manager is available
+                    if let Some(ref manager) = state.xdg_output_manager {
+                        if let Some(output) = state.outputs.get_mut(&name) {
+                            let xdg_output = manager.get_xdg_output(&output.wl_output, qh, name);
+                            output.set_xdg_output(xdg_output);
+                            debug!("Requested xdg_output for output {}", name);
+                        }
+                    }
+                }
+                "zxdg_output_manager_v1" => {
+                    let manager = registry.bind::<zxdg_output_manager_v1::ZxdgOutputManagerV1, _, _>(
+                        name,
+                        version.min(3),
+                        qh,
+                        (),
+                    );
+                    state.xdg_output_manager = Some(manager);
+                    info!("Bound zxdg_output_manager_v1");
                 }
                 _ => {}
             }
@@ -415,4 +439,57 @@ pub fn run(config: Config) -> Result<()> {
 
     info!("Shutting down");
     Ok(())
+}
+
+// xdg_output_manager_v1 Dispatch
+impl Dispatch<zxdg_output_manager_v1::ZxdgOutputManagerV1, ()> for AppState {
+    fn event(
+        _: &mut Self,
+        _: &zxdg_output_manager_v1::ZxdgOutputManagerV1,
+        _: zxdg_output_manager_v1::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+// xdg_output_v1 Dispatch
+impl Dispatch<zxdg_output_v1::ZxdgOutputV1, u32> for AppState {
+    fn event(
+        state: &mut Self,
+        _: &zxdg_output_v1::ZxdgOutputV1,
+        event: zxdg_output_v1::Event,
+        output_id: &u32,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        use zxdg_output_v1::Event;
+        
+        match event {
+            Event::Name { name } => {
+                if let Some(output) = state.outputs.get_mut(output_id) {
+                    info!("Output {} xdg_name: {}", output_id, name);
+                    output.info.name = name;
+                }
+            }
+            Event::Description { description } => {
+                debug!("Output {} description: {}", output_id, description);
+            }
+            Event::LogicalPosition { x, y } => {
+                if let Some(output) = state.outputs.get_mut(output_id) {
+                    debug!("Output {} logical position: ({}, {})", output_id, x, y);
+                    output.update_position(x, y);
+                }
+            }
+            Event::LogicalSize { width, height } => {
+                debug!("Output {} logical size: {}x{}", output_id, width, height);
+                // Note: We use physical size from wl_output for rendering
+            }
+            Event::Done => {
+                debug!("Output {} xdg_output done", output_id);
+            }
+            _ => {}
+        }
+    }
 }

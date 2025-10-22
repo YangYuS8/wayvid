@@ -216,14 +216,16 @@ impl WaylandSurface {
                 if let Some(ref mut player) = self.player {
                     let output_w = egl_win.width();
                     let output_h = egl_win.height();
-                    
+
                     // Get video dimensions and calculate/use cached layout
                     let (render_w, render_h) = if let Some((vw, vh)) = player.get_video_dimensions()
                     {
                         let cache_key = (vw, vh, output_w, output_h);
-                        
+
                         // Check if we can use cached layout
-                        let viewport = if let Some((cached_key, cached_viewport)) = &self.cached_layout {
+                        let viewport = if let Some((cached_key, cached_viewport)) =
+                            &self.cached_layout
+                        {
                             if cached_key == &cache_key {
                                 *cached_viewport
                             } else {
@@ -241,13 +243,8 @@ impl WaylandSurface {
                             }
                         } else {
                             // First time - calculate and cache
-                            let layout = calculate_layout(
-                                self.config.layout,
-                                vw,
-                                vh,
-                                output_w,
-                                output_h,
-                            );
+                            let layout =
+                                calculate_layout(self.config.layout, vw, vh, output_w, output_h);
                             let viewport = layout.dst_rect;
                             self.cached_layout = Some((cache_key, viewport));
                             viewport
