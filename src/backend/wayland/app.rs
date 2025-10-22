@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tracing::{debug, info, warn};
 use wayland_client::{
     globals::{registry_queue_init, GlobalListContents},
-    protocol::{wl_compositor, wl_output, wl_registry, wl_surface},
+    protocol::{wl_callback, wl_compositor, wl_output, wl_registry, wl_surface},
     Connection, Dispatch, QueueHandle,
 };
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
@@ -64,6 +64,7 @@ impl AppState {
         let surface = WaylandSurface::new(
             wl_surface,
             layer_shell,
+            output_id,
             output.info.clone(),
             effective_config,
             &output.wl_output,
@@ -247,6 +248,30 @@ impl Dispatch<wl_output::WlOutput, u32> for AppState {
     }
 }
 
+// Frame callback handler for vsync
+impl Dispatch<wl_callback::WlCallback, u32> for AppState {
+    fn event(
+        state: &mut Self,
+        _callback: &wl_callback::WlCallback,
+        event: wl_callback::Event,
+        output_id: &u32,
+        _: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        use wl_callback::Event;
+
+        match event {
+            Event::Done { callback_data: _ } => {
+                // Frame callback triggered - mark that frame is ready to render
+                if let Some(surface) = state.surfaces.get_mut(output_id) {
+                    surface.on_frame_ready();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 pub fn run(config: Config) -> Result<()> {
     info!("Starting wayvid Wayland backend");
 
@@ -343,27 +368,47 @@ pub fn run(config: Config) -> Result<()> {
 
     info!("Created {} surfaces", state.surfaces.len());
 
-    // Initial render to test OpenGL
+    // Request initial frame callbacks for all surfaces
+    info!("Requesting initial frame callbacks...");
+    let qh = event_queue.handle();
+    for surface in state.surfaces.values_mut() {
+        surface.request_frame(&qh);
+        // Mark frame pending so first render happens
+        surface.on_frame_ready();
+    }
+
+    // Initial render
     info!("Performing initial render...");
     let egl_ctx = state.egl_context.as_ref();
     for surface in state.surfaces.values_mut() {
         if let Err(e) = surface.render(egl_ctx) {
             warn!("Initial render error: {}", e);
         }
+        // Request next frame after initial render
+        surface.request_frame(&qh);
     }
     info!("Initial render complete");
 
-    // Main event loop
+    // Main event loop with vsync
     while state.running {
         event_queue
             .blocking_dispatch(&mut state)
             .context("Event dispatch failed")?;
 
-        // Render all surfaces
+        // Render surfaces that have pending frames (triggered by frame callbacks)
         let egl_ctx = state.egl_context.as_ref();
+        let qh = event_queue.handle();
         for surface in state.surfaces.values_mut() {
+            // Check if frame is ready before rendering
+            let should_render = surface.has_frame_pending();
+            
             if let Err(e) = surface.render(egl_ctx) {
                 warn!("Render error: {}", e);
+            }
+            
+            // Request next frame if we just rendered
+            if should_render {
+                surface.request_frame(&qh);
             }
         }
     }

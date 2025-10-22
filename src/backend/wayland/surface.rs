@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::ffi::CString;
 use tracing::{error, info, warn};
-use wayland_client::protocol::wl_surface;
+use wayland_client::protocol::{wl_callback, wl_surface};
 use wayland_client::QueueHandle;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
@@ -15,6 +15,7 @@ use crate::video::mpv::MpvPlayer;
 pub struct WaylandSurface {
     pub wl_surface: wl_surface::WlSurface,
     pub layer_surface: zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+    pub output_id: u32,
     pub output_info: OutputInfo,
     pub config: EffectiveConfig,
 
@@ -26,6 +27,10 @@ pub struct WaylandSurface {
     #[cfg(feature = "video-mpv")]
     player: Option<MpvPlayer>,
 
+    // Frame synchronization
+    frame_callback: Option<wl_callback::WlCallback>,
+    frame_pending: bool,
+
     configured: bool,
     initial_configure_done: bool,
 }
@@ -34,6 +39,7 @@ impl WaylandSurface {
     pub fn new(
         wl_surface: wl_surface::WlSurface,
         layer_shell: &zwlr_layer_shell_v1::ZwlrLayerShellV1,
+        output_id: u32,
         output_info: OutputInfo,
         config: EffectiveConfig,
         wl_output: &wayland_client::protocol::wl_output::WlOutput,
@@ -67,12 +73,15 @@ impl WaylandSurface {
         Ok(Self {
             wl_surface,
             layer_surface,
+            output_id,
             output_info,
             config,
             egl_window: None,
             gl_loaded: false,
             #[cfg(feature = "video-mpv")]
             player: None,
+            frame_callback: None,
+            frame_pending: false,
             configured: false,
             initial_configure_done: false,
         })
@@ -165,9 +174,12 @@ impl WaylandSurface {
     }
 
     pub fn render(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
-        if !self.configured {
+        if !self.configured || !self.frame_pending {
             return Ok(());
         }
+
+        // Clear frame pending flag
+        self.frame_pending = false;
 
         // OpenGL rendering with clear screen test
         if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {
@@ -211,6 +223,24 @@ impl WaylandSurface {
 
         self.wl_surface.commit();
         Ok(())
+    }
+
+    /// Called when frame callback is triggered - marks surface ready for next render
+    pub fn on_frame_ready(&mut self) {
+        self.frame_pending = true;
+    }
+
+    /// Check if frame is pending for rendering
+    pub fn has_frame_pending(&self) -> bool {
+        self.frame_pending
+    }
+
+    /// Request next frame callback for vsync
+    pub fn request_frame(&mut self, qh: &QueueHandle<crate::backend::wayland::app::AppState>) {
+        // Old callback will be automatically destroyed when replaced
+        // Request new frame callback with output_id as user data
+        let callback = self.wl_surface.frame(qh, self.output_id);
+        self.frame_callback = Some(callback);
     }
 
     pub fn destroy(&mut self) {
