@@ -93,64 +93,79 @@ impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
         _: &Connection,
         qh: &QueueHandle<Self>,
     ) {
-        if let wl_registry::Event::Global {
-            name,
-            interface,
-            version,
-        } = event
-        {
-            info!("Registry global: {} v{} (id={})", interface, version, name);
+        match event {
+            wl_registry::Event::Global {
+                name,
+                interface,
+                version,
+            } => {
+                info!("Registry global: {} v{} (id={})", interface, version, name);
 
-            match &interface[..] {
-                "wl_compositor" => {
-                    let compositor = registry.bind::<wl_compositor::WlCompositor, _, _>(
-                        name,
-                        version.min(4),
-                        qh,
-                        (),
-                    );
-                    state.compositor = Some(compositor);
-                    info!("Bound wl_compositor");
-                }
-                "zwlr_layer_shell_v1" => {
-                    let layer_shell = registry.bind::<zwlr_layer_shell_v1::ZwlrLayerShellV1, _, _>(
-                        name,
-                        version.min(4),
-                        qh,
-                        (),
-                    );
-                    state.layer_shell = Some(layer_shell);
-                    info!("Bound zwlr_layer_shell_v1");
-                }
-                "wl_output" => {
-                    let wl_output =
-                        registry.bind::<wl_output::WlOutput, _, _>(name, version.min(3), qh, name);
+                match &interface[..] {
+                    "wl_compositor" => {
+                        let compositor = registry.bind::<wl_compositor::WlCompositor, _, _>(
+                            name,
+                            version.min(4),
+                            qh,
+                            (),
+                        );
+                        state.compositor = Some(compositor);
+                        info!("Bound wl_compositor");
+                    }
+                    "zwlr_layer_shell_v1" => {
+                        let layer_shell = registry.bind::<zwlr_layer_shell_v1::ZwlrLayerShellV1, _, _>(
+                            name,
+                            version.min(4),
+                            qh,
+                            (),
+                        );
+                        state.layer_shell = Some(layer_shell);
+                        info!("Bound zwlr_layer_shell_v1");
+                    }
+                    "wl_output" => {
+                        let wl_output =
+                            registry.bind::<wl_output::WlOutput, _, _>(name, version.min(3), qh, name);
 
-                    let output = Output::new(wl_output, format!("output-{}", name));
-                    state.outputs.insert(name, output);
-                    info!("Added output: {}", name);
-                    
-                    // Get xdg_output if manager is available
-                    if let Some(ref manager) = state.xdg_output_manager {
-                        if let Some(output) = state.outputs.get_mut(&name) {
-                            let xdg_output = manager.get_xdg_output(&output.wl_output, qh, name);
-                            output.set_xdg_output(xdg_output);
-                            debug!("Requested xdg_output for output {}", name);
+                        let output = Output::new(wl_output, format!("output-{}", name));
+                        state.outputs.insert(name, output);
+                        info!("Added output: {}", name);
+                        
+                        // Get xdg_output if manager is available
+                        if let Some(ref manager) = state.xdg_output_manager {
+                            if let Some(output) = state.outputs.get_mut(&name) {
+                                let xdg_output = manager.get_xdg_output(&output.wl_output, qh, name);
+                                output.set_xdg_output(xdg_output);
+                                debug!("Requested xdg_output for output {}", name);
+                            }
                         }
                     }
+                    "zxdg_output_manager_v1" => {
+                        let manager = registry.bind::<zxdg_output_manager_v1::ZxdgOutputManagerV1, _, _>(
+                            name,
+                            version.min(3),
+                            qh,
+                            (),
+                        );
+                        state.xdg_output_manager = Some(manager);
+                        info!("Bound zxdg_output_manager_v1");
+                    }
+                    _ => {}
                 }
-                "zxdg_output_manager_v1" => {
-                    let manager = registry.bind::<zxdg_output_manager_v1::ZxdgOutputManagerV1, _, _>(
-                        name,
-                        version.min(3),
-                        qh,
-                        (),
-                    );
-                    state.xdg_output_manager = Some(manager);
-                    info!("Bound zxdg_output_manager_v1");
-                }
-                _ => {}
             }
+            wl_registry::Event::GlobalRemove { name } => {
+                info!("Registry global removed: {}", name);
+                
+                // Remove output and associated surface
+                if state.outputs.remove(&name).is_some() {
+                    info!("Removed output: {}", name);
+                    
+                    // Destroy surface associated with this output
+                    if let Some(_surface) = state.surfaces.remove(&name) {
+                        info!("Destroyed surface for output: {}", name);
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
