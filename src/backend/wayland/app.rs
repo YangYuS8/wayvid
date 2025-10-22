@@ -13,7 +13,10 @@ use crate::backend::wayland::output::Output;
 use crate::backend::wayland::surface::WaylandSurface;
 use crate::config::Config;
 use crate::core::power::PowerManager;
+use crate::ctl::ipc_server::IpcServer;
+use crate::ctl::protocol::IpcCommand;
 use crate::video::egl::EglContext;
+use std::sync::mpsc::Receiver;
 
 pub struct AppState {
     pub config: Config,
@@ -26,6 +29,8 @@ pub struct AppState {
     pub egl_context: Option<EglContext>,
     pub power_manager: PowerManager,
     pub last_frame_time: std::time::Instant,
+    pub ipc_server: Option<IpcServer>,
+    pub command_rx: Option<Receiver<IpcCommand>>,
 }
 
 impl AppState {
@@ -41,6 +46,8 @@ impl AppState {
             egl_context: None,
             power_manager: PowerManager::new(),
             last_frame_time: std::time::Instant::now(),
+            ipc_server: None,
+            command_rx: None,
         }
     }
 
@@ -113,7 +120,7 @@ impl AppState {
     /// Check if FPS limiting should throttle rendering
     fn should_throttle_fps(&mut self) -> bool {
         let max_fps = self.config.power.max_fps;
-
+        
         if max_fps == 0 {
             return false; // No FPS limit
         }
@@ -128,9 +135,86 @@ impl AppState {
             false // Allow render
         }
     }
-}
 
-// Dispatch implementations
+    /// Handle IPC command
+    fn handle_command(&mut self, command: IpcCommand) {
+        use crate::ctl::protocol::IpcCommand;
+        
+        match command {
+            IpcCommand::Pause { output } => {
+                self.handle_pause_command(output);
+            }
+            IpcCommand::Resume { output } => {
+                self.handle_resume_command(output);
+            }
+            IpcCommand::Quit => {
+                info!("Received quit command");
+                self.running = false;
+            }
+            _ => {
+                warn!("Command not yet implemented: {:?}", command);
+            }
+        }
+    }
+
+    /// Handle pause command
+    fn handle_pause_command(&mut self, output: Option<String>) {
+        #[cfg(feature = "video-mpv")]
+        {
+            if let Some(output_name) = output {
+                // Pause specific output
+                for surface in self.surfaces.values_mut() {
+                    if surface.output_info.name == output_name {
+                        if let Err(e) = surface.pause_playback() {
+                            warn!("Failed to pause {}: {}", output_name, e);
+                        } else {
+                            info!("Paused playback on {}", output_name);
+                        }
+                        return;
+                    }
+                }
+                warn!("Output not found: {}", output_name);
+            } else {
+                // Pause all outputs
+                for surface in self.surfaces.values_mut() {
+                    if let Err(e) = surface.pause_playback() {
+                        warn!("Failed to pause {}: {}", surface.output_info.name, e);
+                    }
+                }
+                info!("Paused all outputs");
+            }
+        }
+    }
+
+    /// Handle resume command
+    fn handle_resume_command(&mut self, output: Option<String>) {
+        #[cfg(feature = "video-mpv")]
+        {
+            if let Some(output_name) = output {
+                // Resume specific output
+                for surface in self.surfaces.values_mut() {
+                    if surface.output_info.name == output_name {
+                        if let Err(e) = surface.resume_playback() {
+                            warn!("Failed to resume {}: {}", output_name, e);
+                        } else {
+                            info!("Resumed playback on {}", output_name);
+                        }
+                        return;
+                    }
+                }
+                warn!("Output not found: {}", output_name);
+            } else {
+                // Resume all outputs
+                for surface in self.surfaces.values_mut() {
+                    if let Err(e) = surface.resume_playback() {
+                        warn!("Failed to resume {}: {}", surface.output_info.name, e);
+                    }
+                }
+                info!("Resumed all outputs");
+            }
+        }
+    }
+}// Dispatch implementations
 impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
     fn event(
         state: &mut Self,
@@ -376,6 +460,20 @@ pub fn run(config: Config) -> Result<()> {
     let qh = event_queue.handle();
     let mut state = AppState::new(config);
 
+    // Start IPC server
+    info!("Starting IPC server...");
+    match IpcServer::start() {
+        Ok((server, rx)) => {
+            info!("  ✓ IPC server listening on: {:?}", server.socket_path());
+            state.ipc_server = Some(server);
+            state.command_rx = Some(rx);
+        }
+        Err(e) => {
+            warn!("  ✗ Failed to start IPC server: {}", e);
+            warn!("    Continuing without IPC support");
+        }
+    }
+
     // Bind necessary globals
     info!("Binding Wayland globals...");
 
@@ -487,6 +585,22 @@ pub fn run(config: Config) -> Result<()> {
         event_queue
             .blocking_dispatch(&mut state)
             .context("Event dispatch failed")?;
+
+        // Process IPC commands (non-blocking)
+        let commands: Vec<IpcCommand> = if let Some(ref rx) = state.command_rx {
+            let mut cmds = Vec::new();
+            while let Ok(command) = rx.try_recv() {
+                cmds.push(command);
+            }
+            cmds
+        } else {
+            Vec::new()
+        };
+
+        for command in commands {
+            info!("Processing IPC command: {:?}", command);
+            state.handle_command(command);
+        }
 
         // Apply power management (battery check, pause/resume)
         state.apply_power_management();

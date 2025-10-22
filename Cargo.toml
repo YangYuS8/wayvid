@@ -47,6 +47,7 @@ calloop = "0.13"
 # Utilities
 bitflags = "2.4"
 shellexpand = "3.1"
+serde_json = "1.0.145"
 
 [dev-dependencies]
 tempfile = "3.8"
@@ -80,6 +81,14 @@ strip = true
 [profile.dev]
 opt-level = 1
 
+[lib]
+name = "wayvid"
+path = "src/lib.rs"
+
 [[bin]]
 name = "wayvid"
 path = "src/main.rs"
+
+[[bin]]
+name = "wayvid-ctl"
+path = "src/bin/wayvid-ctl.rs"
