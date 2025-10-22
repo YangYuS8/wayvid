@@ -149,6 +149,8 @@ pub struct EffectiveConfig {
     pub mute: bool,
     pub volume: f64,
     pub hwdec: bool,
+    /// Power management config (for future Phase 6)
+    #[allow(dead_code)]
     pub power: PowerConfig,
 }
 

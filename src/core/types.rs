@@ -67,12 +67,14 @@ pub struct OutputInfo {
     /// Logical position (x, y)
     pub position: (i32, i32),
 
-    /// Whether output is currently active
+    /// Whether output is currently active (for future hot-plug support)
+    #[allow(dead_code)]
     pub active: bool,
 }
 
 impl OutputInfo {
-    /// Get logical dimensions (physical / scale)
+    /// Get logical dimensions (physical / scale) (for future use)
+    #[allow(dead_code)]
     pub fn logical_size(&self) -> (f64, f64) {
         (
             self.width as f64 / self.scale,
@@ -81,7 +83,8 @@ impl OutputInfo {
     }
 }
 
-/// Playback state
+/// Playback state (for future power management)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaybackState {
     Playing,
@@ -97,6 +100,7 @@ pub enum HwdecMode {
     Auto,
 
     /// Force hardware decode only
+    #[allow(dead_code)]
     Force,
 
     /// Disable hardware decode

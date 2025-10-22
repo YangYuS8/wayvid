@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::ffi::CString;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use wayland_client::protocol::{wl_callback, wl_surface};
 use wayland_client::QueueHandle;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
@@ -31,6 +31,9 @@ pub struct WaylandSurface {
     // Frame synchronization
     frame_callback: Option<wl_callback::WlCallback>,
     frame_pending: bool,
+
+    // Layout cache (video_w, video_h, output_w, output_h) -> viewport
+    cached_layout: Option<((i32, i32, i32, i32), (i32, i32, i32, i32))>,
 
     configured: bool,
     initial_configure_done: bool,
@@ -83,6 +86,7 @@ impl WaylandSurface {
             player: None,
             frame_callback: None,
             frame_pending: false,
+            cached_layout: None,
             configured: false,
             initial_configure_done: false,
         })
@@ -210,26 +214,47 @@ impl WaylandSurface {
             #[cfg(feature = "video-mpv")]
             {
                 if let Some(ref mut player) = self.player {
-                    // Get video dimensions
-                    let (render_w, render_h) = if let Some((vw, vh)) =
-                        player.get_video_dimensions()
+                    let output_w = egl_win.width();
+                    let output_h = egl_win.height();
+                    
+                    // Get video dimensions and calculate/use cached layout
+                    let (render_w, render_h) = if let Some((vw, vh)) = player.get_video_dimensions()
                     {
-                        // Calculate layout transform
-                        let layout = calculate_layout(
-                            self.config.layout,
-                            vw,
-                            vh,
-                            egl_win.width(),
-                            egl_win.height(),
-                        );
-
-                        debug!(
-                            "Layout {:?}: video {}x{} → viewport {:?}",
-                            self.config.layout, vw, vh, layout.dst_rect
-                        );
+                        let cache_key = (vw, vh, output_w, output_h);
+                        
+                        // Check if we can use cached layout
+                        let viewport = if let Some((cached_key, cached_viewport)) = &self.cached_layout {
+                            if cached_key == &cache_key {
+                                *cached_viewport
+                            } else {
+                                // Cache miss - recalculate
+                                let layout = calculate_layout(
+                                    self.config.layout,
+                                    vw,
+                                    vh,
+                                    output_w,
+                                    output_h,
+                                );
+                                let viewport = layout.dst_rect;
+                                self.cached_layout = Some((cache_key, viewport));
+                                viewport
+                            }
+                        } else {
+                            // First time - calculate and cache
+                            let layout = calculate_layout(
+                                self.config.layout,
+                                vw,
+                                vh,
+                                output_w,
+                                output_h,
+                            );
+                            let viewport = layout.dst_rect;
+                            self.cached_layout = Some((cache_key, viewport));
+                            viewport
+                        };
 
                         // Set viewport to destination rectangle
-                        let (x, y, w, h) = layout.dst_rect;
+                        let (x, y, w, h) = viewport;
                         unsafe {
                             gl::Viewport(x, y, w, h);
                         }
@@ -237,7 +262,8 @@ impl WaylandSurface {
                         (w, h)
                     } else {
                         // No video dimensions yet, use full output
-                        (egl_win.width(), egl_win.height())
+                        self.cached_layout = None;
+                        (output_w, output_h)
                     };
 
                     // Render video frame
@@ -247,7 +273,7 @@ impl WaylandSurface {
 
                     // Reset viewport to full output
                     unsafe {
-                        gl::Viewport(0, 0, egl_win.width(), egl_win.height());
+                        gl::Viewport(0, 0, output_w, output_h);
                     }
                 }
             }
@@ -280,6 +306,8 @@ impl WaylandSurface {
         self.frame_callback = Some(callback);
     }
 
+    /// Destroy surface resources (for future hot-plug support)
+    #[allow(dead_code)]
     pub fn destroy(&mut self) {
         self.layer_surface.destroy();
         self.wl_surface.destroy();

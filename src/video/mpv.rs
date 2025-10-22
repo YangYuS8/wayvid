@@ -32,6 +32,8 @@ pub struct MpvPlayer {
     handle: *mut libmpv_sys::mpv_handle,
     render_context: Option<*mut libmpv_sys::mpv_render_context>,
     output_info: OutputInfo,
+    // Cache video dimensions to avoid repeated property access
+    cached_dimensions: Option<(i32, i32)>,
 }
 
 // Safety: mpv_handle can be safely sent between threads
@@ -145,6 +147,7 @@ impl MpvPlayer {
             handle,
             render_context: None,
             output_info: output_info.clone(),
+            cached_dimensions: None,
         })
     }
 
@@ -252,6 +255,8 @@ impl MpvPlayer {
         Ok(())
     }
 
+    /// Pause playback (for future power management)
+    #[allow(dead_code)]
     pub fn pause(&mut self) -> Result<()> {
         let prop = CString::new("pause").unwrap();
         let value = CString::new("yes").unwrap();
@@ -264,6 +269,8 @@ impl MpvPlayer {
         Ok(())
     }
 
+    /// Resume playback (for future power management)
+    #[allow(dead_code)]
     pub fn resume(&mut self) -> Result<()> {
         let prop = CString::new("pause").unwrap();
         let value = CString::new("no").unwrap();
@@ -278,22 +285,38 @@ impl MpvPlayer {
 
     /// Get video dimensions (width, height)
     /// Returns None if video is not loaded or dimensions are not available
-    pub fn get_video_dimensions(&self) -> Option<(i32, i32)> {
+    /// Caches result to avoid repeated property access
+    pub fn get_video_dimensions(&mut self) -> Option<(i32, i32)> {
+        // Return cached value if available
+        if let Some(dims) = self.cached_dimensions {
+            return Some(dims);
+        }
+
+        // Query MPV for dimensions
         let width = self.get_property_i64("dwidth")?;
         let height = self.get_property_i64("dheight")?;
-        
+
         if width > 0 && height > 0 {
-            Some((width as i32, height as i32))
+            let dims = (width as i32, height as i32);
+            // Cache for future calls
+            self.cached_dimensions = Some(dims);
+            Some(dims)
         } else {
             None
         }
+    }
+
+    /// Invalidate cached dimensions (call when video changes)
+    #[allow(dead_code)]
+    pub fn invalidate_dimensions_cache(&mut self) {
+        self.cached_dimensions = None;
     }
 
     /// Get an i64 property from MPV
     fn get_property_i64(&self, name: &str) -> Option<i64> {
         let prop_name = CString::new(name).ok()?;
         let mut value: i64 = 0;
-        
+
         let ret = unsafe {
             libmpv_sys::mpv_get_property(
                 self.handle,
@@ -302,7 +325,7 @@ impl MpvPlayer {
                 &mut value as *mut i64 as *mut c_void,
             )
         };
-        
+
         if ret == 0 {
             Some(value)
         } else {

@@ -4,6 +4,8 @@ use crate::core::types::LayoutMode;
 #[derive(Debug, Clone, Copy)]
 pub struct LayoutTransform {
     /// Source rectangle (x, y, width, height) in normalized coordinates [0, 1]
+    /// Reserved for future texture coordinate mapping
+    #[allow(dead_code)]
     pub src_rect: (f64, f64, f64, f64),
 
     /// Destination rectangle (x, y, width, height) in output pixels
