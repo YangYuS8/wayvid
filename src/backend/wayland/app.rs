@@ -120,7 +120,7 @@ impl AppState {
     /// Check if FPS limiting should throttle rendering
     fn should_throttle_fps(&mut self) -> bool {
         let max_fps = self.config.power.max_fps;
-        
+
         if max_fps == 0 {
             return false; // No FPS limit
         }
@@ -139,7 +139,7 @@ impl AppState {
     /// Handle IPC command
     fn handle_command(&mut self, command: IpcCommand) {
         use crate::ctl::protocol::IpcCommand;
-        
+
         match command {
             IpcCommand::Pause { output } => {
                 self.handle_pause_command(output);
@@ -147,12 +147,33 @@ impl AppState {
             IpcCommand::Resume { output } => {
                 self.handle_resume_command(output);
             }
+            IpcCommand::Seek { output, time } => {
+                self.handle_seek_command(output, time);
+            }
+            IpcCommand::SwitchSource { output, source } => {
+                self.handle_switch_source_command(output, source);
+            }
+            IpcCommand::SetPlaybackRate { output, rate } => {
+                self.handle_set_rate_command(output, rate);
+            }
+            IpcCommand::SetVolume { output, volume } => {
+                self.handle_set_volume_command(output, volume);
+            }
+            IpcCommand::ToggleMute { output } => {
+                self.handle_toggle_mute_command(output);
+            }
+            IpcCommand::SetLayout { output, layout } => {
+                self.handle_set_layout_command(output, layout);
+            }
+            IpcCommand::GetStatus => {
+                self.handle_get_status_command();
+            }
+            IpcCommand::ReloadConfig => {
+                self.handle_reload_config_command();
+            }
             IpcCommand::Quit => {
                 info!("Received quit command");
                 self.running = false;
-            }
-            _ => {
-                warn!("Command not yet implemented: {:?}", command);
             }
         }
     }
@@ -214,7 +235,152 @@ impl AppState {
             }
         }
     }
-}// Dispatch implementations
+
+    /// Handle seek command
+    fn handle_seek_command(&mut self, output: String, time: f64) {
+        #[cfg(feature = "video-mpv")]
+        {
+            for surface in self.surfaces.values_mut() {
+                if surface.output_info.name == output {
+                    if let Err(e) = surface.seek(time) {
+                        warn!("Failed to seek {}: {}", output, e);
+                    } else {
+                        info!("Seeked {} to {:.2}s", output, time);
+                    }
+                    return;
+                }
+            }
+            warn!("Output not found: {}", output);
+        }
+    }
+
+    /// Handle switch source command
+    fn handle_switch_source_command(&mut self, output: String, source: String) {
+        #[cfg(feature = "video-mpv")]
+        {
+            for surface in self.surfaces.values_mut() {
+                if surface.output_info.name == output {
+                    if let Err(e) = surface.switch_source(&source) {
+                        warn!("Failed to switch source on {}: {}", output, e);
+                    } else {
+                        info!("Switched {} to source: {}", output, source);
+                    }
+                    return;
+                }
+            }
+            warn!("Output not found: {}", output);
+        }
+    }
+
+    /// Handle set playback rate command
+    fn handle_set_rate_command(&mut self, output: String, rate: f64) {
+        #[cfg(feature = "video-mpv")]
+        {
+            for surface in self.surfaces.values_mut() {
+                if surface.output_info.name == output {
+                    if let Err(e) = surface.set_playback_rate(rate) {
+                        warn!("Failed to set rate on {}: {}", output, e);
+                    } else {
+                        info!("Set playback rate of {} to {:.2}x", output, rate);
+                    }
+                    return;
+                }
+            }
+            warn!("Output not found: {}", output);
+        }
+    }
+
+    /// Handle set volume command
+    fn handle_set_volume_command(&mut self, output: String, volume: f64) {
+        #[cfg(feature = "video-mpv")]
+        {
+            for surface in self.surfaces.values_mut() {
+                if surface.output_info.name == output {
+                    if let Err(e) = surface.set_volume(volume) {
+                        warn!("Failed to set volume on {}: {}", output, e);
+                    } else {
+                        info!("Set volume of {} to {:.2}", output, volume);
+                    }
+                    return;
+                }
+            }
+            warn!("Output not found: {}", output);
+        }
+    }
+
+    /// Handle toggle mute command
+    fn handle_toggle_mute_command(&mut self, output: String) {
+        #[cfg(feature = "video-mpv")]
+        {
+            for surface in self.surfaces.values_mut() {
+                if surface.output_info.name == output {
+                    if let Err(e) = surface.toggle_mute() {
+                        warn!("Failed to toggle mute on {}: {}", output, e);
+                    } else {
+                        info!("Toggled mute on {}", output);
+                    }
+                    return;
+                }
+            }
+            warn!("Output not found: {}", output);
+        }
+    }
+
+    /// Handle set layout command
+    fn handle_set_layout_command(&mut self, output: String, layout: String) {
+        use crate::core::types::LayoutMode;
+        
+        let layout_mode = match layout.to_lowercase().as_str() {
+            "centre" | "center" => LayoutMode::Centre,
+            "stretch" => LayoutMode::Stretch,
+            "contain" | "fit" => LayoutMode::Contain,
+            "fill" => LayoutMode::Fill,
+            "cover" => LayoutMode::Cover,
+            _ => {
+                warn!("Unknown layout mode: {}. Valid: centre, stretch, contain, fill, cover", layout);
+                return;
+            }
+        };
+
+        for surface in self.surfaces.values_mut() {
+            if surface.output_info.name == output {
+                surface.set_layout(layout_mode);
+                info!("Set layout of {} to {:?}", output, layout_mode);
+                return;
+            }
+        }
+        warn!("Output not found: {}", output);
+    }
+
+    /// Handle get status command (prints to log for now)
+    fn handle_get_status_command(&mut self) {
+        #[cfg(feature = "video-mpv")]
+        {
+            info!("=== Wayvid Status ===");
+            info!("Running: {}", self.running);
+            info!("Outputs: {}", self.surfaces.len());
+            for (id, surface) in &self.surfaces {
+                let status = surface.get_status();
+                info!(
+                    "  [{}] {} ({}x{}) - Layout: {:?}, Playing: {:?}",
+                    id,
+                    surface.output_info.name,
+                    surface.output_info.width,
+                    surface.output_info.height,
+                    surface.config.layout,
+                    status,
+                );
+            }
+            info!("====================");
+        }
+    }
+
+    /// Handle reload config command (placeholder)
+    fn handle_reload_config_command(&mut self) {
+        warn!("Config reload not yet implemented");
+        // TODO: Re-parse config file and apply to all surfaces
+    }
+} // Dispatch implementations
 impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
     fn event(
         state: &mut Self,

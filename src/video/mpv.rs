@@ -334,6 +334,52 @@ impl MpvPlayer {
     }
 }
 
+impl MpvPlayer {
+    /// Seek to specific time (in seconds)
+    pub fn seek(&mut self, time: f64) -> Result<()> {
+        let cmd = format!("seek {} absolute", time);
+        self.command(&cmd)
+    }
+
+    /// Load a new video file
+    pub fn load_file(&mut self, path: &str) -> Result<()> {
+        let cmd = format!("loadfile {}", path);
+        self.invalidate_dimensions_cache();
+        self.command(&cmd)
+    }
+
+    /// Set playback rate (speed)
+    pub fn set_playback_rate(&mut self, rate: f64) -> Result<()> {
+        let cmd = format!("set speed {}", rate);
+        self.command(&cmd)
+    }
+
+    /// Set volume (0.0 - 1.0)
+    pub fn set_volume(&mut self, volume: f64) -> Result<()> {
+        let vol = volume * 100.0; // MPV uses 0-100 scale
+        let cmd = format!("set volume {}", vol);
+        self.command(&cmd)
+    }
+
+    /// Toggle mute
+    pub fn toggle_mute(&mut self) -> Result<()> {
+        self.command("cycle mute")
+    }
+
+    /// Execute MPV command
+    fn command(&mut self, cmd: &str) -> Result<()> {
+        let c_cmd = CString::new(cmd).unwrap();
+        let mut args: Vec<*const i8> = vec![c_cmd.as_ptr(), std::ptr::null()];
+        unsafe {
+            let ret = libmpv_sys::mpv_command(self.handle, args.as_mut_ptr());
+            if ret < 0 {
+                return Err(anyhow!("MPV command '{}' failed: error {}", cmd, ret));
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Drop for MpvPlayer {
     fn drop(&mut self) {
         debug!("Dropping MPV player for {}", self.output_info.name);

@@ -328,4 +328,67 @@ impl WaylandSurface {
         }
         Ok(())
     }
+
+    /// Get playback status
+    #[cfg(feature = "video-mpv")]
+    pub fn get_status(&self) -> Option<(bool, f64, f64)> {
+        // Returns: (is_playing, current_time, duration)
+        self.player.as_ref().and_then(|player| {
+            // For now return placeholder values
+            // TODO: Add actual MPV property getters
+            Some((true, 0.0, 0.0))
+        })
+    }
+
+    /// Seek to specific time
+    #[cfg(feature = "video-mpv")]
+    pub fn seek(&mut self, time: f64) -> Result<()> {
+        if let Some(ref mut player) = self.player {
+            player.seek(time)?;
+        }
+        Ok(())
+    }
+
+    /// Switch video source
+    #[cfg(feature = "video-mpv")]
+    pub fn switch_source(&mut self, source: &str) -> Result<()> {
+        if let Some(ref mut player) = self.player {
+            player.load_file(source)?;
+        }
+        Ok(())
+    }
+
+    /// Set playback rate
+    #[cfg(feature = "video-mpv")]
+    pub fn set_playback_rate(&mut self, rate: f64) -> Result<()> {
+        if let Some(ref mut player) = self.player {
+            player.set_playback_rate(rate)?;
+        }
+        Ok(())
+    }
+
+    /// Set volume
+    #[cfg(feature = "video-mpv")]
+    pub fn set_volume(&mut self, volume: f64) -> Result<()> {
+        if let Some(ref mut player) = self.player {
+            player.set_volume(volume)?;
+        }
+        Ok(())
+    }
+
+    /// Toggle mute
+    #[cfg(feature = "video-mpv")]
+    pub fn toggle_mute(&mut self) -> Result<()> {
+        if let Some(ref mut player) = self.player {
+            player.toggle_mute()?;
+        }
+        Ok(())
+    }
+
+    /// Set layout mode
+    pub fn set_layout(&mut self, layout: crate::core::types::LayoutMode) {
+        self.config.layout = layout;
+        // Invalidate layout cache
+        self.cached_layout = None;
+    }
 }

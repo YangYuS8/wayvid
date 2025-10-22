@@ -20,10 +20,7 @@ pub enum IpcCommand {
     },
 
     /// Seek to specific time (in seconds)
-    Seek {
-        output: String,
-        time: f64,
-    },
+    Seek { output: String, time: f64 },
 
     /// Switch video source for specific output
     SwitchSource {
@@ -35,10 +32,7 @@ pub enum IpcCommand {
     ReloadConfig,
 
     /// Set playback rate (speed)
-    SetPlaybackRate {
-        output: String,
-        rate: f64,
-    },
+    SetPlaybackRate { output: String, rate: f64 },
 
     /// Set volume
     SetVolume {
@@ -47,9 +41,7 @@ pub enum IpcCommand {
     },
 
     /// Toggle mute
-    ToggleMute {
-        output: String,
-    },
+    ToggleMute { output: String },
 
     /// Set layout mode
     SetLayout {
