@@ -401,11 +401,11 @@ pub fn run(config: Config) -> Result<()> {
         for surface in state.surfaces.values_mut() {
             // Check if frame is ready before rendering
             let should_render = surface.has_frame_pending();
-            
+
             if let Err(e) = surface.render(egl_ctx) {
                 warn!("Render error: {}", e);
             }
-            
+
             // Request next frame if we just rendered
             if should_render {
                 surface.request_frame(&qh);

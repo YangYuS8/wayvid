@@ -275,6 +275,40 @@ impl MpvPlayer {
         }
         Ok(())
     }
+
+    /// Get video dimensions (width, height)
+    /// Returns None if video is not loaded or dimensions are not available
+    pub fn get_video_dimensions(&self) -> Option<(i32, i32)> {
+        let width = self.get_property_i64("dwidth")?;
+        let height = self.get_property_i64("dheight")?;
+        
+        if width > 0 && height > 0 {
+            Some((width as i32, height as i32))
+        } else {
+            None
+        }
+    }
+
+    /// Get an i64 property from MPV
+    fn get_property_i64(&self, name: &str) -> Option<i64> {
+        let prop_name = CString::new(name).ok()?;
+        let mut value: i64 = 0;
+        
+        let ret = unsafe {
+            libmpv_sys::mpv_get_property(
+                self.handle,
+                prop_name.as_ptr(),
+                4, // MPV_FORMAT_INT64
+                &mut value as *mut i64 as *mut c_void,
+            )
+        };
+        
+        if ret == 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
 }
 
 impl Drop for MpvPlayer {

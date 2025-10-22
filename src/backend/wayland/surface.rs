@@ -1,11 +1,12 @@
 use anyhow::Result;
 use std::ffi::CString;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use wayland_client::protocol::{wl_callback, wl_surface};
 use wayland_client::QueueHandle;
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
 use crate::config::EffectiveConfig;
+use crate::core::layout::calculate_layout;
 use crate::core::types::OutputInfo;
 use crate::video::egl::{EglContext, EglWindow};
 
@@ -199,18 +200,54 @@ impl WaylandSurface {
                 );
             }
 
-            // Clear to black background (will be covered by video)
+            // Clear to black background
             unsafe {
                 gl::ClearColor(0.0, 0.0, 0.0, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
             }
 
-            // Render video frame
+            // Render video frame with layout
             #[cfg(feature = "video-mpv")]
             {
                 if let Some(ref mut player) = self.player {
-                    if let Err(e) = player.render(egl_win.width(), egl_win.height(), 0) {
+                    // Get video dimensions
+                    let (render_w, render_h) = if let Some((vw, vh)) =
+                        player.get_video_dimensions()
+                    {
+                        // Calculate layout transform
+                        let layout = calculate_layout(
+                            self.config.layout,
+                            vw,
+                            vh,
+                            egl_win.width(),
+                            egl_win.height(),
+                        );
+
+                        debug!(
+                            "Layout {:?}: video {}x{} → viewport {:?}",
+                            self.config.layout, vw, vh, layout.dst_rect
+                        );
+
+                        // Set viewport to destination rectangle
+                        let (x, y, w, h) = layout.dst_rect;
+                        unsafe {
+                            gl::Viewport(x, y, w, h);
+                        }
+
+                        (w, h)
+                    } else {
+                        // No video dimensions yet, use full output
+                        (egl_win.width(), egl_win.height())
+                    };
+
+                    // Render video frame
+                    if let Err(e) = player.render(render_w, render_h, 0) {
                         warn!("Video render error: {}", e);
+                    }
+
+                    // Reset viewport to full output
+                    unsafe {
+                        gl::Viewport(0, 0, egl_win.width(), egl_win.height());
                     }
                 }
             }
