@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::core::types::{LayoutMode, VideoSource};
-use crate::we::types::{WeProject, WeProperties};
+use crate::we::types::WeProject;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -168,7 +168,7 @@ mod tests {
         // Check defaults
         assert_eq!(config.playback_rate, 1.0);
         assert_eq!(config.volume, 50.0);
-        assert!(config.loop_playback);
+        assert!(config.r#loop);
         assert_eq!(config.layout, LayoutMode::Contain);
     }
 

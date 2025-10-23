@@ -67,7 +67,8 @@ pub enum IpcResponse {
     Error { message: String },
 }
 
-/// Status information for an output
+/// Status information for an output (for future use)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputStatus {
     pub name: String,
@@ -84,7 +85,8 @@ pub struct OutputStatus {
     pub playback_rate: f64,
 }
 
-/// Overall daemon status
+/// Overall daemon status (for future use)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonStatus {
     pub version: String,

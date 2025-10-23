@@ -40,25 +40,6 @@ fn default_fps() -> f64 {
 }
 
 impl VideoSource {
-    /// Get the primary file path or URL to play
-    pub fn primary_path(&self) -> Result<PathBuf, &'static str> {
-        match self {
-            VideoSource::File { path } => {
-                let expanded = shellexpand::tilde(path);
-                Ok(PathBuf::from(expanded.as_ref()))
-            }
-            VideoSource::Directory { .. } => Err("Directory source not yet implemented"),
-            VideoSource::Url { .. } => Err("Use get_mpv_path() for URL sources"),
-            VideoSource::Rtsp { .. } => Err("Use get_mpv_path() for RTSP sources"),
-            VideoSource::Pipe { .. } => Err("Use get_mpv_path() for pipe sources"),
-            VideoSource::ImageSequence { .. } => {
-                let expanded = shellexpand::tilde(self.get_source_string());
-                Ok(PathBuf::from(expanded.as_ref()))
-            }
-            VideoSource::WeProject { .. } => Err("WeProject import not yet implemented"),
-        }
-    }
-
     /// Get the source path/URL as string for MPV
     pub fn get_mpv_path(&self) -> String {
         match self {
@@ -91,8 +72,9 @@ impl VideoSource {
         }
     }
 
-    /// Get the source as a display string
-    pub fn get_source_string(&self) -> &str {
+    /// Get the source as a display string (for UI/logging)
+    #[allow(dead_code)]
+    fn get_source_string(&self) -> &str {
         match self {
             VideoSource::File { path } => path,
             VideoSource::Directory { path } => path,

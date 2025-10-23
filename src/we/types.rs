@@ -128,6 +128,7 @@ pub struct WeProperties {
     pub audio_processing: bool,
 
     /// Scheme color (RGB string, e.g., "0.2 0.4 0.6")
+    #[allow(dead_code)]
     pub scheme_color: Option<String>,
 }
 
