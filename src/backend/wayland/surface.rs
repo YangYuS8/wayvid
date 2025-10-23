@@ -333,10 +333,10 @@ impl WaylandSurface {
     #[cfg(feature = "video-mpv")]
     pub fn get_status(&self) -> Option<(bool, f64, f64)> {
         // Returns: (is_playing, current_time, duration)
-        self.player.as_ref().and_then(|player| {
+        self.player.as_ref().map(|_player| {
             // For now return placeholder values
             // TODO: Add actual MPV property getters
-            Some((true, 0.0, 0.0))
+            (true, 0.0, 0.0)
         })
     }
 

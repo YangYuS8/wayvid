@@ -94,11 +94,17 @@ fn main() -> Result<()> {
         Commands::Check => {
             ctl::check::run_capability_check()?;
         }
-        Commands::Import { project_dir, output } => {
+        Commands::Import {
+            project_dir,
+            output,
+        } => {
             use std::fs;
             use std::path::Path;
 
-            info!("🔍 Importing Wallpaper Engine project from: {}", project_dir);
+            info!(
+                "🔍 Importing Wallpaper Engine project from: {}",
+                project_dir
+            );
 
             let project_path = Path::new(&project_dir);
 

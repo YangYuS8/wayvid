@@ -7,10 +7,7 @@ use std::path::PathBuf;
 use tracing::{info, warn};
 
 /// Generate wayvid config from Wallpaper Engine project
-pub fn generate_wayvid_config(
-    project: &WeProject,
-    video_path: PathBuf,
-) -> Result<Config> {
+pub fn generate_wayvid_config(project: &WeProject, video_path: PathBuf) -> Result<Config> {
     info!("🔄 Converting Wallpaper Engine project to wayvid config");
 
     // Extract properties
@@ -19,8 +16,20 @@ pub fn generate_wayvid_config(
     info!("📊 Extracted properties:");
     info!("  - Rate: {}", props.rate);
     info!("  - Volume: {}", props.volume);
-    info!("  - Playback mode: {} ({})", props.playback_mode, if props.playback_mode == 0 { "loop" } else { "pause" });
-    info!("  - Alignment: {} ({})", props.alignment, alignment_name(props.alignment));
+    info!(
+        "  - Playback mode: {} ({})",
+        props.playback_mode,
+        if props.playback_mode == 0 {
+            "loop"
+        } else {
+            "pause"
+        }
+    );
+    info!(
+        "  - Alignment: {} ({})",
+        props.alignment,
+        alignment_name(props.alignment)
+    );
     info!("  - Audio processing: {}", props.audio_processing);
 
     // Convert alignment to layout mode
@@ -38,7 +47,10 @@ pub fn generate_wayvid_config(
     }
 
     if props.playback_mode != 0 && props.playback_mode != 1 {
-        warn!("⚠️  Unknown playback mode: {}. Defaulting to loop.", props.playback_mode);
+        warn!(
+            "⚠️  Unknown playback mode: {}. Defaulting to loop.",
+            props.playback_mode
+        );
     }
 
     // Create config
@@ -73,7 +85,10 @@ fn convert_alignment(alignment: i64) -> LayoutMode {
         2 => LayoutMode::Cover,   // Fill
         3 => LayoutMode::Fill,    // Stretch
         _ => {
-            warn!("⚠️  Unknown alignment value: {}. Defaulting to Contain.", alignment);
+            warn!(
+                "⚠️  Unknown alignment value: {}. Defaulting to Contain.",
+                alignment
+            );
             LayoutMode::Contain
         }
     }
@@ -91,10 +106,7 @@ fn alignment_name(alignment: i64) -> &'static str {
 }
 
 /// Generate config with metadata comments
-pub fn generate_config_with_metadata(
-    project: &WeProject,
-    video_path: PathBuf,
-) -> Result<String> {
+pub fn generate_config_with_metadata(project: &WeProject, video_path: PathBuf) -> Result<String> {
     let config = generate_wayvid_config(project, video_path)?;
 
     // Generate YAML with comments

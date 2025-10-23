@@ -21,7 +21,10 @@ pub fn detect_we_project(path: &Path) -> Result<PathBuf> {
 
 /// Parse a Wallpaper Engine project.json file
 pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
-    info!("📂 Parsing Wallpaper Engine project: {}", project_file.display());
+    info!(
+        "📂 Parsing Wallpaper Engine project: {}",
+        project_file.display()
+    );
 
     // Read and parse JSON
     let content = fs::read_to_string(project_file)
@@ -163,7 +166,10 @@ mod tests {
         // Should fail with unsupported type
         let result = parse_we_project(&project_file);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Unsupported project type"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported project type"));
     }
 
     #[test]
@@ -172,6 +178,9 @@ mod tests {
 
         let result = resolve_video_path(temp_dir.path(), "nonexistent.mp4");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Video file not found"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Video file not found"));
     }
 }

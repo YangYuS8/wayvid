@@ -3,7 +3,6 @@ use anyhow::Result;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread;
 use tracing::{debug, info, warn};
 
 /// Configuration file watcher that monitors for changes

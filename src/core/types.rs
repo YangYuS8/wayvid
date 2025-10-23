@@ -18,13 +18,13 @@ pub enum VideoSource {
     Rtsp { url: String },
 
     /// Pipe input (stdin or named pipe)
-    Pipe { 
+    Pipe {
         #[serde(default)]
-        path: String  // Empty string means stdin
+        path: String, // Empty string means stdin
     },
 
     /// GIF or image sequence
-    ImageSequence { 
+    ImageSequence {
         path: String,
         #[serde(default = "default_fps")]
         fps: f64,
@@ -58,7 +58,7 @@ impl VideoSource {
             VideoSource::WeProject { .. } => Err("WeProject import not yet implemented"),
         }
     }
-    
+
     /// Get the source path/URL as string for MPV
     pub fn get_mpv_path(&self) -> String {
         match self {
@@ -74,7 +74,7 @@ impl VideoSource {
             VideoSource::Rtsp { url } => url.clone(),
             VideoSource::Pipe { path } => {
                 if path.is_empty() {
-                    "fd://0".to_string()  // stdin
+                    "fd://0".to_string() // stdin
                 } else {
                     let expanded = shellexpand::tilde(path);
                     expanded.to_string()
@@ -90,7 +90,7 @@ impl VideoSource {
             }
         }
     }
-    
+
     /// Get the source as a display string
     pub fn get_source_string(&self) -> &str {
         match self {
@@ -109,12 +109,15 @@ impl VideoSource {
             VideoSource::WeProject { path } => path,
         }
     }
-    
+
     /// Check if this is a streaming source (needs special handling)
     pub fn is_streaming(&self) -> bool {
-        matches!(self, VideoSource::Url { .. } | VideoSource::Rtsp { .. } | VideoSource::Pipe { .. })
+        matches!(
+            self,
+            VideoSource::Url { .. } | VideoSource::Rtsp { .. } | VideoSource::Pipe { .. }
+        )
     }
-    
+
     /// Check if this is an image sequence (needs loop handling)
     pub fn is_image_sequence(&self) -> bool {
         matches!(self, VideoSource::ImageSequence { .. })

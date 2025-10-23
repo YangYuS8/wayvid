@@ -120,7 +120,7 @@ impl MpvPlayer {
             set_option("cache", "yes");
             set_option("cache-secs", "10");
         }
-        
+
         if config.source.is_image_sequence() {
             info!("  �️  Configuring for image sequence");
             set_option("image-display-duration", "inf");

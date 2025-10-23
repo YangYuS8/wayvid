@@ -104,8 +104,9 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
+          # TODO: aarch64 build requires cross-compilation setup
+          # - os: ubuntu-latest
+          #   target: aarch64-unknown-linux-gnu
     
     steps:
       - uses: actions/checkout@v4
