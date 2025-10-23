@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// Video source specification
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
