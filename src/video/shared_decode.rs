@@ -14,7 +14,9 @@ use std::sync::{Arc, Mutex, RwLock};
 use tracing::{debug, info};
 
 use crate::config::EffectiveConfig;
-use crate::core::types::{HwdecMode, VideoSource};
+use crate::core::types::{HwdecMode, OutputInfo, VideoSource};
+use crate::video::egl::EglContext;
+use crate::video::mpv::MpvPlayer;
 
 /// Unique identifier for a video source + decode parameters
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -68,9 +70,36 @@ pub struct DecoderStats {
 pub struct DecoderHandle {
     key: SourceKey,
     manager: Arc<RwLock<SharedDecodeManager>>,
+    frame_buffer: Arc<Mutex<FrameBuffer>>,
 }
 
 impl DecoderHandle {
+    /// Initialize OpenGL rendering context for this decoder
+    pub fn init_render_context(&self, egl_context: &EglContext) -> Result<()> {
+        let mut manager = self.manager.write().unwrap();
+        if let Some(decoder) = manager.decoders.get_mut(&self.key) {
+            decoder.init_render_context(egl_context)
+        } else {
+            Ok(())
+        }
+    }
+    
+    /// Render a frame (only one consumer needs to call this)
+    pub fn render(&self, width: i32, height: i32, fbo: i32) -> Result<()> {
+        let mut manager = self.manager.write().unwrap();
+        if let Some(decoder) = manager.decoders.get_mut(&self.key) {
+            decoder.render(width, height, fbo)
+        } else {
+            Ok(())
+        }
+    }
+    
+    /// Get current frame from shared buffer (all consumers can call this)
+    pub fn get_frame(&self) -> Option<(Arc<Vec<u8>>, i32, i32, u64)> {
+        let buffer = self.frame_buffer.lock().ok()?;
+        buffer.get_frame()
+    }
+    
     /// Get current frame dimensions (width, height)
     pub fn dimensions(&self) -> Option<(i32, i32)> {
         let manager = self.manager.read().ok()?;
@@ -94,10 +123,48 @@ impl Drop for DecoderHandle {
 }
 
 /// Shared frame buffer for decoded video frames
-struct FrameBuffer {
-    // TODO: Implement actual frame storage using Arc<[u8]> slices
-    // For now, this is a placeholder
-    _placeholder: (),
+/// 
+/// This stores the latest decoded frame that can be consumed by multiple outputs.
+/// Uses Arc for zero-copy sharing between consumers.
+pub struct FrameBuffer {
+    /// Current frame data (RGBA format)
+    /// None if no frame has been decoded yet
+    frame_data: Option<Arc<Vec<u8>>>,
+    
+    /// Frame dimensions (width, height)
+    dimensions: Option<(i32, i32)>,
+    
+    /// Frame sequence number (increments with each new frame)
+    sequence: u64,
+    
+    /// Timestamp of last frame update
+    last_update: std::time::Instant,
+}
+
+impl FrameBuffer {
+    fn new() -> Self {
+        Self {
+            frame_data: None,
+            dimensions: None,
+            sequence: 0,
+            last_update: std::time::Instant::now(),
+        }
+    }
+    
+    /// Update frame buffer with new frame data
+    fn update_frame(&mut self, data: Vec<u8>, width: i32, height: i32) {
+        self.frame_data = Some(Arc::new(data));
+        self.dimensions = Some((width, height));
+        self.sequence += 1;
+        self.last_update = std::time::Instant::now();
+    }
+    
+    /// Get current frame (returns Arc for zero-copy sharing)
+    fn get_frame(&self) -> Option<(Arc<Vec<u8>>, i32, i32, u64)> {
+        let data = self.frame_data.as_ref()?.clone();
+        let (width, height) = self.dimensions?;
+        Some((data, width, height, self.sequence))
+    }
 }
 
 /// A shared decoder instance with reference counting
@@ -105,37 +172,68 @@ struct SharedDecoder {
     /// Reference count - number of consumers
     ref_count: usize,
     
-    /// The actual MPV player instance
-    /// TODO: Replace with actual MpvPlayer when integrated
-    _player: (),
+    /// The actual MPV player instance (wrapped in Mutex for interior mutability)
+    player: Arc<Mutex<MpvPlayer>>,
     
     /// Shared frame buffer
-    _frame_buffer: Arc<Mutex<FrameBuffer>>,
+    frame_buffer: Arc<Mutex<FrameBuffer>>,
     
     /// Decoder statistics
     stats: DecoderStats,
-    
-    /// Cached video dimensions
-    dimensions: Option<(i32, i32)>,
 }
 
 impl SharedDecoder {
-    fn new() -> Self {
-        Self {
+    fn new(config: &EffectiveConfig, output_info: &OutputInfo) -> Result<Self> {
+        info!("🎬 Creating shared decoder for {:?}", config.source);
+        
+        // Create MPV player
+        let player = MpvPlayer::new(config, output_info)?;
+        
+        Ok(Self {
             ref_count: 0,
-            _player: (),
-            _frame_buffer: Arc::new(Mutex::new(FrameBuffer { _placeholder: () })),
+            player: Arc::new(Mutex::new(player)),
+            frame_buffer: Arc::new(Mutex::new(FrameBuffer::new())),
             stats: DecoderStats::default(),
-            dimensions: None,
-        }
+        })
     }
     
+    /// Initialize OpenGL rendering context
+    fn init_render_context(&self, egl_context: &EglContext) -> Result<()> {
+        let mut player = self.player.lock().unwrap();
+        player.init_render_context(egl_context)
+    }
+    
+    /// Get current video dimensions
     fn dimensions(&self) -> Option<(i32, i32)> {
-        self.dimensions
+        let mut player = self.player.lock().unwrap();
+        player.get_video_dimensions()
     }
     
+    /// Get decoder statistics
     fn stats(&self) -> DecoderStats {
         self.stats.clone()
+    }
+    
+    /// Render frame (called by one consumer, updates shared buffer)
+    fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<()> {
+        // Render to FBO
+        {
+            let mut player = self.player.lock().unwrap();
+            player.render(width, height, fbo)?;
+        }
+        
+        // Update stats
+        self.stats.frames_decoded += 1;
+        
+        // TODO: Extract rendered frame to shared buffer
+        // For now, just increment frame count
+        
+        Ok(())
+    }
+    
+    /// Get shared frame buffer reference
+    fn get_frame_buffer(&self) -> Arc<Mutex<FrameBuffer>> {
+        self.frame_buffer.clone()
     }
 }
 
@@ -182,42 +280,63 @@ impl SharedDecodeManager {
     pub fn acquire_decoder(
         manager: Arc<RwLock<Self>>,
         config: &EffectiveConfig,
+        output_info: &OutputInfo,
     ) -> Result<DecoderHandle> {
         let key = SourceKey::from_config(config);
         
         // First check if decoder exists (read lock)
-        {
+        let (frame_buffer, is_new) = {
             let mgr = manager.read().unwrap();
-            if mgr.decoders.contains_key(&key) {
+            let exists = mgr.decoders.contains_key(&key);
+            if exists {
                 debug!("♻️  Reusing existing decoder for {:?}", key.source);
+                let fb = mgr.decoders.get(&key).unwrap().get_frame_buffer();
+                (fb, false)
+            } else {
+                (Arc::new(Mutex::new(FrameBuffer::new())), true)
+            }
+        };
+        
+        // Acquire or create decoder (write lock)
+        if is_new {
+            let mut mgr = manager.write().unwrap();
+            
+            // Double-check in case another thread created it
+            if !mgr.decoders.contains_key(&key) {
+                info!("🆕 Creating new shared decoder for {:?}", key.source);
+                let decoder = SharedDecoder::new(config, output_info)?;
+                mgr.active_decoders += 1;
+                mgr.decoders.insert(key.clone(), decoder);
             }
         }
         
-        // Acquire or create decoder (write lock)
+        // Increment reference count
         {
             let mut mgr = manager.write().unwrap();
-            
-            let is_new = !mgr.decoders.contains_key(&key);
-            if is_new {
-                info!("🆕 Creating new shared decoder for {:?}", key.source);
-                mgr.active_decoders += 1;
-                mgr.decoders.insert(key.clone(), SharedDecoder::new());
-            }
-            
             let decoder = mgr.decoders.get_mut(&key).unwrap();
             decoder.ref_count += 1;
             decoder.stats.consumer_count = decoder.ref_count;
             mgr.total_consumers += 1;
             
             info!(
-                "📊 Decoder stats: {} decoders, {} total consumers",
-                mgr.active_decoders, mgr.total_consumers
+                "📊 Decoder stats: {} decoders, {} total consumers (key: {:?})",
+                mgr.active_decoders, mgr.total_consumers, key.source
             );
         }
+        
+        // Get frame buffer (need to clone key for later use)
+        let frame_buffer_final = if is_new {
+            // Get the actual frame buffer from the decoder we just created
+            let mgr = manager.read().unwrap();
+            mgr.decoders.get(&key).unwrap().get_frame_buffer()
+        } else {
+            frame_buffer
+        };
         
         Ok(DecoderHandle {
             key,
             manager: manager.clone(),
+            frame_buffer: frame_buffer_final,
         })
     }
     
@@ -291,6 +410,17 @@ mod tests {
         }
     }
     
+    fn make_test_output_info(name: &str) -> OutputInfo {
+        OutputInfo {
+            name: name.to_string(),
+            width: 1920,
+            height: 1080,
+            scale: 1.0,
+            position: (0, 0),
+            active: true,
+        }
+    }
+    
     #[test]
     fn test_source_key_equality() {
         let config1 = make_test_config("/path/to/video.mp4");
@@ -305,13 +435,22 @@ mod tests {
         assert_ne!(key1, key3);
     }
     
+    // Note: The following tests require actual video files and MPV to work
+    // They are disabled by default. Enable with #[ignore] removed when testing with real files.
+    
     #[test]
+    #[ignore]
     fn test_decoder_reference_counting() {
         let manager = SharedDecodeManager::global();
         let config = make_test_config("/test/video.mp4");
+        let output = make_test_output_info("TEST-1");
         
         // Acquire first handle
-        let handle1 = SharedDecodeManager::acquire_decoder(manager.clone(), &config).unwrap();
+        let handle1 = SharedDecodeManager::acquire_decoder(
+            manager.clone(), 
+            &config, 
+            &output
+        ).unwrap();
         {
             let mgr = manager.read().unwrap();
             assert_eq!(mgr.active_decoders, 1);
@@ -319,7 +458,11 @@ mod tests {
         }
         
         // Acquire second handle (should reuse decoder)
-        let handle2 = SharedDecodeManager::acquire_decoder(manager.clone(), &config).unwrap();
+        let handle2 = SharedDecodeManager::acquire_decoder(
+            manager.clone(), 
+            &config, 
+            &output
+        ).unwrap();
         {
             let mgr = manager.read().unwrap();
             assert_eq!(mgr.active_decoders, 1);
@@ -344,13 +487,23 @@ mod tests {
     }
     
     #[test]
+    #[ignore]
     fn test_multiple_different_sources() {
         let manager = SharedDecodeManager::global();
         let config1 = make_test_config("/test/video1.mp4");
         let config2 = make_test_config("/test/video2.mp4");
+        let output = make_test_output_info("TEST-1");
         
-        let _handle1 = SharedDecodeManager::acquire_decoder(manager.clone(), &config1).unwrap();
-        let _handle2 = SharedDecodeManager::acquire_decoder(manager.clone(), &config2).unwrap();
+        let _handle1 = SharedDecodeManager::acquire_decoder(
+            manager.clone(), 
+            &config1, 
+            &output
+        ).unwrap();
+        let _handle2 = SharedDecodeManager::acquire_decoder(
+            manager.clone(), 
+            &config2, 
+            &output
+        ).unwrap();
         
         let mgr = manager.read().unwrap();
         assert_eq!(mgr.active_decoders, 2);
