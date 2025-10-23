@@ -1,0 +1,33 @@
+#!/bin/bash
+# AppRun script for wayvid AppImage
+
+# Get the AppDir path
+APPDIR="$(dirname "$(readlink -f "${0}")")"
+
+# Set up library paths
+export LD_LIBRARY_PATH="${APPDIR}/usr/lib:${LD_LIBRARY_PATH}"
+export PATH="${APPDIR}/usr/bin:${PATH}"
+
+# Set up XDG paths for configuration
+export XDG_DATA_DIRS="${APPDIR}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# Detect which binary to run based on argv[0] or first argument
+BINARY_NAME="$(basename "$0")"
+
+case "$BINARY_NAME" in
+    wayvid-ctl|wayvid-ctl.AppImage)
+        exec "${APPDIR}/usr/bin/wayvid-ctl" "$@"
+        ;;
+    wayvid|wayvid.AppImage|AppRun)
+        # Check if first argument is "ctl" for convenience
+        if [ "$1" = "ctl" ]; then
+            shift
+            exec "${APPDIR}/usr/bin/wayvid-ctl" "$@"
+        else
+            exec "${APPDIR}/usr/bin/wayvid" "$@"
+        fi
+        ;;
+    *)
+        exec "${APPDIR}/usr/bin/wayvid" "$@"
+        ;;
+esac

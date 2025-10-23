@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=wayvid
+GenericName=Video Wallpaper Engine
+Comment=Dynamic video wallpaper engine for Wayland compositors
+Exec=wayvid
+Icon=wayvid
+Terminal=false
+Categories=Utility;Video;
+Keywords=wallpaper;wayland;video;background;
+StartupNotify=false

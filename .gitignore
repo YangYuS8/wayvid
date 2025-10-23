@@ -22,6 +22,10 @@ Thumbs.db
 packaging/*/*.tar.gz
 packaging/*/*.pkg.tar.zst
 
+# AppImage build directory
+packaging/appimage/build/
+packaging/appimage/*.AppDir/
+
 # Local config (for testing)
 config.yaml
 test-videos/
