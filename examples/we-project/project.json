@@ -1,0 +1,69 @@
+{
+  "approved": true,
+  "contentrating": "Everyone",
+  "description": "A beautiful ocean scene with gentle waves. Perfect for relaxation and productivity.",
+  "file": "ocean.mp4",
+  "general": {
+    "properties": {
+      "rate": {
+        "order": 0,
+        "text": "ui_editor_properties_playback_rate",
+        "type": "slider",
+        "value": 1.2,
+        "min": 0.1,
+        "max": 5.0,
+        "fraction": true
+      },
+      "volume": {
+        "order": 1,
+        "text": "ui_editor_properties_volume",
+        "type": "slider",
+        "value": 30.0,
+        "min": 0.0,
+        "max": 100.0,
+        "fraction": false
+      },
+      "playbackmode": {
+        "order": 2,
+        "text": "ui_editor_properties_playback_mode",
+        "type": "combo",
+        "value": 0,
+        "options": [
+          {"label": "ui_editor_properties_playback_loop", "value": 0},
+          {"label": "ui_editor_properties_playback_pause", "value": 1}
+        ]
+      },
+      "audioprocessing": {
+        "order": 3,
+        "text": "ui_editor_properties_audioprocessing",
+        "type": "bool",
+        "value": false
+      },
+      "alignment": {
+        "order": 4,
+        "text": "ui_editor_properties_alignment",
+        "type": "combo",
+        "value": 2,
+        "options": [
+          {"label": "ui_editor_properties_alignment_center", "value": 0},
+          {"label": "ui_editor_properties_alignment_fit", "value": 1},
+          {"label": "ui_editor_properties_alignment_fill", "value": 2},
+          {"label": "ui_editor_properties_alignment_stretch", "value": 3}
+        ]
+      },
+      "schemecolor": {
+        "order": 5,
+        "text": "ui_editor_properties_scheme_color",
+        "type": "color",
+        "value": "0.2 0.4 0.6"
+      }
+    }
+  },
+  "preview": "preview.jpg",
+  "tags": ["Nature", "Ocean", "Relaxing", "Blue"],
+  "title": "Ocean Waves 4K",
+  "type": "video",
+  "visibility": "public",
+  "workshopid": "2934567890",
+  "workshopurl": "steam://url/CommunityFilePage/2934567890"
+}
