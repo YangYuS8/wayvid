@@ -33,11 +33,14 @@ pub struct WaylandSurface {
     frame_pending: bool,
 
     // Layout cache (video_w, video_h, output_w, output_h) -> viewport
-    cached_layout: Option<((i32, i32, i32, i32), (i32, i32, i32, i32))>,
+    cached_layout: Option<LayoutCacheEntry>,
 
     configured: bool,
     initial_configure_done: bool,
 }
+
+// Type alias for complex layout cache type
+type LayoutCacheEntry = ((i32, i32, i32, i32), (i32, i32, i32, i32));
 
 impl WaylandSurface {
     pub fn new(

@@ -675,14 +675,11 @@ impl Dispatch<wl_callback::WlCallback, u32> for AppState {
     ) {
         use wl_callback::Event;
 
-        match event {
-            Event::Done { callback_data: _ } => {
-                // Frame callback triggered - mark that frame is ready to render
-                if let Some(surface) = state.surfaces.get_mut(output_id) {
-                    surface.on_frame_ready();
-                }
+        if let Event::Done { callback_data: _ } = event {
+            // Frame callback triggered - mark that frame is ready to render
+            if let Some(surface) = state.surfaces.get_mut(output_id) {
+                surface.on_frame_ready();
             }
-            _ => {}
         }
     }
 }

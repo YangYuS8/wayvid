@@ -83,13 +83,13 @@ mod tests {
         let watcher = ConfigWatcher::watch(config_path.clone()).unwrap();
 
         // Give watcher time to initialize
-        thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(100));
 
         // Modify config
         fs::write(&config_path, "test: new_value\n").unwrap();
 
         // Wait for notification
-        thread::sleep(Duration::from_millis(500));
+        std::thread::sleep(Duration::from_millis(500));
 
         // Check if change was detected
         let changed = watcher.try_recv();
