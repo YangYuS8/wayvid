@@ -1,19 +1,43 @@
 # wayvid configuration example
 # Copy to ~/.config/wayvid/config.yaml and customize
 
-# Video source - can be a single file, directory, or Wallpaper Engine project
+# Video source - supports multiple types
 source:
   type: File
-  path: "/home/user/Videos/wallpaper.mp4"
+  path: "~/Videos/wallpaper.mp4"
 
 # Alternative sources (comment out the one above and uncomment one below):
+
+# HTTP/HTTPS stream:
+# source:
+#   type: Url
+#   url: "https://example.com/video.mp4"
+
+# RTSP stream (IP camera):
+# source:
+#   type: Rtsp
+#   url: "rtsp://192.168.1.100:554/stream"
+
+# Pipe input (stdin or named pipe):
+# source:
+#   type: Pipe
+#   path: ""  # Empty for stdin
+
+# Image sequence / GIF:
+# source:
+#   type: ImageSequence
+#   path: "~/Pictures/wallpapers/*.jpg"
+#   fps: 30.0
+
+# Directory (not yet implemented):
 # source:
 #   type: Directory
-#   path: "/home/user/Videos/wallpapers/"
+#   path: "~/Videos/wallpapers/"
 
+# Wallpaper Engine project (not yet implemented):
 # source:
 #   type: WeProject
-#   path: "/home/user/.steam/steam/steamapps/workshop/content/431960/123456789"
+#   path: "~/.steam/steam/steamapps/workshop/content/431960/123456789"
 
 # Layout mode: Fill, Contain, Stretch, Cover, or Centre
 # - Fill: Scale and crop to fill the entire screen (maintains aspect ratio)

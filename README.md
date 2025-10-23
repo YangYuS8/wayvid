@@ -12,28 +12,36 @@ A dynamic video wallpaper engine for Wayland compositors, with priority support 
 - ✅ **Multi-Monitor** - Per-output configuration with hotplug support
 - ✅ **Hardware Decode** - VA-API/NVDEC support with software fallback
 - ✅ **Flexible Layouts** - Fill, Contain, Stretch, Cover, Centre modes
-- ✅ **WE Compatible** - Supports core Wallpaper Engine video parameters
-- ✅ **Low Resource** - Efficient playback with power-saving modes
-- 🚧 **OpenGL Rendering** - (In progress - MVP uses simplified playback)
+- ✅ **Multi-Source Support** - Local files, HTTP/RTSP streams, pipes, image sequences
+- ✅ **Runtime Control** - Control playback via `wayvid-ctl` (pause, seek, switch, etc.)
+- ✅ **Hot Reload** - Config changes applied instantly without restart
+- ✅ **Power Management** - Battery detection, FPS limiting, auto-pause
+- ✅ **OpenGL Rendering** - Full EGL/OpenGL integration with mpv render API
+- ✅ **Low Resource** - Efficient playback with intelligent caching
 
-## Status: M1 MVP
+## Status: M3 Complete
 
-**Current Release:** v0.1.0 (Milestone 1 - Single Output MVP)
+**Current Release:** v0.3.0 (Milestone 3 - Runtime Control & Multi-Source)
 
-This is an early MVP release. The core architecture is in place, but OpenGL rendering integration is simplified. See [Roadmap](#roadmap) for planned features.
+Core functionality is feature-complete with runtime control API and multi-source support. Production-ready for most use cases.
 
 ### What Works
 - ✅ Wayland layer-shell background surface creation
-- ✅ libmpv integration with hardware decode
-- ✅ Configuration system with per-output overrides
-- ✅ Layout calculation (Fill/Contain/Stretch/Centre)
-- ✅ CLI and capability checking
+- ✅ Full OpenGL/EGL rendering with mpv_render_context
+- ✅ Multi-output with hotplug support
+- ✅ Frame callbacks and vsync
+- ✅ Power management (battery, FPS limit, pause-on-hidden)
+- ✅ **Runtime Control** - IPC via wayvid-ctl
+- ✅ **Configuration Hot Reload** - No restart needed
+- ✅ **Multi-Source Support** - Files, URLs, RTSP, Pipes, Images
+- ✅ Layout calculation (Fill/Contain/Stretch/Cover/Centre)
+- ✅ Per-output configuration overrides
+- ✅ Hardware decode with VA-API/NVDEC
 
-### What's Next (M2)
-- 🔜 Full OpenGL/EGL rendering with mpv_render_context
-- 🔜 Multi-output hotplug
-- 🔜 Frame callbacks and vsync
-- 🔜 Power management (pause on idle/battery)
+### What's Next (M4)
+- 🔜 Wallpaper Engine project importer
+- 🔜 Advanced features (shared decode, HDR planning)
+- 🔜 Package distribution (Flatpak, AUR, Nix)
 
 ## Supported Compositors
 
@@ -114,15 +122,51 @@ $EDITOR ~/.config/wayvid/config.yaml
 Edit `~/.config/wayvid/config.yaml`:
 
 ```yaml
+# Local video file
 source:
   type: File
-  path: "/home/user/Videos/wallpaper.mp4"
+  path: "~/Videos/wallpaper.mp4"
 
 layout: Fill
 loop: true
 mute: true
+volume: 0.5
+playback_rate: 1.0
 hwdec: true
+
+# Power management
+power:
+  pause_when_hidden: true
+  pause_on_battery: false
+  max_fps: 30
 ```
+
+### Advanced Source Types
+
+```yaml
+# HTTP/HTTPS stream
+source:
+  type: Url
+  url: "https://example.com/video.mp4"
+
+# RTSP stream (IP camera)
+source:
+  type: Rtsp
+  url: "rtsp://192.168.1.100:554/stream"
+
+# Pipe input (stdin or named pipe)
+source:
+  type: Pipe
+  path: ""  # Empty for stdin, or "/tmp/video_pipe"
+
+# Image sequence / slideshow
+source:
+  type: ImageSequence
+  path: "~/Pictures/wallpapers/*.jpg"
+  fps: 1.0  # One image per second
+```
+
+See [Video Sources Documentation](docs/VIDEO_SOURCES.md) for more details.
 
 ### Per-Monitor Configuration
 
@@ -179,6 +223,41 @@ wayvid run --config /path/to/config.yaml
 
 # With debug logging
 wayvid run --log-level debug
+```
+
+### Runtime Control (wayvid-ctl)
+
+Control playback without restarting:
+
+```bash
+# Pause/Resume playback
+wayvid-ctl pause                    # Pause all outputs
+wayvid-ctl pause --output eDP-1     # Pause specific output
+wayvid-ctl resume                   # Resume all outputs
+
+# Seek to position
+wayvid-ctl seek --output eDP-1 30.5 # Jump to 30.5 seconds
+
+# Switch video source
+wayvid-ctl switch --output HDMI-A-1 ~/Videos/new_video.mp4
+wayvid-ctl switch --output eDP-1 https://example.com/stream.mp4
+
+# Adjust playback
+wayvid-ctl rate --output eDP-1 1.5  # 1.5x speed
+wayvid-ctl volume --output eDP-1 0.5 # 50% volume
+wayvid-ctl mute --output eDP-1       # Toggle mute
+
+# Change layout
+wayvid-ctl layout --output eDP-1 fill
+
+# Reload configuration
+wayvid-ctl reload
+
+# Get status
+wayvid-ctl status
+
+# Quit
+wayvid-ctl quit
 ```
 
 ### Check System Capabilities
@@ -355,7 +434,7 @@ wayvid import-we /path/to/wallpaper_engine/project/
 
 ## Roadmap
 
-### M1: Single Output MVP ✅ (Current)
+### M1: Single Output MVP ✅ (Completed)
 - [x] Project structure and dependencies
 - [x] Layer-shell background surface
 - [x] libmpv integration (simplified)
@@ -364,29 +443,41 @@ wayvid import-we /path/to/wallpaper_engine/project/
 - [x] CLI and capability check
 - [x] Documentation and examples
 
-### M2: Multi-Output & Hotplug (3-5 weeks)
-- [ ] Full OpenGL/EGL rendering pipeline
-- [ ] mpv_render_context integration
-- [ ] Frame callbacks and vsync
-- [ ] Output hotplug detection
-- [ ] Per-output player management
-- [ ] Power saving implementation
-- [ ] FPS/performance metrics
+### M2: Multi-Output & Hotplug ✅ (Completed)
+- [x] Full OpenGL/EGL rendering pipeline
+- [x] mpv_render_context integration
+- [x] Frame callbacks and vsync
+- [x] Output hotplug detection (GlobalRemove)
+- [x] Per-output player management
+- [x] Power saving implementation
+- [x] xdg-output protocol support
+- [x] Performance optimization (caching)
 
-### M3: WE Import & Distribution (3-5 weeks)
+### M3: Runtime Control & Multi-Source ✅ (Completed)
+- [x] IPC protocol design (JSON over Unix socket)
+- [x] Unix socket server implementation
+- [x] wayvid-ctl CLI client
+- [x] Runtime control commands (pause, seek, switch, volume, layout, etc.)
+- [x] Configuration hot reload (file watching)
+- [x] Multi-source support (URL, RTSP, Pipe, ImageSequence)
+- [x] Comprehensive documentation
+
+### M4: WE Import & Distribution (Next)
 - [ ] Wallpaper Engine project importer
 - [ ] Flatpak package
+- [ ] AUR package (wayvid-git)
+- [ ] Nix flake
 - [ ] Debian/RPM packages
-- [ ] Troubleshooting guide
-- [ ] Performance profiling
+- [ ] Advanced troubleshooting guide
 
-### M4: Advanced Features (Ongoing)
-- [ ] Shared decode optimization
-- [ ] Static image fallback
-- [ ] IPC/D-Bus control
-- [ ] System tray (optional)
+### M5: Advanced Features (Future)
+- [ ] Shared decode optimization (multi-output same video)
+- [ ] Static image fallback mode
+- [ ] System tray integration (optional)
+- [ ] D-Bus interface
 - [ ] Color management hints
 - [ ] HDR planning
+- [ ] Plugin system
 
 ## Performance Notes
 
