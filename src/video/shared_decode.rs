@@ -40,6 +40,11 @@ impl SourceKey {
             },
         }
     }
+    
+    /// Get a human-readable description of this source
+    pub fn description(&self) -> String {
+        format!("{:?} (hwdec={:?})", self.source, self.params.hwdec)
+    }
 }
 
 /// Decode parameters that affect the decoded output
@@ -74,6 +79,11 @@ pub struct DecoderHandle {
 }
 
 impl DecoderHandle {
+    /// Get source key description
+    pub fn source_description(&self) -> String {
+        self.key.description()
+    }
+    
     /// Initialize OpenGL rendering context for this decoder
     pub fn init_render_context(&self, egl_context: &EglContext) -> Result<()> {
         let mut manager = self.manager.write().unwrap();
