@@ -34,6 +34,47 @@ pub enum VideoSource {
     WeProject { path: String },
 }
 
+// Manual Eq implementation for VideoSource (treating f64 as bits)
+impl Eq for VideoSource {}
+
+// Manual Hash implementation for VideoSource
+impl std::hash::Hash for VideoSource {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            VideoSource::File { path } => {
+                0u8.hash(state);
+                path.hash(state);
+            }
+            VideoSource::Directory { path } => {
+                1u8.hash(state);
+                path.hash(state);
+            }
+            VideoSource::Url { url } => {
+                2u8.hash(state);
+                url.hash(state);
+            }
+            VideoSource::Rtsp { url } => {
+                3u8.hash(state);
+                url.hash(state);
+            }
+            VideoSource::Pipe { path } => {
+                4u8.hash(state);
+                path.hash(state);
+            }
+            VideoSource::ImageSequence { path, fps } => {
+                5u8.hash(state);
+                path.hash(state);
+                // Hash fps as bits to avoid f64 comparison issues
+                fps.to_bits().hash(state);
+            }
+            VideoSource::WeProject { path } => {
+                6u8.hash(state);
+                path.hash(state);
+            }
+        }
+    }
+}
+
 fn default_fps() -> f64 {
     30.0
 }
@@ -169,7 +210,7 @@ pub enum PlaybackState {
 }
 
 /// Hardware decode preference
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HwdecMode {
     /// Try hardware decode, fallback to software
     Auto,

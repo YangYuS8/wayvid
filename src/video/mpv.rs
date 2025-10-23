@@ -346,12 +346,16 @@ impl MpvPlayer {
 
 impl MpvPlayer {
     /// Seek to specific time (in seconds)
+    /// TODO: Re-enable in v0.5.0 with per-surface state management
+    #[allow(dead_code)]
     pub fn seek(&mut self, time: f64) -> Result<()> {
         let cmd = format!("seek {} absolute", time);
         self.command(&cmd)
     }
 
     /// Load a new video file
+    /// TODO: Re-enable in v0.5.0 with per-surface state management
+    #[allow(dead_code)]
     pub fn load_file(&mut self, path: &str) -> Result<()> {
         let cmd = format!("loadfile {}", path);
         self.invalidate_dimensions_cache();
@@ -359,12 +363,16 @@ impl MpvPlayer {
     }
 
     /// Set playback rate (speed)
+    /// TODO: Re-enable in v0.5.0 with per-surface state management
+    #[allow(dead_code)]
     pub fn set_playback_rate(&mut self, rate: f64) -> Result<()> {
         let cmd = format!("set speed {}", rate);
         self.command(&cmd)
     }
 
     /// Set volume (0.0 - 1.0)
+    /// TODO: Re-enable in v0.5.0 with per-surface state management
+    #[allow(dead_code)]
     pub fn set_volume(&mut self, volume: f64) -> Result<()> {
         let vol = volume * 100.0; // MPV uses 0-100 scale
         let cmd = format!("set volume {}", vol);
@@ -372,11 +380,14 @@ impl MpvPlayer {
     }
 
     /// Toggle mute
+    /// TODO: Re-enable in v0.5.0 with per-surface state management
+    #[allow(dead_code)]
     pub fn toggle_mute(&mut self) -> Result<()> {
         self.command("cycle mute")
     }
 
     /// Execute MPV command
+    #[allow(dead_code)]
     fn command(&mut self, cmd: &str) -> Result<()> {
         let c_cmd = CString::new(cmd).unwrap();
         let mut args: Vec<*const i8> = vec![c_cmd.as_ptr(), std::ptr::null()];
