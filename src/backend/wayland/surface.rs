@@ -165,11 +165,8 @@ impl WaylandSurface {
     fn init_decoder(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
         // Acquire shared decoder from manager
         let manager = SharedDecodeManager::global();
-        let handle = SharedDecodeManager::acquire_decoder(
-            manager,
-            &self.config,
-            &self.output_info,
-        )?;
+        let handle =
+            SharedDecodeManager::acquire_decoder(manager, &self.config, &self.output_info)?;
 
         info!(
             "  🔗 Decoder acquired for {} (source: {})",
@@ -233,8 +230,7 @@ impl WaylandSurface {
                     let output_h = egl_win.height();
 
                     // Get video dimensions and calculate/use cached layout
-                    let (render_w, render_h) = if let Some((vw, vh)) = handle.dimensions()
-                    {
+                    let (render_w, render_h) = if let Some((vw, vh)) = handle.dimensions() {
                         let cache_key = (vw, vh, output_w, output_h);
 
                         // Check if we can use cached layout
