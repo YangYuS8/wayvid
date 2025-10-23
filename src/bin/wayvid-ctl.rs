@@ -6,7 +6,7 @@ use wayvid::ctl::protocol::{IpcCommand, IpcResponse};
 
 #[derive(Parser)]
 #[command(name = "wayvid-ctl")]
-#[command(about = "Control wayvid daemon", long_about = None)]
+#[command(version, about = "Control wayvid daemon", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
