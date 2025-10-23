@@ -5,36 +5,66 @@ Get wayvid up and running in 5 minutes.
 ## Prerequisites
 
 - **Wayland compositor** with wlr-layer-shell support (Hyprland, niri, Sway, River)
-- **Rust** 1.75+ (`rustup` recommended)
-- **libmpv** development files
-- **Video file** (MP4, WebM, MKV, etc.)
+- **Video file** (MP4, WebM, MKV, etc.) or Wallpaper Engine project
 
 ## Installation
 
-### 1. Install Dependencies
+### Option 1: AppImage (Easiest - Any Distribution)
 
 ```bash
-# Arch Linux
-sudo pacman -S rust wayland libmpv mesa
+# Download
+wget https://github.com/YangYuS8/wayvid/releases/download/v0.3.0/wayvid-0.3.0-x86_64.AppImage
+chmod +x wayvid-0.3.0-x86_64.AppImage
 
-# Ubuntu/Debian  
-sudo apt install rustc cargo libwayland-dev libmpv-dev libgl1-mesa-dev libegl1-mesa-dev
-
-# Fedora
-sudo dnf install rust cargo wayland-devel mpv-libs-devel mesa-libGL-devel
+# Move to PATH (optional)
+mv wayvid-0.3.0-x86_64.AppImage ~/.local/bin/wayvid
 ```
 
-### 2. Build wayvid
+### Option 2: AUR (Arch Linux)
 
 ```bash
-git clone https://github.com/yourusername/wayvid.git
+yay -S wayvid-git
+```
+
+### Option 3: Nix Flakes
+
+```bash
+nix profile install github:YangYuS8/wayvid
+```
+
+### Option 4: From Source
+
+```bash
+# Install dependencies
+# Arch: sudo pacman -S rust wayland libmpv mesa
+# Ubuntu: sudo apt install rustc cargo libwayland-dev libmpv-dev libgl1-mesa-dev libegl1-mesa-dev
+# Fedora: sudo dnf install rust cargo wayland-devel mpv-libs-devel mesa-libGL-devel
+
+git clone https://github.com/YangYuS8/wayvid.git
 cd wayvid
-cargo build --release
+cargo build --release --all-features
 sudo install -Dm755 target/release/wayvid /usr/local/bin/wayvid
 sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/wayvid-ctl
 ```
 
-### 3. Create Configuration
+## Configuration
+
+### Option A: Import from Wallpaper Engine (Easiest)
+
+If you have Wallpaper Engine projects:
+
+```bash
+# Import WE project
+wayvid import ~/.steam/steam/steamapps/workshop/content/431960/YOUR_WORKSHOP_ID \
+  --output ~/.config/wayvid/config.yaml
+
+# Or from local WE project
+wayvid import ~/path/to/we-project --output ~/.config/wayvid/config.yaml
+```
+
+This automatically converts all WE settings (video path, playback rate, alignment, volume, etc.) to wayvid config!
+
+### Option B: Create Configuration Manually
 
 ```bash
 mkdir -p ~/.config/wayvid
@@ -53,7 +83,7 @@ power:
 EOF
 ```
 
-### 4. Test Run
+## Test Run
 
 ```bash
 # Check system capabilities
@@ -62,7 +92,31 @@ wayvid check
 # Run wayvid (Ctrl+C to stop)
 wayvid run
 
+# Or with custom config
+wayvid run --config ~/my-config.yaml
+
 # If working, set up autostart (see below)
+```
+
+### Runtime Control
+
+Control playback without restarting:
+
+```bash
+# Pause/Resume
+wayvid-ctl pause
+wayvid-ctl resume
+
+# Switch video
+wayvid-ctl switch ~/Videos/another-video.mp4
+
+# Adjust playback
+wayvid-ctl rate 1.5      # 1.5x speed
+wayvid-ctl volume 0.5    # 50% volume
+wayvid-ctl seek 30.0     # Jump to 30 seconds
+
+# Check status
+wayvid-ctl status
 ```
 
 ## Autostart

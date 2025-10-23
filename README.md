@@ -19,11 +19,11 @@ A dynamic video wallpaper engine for Wayland compositors, with priority support 
 - ✅ **OpenGL Rendering** - Full EGL/OpenGL integration with mpv render API
 - ✅ **Low Resource** - Efficient playback with intelligent caching
 
-## Status: M3 Complete
+## Status: M4 Complete
 
-**Current Release:** v0.3.0 (Milestone 3 - Runtime Control & Multi-Source)
+**Current Release:** v0.3.0 (Milestone 4 - WE Import & Distribution)
 
-Core functionality is feature-complete with runtime control API and multi-source support. Production-ready for most use cases.
+Core functionality is feature-complete with Wallpaper Engine import and multi-platform distribution support. Production-ready for all major Linux distributions.
 
 ### What Works
 - ✅ Wayland layer-shell background surface creation
@@ -34,14 +34,21 @@ Core functionality is feature-complete with runtime control API and multi-source
 - ✅ **Runtime Control** - IPC via wayvid-ctl
 - ✅ **Configuration Hot Reload** - No restart needed
 - ✅ **Multi-Source Support** - Files, URLs, RTSP, Pipes, Images
+- ✅ **Wallpaper Engine Import** - Direct WE project conversion
 - ✅ Layout calculation (Fill/Contain/Stretch/Cover/Centre)
 - ✅ Per-output configuration overrides
 - ✅ Hardware decode with VA-API/NVDEC
 
-### What's Next (M4)
-- 🔜 Wallpaper Engine project importer
-- 🔜 Advanced features (shared decode, HDR planning)
-- 🔜 Package distribution (Flatpak, AUR, Nix)
+### Distribution Support
+- ✅ **AppImage** - Universal Linux binary
+- ✅ **AUR** - Arch Linux packages (git + stable)
+- ✅ **Nix Flakes** - NixOS and Home Manager integration
+- ✅ **Source Build** - All major distributions
+
+### What's Next (M5)
+- 🔜 Advanced features (shared decode, HDR support)
+- 🔜 Performance optimizations
+- 🔜 Extended compositor support
 
 ## Supported Compositors
 
@@ -55,7 +62,90 @@ Core functionality is feature-complete with runtime control API and multi-source
 
 ## Installation
 
-### From Source (Recommended for Now)
+### AppImage (Universal Linux - Recommended)
+
+Download the latest AppImage from [Releases](https://github.com/YangYuS8/wayvid/releases):
+
+```bash
+# Download
+wget https://github.com/YangYuS8/wayvid/releases/download/v0.3.0/wayvid-0.3.0-x86_64.AppImage
+
+# Make executable
+chmod +x wayvid-0.3.0-x86_64.AppImage
+
+# Run directly
+./wayvid-0.3.0-x86_64.AppImage --version
+
+# Optional: Move to PATH
+mv wayvid-0.3.0-x86_64.AppImage ~/.local/bin/wayvid
+```
+
+**Features**:
+- ✅ Works on any Linux distribution (Ubuntu, Fedora, Arch, Debian, etc.)
+- ✅ No installation required
+- ✅ Includes both `wayvid` and `wayvid-ctl`
+- ✅ Self-contained with all dependencies
+
+**Usage**:
+```bash
+# Run wayvid
+wayvid run --config ~/.config/wayvid/config.yaml
+
+# Run wayvid-ctl
+wayvid ctl status
+wayvid ctl pause
+```
+
+### Arch Linux (AUR)
+
+```bash
+# Install from AUR
+yay -S wayvid-git
+
+# Or manually with makepkg
+git clone https://aur.archlinux.org/wayvid-git.git
+cd wayvid-git
+makepkg -si
+```
+
+**Optional dependencies** for hardware acceleration:
+- `mesa` - VA-API hardware video decoding
+- `libva-intel-driver` - Intel GPU acceleration
+- `libva-mesa-driver` - AMD GPU acceleration
+- `nvidia-utils` - NVIDIA GPU acceleration
+
+### NixOS / Nix Flakes
+
+**Direct run** (no installation):
+```bash
+nix run github:YangYuS8/wayvid
+```
+
+**Install to profile**:
+```bash
+nix profile install github:YangYuS8/wayvid
+```
+
+**NixOS configuration**:
+```nix
+{
+  inputs.wayvid.url = "github:YangYuS8/wayvid";
+  
+  outputs = { nixpkgs, wayvid, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        {
+          environment.systemPackages = [ wayvid.packages.x86_64-linux.default ];
+        }
+      ];
+    };
+  };
+}
+```
+
+See [Nix Documentation](packaging/nix/README.md) for more details.
+
+### From Source
 
 #### Prerequisites
 
@@ -90,14 +180,15 @@ sudo apt install nvidia-driver-XXX libnvidia-encode-XXX # Ubuntu (replace XXX wi
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/wayvid.git
+git clone https://github.com/YangYuS8/wayvid.git
 cd wayvid
 
-# Build release binary
-cargo build --release
+# Build release binaries
+cargo build --release --all-features
 
-# Install to ~/.local/bin
+# Install both binaries
 install -Dm755 target/release/wayvid ~/.local/bin/wayvid
+install -Dm755 target/release/wayvid-ctl ~/.local/bin/wayvid-ctl
 
 # Create config directory
 mkdir -p ~/.config/wayvid
@@ -109,13 +200,48 @@ cp configs/config.example.yaml ~/.config/wayvid/config.yaml
 $EDITOR ~/.config/wayvid/config.yaml
 ```
 
-### Package Managers (Coming Soon)
+### Systemd User Service
 
-- 📦 **AUR**: `yay -S wayvid-git` (M2)
-- ❄️ **Nix**: `nix run github:yourusername/wayvid` (M2)
-- 📦 **AppImage**: Download from releases (M2)
+Enable automatic start on login:
+
+```bash
+# Copy systemd unit file
+mkdir -p ~/.config/systemd/user
+cp systemd/wayvid.service ~/.config/systemd/user/
+
+# Enable and start
+systemctl --user enable --now wayvid.service
+
+# Check status
+systemctl --user status wayvid
+```
 
 ## Configuration
+
+### Import from Wallpaper Engine
+
+wayvid can import **Wallpaper Engine** video projects directly:
+
+```bash
+# Import a WE project directory
+wayvid import ~/path/to/we-project
+
+# Output to file
+wayvid import ~/path/to/we-project --output ~/.config/wayvid/config.yaml
+
+# Example: Workshop item
+wayvid import ~/.steam/steam/steamapps/workshop/content/431960/2934567890
+```
+
+**Supported WE features**:
+- ✅ Video file path detection
+- ✅ Playback rate (speed)
+- ✅ Volume settings
+- ✅ Loop mode
+- ✅ Alignment/scaling (Center/Fit/Fill/Stretch)
+- ✅ Metadata (title, workshop ID, description)
+
+The importer automatically converts WE properties to wayvid config format. See [WE Format Documentation](docs/WE_FORMAT.md) for details.
 
 ### Basic Setup
 

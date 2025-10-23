@@ -1,12 +1,12 @@
 [package]
 name = "wayvid"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
 license = "MIT OR Apache-2.0"
 description = "Dynamic video wallpaper engine for Wayland compositors"
-repository = "https://github.com/yourusername/wayvid"
+repository = "https://github.com/YangYuS8/wayvid"
 keywords = ["wayland", "wallpaper", "video", "mpv", "hyprland"]
 categories = ["multimedia::video", "gui"]
 
