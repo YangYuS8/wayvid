@@ -11,7 +11,7 @@ use crate::core::types::OutputInfo;
 use crate::video::egl::{EglContext, EglWindow};
 
 #[cfg(feature = "video-mpv")]
-use crate::video::mpv::MpvPlayer;
+use crate::video::shared_decode::{DecoderHandle, SharedDecodeManager};
 
 pub struct WaylandSurface {
     pub wl_surface: wl_surface::WlSurface,
@@ -24,9 +24,9 @@ pub struct WaylandSurface {
     egl_window: Option<EglWindow>,
     gl_loaded: bool,
 
-    // Video player
+    // Video decoder (shared across outputs with same source)
     #[cfg(feature = "video-mpv")]
-    player: Option<MpvPlayer>,
+    decoder_handle: Option<DecoderHandle>,
 
     // Frame synchronization
     frame_callback: Option<wl_callback::WlCallback>,
@@ -86,7 +86,7 @@ impl WaylandSurface {
             egl_window: None,
             gl_loaded: false,
             #[cfg(feature = "video-mpv")]
-            player: None,
+            decoder_handle: None,
             frame_callback: None,
             frame_pending: false,
             cached_layout: None,
@@ -142,13 +142,13 @@ impl WaylandSurface {
             }
         }
 
-        // Initialize player after first configuration
+        // Initialize decoder after first configuration
         #[cfg(feature = "video-mpv")]
         {
-            if is_first && self.player.is_none() {
-                match self.init_player(egl_context) {
-                    Ok(()) => info!("✓ MPV player initialized for {}", self.output_info.name),
-                    Err(e) => error!("Failed to initialize player: {}", e),
+            if is_first && self.decoder_handle.is_none() {
+                match self.init_decoder(egl_context) {
+                    Ok(()) => info!("✓ Decoder initialized for {}", self.output_info.name),
+                    Err(e) => error!("Failed to initialize decoder: {}", e),
                 }
             }
         }
@@ -162,22 +162,34 @@ impl WaylandSurface {
     }
 
     #[cfg(feature = "video-mpv")]
-    fn init_player(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
-        let mut player = MpvPlayer::new(&self.config, &self.output_info)?;
+    fn init_decoder(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
+        // Acquire shared decoder from manager
+        let manager = SharedDecodeManager::global();
+        let handle = SharedDecodeManager::acquire_decoder(
+            manager,
+            &self.config,
+            &self.output_info,
+        )?;
+
+        info!(
+            "  🔗 Decoder acquired for {} (source: {})",
+            self.output_info.name,
+            handle.source_description()
+        );
 
         // Initialize render context if EGL is available
         if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {
             // Make OpenGL context current before initializing render context
             if let Err(e) = egl_ctx.make_current(egl_win) {
                 error!("Failed to make context current: {}", e);
-            } else if let Err(e) = player.init_render_context(egl_ctx) {
+            } else if let Err(e) = handle.init_render_context(egl_ctx) {
                 error!("Failed to init render context: {}", e);
             } else {
                 info!("  ✓ Render context initialized");
             }
         }
 
-        self.player = Some(player);
+        self.decoder_handle = Some(handle);
         Ok(())
     }
 
@@ -216,12 +228,12 @@ impl WaylandSurface {
             // Render video frame with layout
             #[cfg(feature = "video-mpv")]
             {
-                if let Some(ref mut player) = self.player {
+                if let Some(ref handle) = self.decoder_handle {
                     let output_w = egl_win.width();
                     let output_h = egl_win.height();
 
                     // Get video dimensions and calculate/use cached layout
-                    let (render_w, render_h) = if let Some((vw, vh)) = player.get_video_dimensions()
+                    let (render_w, render_h) = if let Some((vw, vh)) = handle.dimensions()
                     {
                         let cache_key = (vw, vh, output_w, output_h);
 
@@ -266,8 +278,8 @@ impl WaylandSurface {
                         (output_w, output_h)
                     };
 
-                    // Render video frame
-                    if let Err(e) = player.render(render_w, render_h, 0) {
+                    // Render video frame via shared decoder
+                    if let Err(e) = handle.render(render_w, render_h, 0) {
                         warn!("Video render error: {}", e);
                     }
 
@@ -315,76 +327,84 @@ impl WaylandSurface {
     }
 
     /// Pause video playback (for power management)
+    /// TODO(M5): Shared decode architecture doesn't support per-surface playback control
+    /// Need to design per-surface state management in future versions
     #[cfg(feature = "video-mpv")]
+    #[allow(unused_variables)]
     pub fn pause_playback(&mut self) -> Result<()> {
-        if let Some(ref mut player) = self.player {
-            player.pause()?;
-        }
+        // Temporarily disabled - shared decoder affects all consumers
+        warn!("pause_playback not supported with shared decode context");
         Ok(())
     }
 
     /// Resume video playback (for power management)
+    /// TODO(M5): Shared decode architecture doesn't support per-surface playback control
     #[cfg(feature = "video-mpv")]
+    #[allow(unused_variables)]
     pub fn resume_playback(&mut self) -> Result<()> {
-        if let Some(ref mut player) = self.player {
-            player.resume()?;
-        }
+        // Temporarily disabled - shared decoder affects all consumers
+        warn!("resume_playback not supported with shared decode context");
         Ok(())
     }
 
     /// Get playback status
+    /// TODO(M5): Implement per-surface status tracking
     #[cfg(feature = "video-mpv")]
     pub fn get_status(&self) -> Option<(bool, f64, f64)> {
         // Returns: (is_playing, current_time, duration)
-        self.player.as_ref().map(|_player| {
-            // For now return placeholder values
-            // TODO: Add actual MPV property getters
-            (true, 0.0, 0.0)
-        })
+        self.decoder_handle.as_ref()?;
+        // For now return placeholder values
+        // TODO: Add actual MPV property getters via decoder handle
+        Some((true, 0.0, 0.0))
     }
 
     /// Seek to specific time
+    /// TODO(M5): Shared decode architecture doesn't support per-surface seek
     #[cfg(feature = "video-mpv")]
+    #[allow(unused_variables)]
     pub fn seek(&mut self, time: f64) -> Result<()> {
-        if let Some(ref mut player) = self.player {
-            player.seek(time)?;
-        }
+        // Temporarily disabled - seek affects all consumers
+        warn!("seek not supported with shared decode context");
         Ok(())
     }
 
     /// Switch video source
+    /// TODO(M5): Need to implement source switching with decoder re-acquisition
     #[cfg(feature = "video-mpv")]
+    #[allow(unused_variables)]
     pub fn switch_source(&mut self, source: &str) -> Result<()> {
-        if let Some(ref mut player) = self.player {
-            player.load_file(source)?;
-        }
+        // Temporarily disabled - requires decoder handle replacement
+        warn!("switch_source not supported with shared decode context");
         Ok(())
     }
 
     /// Set playback rate
+    /// TODO(M5): Shared decode architecture doesn't support per-surface rate control
     #[cfg(feature = "video-mpv")]
+    #[allow(unused_variables)]
     pub fn set_playback_rate(&mut self, rate: f64) -> Result<()> {
-        if let Some(ref mut player) = self.player {
-            player.set_playback_rate(rate)?;
-        }
+        // Temporarily disabled - rate affects all consumers
+        warn!("set_playback_rate not supported with shared decode context");
         Ok(())
     }
 
     /// Set volume
+    /// TODO(M5): Audio handling needs to be designed for shared decode
     #[cfg(feature = "video-mpv")]
+    #[allow(unused_variables)]
     pub fn set_volume(&mut self, volume: f64) -> Result<()> {
-        if let Some(ref mut player) = self.player {
-            player.set_volume(volume)?;
-        }
+        // Temporarily disabled - audio is per-decoder not per-surface
+        warn!("set_volume not supported with shared decode context");
         Ok(())
     }
 
     /// Toggle mute
+    /// TODO(M5): Audio handling needs to be designed for shared decode
     #[cfg(feature = "video-mpv")]
+    #[allow(unused_variables)]
     pub fn toggle_mute(&mut self) -> Result<()> {
-        if let Some(ref mut player) = self.player {
-            player.toggle_mute()?;
-        }
+        // Temporarily disabled - audio is per-decoder not per-surface
+        warn!("toggle_mute not supported with shared decode context");
         Ok(())
     }
 
