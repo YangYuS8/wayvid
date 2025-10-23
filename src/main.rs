@@ -125,7 +125,8 @@ fn main() -> Result<()> {
         #[cfg(feature = "ipc")]
         Commands::Reload => {
             info!("Reloading configuration...");
-            ctl::ipc::send_reload()?;
+            use ctl::protocol::IpcCommand;
+            ctl::ipc_server::send_command(&IpcCommand::ReloadConfig)?;
         }
     }
 
