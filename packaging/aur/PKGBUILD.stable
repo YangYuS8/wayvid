@@ -1,8 +1,9 @@
 # Maintainer: wayvid contributors
-pkgname=wayvid-git
-pkgver=r28.8ad0879
+
+pkgname=wayvid
+pkgver=0.3.0
 pkgrel=1
-pkgdesc="Dynamic video wallpaper engine for Wayland compositors (git version)"
+pkgdesc="Dynamic video wallpaper engine for Wayland compositors"
 arch=('x86_64' 'aarch64')
 url="https://github.com/YangYuS8/wayvid"
 license=('MIT' 'Apache-2.0')
@@ -15,7 +16,6 @@ depends=(
 makedepends=(
     'rust'
     'cargo'
-    'git'
 )
 optdepends=(
     'mesa: Hardware video decoding with VA-API'
@@ -24,24 +24,19 @@ optdepends=(
     'nvidia-utils: NVIDIA GPU hardware acceleration'
 )
 provides=('wayvid')
-conflicts=('wayvid')
-source=("git+https://github.com/YangYuS8/wayvid.git")
-sha256sums=('SKIP')
-
-pkgver() {
-    cd "$srcdir/wayvid"
-    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
-}
+conflicts=('wayvid-git')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # Update with actual checksum when v0.3.0 is released
 
 prepare() {
-    cd "$srcdir/wayvid"
+    cd "$pkgname-$pkgver"
     
     # Update Cargo.lock
     cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
 }
 
 build() {
-    cd "$srcdir/wayvid"
+    cd "$pkgname-$pkgver"
     
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
@@ -50,14 +45,14 @@ build() {
 }
 
 check() {
-    cd "$srcdir/wayvid"
+    cd "$pkgname-$pkgver"
     
     # Run tests (currently minimal, skip if fails)
     cargo test --frozen --release --all-features || true
 }
 
 package() {
-    cd "$srcdir/wayvid"
+    cd "$pkgname-$pkgver"
     
     # Install binaries
     install -Dm755 target/release/wayvid "$pkgdir/usr/bin/wayvid"
