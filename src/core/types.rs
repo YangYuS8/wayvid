@@ -2,22 +2,45 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Video source specification
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "type")]
 pub enum VideoSource {
     /// Single video file
     File { path: String },
 
-    /// Directory containing videos (future: playlist)
+    /// Directory containing videos (playlist)
     Directory { path: String },
+
+    /// HTTP/HTTPS URL stream
+    Url { url: String },
+
+    /// RTSP stream
+    Rtsp { url: String },
+
+    /// Pipe input (stdin or named pipe)
+    Pipe { 
+        #[serde(default)]
+        path: String  // Empty string means stdin
+    },
+
+    /// GIF or image sequence
+    ImageSequence { 
+        path: String,
+        #[serde(default = "default_fps")]
+        fps: f64,
+    },
 
     /// Wallpaper Engine project (future: import)
     #[serde(rename = "WeProject")]
     WeProject { path: String },
 }
 
+fn default_fps() -> f64 {
+    30.0
+}
+
 impl VideoSource {
-    /// Get the primary file path to play
+    /// Get the primary file path or URL to play
     pub fn primary_path(&self) -> Result<PathBuf, &'static str> {
         match self {
             VideoSource::File { path } => {
@@ -25,8 +48,76 @@ impl VideoSource {
                 Ok(PathBuf::from(expanded.as_ref()))
             }
             VideoSource::Directory { .. } => Err("Directory source not yet implemented"),
+            VideoSource::Url { .. } => Err("Use get_mpv_path() for URL sources"),
+            VideoSource::Rtsp { .. } => Err("Use get_mpv_path() for RTSP sources"),
+            VideoSource::Pipe { .. } => Err("Use get_mpv_path() for pipe sources"),
+            VideoSource::ImageSequence { .. } => {
+                let expanded = shellexpand::tilde(self.get_source_string());
+                Ok(PathBuf::from(expanded.as_ref()))
+            }
             VideoSource::WeProject { .. } => Err("WeProject import not yet implemented"),
         }
+    }
+    
+    /// Get the source path/URL as string for MPV
+    pub fn get_mpv_path(&self) -> String {
+        match self {
+            VideoSource::File { path } => {
+                let expanded = shellexpand::tilde(path);
+                expanded.to_string()
+            }
+            VideoSource::Directory { path } => {
+                let expanded = shellexpand::tilde(path);
+                expanded.to_string()
+            }
+            VideoSource::Url { url } => url.clone(),
+            VideoSource::Rtsp { url } => url.clone(),
+            VideoSource::Pipe { path } => {
+                if path.is_empty() {
+                    "fd://0".to_string()  // stdin
+                } else {
+                    let expanded = shellexpand::tilde(path);
+                    expanded.to_string()
+                }
+            }
+            VideoSource::ImageSequence { path, .. } => {
+                let expanded = shellexpand::tilde(path);
+                expanded.to_string()
+            }
+            VideoSource::WeProject { path } => {
+                let expanded = shellexpand::tilde(path);
+                expanded.to_string()
+            }
+        }
+    }
+    
+    /// Get the source as a display string
+    pub fn get_source_string(&self) -> &str {
+        match self {
+            VideoSource::File { path } => path,
+            VideoSource::Directory { path } => path,
+            VideoSource::Url { url } => url,
+            VideoSource::Rtsp { url } => url,
+            VideoSource::Pipe { path } => {
+                if path.is_empty() {
+                    "stdin"
+                } else {
+                    path
+                }
+            }
+            VideoSource::ImageSequence { path, .. } => path,
+            VideoSource::WeProject { path } => path,
+        }
+    }
+    
+    /// Check if this is a streaming source (needs special handling)
+    pub fn is_streaming(&self) -> bool {
+        matches!(self, VideoSource::Url { .. } | VideoSource::Rtsp { .. } | VideoSource::Pipe { .. })
+    }
+    
+    /// Check if this is an image sequence (needs loop handling)
+    pub fn is_image_sequence(&self) -> bool {
+        matches!(self, VideoSource::ImageSequence { .. })
     }
 }
 

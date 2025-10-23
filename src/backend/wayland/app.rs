@@ -11,8 +11,8 @@ use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_l
 
 use crate::backend::wayland::output::Output;
 use crate::backend::wayland::surface::WaylandSurface;
-use crate::config::Config;
 use crate::config::watcher::ConfigWatcher;
+use crate::config::Config;
 use crate::core::power::PowerManager;
 use crate::ctl::ipc_server::IpcServer;
 use crate::ctl::protocol::IpcCommand;
@@ -392,67 +392,64 @@ impl AppState {
             info!("Config reloaded successfully via IPC command");
         }
     }
-    
+
     /// Reload configuration from file
     fn reload_config(&mut self) -> Result<()> {
         let config_path = self
             .config_path
             .as_ref()
             .context("No config path available for reload")?;
-        
+
         info!("Reloading config from: {}", config_path.display());
-        
+
         // Load new config
         let new_config = Config::from_file(config_path)?;
-        
+
         // Apply to all surfaces
         for (output_id, surface) in self.surfaces.iter_mut() {
             let output_info = &surface.output_info;
-            
+
             // Get effective config for this output
             let effective_config = new_config.for_output(&output_info.name);
-            
+
             info!(
                 "  Applying config to output: {} ({})",
                 output_info.name, output_id
             );
-            
+
             // Apply new config to surface
             #[cfg(feature = "video-mpv")]
             {
                 // Update layout
                 surface.set_layout(effective_config.layout);
-                
+
                 // Update playback rate
                 if let Err(e) = surface.set_playback_rate(effective_config.playback_rate) {
                     warn!("    Failed to set playback rate: {}", e);
                 }
-                
+
                 // Update volume
                 if let Err(e) = surface.set_volume(effective_config.volume) {
                     warn!("    Failed to set volume: {}", e);
                 }
-                
+
                 // Switch source if changed
-                if let Ok(old_path) = surface.config.source.primary_path() {
-                    if let Ok(new_path) = effective_config.source.primary_path() {
-                        if old_path != new_path {
-                            info!("    Switching source to: {}", new_path.display());
-                            if let Err(e) = surface.switch_source(new_path.to_str().unwrap_or("")) {
-                                warn!("    Failed to switch source: {}", e);
-                            }
-                        }
+                if surface.config.source != effective_config.source {
+                    let new_source = effective_config.source.get_mpv_path();
+                    info!("    Switching source to: {}", new_source);
+                    if let Err(e) = surface.switch_source(&new_source) {
+                        warn!("    Failed to switch source: {}", e);
                     }
                 }
             }
-            
+
             // Update stored config
             surface.config = effective_config;
         }
-        
+
         // Update stored config
         self.config = new_config;
-        
+
         Ok(())
     }
 } // Dispatch implementations
@@ -700,10 +697,10 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
 
     let qh = event_queue.handle();
     let mut state = AppState::new(config);
-    
+
     // Store config path for hot reload
     state.config_path = config_path.clone();
-    
+
     // Start config file watcher if path is provided
     if let Some(ref path) = config_path {
         match ConfigWatcher::watch(path.clone()) {

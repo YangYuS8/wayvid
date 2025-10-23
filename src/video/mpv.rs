@@ -114,19 +114,29 @@ impl MpvPlayer {
 
         info!("  ✓ MPV initialized successfully");
 
-        // Load video file
-        let video_path = config
-            .source
-            .primary_path()
-            .map_err(|e| anyhow!("Failed to get video path: {}", e))?;
+        // Configure source-specific options
+        if config.source.is_streaming() {
+            info!("  🌐 Configuring for streaming source");
+            set_option("cache", "yes");
+            set_option("cache-secs", "10");
+        }
+        
+        if config.source.is_image_sequence() {
+            info!("  �️  Configuring for image sequence");
+            set_option("image-display-duration", "inf");
+            // Get FPS for image sequences
+            if let crate::core::types::VideoSource::ImageSequence { fps, .. } = &config.source {
+                let fps_str = format!("{}", fps);
+                set_option("fps", &fps_str);
+            }
+        }
 
-        info!("  📁 Loading video: {:?}", video_path);
+        // Load video source
+        let source_path = config.source.get_mpv_path();
+        info!("  📁 Loading source: {}", source_path);
 
         let cmd = CString::new("loadfile").unwrap();
-        let path_str = video_path
-            .to_str()
-            .ok_or_else(|| anyhow!("Invalid video path"))?;
-        let path_c = CString::new(path_str)?;
+        let path_c = CString::new(source_path.as_str())?;
         let mode = CString::new("replace").unwrap();
 
         let mut args = [
@@ -138,9 +148,9 @@ impl MpvPlayer {
 
         let ret = unsafe { libmpv_sys::mpv_command(handle, args.as_mut_ptr()) };
         if ret < 0 {
-            warn!("Failed to load video file: error {}", ret);
+            warn!("Failed to load source: error {}", ret);
         } else {
-            info!("  ✓ Video loaded successfully");
+            info!("  ✓ Source loaded successfully");
         }
 
         Ok(Self {
