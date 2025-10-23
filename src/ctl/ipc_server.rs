@@ -119,7 +119,8 @@ impl Drop for IpcServer {
     }
 }
 
-/// Send a command to the wayvid daemon and get response
+/// Send a command to the wayvid daemon and get response (for future use)
+#[allow(dead_code)]
 pub fn send_command(command: &IpcCommand) -> Result<IpcResponse> {
     let socket_path = if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
         PathBuf::from(runtime_dir).join("wayvid.sock")
