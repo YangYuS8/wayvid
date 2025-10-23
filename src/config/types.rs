@@ -187,7 +187,8 @@ mod tests {
     fn test_parse_minimal_config() {
         let yaml = r#"
 source:
-  File: "/path/to/video.mp4"
+  type: File
+  path: "/path/to/video.mp4"
 "#;
         let config: Config = serde_yaml::from_str(yaml).unwrap();
         assert!(config.r#loop);
@@ -198,7 +199,8 @@ source:
     fn test_per_output_override() {
         let yaml = r#"
 source:
-  File: "/default.mp4"
+  type: File
+  path: "/default.mp4"
 layout: Fill
 per_output:
   HDMI-A-1:
