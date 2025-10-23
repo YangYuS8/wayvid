@@ -138,7 +138,6 @@ pub fn generate_config_with_metadata(project: &WeProject, video_path: PathBuf) -
 mod tests {
     use super::*;
     use crate::we::types::WeGeneral;
-    use std::path::Path;
 
     #[test]
     fn test_convert_alignment() {
