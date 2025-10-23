@@ -12,14 +12,18 @@ use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_l
 use crate::backend::wayland::output::Output;
 use crate::backend::wayland::surface::WaylandSurface;
 use crate::config::Config;
+use crate::config::watcher::ConfigWatcher;
 use crate::core::power::PowerManager;
 use crate::ctl::ipc_server::IpcServer;
 use crate::ctl::protocol::IpcCommand;
 use crate::video::egl::EglContext;
+use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 
 pub struct AppState {
     pub config: Config,
+    pub config_path: Option<PathBuf>,
+    pub config_watcher: Option<ConfigWatcher>,
     pub compositor: Option<wl_compositor::WlCompositor>,
     pub layer_shell: Option<zwlr_layer_shell_v1::ZwlrLayerShellV1>,
     pub xdg_output_manager: Option<zxdg_output_manager_v1::ZxdgOutputManagerV1>,
@@ -37,6 +41,8 @@ impl AppState {
     fn new(config: Config) -> Self {
         Self {
             config,
+            config_path: None,
+            config_watcher: None,
             compositor: None,
             layer_shell: None,
             xdg_output_manager: None,
@@ -329,7 +335,7 @@ impl AppState {
     /// Handle set layout command
     fn handle_set_layout_command(&mut self, output: String, layout: String) {
         use crate::core::types::LayoutMode;
-        
+
         let layout_mode = match layout.to_lowercase().as_str() {
             "centre" | "center" => LayoutMode::Centre,
             "stretch" => LayoutMode::Stretch,
@@ -337,7 +343,10 @@ impl AppState {
             "fill" => LayoutMode::Fill,
             "cover" => LayoutMode::Cover,
             _ => {
-                warn!("Unknown layout mode: {}. Valid: centre, stretch, contain, fill, cover", layout);
+                warn!(
+                    "Unknown layout mode: {}. Valid: centre, stretch, contain, fill, cover",
+                    layout
+                );
                 return;
             }
         };
@@ -375,10 +384,76 @@ impl AppState {
         }
     }
 
-    /// Handle reload config command (placeholder)
+    /// Handle reload config command
     fn handle_reload_config_command(&mut self) {
-        warn!("Config reload not yet implemented");
-        // TODO: Re-parse config file and apply to all surfaces
+        if let Err(e) = self.reload_config() {
+            warn!("Failed to reload config: {}", e);
+        } else {
+            info!("Config reloaded successfully via IPC command");
+        }
+    }
+    
+    /// Reload configuration from file
+    fn reload_config(&mut self) -> Result<()> {
+        let config_path = self
+            .config_path
+            .as_ref()
+            .context("No config path available for reload")?;
+        
+        info!("Reloading config from: {}", config_path.display());
+        
+        // Load new config
+        let new_config = Config::from_file(config_path)?;
+        
+        // Apply to all surfaces
+        for (output_id, surface) in self.surfaces.iter_mut() {
+            let output_info = &surface.output_info;
+            
+            // Get effective config for this output
+            let effective_config = new_config.for_output(&output_info.name);
+            
+            info!(
+                "  Applying config to output: {} ({})",
+                output_info.name, output_id
+            );
+            
+            // Apply new config to surface
+            #[cfg(feature = "video-mpv")]
+            {
+                // Update layout
+                surface.set_layout(effective_config.layout);
+                
+                // Update playback rate
+                if let Err(e) = surface.set_playback_rate(effective_config.playback_rate) {
+                    warn!("    Failed to set playback rate: {}", e);
+                }
+                
+                // Update volume
+                if let Err(e) = surface.set_volume(effective_config.volume) {
+                    warn!("    Failed to set volume: {}", e);
+                }
+                
+                // Switch source if changed
+                if let Ok(old_path) = surface.config.source.primary_path() {
+                    if let Ok(new_path) = effective_config.source.primary_path() {
+                        if old_path != new_path {
+                            info!("    Switching source to: {}", new_path.display());
+                            if let Err(e) = surface.switch_source(new_path.to_str().unwrap_or("")) {
+                                warn!("    Failed to switch source: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Update stored config
+            surface.config = effective_config;
+        }
+        
+        // Update stored config
+        self.config = new_config;
+        
+        Ok(())
     }
 } // Dispatch implementations
 impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for AppState {
@@ -615,7 +690,7 @@ impl Dispatch<wl_callback::WlCallback, u32> for AppState {
     }
 }
 
-pub fn run(config: Config) -> Result<()> {
+pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     info!("Starting wayvid Wayland backend");
 
     let conn = Connection::connect_to_env().context("Failed to connect to Wayland compositor")?;
@@ -625,6 +700,23 @@ pub fn run(config: Config) -> Result<()> {
 
     let qh = event_queue.handle();
     let mut state = AppState::new(config);
+    
+    // Store config path for hot reload
+    state.config_path = config_path.clone();
+    
+    // Start config file watcher if path is provided
+    if let Some(ref path) = config_path {
+        match ConfigWatcher::watch(path.clone()) {
+            Ok(watcher) => {
+                info!("  ✓ Config watcher started for: {}", path.display());
+                state.config_watcher = Some(watcher);
+            }
+            Err(e) => {
+                warn!("  ✗ Failed to start config watcher: {}", e);
+                warn!("    Continuing without hot reload support");
+            }
+        }
+    }
 
     // Start IPC server
     info!("Starting IPC server...");
@@ -766,6 +858,18 @@ pub fn run(config: Config) -> Result<()> {
         for command in commands {
             info!("Processing IPC command: {:?}", command);
             state.handle_command(command);
+        }
+
+        // Check for config file changes (non-blocking)
+        if let Some(ref watcher) = state.config_watcher {
+            if let Some(changed_path) = watcher.try_recv() {
+                info!("Config file changed: {}", changed_path.display());
+                if let Err(e) = state.reload_config() {
+                    warn!("Failed to reload config: {}", e);
+                } else {
+                    info!("Config reloaded successfully");
+                }
+            }
         }
 
         // Apply power management (battery check, pause/resume)

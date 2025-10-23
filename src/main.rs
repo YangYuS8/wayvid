@@ -72,7 +72,8 @@ fn main() -> Result<()> {
             #[cfg(feature = "backend-wayland")]
             {
                 let cfg = config::Config::from_file(&config_path)?;
-                backend::wayland::run(cfg)?;
+                let path = std::path::PathBuf::from(config_path);
+                backend::wayland::run(cfg, Some(path))?;
             }
 
             #[cfg(not(feature = "backend-wayland"))]

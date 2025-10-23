@@ -4,7 +4,8 @@ pub mod surface;
 
 use crate::config::Config;
 use anyhow::Result;
+use std::path::PathBuf;
 
-pub fn run(config: Config) -> Result<()> {
-    app::run(config)
+pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
+    app::run(config, config_path)
 }
