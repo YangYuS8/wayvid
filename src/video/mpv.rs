@@ -230,6 +230,160 @@ impl MpvPlayer {
         Ok(())
     }
 
+    /// Configure HDR handling based on video content and user settings
+    ///
+    /// This method should be called after the video is loaded to:
+    /// 1. Detect if the video contains HDR content
+    /// 2. Apply appropriate tone mapping or HDR passthrough settings
+    /// 3. Log HDR information for user visibility
+    pub fn configure_hdr(&mut self, config: &EffectiveConfig) -> Result<()> {
+        use crate::video::hdr::HdrMode;
+
+        info!("🎨 Configuring HDR handling...");
+
+        // Check user's HDR mode preference
+        match config.hdr_mode {
+            HdrMode::Disable => {
+                info!("  HDR mode: Disabled (forced SDR)");
+                // No special configuration needed, MPV defaults to SDR
+                return Ok(());
+            }
+            HdrMode::Force => {
+                info!("  HDR mode: Force (always apply HDR processing)");
+                // Force HDR tone mapping even for SDR content
+                self.configure_tone_mapping(config)?;
+                return Ok(());
+            }
+            HdrMode::Auto => {
+                // Continue with auto-detection
+                info!("  HDR mode: Auto (detect from video)");
+            }
+        }
+
+        // Try to detect HDR metadata from the video
+        // Note: This might return None if video hasn't started playing yet
+        match self.get_hdr_metadata() {
+            Some(metadata) => {
+                info!("  📊 Video HDR metadata detected:");
+                info!("    Color space: {:?}", metadata.color_space);
+                info!("    Transfer function: {:?}", metadata.transfer_function);
+                info!("    Primaries: {}", metadata.primaries);
+                if let Some(peak) = metadata.peak_luminance {
+                    info!("    Peak luminance: {:.1} nits", peak);
+                }
+
+                if metadata.is_hdr() {
+                    info!("  ✨ HDR content detected: {}", metadata.format_description());
+                    
+                    // Check if output supports HDR (currently always false)
+                    if self.output_info.hdr_capabilities.hdr_supported {
+                        info!("  🖥️  Output supports HDR - enabling passthrough");
+                        self.configure_hdr_passthrough()?;
+                    } else {
+                        info!("  🖥️  Output is SDR - enabling tone mapping");
+                        self.configure_tone_mapping(config)?;
+                    }
+                } else {
+                    info!("  📺 SDR content detected - no HDR processing needed");
+                }
+            }
+            None => {
+                debug!("  ⚠️  Could not detect HDR metadata (video may not be loaded yet)");
+                debug!("    Will use default settings");
+                // For now, configure tone mapping as a safe default
+                // It won't hurt SDR content and will help if HDR is loaded later
+                self.configure_tone_mapping(config)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Configure tone mapping for HDR to SDR conversion
+    fn configure_tone_mapping(&self, config: &EffectiveConfig) -> Result<()> {
+        info!("  🎨 Configuring tone mapping for HDR → SDR");
+
+        let set_option = |name: &str, value: &str| {
+            let name_c = CString::new(name).unwrap();
+            let value_c = CString::new(value).unwrap();
+            unsafe {
+                let ret = libmpv_sys::mpv_set_option_string(
+                    self.handle,
+                    name_c.as_ptr(),
+                    value_c.as_ptr(),
+                );
+                if ret < 0 {
+                    warn!("    Failed to set {}={}: error {}", name, value, ret);
+                } else {
+                    debug!("    ✓ Set {}={}", name, value);
+                }
+            }
+        };
+
+        // Set tone mapping algorithm
+        let algorithm = config.tone_mapping.algorithm.as_mpv_str();
+        set_option("tone-mapping", algorithm);
+        info!("    Algorithm: {}", algorithm);
+
+        // Set tone mapping mode
+        set_option("tone-mapping-mode", &config.tone_mapping.mode);
+
+        // Enable/disable dynamic peak detection
+        if config.tone_mapping.compute_peak {
+            set_option("hdr-compute-peak", "yes");
+            info!("    Dynamic peak detection: enabled");
+        } else {
+            set_option("hdr-compute-peak", "no");
+        }
+
+        // Set tone mapping parameter if not default
+        if (config.tone_mapping.param - 1.0).abs() > 0.01 {
+            let param = format!("{}", config.tone_mapping.param);
+            set_option("tone-mapping-param", &param);
+            info!("    Parameter: {}", param);
+        }
+
+        // Set target color space for SDR
+        set_option("target-trc", "srgb");
+        set_option("target-prim", "bt.709");
+        set_option("target-peak", "203"); // Typical SDR peak brightness
+
+        info!("  ✓ Tone mapping configured");
+        Ok(())
+    }
+
+    /// Configure HDR passthrough (for future use when output supports HDR)
+    fn configure_hdr_passthrough(&self) -> Result<()> {
+        info!("  🎨 Configuring HDR passthrough");
+
+        let set_option = |name: &str, value: &str| {
+            let name_c = CString::new(name).unwrap();
+            let value_c = CString::new(value).unwrap();
+            unsafe {
+                let ret = libmpv_sys::mpv_set_option_string(
+                    self.handle,
+                    name_c.as_ptr(),
+                    value_c.as_ptr(),
+                );
+                if ret < 0 {
+                    warn!("    Failed to set {}={}: error {}", name, value, ret);
+                } else {
+                    debug!("    ✓ Set {}={}", name, value);
+                }
+            }
+        };
+
+        // Enable HDR passthrough
+        set_option("target-colorspace-hint", "yes");
+        set_option("icc-profile-auto", "yes");
+
+        // Disable tone mapping for passthrough
+        set_option("tone-mapping", "clip");
+
+        info!("  ✓ HDR passthrough configured");
+        Ok(())
+    }
+
     /// Render a video frame to the current OpenGL context
     pub fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<()> {
         let Some(render_ctx) = self.render_context else {
