@@ -133,7 +133,7 @@ impl WaylandSurface {
                 error!("Failed to resize EGL window: {}", e);
             }
         }
-        
+
         // Note: Actual resource initialization is now deferred to first render
         // This is the key change for lazy initialization (Issue #15)
 
@@ -186,7 +186,7 @@ impl WaylandSurface {
                     "🚀 Lazy initialization for output {} (first render)",
                     self.output_info.name
                 );
-                
+
                 // Initialize EGL window
                 if self.egl_window.is_none() {
                     match egl_ctx.create_window(
@@ -218,7 +218,10 @@ impl WaylandSurface {
                 }
 
                 self.resources_initialized = true;
-                info!("  ✅ Lazy initialization complete for {}", self.output_info.name);
+                info!(
+                    "  ✅ Lazy initialization complete for {}",
+                    self.output_info.name
+                );
             } else {
                 // No EGL context yet, skip rendering
                 return Ok(());
@@ -383,7 +386,10 @@ impl WaylandSurface {
             return; // Nothing to cleanup
         }
 
-        info!("🧹 Cleaning up resources for inactive output {}", self.output_info.name);
+        info!(
+            "🧹 Cleaning up resources for inactive output {}",
+            self.output_info.name
+        );
 
         // Release decoder handle (decrements ref count)
         #[cfg(feature = "video-mpv")]
@@ -396,7 +402,7 @@ impl WaylandSurface {
 
         // Note: EGL window is kept for now as it's lightweight
         // and may be needed soon if output becomes active again
-        
+
         self.resources_initialized = false;
     }
 

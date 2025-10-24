@@ -687,7 +687,7 @@ impl Dispatch<wl_callback::WlCallback, u32> for AppState {
 pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     // Start startup time measurement
     let startup_start = std::time::Instant::now();
-    
+
     info!("Starting wayvid Wayland backend");
 
     let conn = Connection::connect_to_env().context("Failed to connect to Wayland compositor")?;
@@ -833,10 +833,13 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
         // Request next frame after initial render
         surface.request_frame(&qh);
     }
-    
+
     // Measure and report startup time
     let startup_duration = startup_start.elapsed();
-    info!("✅ Startup complete in {:.1}ms", startup_duration.as_millis());
+    info!(
+        "✅ Startup complete in {:.1}ms",
+        startup_duration.as_millis()
+    );
     info!("   Lazy initialization: resources allocated on first render");
 
     // Main event loop with vsync
