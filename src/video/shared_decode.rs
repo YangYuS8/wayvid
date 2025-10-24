@@ -10,7 +10,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::config::EffectiveConfig;
 use crate::core::types::{HwdecMode, OutputInfo, VideoSource};
@@ -124,6 +124,18 @@ impl DecoderHandle {
     pub fn log_memory_stats(&self) {
         let manager = self.manager.read().unwrap();
         manager.log_memory_stats();
+    }
+
+    /// Check current memory pressure level
+    pub fn check_memory_pressure(&self) -> MemoryPressureLevel {
+        let manager = self.manager.read().unwrap();
+        manager.check_memory_pressure()
+    }
+
+    /// Handle memory pressure (cleanup if needed)
+    pub fn handle_memory_pressure(&self) {
+        let manager = self.manager.read().unwrap();
+        manager.handle_memory_pressure();
     }
 
     /// Get current frame dimensions (width, height)
@@ -255,6 +267,17 @@ impl SharedDecoder {
 
         // Update stats
         self.stats.frames_decoded += 1;
+
+        // Log memory stats periodically (every 300 frames ~= every 5 seconds at 60fps)
+        if self.stats.frames_decoded % 300 == 0 {
+            let mem_stats = MemoryStats::global();
+            debug!(
+                "📊 Memory after {} frames: current={}, peak={}",
+                self.stats.frames_decoded,
+                MemoryStats::format_bytes(mem_stats.current_bytes),
+                MemoryStats::format_bytes(mem_stats.peak_bytes),
+            );
+        }
 
         // TODO: Extract rendered frame to shared buffer
         // For now, just increment frame count
@@ -452,6 +475,71 @@ impl SharedDecodeManager {
         mem_stats.log();
         pool_stats.log();
     }
+
+    /// Check if system is under memory pressure
+    pub fn check_memory_pressure(&self) -> MemoryPressureLevel {
+        let mem_stats = MemoryStats::global();
+        let pool_stats = self.buffer_pool.stats();
+
+        // Calculate utilization percentages
+        let pool_utilization = pool_stats.utilization();
+
+        // Define thresholds
+        const WARN_THRESHOLD: f64 = 0.75; // 75% utilization
+        const CRITICAL_THRESHOLD: f64 = 0.90; // 90% utilization
+
+        if pool_utilization >= CRITICAL_THRESHOLD {
+            warn!(
+                "⚠️  Critical memory pressure! Pool: {:.1}%, Memory: {}",
+                pool_utilization * 100.0,
+                MemoryStats::format_bytes(mem_stats.current_bytes)
+            );
+            MemoryPressureLevel::Critical
+        } else if pool_utilization >= WARN_THRESHOLD {
+            debug!(
+                "⚠️  High memory pressure. Pool: {:.1}%, Memory: {}",
+                pool_utilization * 100.0,
+                MemoryStats::format_bytes(mem_stats.current_bytes)
+            );
+            MemoryPressureLevel::High
+        } else {
+            MemoryPressureLevel::Normal
+        }
+    }
+
+    /// React to memory pressure by clearing buffer pool
+    pub fn handle_memory_pressure(&self) {
+        let pressure = self.check_memory_pressure();
+
+        match pressure {
+            MemoryPressureLevel::Critical => {
+                warn!("🧹 Critical pressure: clearing buffer pool");
+                self.buffer_pool.clear();
+            }
+            MemoryPressureLevel::High => {
+                debug!("🧹 High pressure: partially clearing buffer pool");
+                // Keep half of the buffers
+                let stats = self.buffer_pool.stats();
+                if stats.buffer_count > 4 {
+                    self.buffer_pool.clear();
+                }
+            }
+            MemoryPressureLevel::Normal => {
+                // No action needed
+            }
+        }
+    }
+}
+
+/// Memory pressure levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryPressureLevel {
+    /// Normal operation, plenty of memory available
+    Normal,
+    /// High memory usage, should consider cleanup
+    High,
+    /// Critical memory usage, immediate cleanup required
+    Critical,
 }
 
 /// Global statistics across all decoders
