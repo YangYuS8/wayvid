@@ -25,10 +25,7 @@ pub enum IpcCommand {
     Seek { output: String, time: f64 },
 
     /// Switch video source for specific output
-    SwitchSource {
-        output: String,
-        source: VideoSource,
-    },
+    SwitchSource { output: String, source: VideoSource },
 
     /// Reload configuration from file
     ReloadConfig,

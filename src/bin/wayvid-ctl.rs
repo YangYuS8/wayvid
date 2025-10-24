@@ -138,8 +138,8 @@ fn main() -> Result<()> {
         Commands::Resume { output } => IpcCommand::Resume { output },
         Commands::Seek { output, time } => IpcCommand::Seek { output, time },
         Commands::Switch { output, source } => {
-            let video_source = parse_video_source(&source)
-                .context("Failed to parse video source")?;
+            let video_source =
+                parse_video_source(&source).context("Failed to parse video source")?;
             IpcCommand::SwitchSource {
                 output,
                 source: video_source,

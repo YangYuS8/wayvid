@@ -1,0 +1,38 @@
+# Multi-Monitor Test Configuration
+# Testing pattern matching, priority, and fallback
+
+# Default source
+source:
+  type: File
+  path: "/home/yangyus8/Videos/default-test.mp4"
+
+layout: Fill
+loop: true
+mute: false
+volume: 0.3
+playback_rate: 1.0
+
+# Per-output configuration testing
+per_output:
+  # Test 1: Output-61 (laptop screen in current wayvid)
+  "output-61":
+    source:
+      type: File
+      path: "/home/yangyus8/Videos/laptop-specific.mp4"
+    layout: Fill
+    volume: 0.2
+    
+  # Test 2: Output-65 (external monitor in current wayvid)
+  "output-65":
+    priority: 5
+    source:
+      type: File
+      path: "/home/yangyus8/Videos/hdmi-a-pattern.mp4"
+    layout: Cover
+    volume: 0.5
+
+power:
+  pause_when_hidden: false
+  max_fps: 30
+  max_memory_mb: 512
+  max_buffers: 6

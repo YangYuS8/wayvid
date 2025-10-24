@@ -143,14 +143,14 @@ impl Config {
                 // Calculate combined score for sorting
                 let is_exact = pattern.as_str() == output_name;
                 let wildcards = pattern.chars().filter(|&c| c == '*' || c == '?').count();
-                
+
                 let pattern_score = if is_exact {
                     0 // Exact match always wins
                 } else {
                     // For patterns: priority (0-99) × 10000 + wildcards × 1000 - length
                     config.priority * 10000 + (wildcards as u32) * 1000 - (pattern.len() as u32)
                 };
-                
+
                 (pattern, config, pattern_score)
             })
             .collect();
