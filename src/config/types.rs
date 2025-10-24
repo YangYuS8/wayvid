@@ -52,6 +52,12 @@ pub struct Config {
 /// Per-output configuration overrides
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OutputConfig {
+    /// Priority for pattern matching (lower = higher priority)
+    /// Default: 50 (mid priority)
+    /// Exact matches always have priority 0
+    #[serde(default = "default_priority")]
+    pub priority: u32,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<VideoSource>,
 
@@ -119,48 +125,66 @@ impl Config {
     /// Get effective configuration for a specific output
     ///
     /// Supports pattern matching (e.g., "HDMI-*", "DP-?") for flexible configuration.
-    /// Exact matches take precedence over pattern matches.
+    /// Priority rules:
+    /// 1. Exact matches (always priority 0)
+    /// 2. Pattern matches sorted by priority (lower number = higher priority)
+    /// 3. For same priority, more specific patterns win (fewer wildcards, then longer)
     pub fn for_output(&self, output_name: &str) -> EffectiveConfig {
-        use crate::config::pattern::find_best_match;
+        use crate::config::pattern::matches_pattern;
 
         let base = self.clone();
 
-        // Try exact match first, then pattern matching
-        let matching_key = if self.per_output.contains_key(output_name) {
-            Some(output_name.to_string())
-        } else {
-            // Collect all keys and find best pattern match
-            let patterns: Vec<&str> = self.per_output.keys().map(|s| s.as_str()).collect();
-            find_best_match(output_name, &patterns).map(|s| s.to_string())
-        };
-
-        if let Some(key) = matching_key {
-            if let Some(override_cfg) = self.per_output.get(&key) {
-                return EffectiveConfig {
-                    source: override_cfg.source.clone().unwrap_or(base.source),
-                    layout: override_cfg.layout.unwrap_or(base.layout),
-                    r#loop: base.r#loop,
-                    start_time: override_cfg.start_time.unwrap_or(base.start_time),
-                    playback_rate: override_cfg.playback_rate.unwrap_or(base.playback_rate),
-                    mute: override_cfg.mute.unwrap_or(base.mute),
-                    volume: override_cfg.volume.unwrap_or(base.volume),
-                    hwdec: base.hwdec,
-                    power: base.power.clone(),
+        // Collect all matching patterns with their priorities
+        let mut matches: Vec<(&String, &OutputConfig, u32)> = self
+            .per_output
+            .iter()
+            .filter(|(pattern, _)| matches_pattern(output_name, pattern))
+            .map(|(pattern, config)| {
+                // Calculate combined score for sorting
+                let is_exact = pattern.as_str() == output_name;
+                let wildcards = pattern.chars().filter(|&c| c == '*' || c == '?').count();
+                
+                let pattern_score = if is_exact {
+                    0 // Exact match always wins
+                } else {
+                    // For patterns: priority (0-99) × 10000 + wildcards × 1000 - length
+                    config.priority * 10000 + (wildcards as u32) * 1000 - (pattern.len() as u32)
                 };
-            }
+                
+                (pattern, config, pattern_score)
+            })
+            .collect();
+
+        if matches.is_empty() {
+            // No match, use base config
+            return EffectiveConfig {
+                source: base.source,
+                layout: base.layout,
+                r#loop: base.r#loop,
+                start_time: base.start_time,
+                playback_rate: base.playback_rate,
+                mute: base.mute,
+                volume: base.volume,
+                hwdec: base.hwdec,
+                power: base.power,
+            };
         }
 
-        // No match, use base config
+        // Sort by score (lower = better)
+        matches.sort_by_key(|(_, _, score)| *score);
+
+        // Use best match
+        let (_, override_cfg, _) = matches[0];
         EffectiveConfig {
-            source: base.source,
-            layout: base.layout,
+            source: override_cfg.source.clone().unwrap_or(base.source),
+            layout: override_cfg.layout.unwrap_or(base.layout),
             r#loop: base.r#loop,
-            start_time: base.start_time,
-            playback_rate: base.playback_rate,
-            mute: base.mute,
-            volume: base.volume,
+            start_time: override_cfg.start_time.unwrap_or(base.start_time),
+            playback_rate: override_cfg.playback_rate.unwrap_or(base.playback_rate),
+            mute: override_cfg.mute.unwrap_or(base.mute),
+            volume: override_cfg.volume.unwrap_or(base.volume),
             hwdec: base.hwdec,
-            power: base.power,
+            power: base.power.clone(),
         }
     }
 }
@@ -212,6 +236,10 @@ fn default_max_memory_mb() -> usize {
 
 fn default_max_buffers() -> usize {
     8 // Default 8 texture buffers
+}
+
+fn default_priority() -> u32 {
+    50 // Mid priority (lower = higher priority)
 }
 
 #[cfg(test)]
@@ -286,5 +314,92 @@ per_output:
         // No match: fallback to base
         let effective = config.for_output("DVI-I-1");
         assert_eq!(effective.layout, LayoutMode::Fill);
+    }
+
+    #[test]
+    fn test_priority_sorting() {
+        let yaml = r#"
+source:
+  type: File
+  path: "/default.mp4"
+layout: Fill
+per_output:
+  "*":
+    priority: 99
+    layout: Stretch
+  "HDMI-*":
+    priority: 10
+    layout: Contain
+  "HDMI-A-*":
+    priority: 5
+    layout: Cover
+"#;
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+
+        // HDMI-A-1 matches all three, but HDMI-A-* has highest priority (5)
+        let effective = config.for_output("HDMI-A-1");
+        assert_eq!(effective.layout, LayoutMode::Cover);
+
+        // HDMI-B-1 matches HDMI-* (priority 10) and * (priority 99)
+        let effective = config.for_output("HDMI-B-1");
+        assert_eq!(effective.layout, LayoutMode::Contain);
+
+        // DP-1 only matches * (priority 99)
+        let effective = config.for_output("DP-1");
+        assert_eq!(effective.layout, LayoutMode::Stretch);
+    }
+
+    #[test]
+    fn test_exact_match_priority() {
+        let yaml = r#"
+source:
+  type: File
+  path: "/default.mp4"
+layout: Fill
+per_output:
+  "HDMI-A-1":
+    priority: 50
+    layout: Centre
+  "HDMI-*":
+    priority: 1
+    layout: Contain
+"#;
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+
+        // Exact match always wins, even with higher priority number
+        let effective = config.for_output("HDMI-A-1");
+        assert_eq!(effective.layout, LayoutMode::Centre);
+
+        // Pattern match
+        let effective = config.for_output("HDMI-A-2");
+        assert_eq!(effective.layout, LayoutMode::Contain);
+    }
+
+    #[test]
+    fn test_fallback_pattern() {
+        let yaml = r#"
+source:
+  type: File
+  path: "/default.mp4"
+layout: Fill
+per_output:
+  "HDMI-*":
+    layout: Contain
+  "*":
+    priority: 99
+    layout: Stretch
+"#;
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+
+        // HDMI matches specific pattern
+        let effective = config.for_output("HDMI-A-1");
+        assert_eq!(effective.layout, LayoutMode::Contain);
+
+        // Others match fallback *
+        let effective = config.for_output("DP-1");
+        assert_eq!(effective.layout, LayoutMode::Stretch);
+
+        let effective = config.for_output("eDP-1");
+        assert_eq!(effective.layout, LayoutMode::Stretch);
     }
 }
