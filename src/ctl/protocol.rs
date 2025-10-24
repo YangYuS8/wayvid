@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::core::types::VideoSource;
+
 /// IPC command from wayvid-ctl to wayvid daemon
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "kebab-case")]
@@ -23,10 +25,7 @@ pub enum IpcCommand {
     Seek { output: String, time: f64 },
 
     /// Switch video source for specific output
-    SwitchSource {
-        output: String,
-        source: String, // File path or URL
-    },
+    SwitchSource { output: String, source: VideoSource },
 
     /// Reload configuration from file
     ReloadConfig,
@@ -108,11 +107,14 @@ mod tests {
     fn test_serialize_switch_source() {
         let cmd = IpcCommand::SwitchSource {
             output: "HDMI-A-1".to_string(),
-            source: "/path/to/video.mp4".to_string(),
+            source: VideoSource::File {
+                path: "/path/to/video.mp4".to_string(),
+            },
         };
         let json = serde_json::to_string(&cmd).unwrap();
         assert!(json.contains("switch-source"));
         assert!(json.contains("HDMI-A-1"));
+        assert!(json.contains("/path/to/video.mp4"));
     }
 
     #[test]

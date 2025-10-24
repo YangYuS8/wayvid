@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
+use wayvid::core::types::VideoSource;
 use wayvid::ctl::ipc_server::send_command;
 use wayvid::ctl::protocol::{IpcCommand, IpcResponse};
 
@@ -95,6 +96,39 @@ enum Commands {
     Quit,
 }
 
+/// Parse a source string into VideoSource
+/// Supports:
+/// - file:///path/to/video.mp4
+/// - /path/to/video.mp4 (assumes file)
+/// - http://... or https://...
+/// - rtsp://...
+/// - pipe:///path or pipe:// (stdin)
+fn parse_video_source(source: &str) -> Result<VideoSource> {
+    if source.starts_with("file://") {
+        Ok(VideoSource::File {
+            path: source.strip_prefix("file://").unwrap().to_string(),
+        })
+    } else if source.starts_with("http://") || source.starts_with("https://") {
+        Ok(VideoSource::Url {
+            url: source.to_string(),
+        })
+    } else if source.starts_with("rtsp://") {
+        Ok(VideoSource::Rtsp {
+            url: source.to_string(),
+        })
+    } else if source.starts_with("pipe://") {
+        let path = source.strip_prefix("pipe://").unwrap().to_string();
+        Ok(VideoSource::Pipe { path })
+    } else if source.starts_with('/') || source.contains("./") {
+        // Assume local file path
+        Ok(VideoSource::File {
+            path: source.to_string(),
+        })
+    } else {
+        anyhow::bail!("Invalid source format. Use file://, http://, https://, rtsp://, pipe://, or absolute path");
+    }
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -103,7 +137,14 @@ fn main() -> Result<()> {
         Commands::Pause { output } => IpcCommand::Pause { output },
         Commands::Resume { output } => IpcCommand::Resume { output },
         Commands::Seek { output, time } => IpcCommand::Seek { output, time },
-        Commands::Switch { output, source } => IpcCommand::SwitchSource { output, source },
+        Commands::Switch { output, source } => {
+            let video_source =
+                parse_video_source(&source).context("Failed to parse video source")?;
+            IpcCommand::SwitchSource {
+                output,
+                source: video_source,
+            }
+        }
         Commands::Reload => IpcCommand::ReloadConfig,
         Commands::Rate { output, rate } => IpcCommand::SetPlaybackRate { output, rate },
         Commands::Volume { output, volume } => IpcCommand::SetVolume { output, volume },

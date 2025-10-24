@@ -1,0 +1,54 @@
+# Multi-Monitor Test Configuration
+# Testing pattern matching, priority, and fallback
+
+# Default source
+source:
+  type: File
+  path: "/home/yangyus8/Videos/default-test.mp4"
+
+layout: Fill
+loop: true
+mute: false
+volume: 0.3
+playback_rate: 1.0
+
+# Per-output configuration testing
+per_output:
+  # Test 1: Exact match for laptop screen (highest priority)
+  "eDP-1":
+    source:
+      type: File
+      path: "/home/yangyus8/Videos/laptop-specific.mp4"
+    layout: Fill
+    volume: 0.2
+    
+  # Test 2: Pattern match for HDMI-A monitors (priority 5)
+  "HDMI-A-*":
+    priority: 5
+    source:
+      type: File
+      path: "/home/yangyus8/Videos/hdmi-a-pattern.mp4"
+    layout: Cover
+    volume: 0.5
+    
+  # Test 3: Generic HDMI pattern (priority 10, should not be used for HDMI-A-1)
+  "HDMI-*":
+    priority: 10
+    source:
+      type: File
+      path: "/home/yangyus8/Videos/hdmi-generic.mp4"
+    layout: Contain
+    
+  # Test 4: Fallback pattern (priority 99)
+  "*":
+    priority: 99
+    source:
+      type: File
+      path: "/home/yangyus8/Videos/fallback.mp4"
+    layout: Centre
+
+power:
+  pause_when_hidden: false
+  max_fps: 30
+  max_memory_mb: 512
+  max_buffers: 6

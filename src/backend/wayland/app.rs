@@ -14,6 +14,7 @@ use crate::backend::wayland::surface::WaylandSurface;
 use crate::config::watcher::ConfigWatcher;
 use crate::config::Config;
 use crate::core::power::PowerManager;
+use crate::core::types::VideoSource;
 use crate::ctl::ipc_server::IpcServer;
 use crate::ctl::protocol::IpcCommand;
 use crate::video::egl::EglContext;
@@ -265,15 +266,32 @@ impl AppState {
     }
 
     /// Handle switch source command
-    fn handle_switch_source_command(&mut self, output: String, source: String) {
+    fn handle_switch_source_command(&mut self, output: String, source: VideoSource) {
         #[cfg(feature = "video-mpv")]
         {
             for surface in self.surfaces.values_mut() {
                 if surface.output_info.name == output {
-                    if let Err(e) = surface.switch_source(&source) {
+                    // Extract source path for switch_source (which expects string)
+                    let source_path = match &source {
+                        VideoSource::File { path } => path.clone(),
+                        VideoSource::Url { url } => url.clone(),
+                        VideoSource::Rtsp { url } => url.clone(),
+                        VideoSource::Directory { path } => path.clone(),
+                        VideoSource::Pipe { path } => {
+                            if path.is_empty() {
+                                "fd://0".to_string()
+                            } else {
+                                path.clone()
+                            }
+                        }
+                        VideoSource::ImageSequence { path, .. } => path.clone(),
+                        VideoSource::WeProject { path } => path.clone(),
+                    };
+
+                    if let Err(e) = surface.switch_source(&source_path) {
                         warn!("Failed to switch source on {}: {}", output, e);
                     } else {
-                        info!("Switched {} to source: {}", output, source);
+                        info!("Switched {} to source: {:?}", output, source);
                     }
                     return;
                 }
@@ -632,7 +650,7 @@ impl Dispatch<wl_output::WlOutput, u32> for AppState {
         event: wl_output::Event,
         output_id: &u32,
         _: &Connection,
-        qh: &QueueHandle<Self>,
+        _qh: &QueueHandle<Self>,
     ) {
         use wl_output::Event;
 
@@ -657,10 +675,8 @@ impl Dispatch<wl_output::WlOutput, u32> for AppState {
             }
             Event::Done => {
                 debug!("Output {} done", output_id);
-                // Create surface after output is fully configured
-                if let Err(e) = state.create_surface_for_output(*output_id, qh) {
-                    warn!("Failed to create surface for output {}: {}", output_id, e);
-                }
+                // DON'T create surface yet - wait for XDG name first
+                // Surface creation will happen after XDG roundtrip in run()
             }
             _ => {}
         }
@@ -750,6 +766,19 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     state.layer_shell = Some(layer_shell);
     info!("  ✓ zwlr_layer_shell_v1");
 
+    // Bind xdg_output_manager if available (must bind BEFORE outputs)
+    for global in globals.contents().with_list(|list| list.to_vec()) {
+        if global.interface == "zxdg_output_manager_v1" {
+            let manager: zxdg_output_manager_v1::ZxdgOutputManagerV1 =
+                globals
+                    .registry()
+                    .bind(global.name, global.version.min(3), &qh, ());
+            state.xdg_output_manager = Some(manager);
+            info!("  ✓ zxdg_output_manager_v1");
+            break;
+        }
+    }
+
     // Bind outputs - iterate through globals list
     let mut output_count = 0;
     for global in globals.contents().with_list(|list| list.to_vec()) {
@@ -803,12 +832,51 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
         }
     );
     info!("  Outputs discovered: {}", state.outputs.len());
+    info!(
+        "  XDG output manager: {}",
+        if state.xdg_output_manager.is_some() {
+            "✓"
+        } else {
+            "✗"
+        }
+    );
 
     if state.compositor.is_none() {
         anyhow::bail!("wl_compositor not available");
     }
     if state.layer_shell.is_none() {
         anyhow::bail!("zwlr_layer_shell_v1 not available - compositor not supported");
+    }
+
+    // Request xdg_output for all outputs if manager is available
+    if let Some(ref manager) = state.xdg_output_manager {
+        info!("Requesting XDG output info for all outputs...");
+        let output_ids: Vec<u32> = state.outputs.keys().copied().collect();
+        for output_id in output_ids {
+            if let Some(output) = state.outputs.get_mut(&output_id) {
+                let xdg_output = manager.get_xdg_output(&output.wl_output, &qh, output_id);
+                output.set_xdg_output(xdg_output);
+                debug!("Requested xdg_output for output {}", output_id);
+            }
+        }
+
+        // Additional roundtrip to receive XDG output events
+        debug!("Performing roundtrip to receive XDG output names...");
+        event_queue
+            .roundtrip(&mut state)
+            .context("XDG output roundtrip failed")?;
+        debug!("XDG output roundtrip complete");
+    } else {
+        warn!("  XDG output manager not available - using generic output names");
+    }
+
+    // Now create surfaces with correct output names (after XDG names are received)
+    info!("Creating surfaces for all outputs...");
+    let output_ids: Vec<u32> = state.outputs.keys().copied().collect();
+    for output_id in output_ids {
+        if let Err(e) = state.create_surface_for_output(output_id, &qh) {
+            warn!("Failed to create surface for output {}: {}", output_id, e);
+        }
     }
 
     // Another roundtrip to create surfaces
