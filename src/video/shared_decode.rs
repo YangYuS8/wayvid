@@ -590,7 +590,7 @@ mod tests {
 
     fn make_test_config(path: &str) -> EffectiveConfig {
         use crate::video::hdr::{HdrMode, ToneMappingAlgorithm, ToneMappingConfig};
-        
+
         EffectiveConfig {
             source: VideoSource::File {
                 path: path.to_string(),
@@ -614,9 +614,9 @@ mod tests {
     }
 
     fn make_test_output_info(name: &str) -> OutputInfo {
-        use crate::video::hdr::TransferFunction;
         use crate::core::types::OutputHdrCapabilities;
-        
+        use crate::video::hdr::TransferFunction;
+
         OutputInfo {
             name: name.to_string(),
             width: 1920,

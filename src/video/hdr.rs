@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 /// Color space of video content
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -158,6 +159,35 @@ impl ToneMappingAlgorithm {
             ToneMappingAlgorithm::Clip => "clip",
         }
     }
+
+    /// Get recommended parameter value for this algorithm
+    pub fn recommended_param(&self) -> f64 {
+        match self {
+            ToneMappingAlgorithm::Hable => 1.0,    // Default works well
+            ToneMappingAlgorithm::Mobius => 0.3,   // Lower = more detail preservation
+            ToneMappingAlgorithm::Reinhard => 0.5, // Balance between detail and contrast
+            ToneMappingAlgorithm::Bt2390 => 1.0,   // Standard compliant
+            ToneMappingAlgorithm::Clip => 1.0,     // Not applicable
+        }
+    }
+
+    /// Get description of this algorithm
+    pub fn description(&self) -> &'static str {
+        match self {
+            ToneMappingAlgorithm::Hable => {
+                "Hable (Uncharted 2) - Best overall quality, good contrast"
+            }
+            ToneMappingAlgorithm::Mobius => "Mobius - Preserves highlight details, softer look",
+            ToneMappingAlgorithm::Reinhard => "Reinhard - Classic, simple, fast",
+            ToneMappingAlgorithm::Bt2390 => "BT.2390 - ITU standard, broadcasting reference",
+            ToneMappingAlgorithm::Clip => "Clip - No tone mapping, simple clipping",
+        }
+    }
+
+    /// Check if this algorithm benefits from tone-mapping-param adjustment
+    pub fn uses_param(&self) -> bool {
+        !matches!(self, ToneMappingAlgorithm::Clip | ToneMappingAlgorithm::Bt2390)
+    }
 }
 
 /// Tone mapping configuration
@@ -201,4 +231,149 @@ fn default_compute_peak() -> bool {
 
 fn default_tone_mapping_mode() -> String {
     "hybrid".to_string()
+}
+
+/// Content type for HDR optimization
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContentType {
+    /// General/mixed content
+    General,
+    /// Movie/cinema content with high peak brightness
+    Cinema,
+    /// Animation with vibrant colors
+    Animation,
+    /// Nature/documentary with wide dynamic range
+    Documentary,
+    /// Low dynamic range content
+    LowDynamicRange,
+}
+
+impl ContentType {
+    /// Detect content type from HDR metadata
+    pub fn detect_from_metadata(metadata: &HdrMetadata) -> Self {
+        match metadata.peak_luminance {
+            Some(peak) if peak > 2000.0 => ContentType::Cinema,
+            Some(peak) if peak > 1000.0 => ContentType::Documentary,
+            Some(peak) if peak < 400.0 => ContentType::LowDynamicRange,
+            _ => ContentType::General,
+        }
+    }
+
+    /// Get recommended tone mapping algorithm for this content type
+    pub fn recommended_algorithm(&self) -> ToneMappingAlgorithm {
+        match self {
+            ContentType::General => ToneMappingAlgorithm::Hable,
+            ContentType::Cinema => ToneMappingAlgorithm::Hable,
+            ContentType::Animation => ToneMappingAlgorithm::Mobius,
+            ContentType::Documentary => ToneMappingAlgorithm::Bt2390,
+            ContentType::LowDynamicRange => ToneMappingAlgorithm::Reinhard,
+        }
+    }
+
+    /// Get recommended tone mapping parameter for this content type
+    pub fn recommended_param(&self, algorithm: ToneMappingAlgorithm) -> f64 {
+        match (self, algorithm) {
+            // Cinema: Higher contrast
+            (ContentType::Cinema, ToneMappingAlgorithm::Hable) => 1.2,
+            (ContentType::Cinema, ToneMappingAlgorithm::Mobius) => 0.25,
+            // Animation: Preserve vibrant colors
+            (ContentType::Animation, ToneMappingAlgorithm::Mobius) => 0.35,
+            (ContentType::Animation, ToneMappingAlgorithm::Hable) => 0.9,
+            // Documentary: Natural look
+            (ContentType::Documentary, ToneMappingAlgorithm::Bt2390) => 1.0,
+            (ContentType::Documentary, ToneMappingAlgorithm::Hable) => 1.0,
+            // Low dynamic range: Gentle mapping
+            (ContentType::LowDynamicRange, ToneMappingAlgorithm::Reinhard) => 0.6,
+            // Default to algorithm's recommended param
+            _ => algorithm.recommended_param(),
+        }
+    }
+}
+
+impl ToneMappingConfig {
+    /// Apply content-aware optimizations based on HDR metadata
+    pub fn optimize_for_content(&mut self, metadata: &HdrMetadata) {
+        let content_type = ContentType::detect_from_metadata(metadata);
+
+        // If using default param (1.0), apply content-aware optimization
+        if (self.param - 1.0).abs() < 0.01 {
+            self.param = content_type.recommended_param(self.algorithm);
+        }
+
+        // Adjust tone mapping mode based on content
+        if self.mode == "hybrid" {
+            self.mode = match content_type {
+                ContentType::Cinema => "rgb".to_string(),      // Better for cinema
+                ContentType::Animation => "luma".to_string(),  // Preserve colors
+                ContentType::Documentary => "auto".to_string(), // Let MPV decide
+                _ => "hybrid".to_string(),
+            };
+        }
+    }
+
+    /// Validate and clamp configuration values
+    pub fn validate(&mut self) {
+        // Clamp param to reasonable range
+        self.param = self.param.clamp(0.0, 10.0);
+
+        // Validate mode
+        let valid_modes = ["auto", "rgb", "hybrid", "luma", "max"];
+        if !valid_modes.contains(&self.mode.as_str()) {
+            warn!("Invalid tone mapping mode '{}', using 'hybrid'", self.mode);
+            self.mode = "hybrid".to_string();
+        }
+    }
+}
+
+/// Performance preset for tone mapping
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PerformancePreset {
+    /// Maximum quality, higher GPU load
+    Quality,
+    /// Balanced quality and performance (default)
+    Balanced,
+    /// Faster processing, lower quality
+    Performance,
+}
+
+impl Default for PerformancePreset {
+    fn default() -> Self {
+        PerformancePreset::Balanced
+    }
+}
+
+impl PerformancePreset {
+    /// Get recommended tone mapping algorithm for this preset
+    pub fn recommended_algorithm(&self) -> ToneMappingAlgorithm {
+        match self {
+            PerformancePreset::Quality => ToneMappingAlgorithm::Hable,
+            PerformancePreset::Balanced => ToneMappingAlgorithm::Hable,
+            PerformancePreset::Performance => ToneMappingAlgorithm::Reinhard,
+        }
+    }
+
+    /// Should enable dynamic peak computation
+    pub fn compute_peak(&self) -> bool {
+        match self {
+            PerformancePreset::Quality => true,
+            PerformancePreset::Balanced => true,
+            PerformancePreset::Performance => false,
+        }
+    }
+
+    /// Get description of this preset
+    pub fn description(&self) -> &'static str {
+        match self {
+            PerformancePreset::Quality => {
+                "Quality - Best visual quality, higher GPU load"
+            }
+            PerformancePreset::Balanced => {
+                "Balanced - Good quality with reasonable performance (default)"
+            }
+            PerformancePreset::Performance => {
+                "Performance - Faster processing, lower GPU load"
+            }
+        }
+    }
 }

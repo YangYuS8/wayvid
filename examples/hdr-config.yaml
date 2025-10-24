@@ -1,0 +1,217 @@
+# HDR Configuration Examples for wayvid
+# =====================================
+#
+# This file demonstrates various HDR tone mapping configurations
+# for different content types and use cases.
+
+# Example 1: Default Auto Configuration (Recommended)
+# ----------------------------------------------------
+# Let wayvid automatically detect HDR content and apply optimal settings
+default:
+  source:
+    type: file
+    path: /path/to/hdr-video.mp4
+  
+  # HDR mode: auto (default)
+  # - Automatically detects HDR content
+  # - Applies tone mapping for SDR displays
+  # - Uses content-aware optimizations
+  hdr_mode: auto
+  
+  # Default tone mapping configuration
+  tone_mapping:
+    algorithm: hable      # Best overall quality
+    param: 1.0           # Default parameter (auto-optimized)
+    compute_peak: true   # Enable dynamic peak detection
+    mode: hybrid         # Balanced RGB/Luma processing
+
+# Example 2: Cinema/Movie Content
+# --------------------------------
+# Optimized for HDR movies with high peak brightness (>2000 nits)
+cinema:
+  source:
+    type: file
+    path: /path/to/hdr-movie.mp4
+  
+  hdr_mode: auto
+  
+  tone_mapping:
+    algorithm: hable      # Best for cinema content
+    param: 1.2           # Higher contrast for dramatic look
+    compute_peak: true   # Important for high peaks
+    mode: rgb            # RGB processing for better cinema look
+
+# Example 3: Animation Content
+# -----------------------------
+# Optimized for animated content with vibrant colors
+animation:
+  source:
+    type: file
+    path: /path/to/hdr-anime.mkv
+  
+  hdr_mode: auto
+  
+  tone_mapping:
+    algorithm: mobius     # Preserves highlight details
+    param: 0.35          # Lower value = more detail preservation
+    compute_peak: true
+    mode: luma           # Preserve color saturation
+
+# Example 4: Nature/Documentary Content
+# --------------------------------------
+# Optimized for wide dynamic range natural scenes
+documentary:
+  source:
+    type: file
+    path: /path/to/nature-4k.mp4
+  
+  hdr_mode: auto
+  
+  tone_mapping:
+    algorithm: bt2390     # ITU standard, natural look
+    param: 1.0           # Standard compliant
+    compute_peak: true
+    mode: auto           # Let MPV decide best mode
+
+# Example 5: Performance Mode
+# ----------------------------
+# Optimized for lower-end hardware or battery saving
+performance:
+  source:
+    type: file
+    path: /path/to/hdr-video.mp4
+  
+  hdr_mode: auto
+  
+  tone_mapping:
+    algorithm: reinhard   # Faster, simpler algorithm
+    param: 0.5           # Balanced
+    compute_peak: false  # Disable for performance
+    mode: luma           # Faster than RGB
+
+# Example 6: Quality Mode
+# ------------------------
+# Maximum quality for high-end hardware
+quality:
+  source:
+    type: file
+    path: /path/to/hdr-reference.mkv
+  
+  hdr_mode: auto
+  
+  tone_mapping:
+    algorithm: hable      # Best quality
+    param: 1.0           # Let content detection optimize
+    compute_peak: true   # Full dynamic analysis
+    mode: hybrid         # Best balance
+
+# Example 7: Force HDR Processing
+# --------------------------------
+# Force tone mapping even for SDR content (testing)
+force_hdr:
+  source:
+    type: file
+    path: /path/to/sdr-video.mp4
+  
+  hdr_mode: force        # Force HDR processing
+  
+  tone_mapping:
+    algorithm: hable
+    param: 1.0
+    compute_peak: true
+    mode: hybrid
+
+# Example 8: Disable HDR Processing
+# ----------------------------------
+# Disable all HDR processing (SDR only)
+disable_hdr:
+  source:
+    type: file
+    path: /path/to/video.mp4
+  
+  hdr_mode: disable      # No HDR processing
+
+# Algorithm Comparison Guide
+# ===========================
+#
+# hable (Uncharted 2):
+#   - Best overall quality
+#   - Good contrast and detail
+#   - Moderate GPU load
+#   - Good for: Movies, general content
+#   - Param range: 0.8-1.5 (higher = more contrast)
+#
+# mobius:
+#   - Excellent detail preservation
+#   - Softer, more natural look
+#   - Low GPU load
+#   - Good for: Animation, bright content
+#   - Param range: 0.2-0.5 (lower = more detail)
+#
+# reinhard:
+#   - Classic, simple algorithm
+#   - Fast, low GPU load
+#   - Good enough for most content
+#   - Good for: Low-end hardware
+#   - Param range: 0.4-0.8
+#
+# bt2390:
+#   - ITU broadcasting standard
+#   - Reference quality
+#   - Natural, neutral look
+#   - Good for: Professional, documentary
+#   - Param: 1.0 (standard compliant)
+#
+# clip:
+#   - No tone mapping, just clipping
+#   - Minimal GPU load
+#   - May lose highlight details
+#   - Good for: Testing, debugging
+
+# Tone Mapping Modes
+# ===================
+#
+# auto:
+#   - Let MPV choose based on content
+#   - Generally good default
+#
+# hybrid:
+#   - Balance between RGB and luma
+#   - Good for most content
+#   - Default recommended
+#
+# rgb:
+#   - Process each color channel separately
+#   - Better for cinema, high contrast
+#   - May cause color shifts
+#
+# luma:
+#   - Process luminance only
+#   - Preserves color saturation
+#   - Good for animation, vibrant content
+#
+# max:
+#   - Use maximum of RGB channels
+#   - Experimental
+
+# Performance Impact
+# ==================
+#
+# compute_peak: true
+#   - Analyzes each frame for peak brightness
+#   - Better quality, higher GPU load
+#   - Recommended for quality
+#
+# compute_peak: false
+#   - Uses static peak value
+#   - Lower GPU load
+#   - Good for performance mode
+
+# Tips
+# ====
+#
+# 1. Start with default auto configuration
+# 2. If content looks too dark/bright, adjust param
+# 3. If colors look wrong, try different mode
+# 4. For performance issues, disable compute_peak
+# 5. Check logs with --log-level debug for details
