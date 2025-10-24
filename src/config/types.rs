@@ -40,6 +40,14 @@ pub struct Config {
     #[serde(default = "default_hwdec")]
     pub hwdec: bool,
 
+    /// HDR mode (auto/force/disable)
+    #[serde(default)]
+    pub hdr_mode: crate::video::hdr::HdrMode,
+
+    /// Tone mapping configuration
+    #[serde(default)]
+    pub tone_mapping: crate::video::hdr::ToneMappingConfig,
+
     /// Per-output overrides (keyed by output name)
     #[serde(default)]
     pub per_output: HashMap<String, OutputConfig>,
@@ -166,6 +174,8 @@ impl Config {
                 mute: base.mute,
                 volume: base.volume,
                 hwdec: base.hwdec,
+                hdr_mode: base.hdr_mode,
+                tone_mapping: base.tone_mapping.clone(),
                 power: base.power,
             };
         }
@@ -184,6 +194,8 @@ impl Config {
             mute: override_cfg.mute.unwrap_or(base.mute),
             volume: override_cfg.volume.unwrap_or(base.volume),
             hwdec: base.hwdec,
+            hdr_mode: base.hdr_mode,
+            tone_mapping: base.tone_mapping.clone(),
             power: base.power.clone(),
         }
     }
@@ -200,6 +212,8 @@ pub struct EffectiveConfig {
     pub mute: bool,
     pub volume: f64,
     pub hwdec: bool,
+    pub hdr_mode: crate::video::hdr::HdrMode,
+    pub tone_mapping: crate::video::hdr::ToneMappingConfig,
     /// Power management config (for future Phase 6)
     #[allow(dead_code)]
     pub power: PowerConfig,

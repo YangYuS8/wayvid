@@ -353,6 +353,92 @@ impl MpvPlayer {
             None
         }
     }
+
+    /// Get a string property from MPV
+    fn get_property_string(&self, name: &str) -> Option<String> {
+        let prop_name = CString::new(name).ok()?;
+        
+        let ret = unsafe {
+            libmpv_sys::mpv_get_property(
+                self.handle,
+                prop_name.as_ptr(),
+                1, // MPV_FORMAT_STRING
+                std::ptr::null_mut(),
+            )
+        };
+        
+        if ret != 0 {
+            return None;
+        }
+
+        let mut value_ptr: *mut c_char = std::ptr::null_mut();
+        let ret = unsafe {
+            libmpv_sys::mpv_get_property(
+                self.handle,
+                prop_name.as_ptr(),
+                1, // MPV_FORMAT_STRING
+                &mut value_ptr as *mut *mut c_char as *mut c_void,
+            )
+        };
+
+        if ret == 0 && !value_ptr.is_null() {
+            let c_str = unsafe { std::ffi::CStr::from_ptr(value_ptr) };
+            let result = c_str.to_string_lossy().into_owned();
+            unsafe {
+                libmpv_sys::mpv_free(value_ptr as *mut c_void);
+            }
+            Some(result)
+        } else {
+            None
+        }
+    }
+
+    /// Get a f64 property from MPV
+    fn get_property_f64(&self, name: &str) -> Option<f64> {
+        let prop_name = CString::new(name).ok()?;
+        let mut value: f64 = 0.0;
+
+        let ret = unsafe {
+            libmpv_sys::mpv_get_property(
+                self.handle,
+                prop_name.as_ptr(),
+                5, // MPV_FORMAT_DOUBLE
+                &mut value as *mut f64 as *mut c_void,
+            )
+        };
+
+        if ret == 0 {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    /// Get HDR metadata from the currently playing video
+    pub fn get_hdr_metadata(&self) -> Option<crate::video::hdr::HdrMetadata> {
+        use crate::video::hdr::{parse_colorspace, parse_transfer_function, HdrMetadata};
+
+        // Query color space properties
+        let colorspace_str = self.get_property_string("video-params/colorspace")?;
+        let gamma_str = self.get_property_string("video-params/gamma")?;
+        let primaries_str = self.get_property_string("video-params/primaries")?;
+
+        // Parse color space and transfer function
+        let color_space = parse_colorspace(&colorspace_str);
+        let transfer_function = parse_transfer_function(&gamma_str);
+
+        // Query peak luminance (sig-peak)
+        let peak_luminance = self.get_property_f64("video-params/sig-peak");
+
+        Some(HdrMetadata {
+            color_space,
+            transfer_function,
+            primaries: primaries_str,
+            peak_luminance,
+            avg_luminance: None, // Not directly available from MPV
+            min_luminance: None, // Not directly available from MPV
+        })
+    }
 }
 
 impl MpvPlayer {
