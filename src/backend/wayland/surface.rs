@@ -40,6 +40,10 @@ pub struct WaylandSurface {
 
     // Memory management
     frame_count: u64,
+
+    // Lazy initialization state
+    resources_initialized: bool,
+    is_active: bool, // Whether this output is currently active/visible
 }
 
 // Type alias for complex layout cache type
@@ -96,6 +100,8 @@ impl WaylandSurface {
             configured: false,
             initial_configure_done: false,
             frame_count: 0,
+            resources_initialized: false,
+            is_active: true, // Assume active until proven otherwise
         })
     }
 
@@ -104,7 +110,7 @@ impl WaylandSurface {
         width: u32,
         height: u32,
         serial: u32,
-        egl_context: Option<&EglContext>,
+        _egl_context: Option<&EglContext>,
     ) {
         // Only log and process first configure
         let is_first = !self.initial_configure_done;
@@ -121,41 +127,15 @@ impl WaylandSurface {
         self.output_info.height = height as i32;
         self.configured = true;
 
-        // Initialize EGL window on first configure
-        if is_first && self.egl_window.is_none() {
-            if let Some(egl_ctx) = egl_context {
-                match egl_ctx.create_window(&self.wl_surface, width as i32, height as i32) {
-                    Ok(egl_win) => {
-                        self.egl_window = Some(egl_win);
-                        info!(
-                            "  ✓ EGL window created for output {}",
-                            self.output_info.name
-                        );
-                    }
-                    Err(e) => {
-                        error!("Failed to create EGL window: {}", e);
-                    }
-                }
-            }
-        }
-
-        // Resize EGL window if dimensions changed
+        // Resize EGL window if already initialized and dimensions changed
         if let Some(ref mut egl_win) = self.egl_window {
             if let Err(e) = egl_win.resize(width as i32, height as i32) {
                 error!("Failed to resize EGL window: {}", e);
             }
         }
-
-        // Initialize decoder after first configuration
-        #[cfg(feature = "video-mpv")]
-        {
-            if is_first && self.decoder_handle.is_none() {
-                match self.init_decoder(egl_context) {
-                    Ok(()) => info!("✓ Decoder initialized for {}", self.output_info.name),
-                    Err(e) => error!("Failed to initialize decoder: {}", e),
-                }
-            }
-        }
+        
+        // Note: Actual resource initialization is now deferred to first render
+        // This is the key change for lazy initialization (Issue #15)
 
         self.layer_surface.ack_configure(serial);
 
@@ -197,6 +177,52 @@ impl WaylandSurface {
     pub fn render(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
         if !self.configured || !self.frame_pending {
             return Ok(());
+        }
+
+        // Lazy initialization: Initialize resources on first render if not already done
+        if !self.resources_initialized && self.is_active {
+            if let Some(egl_ctx) = egl_context {
+                info!(
+                    "🚀 Lazy initialization for output {} (first render)",
+                    self.output_info.name
+                );
+                
+                // Initialize EGL window
+                if self.egl_window.is_none() {
+                    match egl_ctx.create_window(
+                        &self.wl_surface,
+                        self.output_info.width,
+                        self.output_info.height,
+                    ) {
+                        Ok(egl_win) => {
+                            self.egl_window = Some(egl_win);
+                            info!("  ✓ EGL window created lazily");
+                        }
+                        Err(e) => {
+                            error!("Failed to create EGL window: {}", e);
+                            return Ok(());
+                        }
+                    }
+                }
+
+                // Initialize decoder
+                #[cfg(feature = "video-mpv")]
+                if self.decoder_handle.is_none() {
+                    match self.init_decoder(Some(egl_ctx)) {
+                        Ok(()) => info!("  ✓ Decoder initialized lazily"),
+                        Err(e) => {
+                            error!("Failed to initialize decoder: {}", e);
+                            return Ok(());
+                        }
+                    }
+                }
+
+                self.resources_initialized = true;
+                info!("  ✅ Lazy initialization complete for {}", self.output_info.name);
+            } else {
+                // No EGL context yet, skip rendering
+                return Ok(());
+            }
         }
 
         // Clear frame pending flag
@@ -329,9 +355,55 @@ impl WaylandSurface {
         self.frame_callback = Some(callback);
     }
 
+    /// Set output as active (visible/powered on)
+    /// This enables lazy initialization on next render
+    #[allow(dead_code)]
+    pub fn set_active(&mut self, active: bool) {
+        if self.is_active != active {
+            self.is_active = active;
+            if active {
+                info!("Output {} marked as active", self.output_info.name);
+            } else {
+                info!("Output {} marked as inactive", self.output_info.name);
+                // Optionally cleanup resources when inactive
+                self.cleanup_resources();
+            }
+        }
+    }
+
+    /// Check if output is active
+    #[allow(dead_code)]
+    pub fn is_active(&self) -> bool {
+        self.is_active
+    }
+
+    /// Cleanup resources when output becomes inactive
+    fn cleanup_resources(&mut self) {
+        if !self.resources_initialized {
+            return; // Nothing to cleanup
+        }
+
+        info!("🧹 Cleaning up resources for inactive output {}", self.output_info.name);
+
+        // Release decoder handle (decrements ref count)
+        #[cfg(feature = "video-mpv")]
+        {
+            if self.decoder_handle.is_some() {
+                self.decoder_handle = None;
+                info!("  ✓ Decoder handle released");
+            }
+        }
+
+        // Note: EGL window is kept for now as it's lightweight
+        // and may be needed soon if output becomes active again
+        
+        self.resources_initialized = false;
+    }
+
     /// Destroy surface resources (for future hot-plug support)
     #[allow(dead_code)]
     pub fn destroy(&mut self) {
+        self.cleanup_resources();
         self.layer_surface.destroy();
         self.wl_surface.destroy();
         info!("Destroyed surface for output {}", self.output_info.name);
