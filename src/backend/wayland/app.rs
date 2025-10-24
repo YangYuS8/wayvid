@@ -650,7 +650,7 @@ impl Dispatch<wl_output::WlOutput, u32> for AppState {
         event: wl_output::Event,
         output_id: &u32,
         _: &Connection,
-        qh: &QueueHandle<Self>,
+        _qh: &QueueHandle<Self>,
     ) {
         use wl_output::Event;
 
