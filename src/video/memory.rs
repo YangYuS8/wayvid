@@ -308,8 +308,8 @@ mod tests {
 
     #[test]
     fn test_memory_stats() {
-        let stats = MemoryStats::global();
-        assert!(stats.current_bytes >= 0);
+        let _stats = MemoryStats::global();
+        // usize is always >= 0, so no need to assert
     }
 
     #[test]
