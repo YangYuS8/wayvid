@@ -2,7 +2,7 @@
 
 ## 📊 总体进度
 
-**完成度**: 14% (2h/14h)
+**完成度**: 36% (5h/14h)
 
 **状态**: 🟢 进行中
 
@@ -31,25 +31,51 @@
 - ✅ 更新 `EffectiveConfig` 包含 HDR 字段
 - ✅ 更新 WE converter
 
-**提交**: f5759c3 - "feat: Add HDR detection infrastructure (Phase 1)"
-
-**技术细节**:
-```rust
-// HDR 元数据查询
-pub fn get_hdr_metadata(&self) -> Option<HdrMetadata> {
-    let colorspace = self.get_property_string("video-params/colorspace")?;
-    let gamma = self.get_property_string("video-params/gamma")?;
-    let primaries = self.get_property_string("video-params/primaries")?;
-    let peak_luminance = self.get_property_f64("video-params/sig-peak");
-    
-    // 解析并返回 HdrMetadata
-    ...
-}
-```
+**提交**: f5759c3, c027f11
 
 ---
 
-## ⏳ Phase 2: 输出 HDR 能力查询 (3h) - 待开始
+## ✅ Phase 2: 输出 HDR 能力查询 (3h) - 完成
+
+**完成时间**: 2025-10-25
+
+**实现内容**:
+- ✅ 创建 `OutputHdrCapabilities` 结构体
+  - `hdr_supported`: 是否支持 HDR
+  - `max_luminance`: 最大亮度 (nits)
+  - `min_luminance`: 最小亮度 (nits)
+  - `supported_eotf`: 支持的传输函数列表
+- ✅ 添加 `hdr_capabilities` 字段到 `OutputInfo`
+- ✅ 实现保守的默认值 (假设 SDR)
+- ✅ 添加 `query_hdr_capabilities()` 占位方法
+- ✅ 更新 `Output::new()` 初始化 HDR 能力
+- ✅ 创建 Wayland HDR 支持状况文档
+
+**提交**: 4cbc198
+
+**技术决策**:
+
+由于当前 Wayland HDR 协议仍在开发中:
+- **Color Management Protocol**: 处于 staging 阶段,未稳定
+- **Hyprland HDR**: 实验性支持 (0.40+)
+- **其他合成器**: KDE/GNOME 正在开发中
+
+**采用策略**: 保守方法
+1. 默认假设所有输出为 SDR
+2. 依赖 MPV 的软件色调映射
+3. 为未来协议预留扩展点
+
+**优势**:
+- ✅ 在所有合成器上立即可用
+- ✅ 不依赖特定协议或合成器
+- ✅ MPV 色调映射质量高且可配置
+- ✅ 未来可无缝升级到硬件 HDR
+
+**文档**: `docs/HDR_WAYLAND_STATUS.md`
+
+---
+
+## ⏳ Phase 3: MPV HDR 配置 (2h) - 待开始
 
 **任务**:
 - [ ] 研究 Wayland HDR 协议
