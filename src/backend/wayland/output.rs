@@ -54,6 +54,7 @@ impl Output {
     ///
     /// For now, we assume all outputs are SDR and rely on MPV's tone mapping
     /// for HDR content.
+    #[allow(dead_code)]
     pub fn query_hdr_capabilities(&mut self) {
         // TODO: Implement actual HDR capability detection when protocols are available
         //

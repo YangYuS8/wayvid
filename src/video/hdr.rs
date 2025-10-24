@@ -62,9 +62,11 @@ pub struct HdrMetadata {
     pub peak_luminance: Option<f64>,
 
     /// Average luminance in nits (if available)
+    #[allow(dead_code)]
     pub avg_luminance: Option<f64>,
 
     /// Minimum luminance in nits (if available)
+    #[allow(dead_code)]
     pub min_luminance: Option<f64>,
 }
 
@@ -110,10 +112,11 @@ pub fn parse_transfer_function(value: &str) -> TransferFunction {
 }
 
 /// HDR mode configuration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum HdrMode {
     /// Automatically detect and handle HDR (default)
+    #[default]
     Auto,
     /// Force HDR processing
     Force,
@@ -121,17 +124,12 @@ pub enum HdrMode {
     Disable,
 }
 
-impl Default for HdrMode {
-    fn default() -> Self {
-        HdrMode::Auto
-    }
-}
-
 /// Tone mapping algorithm
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ToneMappingAlgorithm {
     /// Hable (Uncharted 2) - Good for most content
+    #[default]
     Hable,
     /// Mobius - Preserves details
     Mobius,
@@ -141,12 +139,6 @@ pub enum ToneMappingAlgorithm {
     Bt2390,
     /// Clip (no tone mapping)
     Clip,
-}
-
-impl Default for ToneMappingAlgorithm {
-    fn default() -> Self {
-        ToneMappingAlgorithm::Hable
-    }
 }
 
 impl ToneMappingAlgorithm {
@@ -239,11 +231,12 @@ fn default_tone_mapping_mode() -> String {
 /// Content type for HDR optimization
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContentType {
-    /// General/mixed content
+    /// General purpose content
     General,
-    /// Movie/cinema content with high peak brightness
+    /// High-contrast cinematic content
     Cinema,
     /// Animation with vibrant colors
+    #[allow(dead_code)]
     Animation,
     /// Nature/documentary with wide dynamic range
     Documentary,
@@ -263,6 +256,7 @@ impl ContentType {
     }
 
     /// Get recommended tone mapping algorithm for this content type
+    #[allow(dead_code)]
     pub fn recommended_algorithm(&self) -> ToneMappingAlgorithm {
         match self {
             ContentType::General => ToneMappingAlgorithm::Hable,
@@ -276,18 +270,10 @@ impl ContentType {
     /// Get recommended tone mapping parameter for this content type
     pub fn recommended_param(&self, algorithm: ToneMappingAlgorithm) -> f64 {
         match (self, algorithm) {
-            // Cinema: Higher contrast
             (ContentType::Cinema, ToneMappingAlgorithm::Hable) => 1.2,
-            (ContentType::Cinema, ToneMappingAlgorithm::Mobius) => 0.25,
-            // Animation: Preserve vibrant colors
-            (ContentType::Animation, ToneMappingAlgorithm::Mobius) => 0.35,
-            (ContentType::Animation, ToneMappingAlgorithm::Hable) => 0.9,
-            // Documentary: Natural look
+            (ContentType::Animation, ToneMappingAlgorithm::Mobius) => 0.25,
             (ContentType::Documentary, ToneMappingAlgorithm::Bt2390) => 1.0,
-            (ContentType::Documentary, ToneMappingAlgorithm::Hable) => 1.0,
-            // Low dynamic range: Gentle mapping
-            (ContentType::LowDynamicRange, ToneMappingAlgorithm::Reinhard) => 0.6,
-            // Default to algorithm's recommended param
+            (ContentType::LowDynamicRange, ToneMappingAlgorithm::Reinhard) => 0.4,
             _ => algorithm.recommended_param(),
         }
     }
@@ -329,25 +315,22 @@ impl ToneMappingConfig {
 }
 
 /// Performance preset for tone mapping
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum PerformancePreset {
     /// Maximum quality, higher GPU load
     Quality,
     /// Balanced quality and performance (default)
+    #[default]
     Balanced,
     /// Faster processing, lower quality
     Performance,
 }
 
-impl Default for PerformancePreset {
-    fn default() -> Self {
-        PerformancePreset::Balanced
-    }
-}
-
 impl PerformancePreset {
     /// Get recommended tone mapping algorithm for this preset
+    #[allow(dead_code)]
     pub fn recommended_algorithm(&self) -> ToneMappingAlgorithm {
         match self {
             PerformancePreset::Quality => ToneMappingAlgorithm::Hable,
@@ -357,6 +340,7 @@ impl PerformancePreset {
     }
 
     /// Should enable dynamic peak computation
+    #[allow(dead_code)]
     pub fn compute_peak(&self) -> bool {
         match self {
             PerformancePreset::Quality => true,
@@ -366,6 +350,7 @@ impl PerformancePreset {
     }
 
     /// Get description of this preset
+    #[allow(dead_code)]
     pub fn description(&self) -> &'static str {
         match self {
             PerformancePreset::Quality => "Quality - Best visual quality, higher GPU load",

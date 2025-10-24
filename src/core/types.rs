@@ -172,12 +172,15 @@ pub struct OutputHdrCapabilities {
     pub hdr_supported: bool,
 
     /// Maximum luminance in nits (if available)
+    #[allow(dead_code)]
     pub max_luminance: Option<f64>,
 
     /// Minimum luminance in nits (if available)
+    #[allow(dead_code)]
     pub min_luminance: Option<f64>,
 
     /// Supported transfer functions (EOTFs)
+    #[allow(dead_code)]
     pub supported_eotf: Vec<crate::video::hdr::TransferFunction>,
 }
 
