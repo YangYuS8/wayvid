@@ -79,6 +79,7 @@ fn match_glob(name: &str, pattern: &str) -> bool {
 /// 1. Exact matches
 /// 2. Most specific patterns (fewest wildcards)
 /// 3. Longest patterns
+#[allow(dead_code)]
 pub fn find_best_match<'a>(name: &str, patterns: &[&'a str]) -> Option<&'a str> {
     let mut candidates: Vec<(&str, usize)> = patterns
         .iter()
