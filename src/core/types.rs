@@ -165,6 +165,33 @@ pub enum LayoutMode {
     Centre,
 }
 
+/// HDR capabilities of an output
+#[derive(Debug, Clone)]
+pub struct OutputHdrCapabilities {
+    /// Whether the output supports HDR
+    pub hdr_supported: bool,
+
+    /// Maximum luminance in nits (if available)
+    pub max_luminance: Option<f64>,
+
+    /// Minimum luminance in nits (if available)
+    pub min_luminance: Option<f64>,
+
+    /// Supported transfer functions (EOTFs)
+    pub supported_eotf: Vec<crate::video::hdr::TransferFunction>,
+}
+
+impl Default for OutputHdrCapabilities {
+    fn default() -> Self {
+        Self {
+            hdr_supported: false,
+            max_luminance: Some(203.0), // Typical SDR peak brightness
+            min_luminance: Some(0.0),
+            supported_eotf: vec![crate::video::hdr::TransferFunction::Srgb],
+        }
+    }
+}
+
 /// Output information
 #[derive(Debug, Clone)]
 pub struct OutputInfo {
@@ -186,6 +213,9 @@ pub struct OutputInfo {
     /// Whether output is currently active (for future hot-plug support)
     #[allow(dead_code)]
     pub active: bool,
+
+    /// HDR capabilities of this output
+    pub hdr_capabilities: OutputHdrCapabilities,
 }
 
 impl OutputInfo {
