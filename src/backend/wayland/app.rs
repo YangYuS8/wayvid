@@ -685,6 +685,9 @@ impl Dispatch<wl_callback::WlCallback, u32> for AppState {
 }
 
 pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
+    // Start startup time measurement
+    let startup_start = std::time::Instant::now();
+
     info!("Starting wayvid Wayland backend");
 
     let conn = Connection::connect_to_env().context("Failed to connect to Wayland compositor")?;
@@ -820,8 +823,8 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
         surface.on_frame_ready();
     }
 
-    // Initial render
-    info!("Performing initial render...");
+    // Initial render (triggers lazy initialization)
+    info!("Performing initial render (triggers lazy initialization)...");
     let egl_ctx = state.egl_context.as_ref();
     for surface in state.surfaces.values_mut() {
         if let Err(e) = surface.render(egl_ctx) {
@@ -830,7 +833,14 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
         // Request next frame after initial render
         surface.request_frame(&qh);
     }
-    info!("Initial render complete");
+
+    // Measure and report startup time
+    let startup_duration = startup_start.elapsed();
+    info!(
+        "✅ Startup complete in {:.1}ms",
+        startup_duration.as_millis()
+    );
+    info!("   Lazy initialization: resources allocated on first render");
 
     // Main event loop with vsync
     while state.running {
