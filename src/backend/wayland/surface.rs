@@ -37,6 +37,9 @@ pub struct WaylandSurface {
 
     configured: bool,
     initial_configure_done: bool,
+
+    // Memory management
+    frame_count: u64,
 }
 
 // Type alias for complex layout cache type
@@ -92,6 +95,7 @@ impl WaylandSurface {
             cached_layout: None,
             configured: false,
             initial_configure_done: false,
+            frame_count: 0,
         })
     }
 
@@ -197,6 +201,17 @@ impl WaylandSurface {
 
         // Clear frame pending flag
         self.frame_pending = false;
+
+        // Increment frame count
+        self.frame_count += 1;
+
+        // Check memory pressure every 600 frames (~10 seconds at 60fps)
+        #[cfg(feature = "video-mpv")]
+        if self.frame_count % 600 == 0 {
+            if let Some(ref handle) = self.decoder_handle {
+                handle.handle_memory_pressure();
+            }
+        }
 
         // OpenGL rendering with clear screen test
         if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {

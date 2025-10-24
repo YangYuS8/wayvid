@@ -85,6 +85,14 @@ pub struct PowerConfig {
     /// Target FPS limit (0 = unlimited)
     #[serde(default)]
     pub max_fps: u32,
+
+    /// Maximum memory usage in MB (0 = unlimited)
+    #[serde(default = "default_max_memory_mb")]
+    pub max_memory_mb: usize,
+
+    /// Maximum number of texture buffers in pool
+    #[serde(default = "default_max_buffers")]
+    pub max_buffers: usize,
 }
 
 impl Default for PowerConfig {
@@ -93,6 +101,8 @@ impl Default for PowerConfig {
             pause_when_hidden: true,
             pause_on_battery: false,
             max_fps: 0,
+            max_memory_mb: default_max_memory_mb(),
+            max_buffers: default_max_buffers(),
         }
     }
 }
@@ -177,6 +187,14 @@ fn default_hwdec() -> bool {
 
 fn default_pause_hidden() -> bool {
     true
+}
+
+fn default_max_memory_mb() -> usize {
+    100 // 100MB default limit
+}
+
+fn default_max_buffers() -> usize {
+    8 // Default 8 texture buffers
 }
 
 #[cfg(test)]

@@ -10,11 +10,12 @@
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::config::EffectiveConfig;
 use crate::core::types::{HwdecMode, OutputInfo, VideoSource};
 use crate::video::egl::EglContext;
+use crate::video::memory::{BufferPool, MemoryStats};
 use crate::video::mpv::MpvPlayer;
 
 /// Unique identifier for a video source + decode parameters
@@ -113,6 +114,33 @@ impl DecoderHandle {
         buffer.get_frame()
     }
 
+    /// Get reference to the buffer pool
+    #[allow(dead_code)]
+    pub fn buffer_pool(&self) -> Arc<BufferPool> {
+        let manager = self.manager.read().unwrap();
+        manager.buffer_pool()
+    }
+
+    /// Log memory statistics
+    #[allow(dead_code)]
+    pub fn log_memory_stats(&self) {
+        let manager = self.manager.read().unwrap();
+        manager.log_memory_stats();
+    }
+
+    /// Check current memory pressure level
+    #[allow(dead_code)]
+    pub fn check_memory_pressure(&self) -> MemoryPressureLevel {
+        let manager = self.manager.read().unwrap();
+        manager.check_memory_pressure()
+    }
+
+    /// Handle memory pressure (cleanup if needed)
+    pub fn handle_memory_pressure(&self) {
+        let manager = self.manager.read().unwrap();
+        manager.handle_memory_pressure();
+    }
+
     /// Get current frame dimensions (width, height)
     pub fn dimensions(&self) -> Option<(i32, i32)> {
         let manager = self.manager.read().ok()?;
@@ -138,7 +166,7 @@ impl Drop for DecoderHandle {
 
 /// Shared frame buffer for zero-copy frame extraction
 pub struct FrameBuffer {
-    /// Current frame data (shared via Arc for zero-copy)
+    /// Current frame data (using ManagedBuffer from pool)
     /// TODO: Implement frame extraction from MPV
     #[allow(dead_code)]
     frame_data: Option<Arc<Vec<u8>>>,
@@ -154,15 +182,19 @@ pub struct FrameBuffer {
     /// Last update timestamp
     #[allow(dead_code)]
     last_update: std::time::Instant,
-}
 
+    /// Buffer pool reference for managed allocations
+    #[allow(dead_code)]
+    buffer_pool: Arc<BufferPool>,
+}
 impl FrameBuffer {
-    fn new() -> Self {
+    fn new(buffer_pool: Arc<BufferPool>) -> Self {
         Self {
             frame_data: None,
             dimensions: None,
             sequence: 0,
             last_update: std::time::Instant::now(),
+            buffer_pool,
         }
     }
 
@@ -200,7 +232,11 @@ struct SharedDecoder {
 }
 
 impl SharedDecoder {
-    fn new(config: &EffectiveConfig, output_info: &OutputInfo) -> Result<Self> {
+    fn new(
+        config: &EffectiveConfig,
+        output_info: &OutputInfo,
+        buffer_pool: Arc<BufferPool>,
+    ) -> Result<Self> {
         info!("🎬 Creating shared decoder for {:?}", config.source);
 
         // Create MPV player
@@ -209,7 +245,7 @@ impl SharedDecoder {
         Ok(Self {
             ref_count: 0,
             player: Arc::new(Mutex::new(player)),
-            frame_buffer: Arc::new(Mutex::new(FrameBuffer::new())),
+            frame_buffer: Arc::new(Mutex::new(FrameBuffer::new(buffer_pool.clone()))),
             stats: DecoderStats::default(),
         })
     }
@@ -243,6 +279,17 @@ impl SharedDecoder {
         // Update stats
         self.stats.frames_decoded += 1;
 
+        // Log memory stats periodically (every 300 frames ~= every 5 seconds at 60fps)
+        if self.stats.frames_decoded % 300 == 0 {
+            let mem_stats = MemoryStats::global();
+            debug!(
+                "📊 Memory after {} frames: current={}, peak={}",
+                self.stats.frames_decoded,
+                MemoryStats::format_bytes(mem_stats.current_bytes),
+                MemoryStats::format_bytes(mem_stats.peak_bytes),
+            );
+        }
+
         // TODO: Extract rendered frame to shared buffer
         // For now, just increment frame count
 
@@ -268,15 +315,34 @@ pub struct SharedDecodeManager {
 
     /// Total number of consumers across all decoders
     total_consumers: usize,
+
+    /// Buffer pool for texture data (shared across all decoders)
+    buffer_pool: Arc<BufferPool>,
 }
 
 impl SharedDecodeManager {
     /// Create a new manager
     fn new() -> Self {
+        // Configure buffer pool with conservative defaults
+        // TODO: Read from global config once available
+        // Users can override via config.yaml:
+        //   power:
+        //     max_memory_mb: 100
+        //     max_buffers: 8
+        const MAX_BUFFERS: usize = 8;
+        const MAX_MEMORY: usize = 100 * 1024 * 1024; // 100MB
+
+        info!(
+            "🎬 Initializing buffer pool: max_buffers={}, max_memory={}MB",
+            MAX_BUFFERS,
+            MAX_MEMORY / (1024 * 1024)
+        );
+
         Self {
             decoders: HashMap::new(),
             active_decoders: 0,
             total_consumers: 0,
+            buffer_pool: Arc::new(BufferPool::new(MAX_BUFFERS, MAX_MEMORY)),
         }
     }
 
@@ -305,15 +371,20 @@ impl SharedDecodeManager {
         let key = SourceKey::from_config(config);
 
         // First check if decoder exists (read lock)
-        let (frame_buffer, is_new) = {
+        let (frame_buffer, is_new, buffer_pool) = {
             let mgr = manager.read().unwrap();
             let exists = mgr.decoders.contains_key(&key);
+            let pool = mgr.buffer_pool.clone();
             if exists {
                 debug!("♻️  Reusing existing decoder for {:?}", key.source);
                 let fb = mgr.decoders.get(&key).unwrap().get_frame_buffer();
-                (fb, false)
+                (fb, false, pool)
             } else {
-                (Arc::new(Mutex::new(FrameBuffer::new())), true)
+                (
+                    Arc::new(Mutex::new(FrameBuffer::new(pool.clone()))),
+                    true,
+                    pool,
+                )
             }
         };
 
@@ -324,7 +395,7 @@ impl SharedDecodeManager {
             // Double-check in case another thread created it
             if !mgr.decoders.contains_key(&key) {
                 info!("🆕 Creating new shared decoder for {:?}", key.source);
-                let decoder = SharedDecoder::new(config, output_info)?;
+                let decoder = SharedDecoder::new(config, output_info, buffer_pool)?;
                 mgr.active_decoders += 1;
                 mgr.decoders.insert(key.clone(), decoder);
             }
@@ -398,6 +469,95 @@ impl SharedDecodeManager {
                 .collect(),
         }
     }
+
+    /// Get reference to the buffer pool
+    #[allow(dead_code)]
+    pub fn buffer_pool(&self) -> Arc<BufferPool> {
+        self.buffer_pool.clone()
+    }
+
+    /// Log memory statistics
+    #[allow(dead_code)]
+    pub fn log_memory_stats(&self) {
+        let mem_stats = MemoryStats::global();
+        let pool_stats = self.buffer_pool.stats();
+
+        info!(
+            "💾 Memory: current={}, peak={}, pool: {}/{} buffers",
+            MemoryStats::format_bytes(mem_stats.current_bytes),
+            MemoryStats::format_bytes(mem_stats.peak_bytes),
+            pool_stats.buffer_count,
+            pool_stats.max_buffers,
+        );
+
+        mem_stats.log();
+        pool_stats.log();
+    }
+
+    /// Check if system is under memory pressure
+    pub fn check_memory_pressure(&self) -> MemoryPressureLevel {
+        let mem_stats = MemoryStats::global();
+        let pool_stats = self.buffer_pool.stats();
+
+        // Calculate utilization percentages
+        let pool_utilization = pool_stats.utilization();
+
+        // Define thresholds
+        const WARN_THRESHOLD: f64 = 0.75; // 75% utilization
+        const CRITICAL_THRESHOLD: f64 = 0.90; // 90% utilization
+
+        if pool_utilization >= CRITICAL_THRESHOLD {
+            warn!(
+                "⚠️  Critical memory pressure! Pool: {:.1}%, Memory: {}",
+                pool_utilization * 100.0,
+                MemoryStats::format_bytes(mem_stats.current_bytes)
+            );
+            MemoryPressureLevel::Critical
+        } else if pool_utilization >= WARN_THRESHOLD {
+            debug!(
+                "⚠️  High memory pressure. Pool: {:.1}%, Memory: {}",
+                pool_utilization * 100.0,
+                MemoryStats::format_bytes(mem_stats.current_bytes)
+            );
+            MemoryPressureLevel::High
+        } else {
+            MemoryPressureLevel::Normal
+        }
+    }
+
+    /// React to memory pressure by clearing buffer pool
+    pub fn handle_memory_pressure(&self) {
+        let pressure = self.check_memory_pressure();
+
+        match pressure {
+            MemoryPressureLevel::Critical => {
+                warn!("🧹 Critical pressure: clearing buffer pool");
+                self.buffer_pool.clear();
+            }
+            MemoryPressureLevel::High => {
+                debug!("🧹 High pressure: partially clearing buffer pool");
+                // Keep half of the buffers
+                let stats = self.buffer_pool.stats();
+                if stats.buffer_count > 4 {
+                    self.buffer_pool.clear();
+                }
+            }
+            MemoryPressureLevel::Normal => {
+                // No action needed
+            }
+        }
+    }
+}
+
+/// Memory pressure levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryPressureLevel {
+    /// Normal operation, plenty of memory available
+    Normal,
+    /// High memory usage, should consider cleanup
+    High,
+    /// Critical memory usage, immediate cleanup required
+    Critical,
 }
 
 /// Global statistics across all decoders

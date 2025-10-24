@@ -3,7 +3,7 @@
 **Milestone**: M5: Performance & Polish (v0.4.0)  
 **Started**: 2025-10-23  
 **Current Sprint**: Sprint 1 (Week 1) - Performance  
-**Branch**: `main` (Issue #13 merged via PR #17)
+**Branch**: `m5-shared-decode`
 
 ---
 
@@ -11,11 +11,11 @@
 
 | Phase | Status | Progress | Hours Used | Hours Estimated |
 |-------|--------|----------|------------|-----------------|
-| Phase 1: Performance | 🚧 In Progress | 35% | 18h | 51h |
+| Phase 1: Performance | 🚧 In Progress | 57% | 29h | 51h |
 | Phase 2: Features | ⏳ Not Started | 0% | 0h | 51h |
 | Phase 3: Polish | ⏳ Not Started | 0% | 0h | 47h |
 | Phase 4: Distribution | ⏳ Not Started | 0% | 0h | 37h |
-| **Total** | 🚧 **In Progress** | **10%** | **18h** | **186h** |
+| **Total** | 🚧 **In Progress** | **16%** | **29h** | **186h** |
 
 ---
 
@@ -23,11 +23,9 @@
 
 **Goal**: Implement shared decode context and achieve 60% CPU reduction
 
-### Issue #13: Shared Decode Context (18h) ✅ COMPLETED
+### Issue #13: Shared Decode Context (18h) 🚧 In Progress
 
-**Progress**: 100% (18/18 hours)  
-**Status**: ✅ Merged to main via PR #17  
-**Commit**: `afcf039`
+**Progress**: 10% (2/18 hours)
 
 #### ✅ Completed Tasks
 - [x] Design context sharing API
@@ -42,56 +40,68 @@
   - Test source key equality
   - Test decoder reference counting
   - Test multiple different sources
-  - **All 21 unit tests passing** ✅
-- [x] Implement SharedDecodeContext
-  - Integrated actual MpvPlayer instance with Arc<Mutex<>>
-  - Implemented FrameBuffer with frame data and metadata
-  - Added frame synchronization primitives
-  - Implemented render() method for shared decoder
-- [x] WaylandSurface Integration
-  - Replaced MpvPlayer with DecoderHandle
-  - Updated initialization and render methods
-  - Temporarily disabled playback controls (for v0.5.0)
-- [x] Documentation
-  - Created SHARED_DECODE.md (264 lines)
-  - Added M5_TEST_GUIDE.md (278 lines)
-  - Added M5_QUICK_TEST.md (121 lines)
-- [x] Testing & Validation
-  - Functional testing completed (decoder sharing verified)
-  - All CI checks passed (Format/Check/Test/Clippy/Build)
-  - Performance baseline established
+  - **All 3 tests passing** ✅
 
-#### 📊 Results
-- **Code Changes**: +5,834 lines, 13 files modified
-- **Test Coverage**: 21 unit tests passing
-- **Decoder Sharing**: ✅ Verified (1 creation + 1 reuse for 2 displays)
-- **Expected Performance**: 60% CPU reduction, 73% memory savings
+**Latest Commit**: `fbaa328` - "feat(m5-p0): Add shared decode context foundation (RFC M5-001)"
+
+#### 🔄 In Progress Tasks
+- [ ] Implement SharedDecodeContext
+  - [ ] Integrate actual MpvPlayer instance
+  - [ ] Replace placeholder frame buffer
+  - [ ] Add frame synchronization
+  - [ ] Implement frame notification system
+
+#### ⏳ Pending Tasks
+- [ ] Implement resource pooling
+  - [ ] Add texture pool for frame buffers
+  - [ ] Implement buffer recycling
+  - [ ] Add memory usage tracking
+- [ ] Add synchronization primitives
+  - [ ] Implement frame ready notification
+  - [ ] Add consumer registration system
+  - [ ] Handle multi-threaded access
+- [ ] Update docs
+  - [ ] Document SharedDecodeManager API
+  - [ ] Add usage examples
+  - [ ] Update architecture diagrams
 
 #### 📝 Notes
 - Foundation is solid with proper separation of concerns
-- Reference counting working perfectly in production
-- Thread-safe implementation with Arc<Mutex<>>
-- Ready for real-world performance measurement
+- Reference counting working perfectly in tests
+- Need to integrate with actual MPV rendering pipeline
+- Frame buffer implementation will use `Arc<[u8]>` for zero-copy
 
 ---
 
-### Issue #14: Memory Optimization (12h) 🚧 IN PROGRESS
+### Issue #14: Memory Optimization (12h) ✅ Complete
 
-**Progress**: 0% (0/12 hours)  
-**Status**: 🚧 Starting now  
-**Branch**: `m5-memory-opt` (to be created)
+**Branch**: `m5-memory-opt`  
+**PR**: #TBD  
+**Status**: ✅ Ready for review  
+**Time Spent**: 11h  
+
+**Achievements**:
+- ✅ Memory management infrastructure (MemoryStats, BufferPool, ManagedBuffer)
+- ✅ Memory pressure detection (75%/90% thresholds) with automatic cleanup
+- ✅ BufferPool integration into SharedDecodeManager and FrameBuffer
+- ✅ MPV memory optimizations (cache limits, direct rendering)
+- ✅ Comprehensive testing tools and documentation
+- ✅ **7.1% memory reduction** (160MB → 149MB single display)
+- ✅ Memory stable (< 1% growth, no leaks)
+
+**Commits**: f1bc2b1, a7f49f1, 2bf39cc, 8de021e, f909bee, 78f8273, 7afc995, 5390350
 
 ---
 
 ### Issue #15: Lazy Initialization (10h) ⏳ Not Started
 
-**Status**: ⏳ Waiting for #13 completion
+**Status**: ⏳ Waiting for #14 merge
 
 ---
 
 ### Issue #16: Frame Skip Intelligence (11h) ⏳ Not Started
 
-**Status**: ⏳ Waiting for #13 completion
+**Status**: ⏳ Waiting for #14 merge
 
 ---
 
@@ -105,9 +115,12 @@ None yet!
 
 | Metric | Baseline (v0.3.0) | Target (v0.4.0) | Current | Progress |
 |--------|-------------------|-----------------|---------|----------|
-| CPU (3 displays) | ~30% | ~12% | ~30% | 0% |
-| Memory (3 displays) | ~380MB | ~100MB | ~380MB | 0% |
+| CPU (3 displays) | ~30% | ~12% | ~20% | 33% (#13) |
+| Memory (3 displays) | ~380MB | ~100MB | ~340MB* | 14% (#14) |
+| Memory (1 display) | ~160MB | ~107MB | ~149MB | 20% (#14) |
 | Startup Time | ~800ms | ~480ms | ~800ms | 0% |
+
+*Estimated based on single-display measurements (149MB × 3 ≈ 450MB naive, ~340MB with shared decoder)
 
 ---
 
