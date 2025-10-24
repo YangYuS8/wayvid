@@ -2,7 +2,7 @@
 
 ## 📊 总体进度
 
-**完成度**: 36% (5h/14h)
+**完成度**: 50% (7h/14h)
 
 **状态**: 🟢 进行中
 
@@ -75,56 +75,55 @@
 
 ---
 
-## ⏳ Phase 3: MPV HDR 配置 (2h) - 待开始
+## ✅ Phase 3: MPV HDR 配置 (2h) - 完成
 
-**任务**:
-- [ ] 研究 Wayland HDR 协议
-  - [ ] zwp_xx_color_management_v1 (标准协议)
-  - [ ] Hyprland HDR 扩展
-- [ ] 创建 `OutputHdrCapabilities` 结构体
-- [ ] 查询输出是否支持 HDR
-- [ ] 查询支持的 EOTF (传输函数)
-- [ ] 查询最大/最小亮度范围
-- [ ] 添加到 `OutputInfo`
+**完成时间**: 2025-10-25
 
-**预期结果**:
-```rust
-pub struct OutputHdrCapabilities {
-    pub hdr_supported: bool,
-    pub max_luminance: Option<f64>,  // nits
-    pub min_luminance: Option<f64>,  // nits
-    pub supported_eotf: Vec<TransferFunction>,
-}
-```
+**实现内容**:
+- ✅ 实现 `configure_hdr()` 主配置方法
+  - 检查 `HdrMode` (Auto/Force/Disable)
+  - 检测 HDR 元数据
+  - 详细日志输出 HDR 信息
+  - 选择色调映射或直通模式
+- ✅ 实现 `configure_tone_mapping()` (HDR → SDR)
+  - 配置 MPV 色调映射选项
+  - 设置目标色彩空间 (sRGB, BT.709, 203 nits)
+  - 应用用户的 `ToneMappingConfig`
+- ✅ 实现 `configure_hdr_passthrough()` (HDR → HDR)
+  - 为未来 HDR 显示器准备
+  - 禁用色调映射,启用直通
+- ✅ 集成到 `SharedDecoder`
+  - 在 `init_render_context()` 后调用
+  - 存储 `config` 以供 HDR 配置使用
+- ✅ 更新测试代码以包含新的 HDR 字段
 
----
-
-## ⏳ Phase 3: MPV HDR 配置 (2h) - 待开始
-
-**任务**:
-- [ ] 在 `MpvPlayer::new()` 中检测 HDR 内容
-- [ ] 根据 HDR 模式配置 MPV 选项
-- [ ] HDR 直通模式配置
-- [ ] 色调映射模式配置
-- [ ] 添加详细日志输出
+**提交**: 0a372f1
 
 **MPV 配置选项**:
 
-**直通模式** (HDR → HDR):
-```rust
-set_option("target-colorspace-hint", "yes");
-set_option("icc-profile-auto", "yes");
-```
-
 **色调映射模式** (HDR → SDR):
 ```rust
-set_option("tone-mapping", "hable");
-set_option("tone-mapping-mode", "hybrid");
-set_option("hdr-compute-peak", "yes");
-set_option("target-trc", "srgb");
-set_option("target-prim", "bt.709");
-set_option("target-peak", "203");
+set_option("tone-mapping", algorithm);  // hable, mobius, reinhard, etc.
+set_option("tone-mapping-mode", mode);  // hybrid, auto, rgb, luma
+set_option("hdr-compute-peak", "yes");  // 动态峰值检测
+set_option("target-trc", "srgb");       // 目标传输函数
+set_option("target-prim", "bt.709");    // 目标色域
+set_option("target-peak", "203");       // 目标亮度 (nits)
 ```
+
+**直通模式** (HDR → HDR,未来):
+```rust
+set_option("target-colorspace-hint", "yes");  // 启用色彩空间提示
+set_option("icc-profile-auto", "yes");        // 自动 ICC 配置文件
+set_option("tone-mapping", "clip");           // 禁用色调映射
+```
+
+**日志输出**:
+- 🎨 HDR 配置启动信息
+- 📺 输出 HDR 能力信息
+- ✨ HDR 内容检测信息 (色彩空间、传输函数、峰值亮度)
+- 🖥️ 色调映射配置信息
+- ✓ 配置成功确认
 
 ---
 
@@ -194,20 +193,24 @@ tone_mapping:
 
 ## 📝 下一步行动
 
-1. **研究 Wayland HDR 协议**
-   - 查看 Hyprland HDR 支持文档
-   - 查看 wlroots HDR 实现
-   - 确定查询方法
+1. **Phase 4: 优化色调映射配置**
+   - 测试不同色调映射算法的效果
+   - 优化 `tone-mapping-param` 默认值
+   - 配置不同内容类型的预设
+   - 性能测试和优化
 
-2. **实现输出能力查询**
-   - 添加 Wayland 协议绑定
-   - 查询输出 HDR 能力
-   - 存储到 `OutputInfo`
+2. **Phase 5: 配置选项和文档**
+   - 创建 HDR 配置示例
+   - 更新 README 添加 HDR 部分
+   - 编写用户使用指南
+   - 添加配置验证
 
-3. **配置 MPV HDR 选项**
-   - 根据检测结果配置 MPV
-   - 实现智能 HDR/SDR 切换
-   - 添加日志输出
+3. **Phase 6: 全面测试**
+   - 下载 HDR 测试视频 (HDR10, HLG)
+   - 测试所有色调映射算法
+   - 测试配置选项切换
+   - 性能基准测试
+   - 创建测试报告
 
 ---
 
@@ -230,4 +233,5 @@ tone_mapping:
 ---
 
 **最后更新**: 2025-10-25
-**当前阶段**: Phase 1 完成,Phase 2 准备开始
+**当前阶段**: Phase 3 完成,Phase 4 准备开始
+**进度**: 50% (7h/14h)
