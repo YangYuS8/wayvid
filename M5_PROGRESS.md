@@ -17,6 +17,8 @@
 | Phase 4: Distribution | ⏳ Not Started | 0% | 0h | 37h |
 | **Total** | 🚧 **In Progress** | **25%** | **47h** | **186h** |
 
+**Phase 1 Status**: 3/4 issues complete (#13 In Progress, #14 ✅, #15 ✅, #16 Pending)
+
 ---
 
 ## 🎯 Sprint 1 (Week 1): Performance
@@ -95,12 +97,13 @@
 
 ---
 
-### Issue #15: Lazy Initialization (10h) 🚧 In Progress
+### Issue #15: Lazy Initialization (10h) ✅ Merged
 
-**Branch**: `m5-lazy-init`  
-**PR**: TBD  
-**Status**: 🚧 Phase 1 Complete (70%)  
+**Branch**: ~~`m5-lazy-init`~~ (merged)  
+**PR**: #19 ✅ **MERGED**  
+**Status**: ✅ **Complete and merged to main**  
 **Time Spent**: 7h  
+**Merged**: 2025-10-24  
 
 **Achievements**:
 - ✅ Lazy initialization foundation implemented
@@ -110,16 +113,17 @@
 - ✅ Startup time measurement added
 - ✅ Test script created (`test_startup_time.sh`)
 - ✅ Comprehensive documentation (`M5_LAZY_INIT.md`)
-- ⏳ Performance testing (pending real display test)
-- ⏳ DPMS integration (deferred to next phase)
+- ✅ All CI checks passing (Format, Check, Test, Clippy, Build)
+- 📝 Note: Performance benchmarking deferred (requires real display)
+- 📝 Note: DPMS integration deferred to future phase
 
-**Commits**: 8ff9fb5, 31504e1, 5f78ec6
+**Commits**: 8ff9fb5, 31504e1, 5f78ec6, 7f31873, d3bcc53, 7829f8c
 
 ---
 
 ### Issue #16: Frame Skip Intelligence (11h) ⏳ Ready to Start
 
-**Status**: ⏳ Ready to start (#14 merged)
+**Status**: ⏳ Ready to start (#14, #15 merged)
 
 ---
 
