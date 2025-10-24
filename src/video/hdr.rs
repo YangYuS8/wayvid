@@ -18,7 +18,10 @@ pub enum ColorSpace {
 impl ColorSpace {
     /// Check if this is an HDR color space
     pub fn is_hdr(&self) -> bool {
-        matches!(self, ColorSpace::Hdr10 | ColorSpace::Hlg | ColorSpace::DolbyVision)
+        matches!(
+            self,
+            ColorSpace::Hdr10 | ColorSpace::Hlg | ColorSpace::DolbyVision
+        )
     }
 }
 
@@ -47,19 +50,19 @@ impl TransferFunction {
 pub struct HdrMetadata {
     /// Color space (BT.709, BT.2020, etc.)
     pub color_space: ColorSpace,
-    
+
     /// Transfer function (EOTF)
     pub transfer_function: TransferFunction,
-    
+
     /// Color primaries string (e.g., "bt.709", "bt.2020")
     pub primaries: String,
-    
+
     /// Signal peak luminance in nits (if available)
     pub peak_luminance: Option<f64>,
-    
+
     /// Average luminance in nits (if available)
     pub avg_luminance: Option<f64>,
-    
+
     /// Minimum luminance in nits (if available)
     pub min_luminance: Option<f64>,
 }
@@ -69,13 +72,13 @@ impl HdrMetadata {
     pub fn is_hdr(&self) -> bool {
         self.color_space.is_hdr() || self.transfer_function.is_hdr()
     }
-    
+
     /// Get a human-readable description of the HDR format
     pub fn format_description(&self) -> String {
         if !self.is_hdr() {
             return "SDR".to_string();
         }
-        
+
         match (&self.color_space, &self.transfer_function) {
             (ColorSpace::Hdr10, TransferFunction::Pq) => "HDR10",
             (ColorSpace::Hlg, TransferFunction::Hlg) => "HLG",
@@ -163,15 +166,15 @@ pub struct ToneMappingConfig {
     /// Tone mapping algorithm
     #[serde(default)]
     pub algorithm: ToneMappingAlgorithm,
-    
+
     /// Algorithm parameter (default: 1.0)
     #[serde(default = "default_tone_mapping_param")]
     pub param: f64,
-    
+
     /// Enable dynamic peak detection
     #[serde(default = "default_compute_peak")]
     pub compute_peak: bool,
-    
+
     /// Tone mapping mode: auto, rgb, hybrid, luma
     #[serde(default = "default_tone_mapping_mode")]
     pub mode: String,

@@ -357,7 +357,7 @@ impl MpvPlayer {
     /// Get a string property from MPV
     fn get_property_string(&self, name: &str) -> Option<String> {
         let prop_name = CString::new(name).ok()?;
-        
+
         let ret = unsafe {
             libmpv_sys::mpv_get_property(
                 self.handle,
@@ -366,7 +366,7 @@ impl MpvPlayer {
                 std::ptr::null_mut(),
             )
         };
-        
+
         if ret != 0 {
             return None;
         }
