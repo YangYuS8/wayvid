@@ -18,6 +18,90 @@ A dynamic video wallpaper engine for Wayland compositors, with priority support 
 - ✅ **Power Management** - Battery detection, FPS limiting, auto-pause
 - ✅ **OpenGL Rendering** - Full EGL/OpenGL integration with mpv render API
 - ✅ **Low Resource** - Efficient playback with intelligent caching
+- ✅ **HDR Support** - Automatic HDR10/HLG detection with tone mapping
+
+## HDR Support 🎨
+
+wayvid now supports **HDR (High Dynamic Range)** content including HDR10 and HLG formats. The player automatically detects HDR content and applies intelligent tone mapping to display it correctly on SDR displays.
+
+### Features
+
+- 🎯 **Automatic Detection**: HDR10, HLG, and Dolby Vision content recognition
+- 🎨 **Smart Tone Mapping**: High-quality HDR to SDR conversion
+- 🔧 **Content-Aware**: Automatic parameter optimization based on content type
+- ⚡ **Multiple Algorithms**: 5 tone mapping algorithms (Hable, Mobius, Reinhard, BT.2390, Clip)
+- 📊 **Performance Modes**: Balance quality and GPU load
+
+### Quick Start
+
+```yaml
+# Enable automatic HDR handling (default)
+hdr_mode: auto
+
+# Configure tone mapping
+tone_mapping:
+  algorithm: hable      # Best overall quality
+  param: 1.0           # Auto-optimized for content
+  compute_peak: true   # Dynamic peak detection
+  mode: hybrid         # Balanced processing
+```
+
+### Tone Mapping Algorithms
+
+| Algorithm | Best For | Quality | Performance |
+|-----------|----------|---------|-------------|
+| **hable** ⭐ | Movies, general | Excellent | Moderate |
+| **mobius** | Animation, bright | Excellent details | Good |
+| **reinhard** | Low-end hardware | Good | Fast |
+| **bt2390** | Professional | Reference | Good |
+| **clip** | Testing | Poor | Fastest |
+
+### Content-Aware Optimization
+
+wayvid automatically adjusts tone mapping based on detected content:
+
+- **Cinema** (peak >2000 nits): Higher contrast, RGB mode
+- **Animation**: Detail preservation, luma mode
+- **Documentary**: Natural ITU standard
+- **Low DR**: Gentle mapping
+
+### Example Configurations
+
+```yaml
+# Cinema/Movie (optimized)
+hdr_mode: auto
+tone_mapping:
+  algorithm: hable
+  param: 1.2       # Higher contrast
+  mode: rgb        # Better cinema look
+
+# Animation (vibrant colors)
+hdr_mode: auto
+tone_mapping:
+  algorithm: mobius
+  param: 0.35      # Preserve details
+  mode: luma       # Keep colors saturated
+
+# Performance mode
+hdr_mode: auto
+tone_mapping:
+  algorithm: reinhard
+  compute_peak: false  # Faster
+  mode: luma
+```
+
+### Documentation
+
+For comprehensive HDR configuration guide, see:
+- 📖 [HDR User Guide](docs/HDR_USER_GUIDE.md) - Complete setup and tuning
+- 📝 [HDR Examples](examples/hdr-config.yaml) - 8+ configuration examples
+- 🧪 [Test Script](scripts/test-hdr-tonemapping.sh) - Algorithm comparison
+
+### Requirements
+
+- MPV >= 0.35 (for full HDR support)
+- GPU with OpenGL 3.3+ support
+- HDR video content (HDR10, HLG)
 
 ## Status: M4 Complete
 
@@ -38,6 +122,7 @@ Core functionality is feature-complete with Wallpaper Engine import and multi-pl
 - ✅ Layout calculation (Fill/Contain/Stretch/Cover/Centre)
 - ✅ Per-output configuration overrides
 - ✅ Hardware decode with VA-API/NVDEC
+- ✅ **HDR Support** - HDR10/HLG detection with smart tone mapping
 
 ### Distribution Support
 - ✅ **AppImage** - Universal Linux binary
@@ -46,8 +131,9 @@ Core functionality is feature-complete with Wallpaper Engine import and multi-pl
 - ✅ **Source Build** - All major distributions
 
 ### What's Next (M5)
-- 🔜 Advanced features (shared decode, HDR support)
-- 🔜 Performance optimizations
+- � Shared decode optimization (in progress)
+- 🔜 Static image fallback mode
+- 🔜 System tray integration
 - 🔜 Extended compositor support
 
 ## Supported Compositors

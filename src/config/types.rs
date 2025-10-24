@@ -127,7 +127,40 @@ impl Config {
         let content = fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read config file: {:?}", path.as_ref()))?;
 
-        serde_yaml::from_str(&content).with_context(|| "Failed to parse YAML configuration")
+        let mut config: Self = serde_yaml::from_str(&content)
+            .with_context(|| "Failed to parse YAML configuration")?;
+        
+        // Validate and fix configuration
+        config.validate();
+        
+        Ok(config)
+    }
+
+    /// Validate and fix configuration values
+    fn validate(&mut self) {
+        // Validate tone mapping config
+        self.tone_mapping.validate();
+        
+        // Validate playback rate
+        if self.playback_rate <= 0.0 || self.playback_rate > 100.0 {
+            tracing::warn!(
+                "Invalid playback_rate: {}, clamping to 0.1-10.0",
+                self.playback_rate
+            );
+            self.playback_rate = self.playback_rate.clamp(0.1, 10.0);
+        }
+        
+        // Validate volume
+        if self.volume < 0.0 || self.volume > 1.0 {
+            tracing::warn!("Invalid volume: {}, clamping to 0.0-1.0", self.volume);
+            self.volume = self.volume.clamp(0.0, 1.0);
+        }
+        
+        // Validate start_time
+        if self.start_time < 0.0 {
+            tracing::warn!("Invalid start_time: {}, resetting to 0.0", self.start_time);
+            self.start_time = 0.0;
+        }
     }
 
     /// Get effective configuration for a specific output

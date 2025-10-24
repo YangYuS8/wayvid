@@ -186,7 +186,10 @@ impl ToneMappingAlgorithm {
 
     /// Check if this algorithm benefits from tone-mapping-param adjustment
     pub fn uses_param(&self) -> bool {
-        !matches!(self, ToneMappingAlgorithm::Clip | ToneMappingAlgorithm::Bt2390)
+        !matches!(
+            self,
+            ToneMappingAlgorithm::Clip | ToneMappingAlgorithm::Bt2390
+        )
     }
 }
 
@@ -303,8 +306,8 @@ impl ToneMappingConfig {
         // Adjust tone mapping mode based on content
         if self.mode == "hybrid" {
             self.mode = match content_type {
-                ContentType::Cinema => "rgb".to_string(),      // Better for cinema
-                ContentType::Animation => "luma".to_string(),  // Preserve colors
+                ContentType::Cinema => "rgb".to_string(), // Better for cinema
+                ContentType::Animation => "luma".to_string(), // Preserve colors
                 ContentType::Documentary => "auto".to_string(), // Let MPV decide
                 _ => "hybrid".to_string(),
             };
@@ -365,15 +368,11 @@ impl PerformancePreset {
     /// Get description of this preset
     pub fn description(&self) -> &'static str {
         match self {
-            PerformancePreset::Quality => {
-                "Quality - Best visual quality, higher GPU load"
-            }
+            PerformancePreset::Quality => "Quality - Best visual quality, higher GPU load",
             PerformancePreset::Balanced => {
                 "Balanced - Good quality with reasonable performance (default)"
             }
-            PerformancePreset::Performance => {
-                "Performance - Faster processing, lower GPU load"
-            }
+            PerformancePreset::Performance => "Performance - Faster processing, lower GPU load",
         }
     }
 }

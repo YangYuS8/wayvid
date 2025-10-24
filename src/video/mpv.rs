@@ -305,7 +305,7 @@ impl MpvPlayer {
     /// Configure tone mapping for HDR to SDR conversion
     fn configure_tone_mapping(&self, config: &EffectiveConfig) -> Result<()> {
         use crate::video::hdr::ContentType;
-        
+
         info!("  🎨 Configuring tone mapping for HDR → SDR");
 
         // Clone config to allow modifications for content-aware optimization
@@ -315,14 +315,20 @@ impl MpvPlayer {
         if let Some(metadata) = self.get_hdr_metadata() {
             let content_type = ContentType::detect_from_metadata(&metadata);
             debug!("    Content type: {:?}", content_type);
-            
+
             optimized_config.optimize_for_content(&metadata);
-            
+
             if optimized_config.param != config.tone_mapping.param {
-                info!("    📊 Applied content-aware param optimization: {:.2}", optimized_config.param);
+                info!(
+                    "    📊 Applied content-aware param optimization: {:.2}",
+                    optimized_config.param
+                );
             }
             if optimized_config.mode != config.tone_mapping.mode {
-                info!("    📊 Applied content-aware mode optimization: {}", optimized_config.mode);
+                info!(
+                    "    📊 Applied content-aware mode optimization: {}",
+                    optimized_config.mode
+                );
             }
         }
 
@@ -346,7 +352,11 @@ impl MpvPlayer {
         // Set tone mapping algorithm
         let algorithm = optimized_config.algorithm.as_mpv_str();
         set_option("tone-mapping", algorithm);
-        info!("    Algorithm: {} ({})", algorithm, optimized_config.algorithm.description());
+        info!(
+            "    Algorithm: {} ({})",
+            algorithm,
+            optimized_config.algorithm.description()
+        );
 
         // Set tone mapping mode
         set_option("tone-mapping-mode", &optimized_config.mode);
