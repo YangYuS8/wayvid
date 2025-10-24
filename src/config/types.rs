@@ -117,33 +117,50 @@ impl Config {
     }
 
     /// Get effective configuration for a specific output
+    ///
+    /// Supports pattern matching (e.g., "HDMI-*", "DP-?") for flexible configuration.
+    /// Exact matches take precedence over pattern matches.
     pub fn for_output(&self, output_name: &str) -> EffectiveConfig {
+        use crate::config::pattern::find_best_match;
+
         let base = self.clone();
 
-        if let Some(override_cfg) = self.per_output.get(output_name) {
-            EffectiveConfig {
-                source: override_cfg.source.clone().unwrap_or(base.source),
-                layout: override_cfg.layout.unwrap_or(base.layout),
-                r#loop: base.r#loop,
-                start_time: override_cfg.start_time.unwrap_or(base.start_time),
-                playback_rate: override_cfg.playback_rate.unwrap_or(base.playback_rate),
-                mute: override_cfg.mute.unwrap_or(base.mute),
-                volume: override_cfg.volume.unwrap_or(base.volume),
-                hwdec: base.hwdec,
-                power: base.power.clone(),
-            }
+        // Try exact match first, then pattern matching
+        let matching_key = if self.per_output.contains_key(output_name) {
+            Some(output_name.to_string())
         } else {
-            EffectiveConfig {
-                source: base.source,
-                layout: base.layout,
-                r#loop: base.r#loop,
-                start_time: base.start_time,
-                playback_rate: base.playback_rate,
-                mute: base.mute,
-                volume: base.volume,
-                hwdec: base.hwdec,
-                power: base.power,
+            // Collect all keys and find best pattern match
+            let patterns: Vec<&str> = self.per_output.keys().map(|s| s.as_str()).collect();
+            find_best_match(output_name, &patterns).map(|s| s.to_string())
+        };
+
+        if let Some(key) = matching_key {
+            if let Some(override_cfg) = self.per_output.get(&key) {
+                return EffectiveConfig {
+                    source: override_cfg.source.clone().unwrap_or(base.source),
+                    layout: override_cfg.layout.unwrap_or(base.layout),
+                    r#loop: base.r#loop,
+                    start_time: override_cfg.start_time.unwrap_or(base.start_time),
+                    playback_rate: override_cfg.playback_rate.unwrap_or(base.playback_rate),
+                    mute: override_cfg.mute.unwrap_or(base.mute),
+                    volume: override_cfg.volume.unwrap_or(base.volume),
+                    hwdec: base.hwdec,
+                    power: base.power.clone(),
+                };
             }
+        }
+
+        // No match, use base config
+        EffectiveConfig {
+            source: base.source,
+            layout: base.layout,
+            r#loop: base.r#loop,
+            start_time: base.start_time,
+            playback_rate: base.playback_rate,
+            mute: base.mute,
+            volume: base.volume,
+            hwdec: base.hwdec,
+            power: base.power,
         }
     }
 }
@@ -229,5 +246,45 @@ per_output:
         let effective = config.for_output("HDMI-A-1");
         assert_eq!(effective.layout, LayoutMode::Contain);
         assert_eq!(effective.start_time, 5.0);
+    }
+
+    #[test]
+    fn test_pattern_matching() {
+        let yaml = r#"
+source:
+  type: File
+  path: "/default.mp4"
+layout: Fill
+per_output:
+  "HDMI-*":
+    layout: Contain
+  "DP-?":
+    layout: Stretch
+  "eDP-1":
+    layout: Cover
+"#;
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+
+        // Exact match takes precedence
+        let effective = config.for_output("eDP-1");
+        assert_eq!(effective.layout, LayoutMode::Cover);
+
+        // Pattern match: HDMI-*
+        let effective = config.for_output("HDMI-A-1");
+        assert_eq!(effective.layout, LayoutMode::Contain);
+
+        let effective = config.for_output("HDMI-B-2");
+        assert_eq!(effective.layout, LayoutMode::Contain);
+
+        // Pattern match: DP-?
+        let effective = config.for_output("DP-1");
+        assert_eq!(effective.layout, LayoutMode::Stretch);
+
+        let effective = config.for_output("DP-2");
+        assert_eq!(effective.layout, LayoutMode::Stretch);
+
+        // No match: fallback to base
+        let effective = config.for_output("DVI-I-1");
+        assert_eq!(effective.layout, LayoutMode::Fill);
     }
 }
