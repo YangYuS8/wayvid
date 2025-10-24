@@ -769,9 +769,10 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     // Bind xdg_output_manager if available (must bind BEFORE outputs)
     for global in globals.contents().with_list(|list| list.to_vec()) {
         if global.interface == "zxdg_output_manager_v1" {
-            let manager: zxdg_output_manager_v1::ZxdgOutputManagerV1 = globals
-                .registry()
-                .bind(global.name, global.version.min(3), &qh, ());
+            let manager: zxdg_output_manager_v1::ZxdgOutputManagerV1 =
+                globals
+                    .registry()
+                    .bind(global.name, global.version.min(3), &qh, ());
             state.xdg_output_manager = Some(manager);
             info!("  ✓ zxdg_output_manager_v1");
             break;
@@ -858,7 +859,7 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
                 debug!("Requested xdg_output for output {}", output_id);
             }
         }
-        
+
         // Additional roundtrip to receive XDG output events
         debug!("Performing roundtrip to receive XDG output names...");
         event_queue
