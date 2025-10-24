@@ -14,6 +14,7 @@ use crate::backend::wayland::surface::WaylandSurface;
 use crate::config::watcher::ConfigWatcher;
 use crate::config::Config;
 use crate::core::power::PowerManager;
+use crate::core::types::VideoSource;
 use crate::ctl::ipc_server::IpcServer;
 use crate::ctl::protocol::IpcCommand;
 use crate::video::egl::EglContext;
@@ -265,15 +266,32 @@ impl AppState {
     }
 
     /// Handle switch source command
-    fn handle_switch_source_command(&mut self, output: String, source: String) {
+    fn handle_switch_source_command(&mut self, output: String, source: VideoSource) {
         #[cfg(feature = "video-mpv")]
         {
             for surface in self.surfaces.values_mut() {
                 if surface.output_info.name == output {
-                    if let Err(e) = surface.switch_source(&source) {
+                    // Extract source path for switch_source (which expects string)
+                    let source_path = match &source {
+                        VideoSource::File { path } => path.clone(),
+                        VideoSource::Url { url } => url.clone(),
+                        VideoSource::Rtsp { url } => url.clone(),
+                        VideoSource::Directory { path } => path.clone(),
+                        VideoSource::Pipe { path } => {
+                            if path.is_empty() {
+                                "fd://0".to_string()
+                            } else {
+                                path.clone()
+                            }
+                        }
+                        VideoSource::ImageSequence { path, .. } => path.clone(),
+                        VideoSource::WeProject { path } => path.clone(),
+                    };
+
+                    if let Err(e) = surface.switch_source(&source_path) {
                         warn!("Failed to switch source on {}: {}", output, e);
                     } else {
-                        info!("Switched {} to source: {}", output, source);
+                        info!("Switched {} to source: {:?}", output, source);
                     }
                     return;
                 }
