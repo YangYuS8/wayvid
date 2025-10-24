@@ -15,6 +15,7 @@ use tracing::{debug, info};
 use crate::config::EffectiveConfig;
 use crate::core::types::{HwdecMode, OutputInfo, VideoSource};
 use crate::video::egl::EglContext;
+use crate::video::memory::{BufferPool, MemoryStats};
 use crate::video::mpv::MpvPlayer;
 
 /// Unique identifier for a video source + decode parameters
@@ -111,6 +112,18 @@ impl DecoderHandle {
     pub fn get_frame(&self) -> Option<(Arc<Vec<u8>>, i32, i32, u64)> {
         let buffer = self.frame_buffer.lock().ok()?;
         buffer.get_frame()
+    }
+
+    /// Get reference to the buffer pool
+    pub fn buffer_pool(&self) -> Arc<BufferPool> {
+        let manager = self.manager.read().unwrap();
+        manager.buffer_pool()
+    }
+
+    /// Log memory statistics
+    pub fn log_memory_stats(&self) {
+        let manager = self.manager.read().unwrap();
+        manager.log_memory_stats();
     }
 
     /// Get current frame dimensions (width, height)
@@ -268,15 +281,34 @@ pub struct SharedDecodeManager {
 
     /// Total number of consumers across all decoders
     total_consumers: usize,
+
+    /// Buffer pool for texture data (shared across all decoders)
+    buffer_pool: Arc<BufferPool>,
 }
 
 impl SharedDecodeManager {
     /// Create a new manager
     fn new() -> Self {
+        // Configure buffer pool with conservative defaults
+        // TODO: Read from global config once available
+        // Users can override via config.yaml:
+        //   power:
+        //     max_memory_mb: 100
+        //     max_buffers: 8
+        const MAX_BUFFERS: usize = 8;
+        const MAX_MEMORY: usize = 100 * 1024 * 1024; // 100MB
+
+        info!(
+            "🎬 Initializing buffer pool: max_buffers={}, max_memory={}MB",
+            MAX_BUFFERS,
+            MAX_MEMORY / (1024 * 1024)
+        );
+
         Self {
             decoders: HashMap::new(),
             active_decoders: 0,
             total_consumers: 0,
+            buffer_pool: Arc::new(BufferPool::new(MAX_BUFFERS, MAX_MEMORY)),
         }
     }
 
@@ -397,6 +429,28 @@ impl SharedDecodeManager {
                 .map(|(key, decoder)| (key.clone(), decoder.stats()))
                 .collect(),
         }
+    }
+
+    /// Get reference to the buffer pool
+    pub fn buffer_pool(&self) -> Arc<BufferPool> {
+        self.buffer_pool.clone()
+    }
+
+    /// Log memory statistics
+    pub fn log_memory_stats(&self) {
+        let mem_stats = MemoryStats::global();
+        let pool_stats = self.buffer_pool.stats();
+
+        info!(
+            "💾 Memory: current={}, peak={}, pool: {}/{} buffers",
+            MemoryStats::format_bytes(mem_stats.current_bytes),
+            MemoryStats::format_bytes(mem_stats.peak_bytes),
+            pool_stats.buffer_count,
+            pool_stats.max_buffers,
+        );
+
+        mem_stats.log();
+        pool_stats.log();
     }
 }
 
