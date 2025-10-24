@@ -26,12 +26,15 @@ pub struct MemoryStats {
     pub peak_bytes: usize,
 
     /// Total bytes allocated (lifetime)
+    #[allow(dead_code)]
     pub total_allocated: usize,
 
     /// Total bytes deallocated (lifetime)
+    #[allow(dead_code)]
     pub total_deallocated: usize,
 
     /// Number of active allocations
+    #[allow(dead_code)]
     pub active_allocations: usize,
 }
 
@@ -69,6 +72,7 @@ impl MemoryStats {
     }
 
     /// Log current memory statistics
+    #[allow(dead_code)]
     pub fn log(&self) {
         debug!(
             "Memory: current={}, peak={}, allocated={}, deallocated={}",
@@ -81,6 +85,7 @@ impl MemoryStats {
 }
 
 /// Track memory allocation
+#[allow(dead_code)]
 pub fn track_allocation(bytes: usize) {
     let allocated = TOTAL_ALLOCATED.fetch_add(bytes, Ordering::Relaxed) + bytes;
     let deallocated = TOTAL_DEALLOCATED.load(Ordering::Relaxed);
@@ -110,6 +115,7 @@ pub struct ManagedBuffer {
 
 impl ManagedBuffer {
     /// Create a new managed buffer
+    #[allow(dead_code)]
     pub fn new(capacity: usize) -> Self {
         track_allocation(capacity);
         Self {
@@ -119,6 +125,7 @@ impl ManagedBuffer {
     }
 
     /// Create from existing vector
+    #[allow(dead_code)]
     pub fn from_vec(data: Vec<u8>) -> Self {
         let capacity = data.capacity();
         track_allocation(capacity);
@@ -129,11 +136,13 @@ impl ManagedBuffer {
     }
 
     /// Get immutable reference to data
+    #[allow(dead_code)]
     pub fn as_slice(&self) -> &[u8] {
         &self.data
     }
 
     /// Get mutable reference to data
+    #[allow(dead_code)]
     pub fn as_mut_slice(&mut self) -> &mut Vec<u8> {
         &mut self.data
     }
@@ -144,11 +153,13 @@ impl ManagedBuffer {
     }
 
     /// Get the length
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
     /// Check if empty
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -183,6 +194,7 @@ impl BufferPool {
     }
 
     /// Acquire a buffer from the pool or allocate a new one
+    #[allow(dead_code)]
     pub fn acquire(&self, min_capacity: usize) -> ManagedBuffer {
         let mut buffers = self.buffers.lock().unwrap();
 
@@ -205,6 +217,7 @@ impl BufferPool {
     }
 
     /// Return a buffer to the pool
+    #[allow(dead_code)]
     pub fn release(&self, mut buffer: ManagedBuffer) {
         let mut buffers = self.buffers.lock().unwrap();
 
@@ -259,6 +272,7 @@ pub struct BufferPoolStats {
     pub total_capacity: usize,
 
     /// Maximum number of buffers allowed
+    #[allow(dead_code)]
     pub max_buffers: usize,
 
     /// Maximum total memory allowed
@@ -275,6 +289,7 @@ impl BufferPoolStats {
     }
 
     /// Log statistics
+    #[allow(dead_code)]
     pub fn log(&self) {
         debug!(
             "Buffer pool: {}/{} buffers, {}/{} memory ({:.1}% full)",

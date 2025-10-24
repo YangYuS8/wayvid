@@ -115,18 +115,21 @@ impl DecoderHandle {
     }
 
     /// Get reference to the buffer pool
+    #[allow(dead_code)]
     pub fn buffer_pool(&self) -> Arc<BufferPool> {
         let manager = self.manager.read().unwrap();
         manager.buffer_pool()
     }
 
     /// Log memory statistics
+    #[allow(dead_code)]
     pub fn log_memory_stats(&self) {
         let manager = self.manager.read().unwrap();
         manager.log_memory_stats();
     }
 
     /// Check current memory pressure level
+    #[allow(dead_code)]
     pub fn check_memory_pressure(&self) -> MemoryPressureLevel {
         let manager = self.manager.read().unwrap();
         manager.check_memory_pressure()
@@ -179,11 +182,11 @@ pub struct FrameBuffer {
     /// Last update timestamp
     #[allow(dead_code)]
     last_update: std::time::Instant,
-    
+
     /// Buffer pool reference for managed allocations
+    #[allow(dead_code)]
     buffer_pool: Arc<BufferPool>,
 }
-
 impl FrameBuffer {
     fn new(buffer_pool: Arc<BufferPool>) -> Self {
         Self {
@@ -229,7 +232,11 @@ struct SharedDecoder {
 }
 
 impl SharedDecoder {
-    fn new(config: &EffectiveConfig, output_info: &OutputInfo, buffer_pool: Arc<BufferPool>) -> Result<Self> {
+    fn new(
+        config: &EffectiveConfig,
+        output_info: &OutputInfo,
+        buffer_pool: Arc<BufferPool>,
+    ) -> Result<Self> {
         info!("🎬 Creating shared decoder for {:?}", config.source);
 
         // Create MPV player
@@ -373,7 +380,11 @@ impl SharedDecodeManager {
                 let fb = mgr.decoders.get(&key).unwrap().get_frame_buffer();
                 (fb, false, pool)
             } else {
-                (Arc::new(Mutex::new(FrameBuffer::new(pool.clone()))), true, pool)
+                (
+                    Arc::new(Mutex::new(FrameBuffer::new(pool.clone()))),
+                    true,
+                    pool,
+                )
             }
         };
 
@@ -460,11 +471,13 @@ impl SharedDecodeManager {
     }
 
     /// Get reference to the buffer pool
+    #[allow(dead_code)]
     pub fn buffer_pool(&self) -> Arc<BufferPool> {
         self.buffer_pool.clone()
     }
 
     /// Log memory statistics
+    #[allow(dead_code)]
     pub fn log_memory_stats(&self) {
         let mem_stats = MemoryStats::global();
         let pool_stats = self.buffer_pool.stats();
