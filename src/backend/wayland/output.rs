@@ -44,7 +44,7 @@ impl Output {
     }
 
     /// Query and update HDR capabilities for this output
-    /// 
+    ///
     /// Currently returns conservative defaults (SDR only) as Wayland HDR protocols
     /// are still in development. This method is a placeholder for future HDR support
     /// when:
@@ -56,7 +56,7 @@ impl Output {
     /// for HDR content.
     pub fn query_hdr_capabilities(&mut self) {
         // TODO: Implement actual HDR capability detection when protocols are available
-        // 
+        //
         // Future implementation might look like:
         // 1. Check for color_management protocol
         // 2. Query supported color spaces
@@ -64,14 +64,14 @@ impl Output {
         // 4. Query luminance ranges
         //
         // For now, keep conservative defaults (SDR only)
-        
+
         use tracing::debug;
-        
+
         debug!(
             "HDR capabilities for output {}: SDR (default)",
             self.info.name
         );
-        
+
         // Keep default SDR capabilities
         // self.info.hdr_capabilities = OutputHdrCapabilities::default();
     }
