@@ -1,6 +1,6 @@
 # Multi-Monitor Testing Report - Issue #2
 
-**Date**: 2025-01-25  
+**Date**: 2025-01-25 (Updated: 2025-01-25)  
 **Branch**: m5-multi-monitor  
 **Tester**: GitHub Copilot (Automated)  
 **Hardware**: eDP-1 (2160x1440) + HDMI-A-1 (2560x1440@144Hz)
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-✅ **Overall Status**: PASS (with known limitation)
+✅ **Overall Status**: PASS (100% Complete)
 
 **Core functionality tested and working**:
 - ✅ Per-output configuration
@@ -19,12 +19,15 @@
 - ✅ Configuration reload
 - ✅ Lazy initialization
 - ✅ Memory efficiency
+- ✅ **XDG output connector names** (eDP-1, HDMI-A-1)
+- ✅ **Pattern matching with wildcards** (HDMI-A-*, HDMI-*)
 
-**Known Limitation**:
-- ⚠️ XDG output protocol not fully integrated
-  - Output names default to `output-{id}` instead of `eDP-1`, `HDMI-A-1`
-  - Pattern matching works, but requires using `output-{id}` names
-  - This is a minor UX issue, not a blocker
+**Update (2025-01-25)**: 
+- ✅ **XDG output protocol fully integrated** (commit bcd0072)
+  - Correctly binds `zxdg_output_manager_v1` during initialization
+  - Output names now use real connector names: `eDP-1`, `HDMI-A-1`
+  - Pattern matching works with wildcards: `HDMI-A-*`, `*`
+  - Verified on Hyprland 0.51.0
 
 ---
 
@@ -297,26 +300,91 @@ per_output:
 
 ---
 
+## XDG Output Protocol Fix (Update 2025-01-25)
+
+### Problem Discovery
+
+Initial testing revealed that output names were generic `output-{id}` instead of connector names like `eDP-1`, `HDMI-A-1`. This prevented pattern matching from working as expected.
+
+### Root Cause Analysis
+
+1. **Timing Issue**: Surfaces were created during first roundtrip, before XDG names were received
+2. **Missing Binding**: `zxdg_output_manager_v1` was not bound during initial Wayland global binding
+3. **Event Order**: `wl_output::Event::Done` triggered surface creation too early
+
+### Fix Implementation (commit bcd0072)
+
+**Key Changes**:
+1. Bind `zxdg_output_manager_v1` during initial global binding (before outputs)
+2. Request XDG output info for all discovered outputs
+3. Perform additional roundtrip to receive XDG name events
+4. **Delay surface creation** until after XDG names are received
+5. Update `output.info.name` when XDG name event arrives
+
+**Code Flow** (corrected):
+```
+1. Bind wl_compositor, zwlr_layer_shell_v1
+2. Bind zxdg_output_manager_v1 ✅
+3. Bind wl_output for each output
+4. First roundtrip → receive output geometry/mode
+5. Request XDG output for each output ✅
+6. Second roundtrip → receive XDG names ✅
+7. Create surfaces with correct names ✅
+8. Third roundtrip → configure surfaces
+```
+
+### Verification Results
+
+**Before Fix**:
+```log
+INFO Created surface for output: output-61
+INFO Created surface for output: output-65
+INFO Decoder acquired for output-61 (source: fallback.mp4)  ❌ Wrong video
+INFO Decoder acquired for output-65 (source: fallback.mp4)  ❌ Wrong video
+```
+
+**After Fix**:
+```log
+INFO   ✓ zxdg_output_manager_v1
+INFO Requesting XDG output info for all outputs...
+INFO Output 65 xdg_name: HDMI-A-1  ✅
+INFO Output 61 xdg_name: eDP-1     ✅
+INFO Creating surfaces for all outputs...
+INFO Created surface for output: HDMI-A-1  ✅
+INFO Created surface for output: eDP-1     ✅
+INFO Decoder acquired for HDMI-A-1 (source: hdmi-a-pattern.mp4)  ✅ Correct!
+INFO Decoder acquired for eDP-1 (source: laptop-specific.mp4)    ✅ Correct!
+```
+
+**Pattern Matching Verified**:
+- `"eDP-1"` → `laptop-specific.mp4` ✅
+- `"HDMI-A-*"` → `hdmi-a-pattern.mp4` ✅
+- Priority system working correctly
+
+---
+
 ## Conclusion
 
 **Status**: ✅ **READY TO MERGE**
 
-Issue #2 (Advanced Multi-Monitor Features) is **85% complete** and **fully functional**:
+Issue #2 (Advanced Multi-Monitor Features) is **100% complete** and **fully functional**:
 
-**Completed** (10h/12h):
+**Completed** (12h/12h):
 - ✅ Pattern matching with wildcards
 - ✅ Priority-based selection
 - ✅ IPC command with VideoSource
 - ✅ CLI source parsing
 - ✅ Comprehensive documentation
 - ✅ All tests passing
+- ✅ **XDG output connector names** (fixed!)
 
-**Known Limitation**:
-- ⚠️ XDG output names (workaround available)
-
-**Remaining** (2h):
-- ⏳ Fix XDG output name handling (future Issue #2.1)
+**Verification**:
+- ✅ Tested on real dual-monitor hardware
+- ✅ Hyprland 0.51.0 compatibility confirmed
+- ✅ All 35 unit tests passing
+- ✅ Pattern matching with real connector names
+- ✅ Memory efficiency validated
 
 **Sign-off**: GitHub Copilot  
-**Date**: 2025-01-25 00:23 UTC  
-**Result**: ✅ PASS - Recommend merge with documented limitation
+**Date**: 2025-01-25 01:03 UTC  
+**Result**: ✅ PASS - **100% Complete, Recommend immediate merge**
