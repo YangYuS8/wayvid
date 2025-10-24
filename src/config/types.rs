@@ -40,6 +40,14 @@ pub struct Config {
     #[serde(default = "default_hwdec")]
     pub hwdec: bool,
 
+    /// HDR mode (auto/force/disable)
+    #[serde(default)]
+    pub hdr_mode: crate::video::hdr::HdrMode,
+
+    /// Tone mapping configuration
+    #[serde(default)]
+    pub tone_mapping: crate::video::hdr::ToneMappingConfig,
+
     /// Per-output overrides (keyed by output name)
     #[serde(default)]
     pub per_output: HashMap<String, OutputConfig>,
@@ -119,7 +127,40 @@ impl Config {
         let content = fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read config file: {:?}", path.as_ref()))?;
 
-        serde_yaml::from_str(&content).with_context(|| "Failed to parse YAML configuration")
+        let mut config: Self =
+            serde_yaml::from_str(&content).with_context(|| "Failed to parse YAML configuration")?;
+
+        // Validate and fix configuration
+        config.validate();
+
+        Ok(config)
+    }
+
+    /// Validate and fix configuration values
+    fn validate(&mut self) {
+        // Validate tone mapping config
+        self.tone_mapping.validate();
+
+        // Validate playback rate
+        if self.playback_rate <= 0.0 || self.playback_rate > 100.0 {
+            tracing::warn!(
+                "Invalid playback_rate: {}, clamping to 0.1-10.0",
+                self.playback_rate
+            );
+            self.playback_rate = self.playback_rate.clamp(0.1, 10.0);
+        }
+
+        // Validate volume
+        if self.volume < 0.0 || self.volume > 1.0 {
+            tracing::warn!("Invalid volume: {}, clamping to 0.0-1.0", self.volume);
+            self.volume = self.volume.clamp(0.0, 1.0);
+        }
+
+        // Validate start_time
+        if self.start_time < 0.0 {
+            tracing::warn!("Invalid start_time: {}, resetting to 0.0", self.start_time);
+            self.start_time = 0.0;
+        }
     }
 
     /// Get effective configuration for a specific output
@@ -166,6 +207,8 @@ impl Config {
                 mute: base.mute,
                 volume: base.volume,
                 hwdec: base.hwdec,
+                hdr_mode: base.hdr_mode,
+                tone_mapping: base.tone_mapping.clone(),
                 power: base.power,
             };
         }
@@ -184,6 +227,8 @@ impl Config {
             mute: override_cfg.mute.unwrap_or(base.mute),
             volume: override_cfg.volume.unwrap_or(base.volume),
             hwdec: base.hwdec,
+            hdr_mode: base.hdr_mode,
+            tone_mapping: base.tone_mapping.clone(),
             power: base.power.clone(),
         }
     }
@@ -200,6 +245,8 @@ pub struct EffectiveConfig {
     pub mute: bool,
     pub volume: f64,
     pub hwdec: bool,
+    pub hdr_mode: crate::video::hdr::HdrMode,
+    pub tone_mapping: crate::video::hdr::ToneMappingConfig,
     /// Power management config (for future Phase 6)
     #[allow(dead_code)]
     pub power: PowerConfig,

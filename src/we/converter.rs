@@ -65,6 +65,8 @@ pub fn generate_wayvid_config(project: &WeProject, video_path: PathBuf) -> Resul
         mute,
         volume: props.volume,
         hwdec: true,
+        hdr_mode: Default::default(),
+        tone_mapping: Default::default(),
         per_output: HashMap::new(),
         power: Default::default(),
     };

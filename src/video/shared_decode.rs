@@ -227,6 +227,9 @@ struct SharedDecoder {
     /// Shared frame buffer
     frame_buffer: Arc<Mutex<FrameBuffer>>,
 
+    /// Configuration (needed for HDR setup)
+    config: EffectiveConfig,
+
     /// Decoder statistics
     stats: DecoderStats,
 }
@@ -246,6 +249,7 @@ impl SharedDecoder {
             ref_count: 0,
             player: Arc::new(Mutex::new(player)),
             frame_buffer: Arc::new(Mutex::new(FrameBuffer::new(buffer_pool.clone()))),
+            config: config.clone(),
             stats: DecoderStats::default(),
         })
     }
@@ -253,7 +257,10 @@ impl SharedDecoder {
     /// Initialize OpenGL rendering context
     fn init_render_context(&self, egl_context: &EglContext) -> Result<()> {
         let mut player = self.player.lock().unwrap();
-        player.init_render_context(egl_context)
+        player.init_render_context(egl_context)?;
+        // Configure HDR after render context is ready
+        player.configure_hdr(&self.config)?;
+        Ok(())
     }
 
     /// Get current video dimensions
@@ -582,6 +589,8 @@ mod tests {
     use crate::core::types::{LayoutMode, VideoSource};
 
     fn make_test_config(path: &str) -> EffectiveConfig {
+        use crate::video::hdr::{HdrMode, ToneMappingAlgorithm, ToneMappingConfig};
+
         EffectiveConfig {
             source: VideoSource::File {
                 path: path.to_string(),
@@ -594,10 +603,20 @@ mod tests {
             start_time: 0.0,
             playback_rate: 1.0,
             power: PowerConfig::default(),
+            hdr_mode: HdrMode::Auto,
+            tone_mapping: ToneMappingConfig {
+                algorithm: ToneMappingAlgorithm::Hable,
+                param: 1.0,
+                compute_peak: true,
+                mode: "hybrid".to_string(),
+            },
         }
     }
 
     fn make_test_output_info(name: &str) -> OutputInfo {
+        use crate::core::types::OutputHdrCapabilities;
+        use crate::video::hdr::TransferFunction;
+
         OutputInfo {
             name: name.to_string(),
             width: 1920,
@@ -605,6 +624,12 @@ mod tests {
             scale: 1.0,
             position: (0, 0),
             active: true,
+            hdr_capabilities: OutputHdrCapabilities {
+                hdr_supported: false,
+                max_luminance: Some(203.0),
+                min_luminance: Some(0.0),
+                supported_eotf: vec![TransferFunction::Srgb],
+            },
         }
     }
 
