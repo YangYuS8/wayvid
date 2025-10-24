@@ -11,11 +11,11 @@
 
 | Phase | Status | Progress | Hours Used | Hours Estimated |
 |-------|--------|----------|------------|-----------------|
-| Phase 1: Performance | 🚧 In Progress | 57% | 29h | 51h |
+| Phase 1: Performance | 🚧 In Progress | 78% | 40h | 51h |
 | Phase 2: Features | ⏳ Not Started | 0% | 0h | 51h |
 | Phase 3: Polish | ⏳ Not Started | 0% | 0h | 47h |
 | Phase 4: Distribution | ⏳ Not Started | 0% | 0h | 37h |
-| **Total** | 🚧 **In Progress** | **16%** | **29h** | **186h** |
+| **Total** | 🚧 **In Progress** | **22%** | **40h** | **186h** |
 
 ---
 
@@ -73,12 +73,13 @@
 
 ---
 
-### Issue #14: Memory Optimization (12h) ✅ Complete
+### Issue #14: Memory Optimization (12h) ✅ Merged
 
-**Branch**: `m5-memory-opt`  
-**PR**: #TBD  
-**Status**: ✅ Ready for review  
+**Branch**: ~~`m5-memory-opt`~~ (merged)  
+**PR**: #18 ✅ **MERGED**  
+**Status**: ✅ **Complete and merged to main**  
 **Time Spent**: 11h  
+**Merged**: 2025-10-24  
 
 **Achievements**:
 - ✅ Memory management infrastructure (MemoryStats, BufferPool, ManagedBuffer)
@@ -88,20 +89,21 @@
 - ✅ Comprehensive testing tools and documentation
 - ✅ **7.1% memory reduction** (160MB → 149MB single display)
 - ✅ Memory stable (< 1% growth, no leaks)
+- ✅ All CI checks passing (Format, Check, Test, Clippy, Build)
 
-**Commits**: f1bc2b1, a7f49f1, 2bf39cc, 8de021e, f909bee, 78f8273, 7afc995, 5390350
-
----
-
-### Issue #15: Lazy Initialization (10h) ⏳ Not Started
-
-**Status**: ⏳ Waiting for #14 merge
+**Commits**: f1bc2b1, a7f49f1, 2bf39cc, 8de021e, f909bee, 78f8273, 7afc995, 5390350, e9a4448, 6831d02
 
 ---
 
-### Issue #16: Frame Skip Intelligence (11h) ⏳ Not Started
+### Issue #15: Lazy Initialization (10h) ⏳ Ready to Start
 
-**Status**: ⏳ Waiting for #14 merge
+**Status**: ⏳ Ready to start (#14 merged)
+
+---
+
+### Issue #16: Frame Skip Intelligence (11h) ⏳ Ready to Start
+
+**Status**: ⏳ Ready to start (#14 merged)
 
 ---
 
