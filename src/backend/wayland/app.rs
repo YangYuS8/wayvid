@@ -17,6 +17,7 @@ use crate::core::power::PowerManager;
 use crate::ctl::ipc_server::IpcServer;
 use crate::ctl::protocol::IpcCommand;
 use crate::video::egl::EglContext;
+use crate::video::frame_timing::FrameTiming;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 
@@ -33,12 +34,14 @@ pub struct AppState {
     pub egl_context: Option<EglContext>,
     pub power_manager: PowerManager,
     pub last_frame_time: std::time::Instant,
+    pub frame_timing: FrameTiming,
     pub ipc_server: Option<IpcServer>,
     pub command_rx: Option<Receiver<IpcCommand>>,
 }
 
 impl AppState {
     fn new(config: Config) -> Self {
+        let target_fps = config.power.max_fps;
         Self {
             config,
             config_path: None,
@@ -52,6 +55,7 @@ impl AppState {
             egl_context: None,
             power_manager: PowerManager::new(),
             last_frame_time: std::time::Instant::now(),
+            frame_timing: FrameTiming::new(target_fps),
             ipc_server: None,
             command_rx: None,
         }
@@ -842,6 +846,10 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     );
     info!("   Lazy initialization: resources allocated on first render");
 
+    // Frame statistics reporting
+    let mut last_stats_report = std::time::Instant::now();
+    const STATS_REPORT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
+
     // Main event loop with vsync
     while state.running {
         event_queue
@@ -884,6 +892,15 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
             continue; // Skip rendering this frame
         }
 
+        // Begin frame timing measurement
+        state.frame_timing.begin_frame();
+
+        // Check if we should skip this frame due to overload
+        if state.frame_timing.should_skip_frame() {
+            state.frame_timing.record_skip();
+            continue; // Skip this frame to reduce load
+        }
+
         // Render surfaces that have pending frames (triggered by frame callbacks)
         let egl_ctx = state.egl_context.as_ref();
         let qh = event_queue.handle();
@@ -900,7 +917,37 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
                 surface.request_frame(&qh);
             }
         }
+
+        // End frame timing measurement
+        state.frame_timing.end_frame();
+
+        // Periodically report frame statistics
+        if last_stats_report.elapsed() >= STATS_REPORT_INTERVAL {
+            let stats = state.frame_timing.get_stats();
+            info!(
+                "📊 Frame stats: {}/{} rendered/skipped ({:.1}% skip rate), load: {:.1}%, avg: {:.1}ms{}",
+                stats.frames_rendered,
+                stats.frames_skipped,
+                stats.skip_percentage,
+                stats.current_load_pct,
+                stats.avg_frame_duration_ms,
+                if stats.in_skip_mode { " [SKIP MODE]" } else { "" }
+            );
+            last_stats_report = std::time::Instant::now();
+        }
     }
+
+    // Final statistics
+    let final_stats = state.frame_timing.get_stats();
+    info!("📊 Final frame statistics:");
+    info!("   Total frames: {}", final_stats.total_frames);
+    info!("   Rendered: {}", final_stats.frames_rendered);
+    info!("   Skipped: {}", final_stats.frames_skipped);
+    info!("   Skip rate: {:.1}%", final_stats.skip_percentage);
+    info!(
+        "   Average frame time: {:.1}ms",
+        final_stats.avg_frame_duration_ms
+    );
 
     info!("Shutting down");
     Ok(())
