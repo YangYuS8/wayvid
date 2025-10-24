@@ -11,11 +11,11 @@
 
 | Phase | Status | Progress | Hours Used | Hours Estimated |
 |-------|--------|----------|------------|-----------------|
-| Phase 1: Performance | 🚧 In Progress | 10% | 2h | 51h |
+| Phase 1: Performance | 🚧 In Progress | 57% | 29h | 51h |
 | Phase 2: Features | ⏳ Not Started | 0% | 0h | 51h |
 | Phase 3: Polish | ⏳ Not Started | 0% | 0h | 47h |
 | Phase 4: Distribution | ⏳ Not Started | 0% | 0h | 37h |
-| **Total** | 🚧 **In Progress** | **1%** | **2h** | **186h** |
+| **Total** | 🚧 **In Progress** | **16%** | **29h** | **186h** |
 
 ---
 
@@ -73,21 +73,35 @@
 
 ---
 
-### Issue #14: Memory Optimization (12h) ⏳ Not Started
+### Issue #14: Memory Optimization (12h) ✅ Complete
 
-**Status**: ⏳ Waiting for #13 completion
+**Branch**: `m5-memory-opt`  
+**PR**: #TBD  
+**Status**: ✅ Ready for review  
+**Time Spent**: 11h  
+
+**Achievements**:
+- ✅ Memory management infrastructure (MemoryStats, BufferPool, ManagedBuffer)
+- ✅ Memory pressure detection (75%/90% thresholds) with automatic cleanup
+- ✅ BufferPool integration into SharedDecodeManager and FrameBuffer
+- ✅ MPV memory optimizations (cache limits, direct rendering)
+- ✅ Comprehensive testing tools and documentation
+- ✅ **7.1% memory reduction** (160MB → 149MB single display)
+- ✅ Memory stable (< 1% growth, no leaks)
+
+**Commits**: f1bc2b1, a7f49f1, 2bf39cc, 8de021e, f909bee, 78f8273, 7afc995, 5390350
 
 ---
 
 ### Issue #15: Lazy Initialization (10h) ⏳ Not Started
 
-**Status**: ⏳ Waiting for #13 completion
+**Status**: ⏳ Waiting for #14 merge
 
 ---
 
 ### Issue #16: Frame Skip Intelligence (11h) ⏳ Not Started
 
-**Status**: ⏳ Waiting for #13 completion
+**Status**: ⏳ Waiting for #14 merge
 
 ---
 
@@ -101,9 +115,12 @@ None yet!
 
 | Metric | Baseline (v0.3.0) | Target (v0.4.0) | Current | Progress |
 |--------|-------------------|-----------------|---------|----------|
-| CPU (3 displays) | ~30% | ~12% | ~30% | 0% |
-| Memory (3 displays) | ~380MB | ~100MB | ~380MB | 0% |
+| CPU (3 displays) | ~30% | ~12% | ~20% | 33% (#13) |
+| Memory (3 displays) | ~380MB | ~100MB | ~340MB* | 14% (#14) |
+| Memory (1 display) | ~160MB | ~107MB | ~149MB | 20% (#14) |
 | Startup Time | ~800ms | ~480ms | ~800ms | 0% |
+
+*Estimated based on single-display measurements (149MB × 3 ≈ 450MB naive, ~340MB with shared decoder)
 
 ---
 
