@@ -103,7 +103,7 @@ APP_LOG="$OUTPUT_DIR/app_${TIMESTAMP}.log"
 
 # Start wayvid in background
 echo -e "${YELLOW}▶️  Starting wayvid...${NC}"
-RUST_LOG=debug "$PROJECT_DIR/target/release/wayvid" -c "$CONFIG_FILE" > "$APP_LOG" 2>&1 &
+RUST_LOG=debug "$PROJECT_DIR/target/release/wayvid" run -c "$CONFIG_FILE" > "$APP_LOG" 2>&1 &
 WAYVID_PID=$!
 
 # Wait for startup

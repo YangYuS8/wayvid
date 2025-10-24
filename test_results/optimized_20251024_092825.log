@@ -1,0 +1,20 @@
+==========================================
+Memory Usage Test for Issue #14
+==========================================
+Duration: 60s
+Config: test-config.yaml
+
+[0;34m📦 Building project...[0m
+    Finished `release` profile [optimized] target(s) in 0.08s
+
+[0;34m🧪 Starting memory test...[0m
+
+[1;33m▶️  Starting wayvid...[0m
+[0;31m❌ wayvid failed to start![0m
+
+Last 20 lines of log:
+error: unexpected argument '-c' found
+
+Usage: wayvid [OPTIONS] <COMMAND>
+
+For more information, try '--help'.
