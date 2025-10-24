@@ -44,6 +44,9 @@ run_memory_test() {
     local config_file=$2
     local output_log=$3
     
+    # Ensure output directory exists
+    mkdir -p "$(dirname "$output_log")"
+    
     # Start wayvid
     RUST_LOG=info "$PROJECT_ROOT/target/release/wayvid" run -c "$config_file" > "$output_log" 2>&1 &
     local pid=$!
