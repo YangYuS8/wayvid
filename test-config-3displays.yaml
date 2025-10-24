@@ -1,0 +1,16 @@
+# Test configuration for memory optimization testing
+# Simulates 3-display setup by loading the same video 3 times
+# (Note: This won't actually create 3 outputs, but will test memory with 3 separate decoders)
+
+source:
+  type: File
+  path: "/home/yangyus8/code/edupal/功能演示.mp4"
+
+layout: Fill
+
+hwdec: true
+
+power:
+  max_fps: 60
+  max_memory_mb: 100
+  max_buffers: 8

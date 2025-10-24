@@ -9,7 +9,7 @@
 /// - Configurable memory limits
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Global memory statistics
 static TOTAL_ALLOCATED: AtomicUsize = AtomicUsize::new(0);

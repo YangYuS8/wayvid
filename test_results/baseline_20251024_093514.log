@@ -1,0 +1,48 @@
+[2m2025-10-24T01:35:14.751822Z[0m [32m INFO[0m [2mwayvid[0m[2m:[0m wayvid version 0.3.0
+[2m2025-10-24T01:35:14.751892Z[0m [32m INFO[0m [2mwayvid[0m[2m:[0m Loading configuration from: test-config.yaml
+[2m2025-10-24T01:35:14.752718Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Starting wayvid Wayland backend
+[2m2025-10-24T01:35:14.753366Z[0m [32m INFO[0m [2mwayvid::config::watcher[0m[2m:[0m Config watcher started for: test-config.yaml
+[2m2025-10-24T01:35:14.753394Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   ✓ Config watcher started for: test-config.yaml
+[2m2025-10-24T01:35:14.753405Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Starting IPC server...
+[2m2025-10-24T01:35:14.753505Z[0m [32m INFO[0m [2mwayvid::ctl::ipc_server[0m[2m:[0m IPC server listening on: "/run/user/1000/wayvid.sock"
+[2m2025-10-24T01:35:14.753638Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   ✓ IPC server listening on: "/run/user/1000/wayvid.sock"
+[2m2025-10-24T01:35:14.753655Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Binding Wayland globals...
+[2m2025-10-24T01:35:14.753675Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   ✓ wl_compositor
+[2m2025-10-24T01:35:14.753691Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   ✓ zwlr_layer_shell_v1
+[2m2025-10-24T01:35:14.753718Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   ✓ 1 outputs
+[2m2025-10-24T01:35:14.753726Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Initializing EGL context...
+[2m2025-10-24T01:35:14.815480Z[0m [32m INFO[0m [2mwayvid::video::egl[0m[2m:[0m EGL initialized: 1.5
+[2m2025-10-24T01:35:14.818000Z[0m [32m INFO[0m [2mwayvid::video::egl[0m[2m:[0m EGL context created successfully
+[2m2025-10-24T01:35:14.818025Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   ✓ EGL context initialized
+[2m2025-10-24T01:35:14.818030Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Performing initial roundtrip to get output info...
+[2m2025-10-24T01:35:14.818059Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Output 61 scale: 1
+[2m2025-10-24T01:35:14.818066Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Output 61 mode: 2160x1440
+[2m2025-10-24T01:35:14.818088Z[0m [32m INFO[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m Created layer surface for output output-61 (2160x1440)
+[2m2025-10-24T01:35:14.818093Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Created surface for output: output-61
+[2m2025-10-24T01:35:14.819073Z[0m [32m INFO[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m Initial configure for surface output-61 to 2160x1440
+[2m2025-10-24T01:35:14.819263Z[0m [32m INFO[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m   ✓ EGL window created for output output-61
+[2m2025-10-24T01:35:14.819272Z[0m [32m INFO[0m [2mwayvid::video::shared_decode[0m[2m:[0m 🎬 Initializing Shared Decode Manager
+[2m2025-10-24T01:35:14.819278Z[0m [32m INFO[0m [2mwayvid::video::shared_decode[0m[2m:[0m 🆕 Creating new shared decoder for File { path: "/home/yangyus8/code/edupal/功能演示.mp4" }
+[2m2025-10-24T01:35:14.819286Z[0m [32m INFO[0m [2mwayvid::video::shared_decode[0m[2m:[0m 🎬 Creating shared decoder for File { path: "/home/yangyus8/code/edupal/功能演示.mp4" }
+[2m2025-10-24T01:35:14.819291Z[0m [32m INFO[0m [2mwayvid::video::mpv[0m[2m:[0m 🎬 Initializing libmpv for output output-61
+[2m2025-10-24T01:35:14.828332Z[0m [32m INFO[0m [2mwayvid::video::mpv[0m[2m:[0m   ✓ MPV initialized successfully
+[2m2025-10-24T01:35:14.828352Z[0m [32m INFO[0m [2mwayvid::video::mpv[0m[2m:[0m   📁 Loading source: /home/yangyus8/code/edupal/功能演示.mp4
+[2m2025-10-24T01:35:14.828396Z[0m [32m INFO[0m [2mwayvid::video::mpv[0m[2m:[0m   ✓ Source loaded successfully
+[2m2025-10-24T01:35:14.828405Z[0m [32m INFO[0m [2mwayvid::video::shared_decode[0m[2m:[0m 📊 Decoder stats: 1 decoders, 1 total consumers (key: File { path: "/home/yangyus8/code/edupal/功能演示.mp4" })
+[2m2025-10-24T01:35:14.828426Z[0m [32m INFO[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m   🔗 Decoder acquired for output-61 (source: File { path: "/home/yangyus8/code/edupal/功能演示.mp4" } (hwdec=Auto))
+[2m2025-10-24T01:35:14.830735Z[0m [32m INFO[0m [2mwayvid::video::mpv[0m[2m:[0m 🎨 Initializing mpv render context for OpenGL
+Cannot load libcuda.so.1
+[2m2025-10-24T01:35:14.832387Z[0m [32m INFO[0m [2mwayvid::video::mpv[0m[2m:[0m   ✓ Render context created successfully
+[2m2025-10-24T01:35:14.832397Z[0m [32m INFO[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m   ✓ Render context initialized
+[2m2025-10-24T01:35:14.832403Z[0m [32m INFO[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m ✓ Decoder initialized for output-61
+[2m2025-10-24T01:35:14.832416Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m First roundtrip complete
+[2m2025-10-24T01:35:14.832420Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   Compositor: ✓
+[2m2025-10-24T01:35:14.832423Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   Layer shell: ✓
+[2m2025-10-24T01:35:14.832426Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m   Outputs discovered: 1
+[2m2025-10-24T01:35:14.832528Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Created 1 surfaces
+[2m2025-10-24T01:35:14.832533Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Requesting initial frame callbacks...
+[2m2025-10-24T01:35:14.832538Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Performing initial render...
+[2m2025-10-24T01:35:14.833127Z[0m [32m INFO[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m OpenGL functions loaded for output output-61
+[2m2025-10-24T01:35:14.833568Z[0m [32m INFO[0m [2mwayvid::backend::wayland::app[0m[2m:[0m Initial render complete
+[2m2025-10-24T01:35:14.833823Z[0m [33m WARN[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m resume_playback not supported with shared decode context
+[2m2025-10-24T01:35:14.835817Z[0m [33m WARN[0m [2mwayvid::backend::wayland::surface[0m[2m:[0m resume_playback not supported with shared decode context

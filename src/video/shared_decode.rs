@@ -163,7 +163,7 @@ impl Drop for DecoderHandle {
 
 /// Shared frame buffer for zero-copy frame extraction
 pub struct FrameBuffer {
-    /// Current frame data (shared via Arc for zero-copy)
+    /// Current frame data (using ManagedBuffer from pool)
     /// TODO: Implement frame extraction from MPV
     #[allow(dead_code)]
     frame_data: Option<Arc<Vec<u8>>>,
@@ -179,15 +179,19 @@ pub struct FrameBuffer {
     /// Last update timestamp
     #[allow(dead_code)]
     last_update: std::time::Instant,
+    
+    /// Buffer pool reference for managed allocations
+    buffer_pool: Arc<BufferPool>,
 }
 
 impl FrameBuffer {
-    fn new() -> Self {
+    fn new(buffer_pool: Arc<BufferPool>) -> Self {
         Self {
             frame_data: None,
             dimensions: None,
             sequence: 0,
             last_update: std::time::Instant::now(),
+            buffer_pool,
         }
     }
 
@@ -225,7 +229,7 @@ struct SharedDecoder {
 }
 
 impl SharedDecoder {
-    fn new(config: &EffectiveConfig, output_info: &OutputInfo) -> Result<Self> {
+    fn new(config: &EffectiveConfig, output_info: &OutputInfo, buffer_pool: Arc<BufferPool>) -> Result<Self> {
         info!("🎬 Creating shared decoder for {:?}", config.source);
 
         // Create MPV player
@@ -234,7 +238,7 @@ impl SharedDecoder {
         Ok(Self {
             ref_count: 0,
             player: Arc::new(Mutex::new(player)),
-            frame_buffer: Arc::new(Mutex::new(FrameBuffer::new())),
+            frame_buffer: Arc::new(Mutex::new(FrameBuffer::new(buffer_pool.clone()))),
             stats: DecoderStats::default(),
         })
     }
@@ -360,15 +364,16 @@ impl SharedDecodeManager {
         let key = SourceKey::from_config(config);
 
         // First check if decoder exists (read lock)
-        let (frame_buffer, is_new) = {
+        let (frame_buffer, is_new, buffer_pool) = {
             let mgr = manager.read().unwrap();
             let exists = mgr.decoders.contains_key(&key);
+            let pool = mgr.buffer_pool.clone();
             if exists {
                 debug!("♻️  Reusing existing decoder for {:?}", key.source);
                 let fb = mgr.decoders.get(&key).unwrap().get_frame_buffer();
-                (fb, false)
+                (fb, false, pool)
             } else {
-                (Arc::new(Mutex::new(FrameBuffer::new())), true)
+                (Arc::new(Mutex::new(FrameBuffer::new(pool.clone()))), true, pool)
             }
         };
 
@@ -379,7 +384,7 @@ impl SharedDecodeManager {
             // Double-check in case another thread created it
             if !mgr.decoders.contains_key(&key) {
                 info!("🆕 Creating new shared decoder for {:?}", key.source);
-                let decoder = SharedDecoder::new(config, output_info)?;
+                let decoder = SharedDecoder::new(config, output_info, buffer_pool)?;
                 mgr.active_decoders += 1;
                 mgr.decoders.insert(key.clone(), decoder);
             }

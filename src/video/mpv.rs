@@ -70,6 +70,11 @@ impl MpvPlayer {
         // Video output - use libmpv for render API
         set_option("vo", "libmpv");
         set_option("vid", "auto");
+        
+        // Memory optimization: Limit video output queue
+        set_option("video-latency-hacks", "yes"); // Reduce buffering
+        set_option("vd-lavc-dr", "yes"); // Enable direct rendering (less copies)
+        set_option("opengl-swapinterval", "1"); // Sync with display refresh;
 
         // Playback settings
         if config.r#loop {
@@ -114,11 +119,17 @@ impl MpvPlayer {
 
         info!("  ✓ MPV initialized successfully");
 
+        // Memory optimization: Limit demuxer cache
+        // Reduce memory footprint by limiting internal buffering
+        set_option("demuxer-max-bytes", "50M"); // Limit demuxer cache to 50MB
+        set_option("demuxer-max-back-bytes", "10M"); // Limit backward seek cache to 10MB
+        
         // Configure source-specific options
         if config.source.is_streaming() {
             info!("  🌐 Configuring for streaming source");
             set_option("cache", "yes");
             set_option("cache-secs", "10");
+            set_option("demuxer-max-bytes", "100M"); // Streaming needs more cache
         }
 
         if config.source.is_image_sequence() {
