@@ -760,21 +760,39 @@ wayvid/
 └── packaging/               # Package scripts (future)
 ```
 
+## Documentation
+
+📚 **[Complete Documentation Index](docs/README.md)**
+
+### Quick Links
+- **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
+- **[HDR User Guide](docs/HDR_USER_GUIDE.md)** - HDR configuration and optimization
+- **[Multi-Monitor Examples](docs/MULTI_MONITOR_EXAMPLES.md)** - Advanced display setups
+- **[IPC Commands](docs/IPC.md)** - Command-line control interface
+- **[AI Development Prompt](AI_PROMPT.md)** - Complete project context for AI assistants
+
+### For Developers
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
+- **[Changelog](CHANGELOG.md)** - Version history
+- **[Shared Decode Architecture](docs/SHARED_DECODE.md)** - Performance implementation details
+
 ## Contributing
 
-Contributions are welcome! This is an early MVP, so there's plenty to improve.
+Contributions are welcome! We're actively developing new features.
 
-**Priority areas:**
-- OpenGL/EGL rendering implementation
-- Testing on different compositors
-- Performance optimization
-- Documentation improvements
+**Current priorities (M5):**
+- Playlist support (Issue #3)
+- Audio reactivity (Issue #4)
+- User experience improvements (Issues #5-8)
+- Platform support (Issues #9-12)
 
 **Before contributing:**
-1. Check existing issues
-2. For major changes, open an issue first
-3. Follow Rust style guide (`cargo fmt`)
-4. Add tests where applicable
+1. Read the [Contributing Guide](CONTRIBUTING.md)
+2. Check existing issues and discussions
+3. For major changes, open an issue first
+4. Follow Rust style guide (`cargo fmt`)
+5. Add tests where applicable
+6. Ensure all CI checks pass
 
 ## License
 
@@ -802,16 +820,22 @@ A: `--wid` doesn't work reliably with Wayland layer surfaces, and we need proper
 A: No, Wayland only. For X11, use `xwinwrap` or similar tools.
 
 **Q: Can I use GIFs or images?**  
-A: MVP only supports video. Static images planned for M4 (would integrate with existing wallpaper tools).
+A: Currently video-only. Static images may be added in future releases.
 
 **Q: Why is CPU usage high?**  
-A: Ensure hardware decode is enabled and working (`wayvid check`). Also check your video codec and resolution.
+A: Ensure hardware decode is enabled and working (`wayvid check`). Also check your video codec and resolution. For multiple outputs showing the same video, enable shared decode mode.
 
 **Q: Can I control playback (pause/next/etc.)?**  
-A: Not yet. IPC interface planned for M4.
+A: Yes! Use `wayvid-ctl` commands. See [IPC documentation](docs/IPC.md) for details.
 
 **Q: Does this support interactive wallpapers?**  
-A: No. Only video playback. No HTML/WebGL/scripts (different from WE's full feature set).
+A: No. Only video playback. No HTML/WebGL/scripts (different from Wallpaper Engine's full feature set).
+
+**Q: How do I configure HDR content?**  
+A: See the [HDR User Guide](docs/HDR_USER_GUIDE.md) for detailed configuration and troubleshooting.
+
+**Q: Can I have different videos on different monitors?**  
+A: Yes! Use per-output configuration. See [Multi-Monitor Examples](docs/MULTI_MONITOR_EXAMPLES.md).
 
 ---
 
