@@ -73,6 +73,7 @@ archive/
 - `M5_FRAME_SKIP.md` - 智能帧跳跃
 - `M5_PHASE1_COMPLETE.md` - Phase 1 完成报告
 - `M5_QUICK_TEST.md` / `M5_TEST_GUIDE.md` - 测试指南
+- `M5-001-shared-decode.md` - 共享解码 RFC 设计文档
 
 **关键成就**:
 - Issue #13: 共享解码上下文 (CPU 使用率降低 60%+)
@@ -86,6 +87,10 @@ archive/
 - `M5_ISSUE1_PROGRESS.md` - HDR 实现进度
 - `M5_ISSUE2_PROGRESS.md` - 多显示器进度
 - `M5_ISSUE2_TESTING.md` / `M5_ISSUE2_TEST_REPORT.md` - 多显示器测试
+
+**HDR 测试文档**:
+- `HDR_TEST_REPORT.md` - HDR 功能测试报告模板
+- `HDR_TESTING_SUMMARY.md` - HDR 实现验证总结
 
 **关键成就**:
 - Issue #1: HDR 支持 (自动检测、5种色调映射、内容优化)
@@ -112,7 +117,7 @@ archive/
 → `m2/M2_PROGRESS.md`
 
 **HDR 支持实现**
-→ `m5/M5_ISSUE1_PROGRESS.md`
+→ `m5/M5_ISSUE1_PROGRESS.md`, `m5/HDR_TESTING_SUMMARY.md`
 
 **性能优化过程**
 → `m5/M5_MEMORY_TEST_RESULTS.md`, `m5/M5_PHASE1_COMPLETE.md`
@@ -130,7 +135,7 @@ archive/
 
 ## 📊 统计信息
 
-- **总文档数**: 39 个文件
+- **总文档数**: 42 个文件
 - **覆盖时间**: 2025-10-20 至 2025-11-03
 - **主要里程碑**: 5 个 (M1-M5)
 - **已完成 Issues**: 6 个 (M5 中的 #1, #2, #13-16)

@@ -54,16 +54,11 @@
   - 合成器兼容性
   - 未来展望
 
-### 测试报告
-- **[HDR_TEST_REPORT.md](HDR_TEST_REPORT.md)** - HDR 功能测试报告
-  - 测试用例 (27项)
-  - 测试结果
-  - 验证脚本
-
-- **[HDR_TESTING_SUMMARY.md](HDR_TESTING_SUMMARY.md)** - HDR 实现总结
-  - 实现清单
-  - 质量评估
-  - 已知限制
+### 技术背景
+- **[HDR_WAYLAND_STATUS.md](HDR_WAYLAND_STATUS.md)** - Wayland HDR 支持现状
+  - 协议支持情况
+  - 合成器兼容性
+  - 未来展望
 
 ---
 
@@ -107,8 +102,8 @@
 - **[archive/m5/](archive/m5/)** - M5 里程碑文档
   - 性能优化文档 (共享解码、内存优化、懒加载、帧跳跃)
   - HDR 和多显示器实现进度
-  - 测试报告和指南
-  - Phase 完成报告
+  - HDR 测试报告和实现总结
+  - 测试指南和 Phase 完成报告
 
 ### 其他归档
 - **[archive/releases/](archive/releases/)** - 历史版本发布说明
@@ -133,8 +128,6 @@ rustpaper/
 │   ├── QUICKSTART.md            # 快速开始指南
 │   │
 │   ├── HDR_USER_GUIDE.md        # HDR 用户指南 ⭐
-│   ├── HDR_TEST_REPORT.md       # HDR 测试报告
-│   ├── HDR_TESTING_SUMMARY.md   # HDR 实现总结
 │   ├── HDR_WAYLAND_STATUS.md    # Wayland HDR 现状
 │   │
 │   ├── MULTI_MONITOR_EXAMPLES.md # 多显示器示例 ⭐
@@ -233,4 +226,4 @@ rustpaper/
 ---
 
 **文档状态**: ✅ 已整理和归档 (2025-11-03)  
-**总文档数**: 54 个文件 (15 个活跃 + 39 个归档)
+**总文档数**: 52 个文件 (9 个活跃 + 41 个归档 + 2 个索引)
