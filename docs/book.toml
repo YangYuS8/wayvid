@@ -13,6 +13,9 @@ default-theme = "rust"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/YangYuS8/wayvid"
 edit-url-template = "https://github.com/YangYuS8/wayvid/edit/main/docs/{path}"
+additional-css = ["theme/custom.css"]
+additional-js = ["theme/language-switcher.js"]
+theme = "theme"
 
 [output.html.search]
 enable = true
