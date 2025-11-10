@@ -3,11 +3,17 @@ name: CI
 on:
   push:
     branches: [ main, develop, 'm6-*' ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
     # 排除 tag 推送，避免与 release workflow 重复
     tags-ignore:
       - '**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
 
 env:
   CARGO_TERM_COLOR: always
