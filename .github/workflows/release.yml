@@ -54,7 +54,7 @@ jobs:
           fi
           
           echo "Version: $VERSION"
-          echo "Is Prerelease: $([ "$VERSION" =~ (alpha|beta|rc|hotfix) ] && echo true || echo false)"
+          echo "Is Prerelease: $([[ "$VERSION" =~ (alpha|beta|rc|hotfix) ]] && echo true || echo false)"
       
       - name: Check version matches Cargo.toml
         run: |
