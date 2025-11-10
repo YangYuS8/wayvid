@@ -1,0 +1,1845 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>wayvid Documentation</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">wayvid Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/YangYuS8/wayvid" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="wayvid"><a class="header" href="#wayvid">wayvid</a></h1>
+<p><strong>A high-performance video wallpaper engine for Wayland compositors</strong></p>
+<p>wayvid brings video wallpapers to Wayland, supporting HDR, multi-monitor setups, and Steam Workshop integration.</p>
+<h2 id="key-features"><a class="header" href="#key-features">Key Features</a></h2>
+<ul>
+<li>🎬 <strong>Multiple Video Sources</strong>: Local files, directories, Steam Workshop</li>
+<li>🖥️ <strong>Multi-Monitor</strong>: Independent or synchronized playback</li>
+<li>🌈 <strong>HDR Support</strong>: Full 10-bit HDR pipeline with tone-mapping</li>
+<li>🎮 <strong>Steam Workshop</strong>: Direct import of Wallpaper Engine projects</li>
+<li>🪟 <strong>Niri Optimized</strong>: First-class support for Niri compositor</li>
+<li>🔌 <strong>IPC Control</strong>: Real-time control via CLI/GUI</li>
+<li>⚡ <strong>Performance</strong>: Hardware-accelerated, low CPU/memory usage</li>
+</ul>
+<h2 id="quick-links"><a class="header" href="#quick-links">Quick Links</a></h2>
+<ul>
+<li><a href="./user-guide/quick-start.html">Quick Start Guide</a> - Get started in 5 minutes</li>
+<li><a href="./user-guide/installation.html">Installation</a> - Install on your system</li>
+<li><a href="./user-guide/configuration.html">Configuration</a> - Customize settings</li>
+<li><a href="https://github.com/YangYuS8/wayvid">GitHub Repository</a></li>
+</ul>
+<h2 id="system-requirements"><a class="header" href="#system-requirements">System Requirements</a></h2>
+<ul>
+<li><strong>OS</strong>: Linux with Wayland compositor</li>
+<li><strong>Compositor</strong>: Hyprland, Sway, Niri (others may work)</li>
+<li><strong>GPU</strong>: Any with EGL support</li>
+<li><strong>Libraries</strong>: libmpv, libEGL</li>
+</ul>
+<h2 id="license"><a class="header" href="#license">License</a></h2>
+<p>wayvid is dual-licensed under MIT OR Apache-2.0.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-1"><a class="header" href="#chapter-1">Chapter 1</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="quick-start"><a class="header" href="#quick-start">Quick Start</a></h1>
+<p>Get wayvid running in 5 minutes.</p>
+<h2 id="install"><a class="header" href="#install">Install</a></h2>
+<h3 id="arch-linux-aur"><a class="header" href="#arch-linux-aur">Arch Linux (AUR)</a></h3>
+<pre><code class="language-bash">yay -S wayvid-git
+</code></pre>
+<h3 id="from-source"><a class="header" href="#from-source">From Source</a></h3>
+<pre><code class="language-bash">git clone https://github.com/YangYuS8/wayvid
+cd wayvid
+cargo install --path .
+</code></pre>
+<h2 id="basic-usage"><a class="header" href="#basic-usage">Basic Usage</a></h2>
+<h3 id="1-create-config"><a class="header" href="#1-create-config">1. Create Config</a></h3>
+<pre><code class="language-bash">wayvid --generate-config
+</code></pre>
+<p>This creates <code>~/.config/wayvid/config.yaml</code>.</p>
+<h3 id="2-set-video-path"><a class="header" href="#2-set-video-path">2. Set Video Path</a></h3>
+<p>Edit config:</p>
+<pre><code class="language-yaml">source:
+  type: file
+  path: ~/Videos/wallpaper.mp4
+</code></pre>
+<h3 id="3-run"><a class="header" href="#3-run">3. Run</a></h3>
+<pre><code class="language-bash">wayvid
+</code></pre>
+<h2 id="auto-start"><a class="header" href="#auto-start">Auto-Start</a></h2>
+<h3 id="hyprland"><a class="header" href="#hyprland">Hyprland</a></h3>
+<p>Add to <code>~/.config/hypr/hyprland.conf</code>:</p>
+<pre><code>exec-once = wayvid
+</code></pre>
+<h3 id="niri"><a class="header" href="#niri">Niri</a></h3>
+<p>Add to <code>~/.config/niri/config.kdl</code>:</p>
+<pre><code class="language-kdl">spawn-at-startup "wayvid"
+</code></pre>
+<h3 id="sway"><a class="header" href="#sway">Sway</a></h3>
+<p>Add to <code>~/.config/sway/config</code>:</p>
+<pre><code>exec wayvid
+</code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li><a href="user-guide/./configuration.html">Configuration Guide</a> - Customize settings</li>
+<li><a href="user-guide/./video-sources.html">Video Sources</a> - Learn about source types</li>
+<li><a href="user-guide/./multi-monitor.html">Multi-Monitor</a> - Set up multiple displays</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<h2 id="arch-linux"><a class="header" href="#arch-linux">Arch Linux</a></h2>
+<h3 id="stable-aur"><a class="header" href="#stable-aur">Stable (AUR)</a></h3>
+<pre><code class="language-bash">yay -S wayvid
+</code></pre>
+<h3 id="development-aur"><a class="header" href="#development-aur">Development (AUR)</a></h3>
+<pre><code class="language-bash">yay -S wayvid-git
+</code></pre>
+<h2 id="from-source-1"><a class="header" href="#from-source-1">From Source</a></h2>
+<h3 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h3>
+<pre><code class="language-bash"># Arch/Manjaro
+sudo pacman -S rust mpv wayland wayland-protocols
+
+# Ubuntu/Debian  
+sudo apt install cargo libmpv-dev libwayland-dev libxkbcommon-dev
+
+# Fedora
+sudo dnf install cargo mpv-libs-devel wayland-devel libxkbcommon-devel
+</code></pre>
+<h3 id="build--install"><a class="header" href="#build--install">Build &amp; Install</a></h3>
+<pre><code class="language-bash">git clone https://github.com/YangYuS8/wayvid
+cd wayvid
+cargo build --release
+sudo cp target/release/wayvid /usr/local/bin/
+sudo cp target/release/wayvid-ctl /usr/local/bin/
+</code></pre>
+<h3 id="optional-gui"><a class="header" href="#optional-gui">Optional: GUI</a></h3>
+<pre><code class="language-bash">cargo build --release --features gui
+sudo cp target/release/wayvid-gui /usr/local/bin/
+</code></pre>
+<h2 id="verify-installation"><a class="header" href="#verify-installation">Verify Installation</a></h2>
+<pre><code class="language-bash">wayvid --version
+wayvid-ctl --version
+</code></pre>
+<h2 id="uninstall"><a class="header" href="#uninstall">Uninstall</a></h2>
+<h3 id="aur"><a class="header" href="#aur">AUR</a></h3>
+<pre><code class="language-bash">yay -R wayvid
+</code></pre>
+<h3 id="manual"><a class="header" href="#manual">Manual</a></h3>
+<pre><code class="language-bash">sudo rm /usr/local/bin/wayvid*
+rm -rf ~/.config/wayvid
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>Config file: <code>~/.config/wayvid/config.yaml</code></p>
+<h2 id="generate-default-config"><a class="header" href="#generate-default-config">Generate Default Config</a></h2>
+<pre><code class="language-bash">wayvid --generate-config
+</code></pre>
+<h2 id="basic-structure"><a class="header" href="#basic-structure">Basic Structure</a></h2>
+<pre><code class="language-yaml"># Video source
+source:
+  type: file  # file, directory, workshop
+  path: ~/Videos/wallpaper.mp4
+
+# Playback settings
+playback:
+  loop: true
+  volume: 0  # 0-100, 0 = muted
+  paused: false
+
+# Display configuration
+outputs:
+  - name: DP-1
+    enabled: true
+    mode: fit  # fit, fill, stretch
+</code></pre>
+<h2 id="source-types"><a class="header" href="#source-types">Source Types</a></h2>
+<h3 id="single-file"><a class="header" href="#single-file">Single File</a></h3>
+<pre><code class="language-yaml">source:
+  type: file
+  path: /path/to/video.mp4
+</code></pre>
+<h3 id="directory-playlist"><a class="header" href="#directory-playlist">Directory (Playlist)</a></h3>
+<pre><code class="language-yaml">source:
+  type: directory
+  path: ~/Videos/wallpapers/
+  shuffle: true
+  interval: 3600  # seconds
+</code></pre>
+<h3 id="steam-workshop"><a class="header" href="#steam-workshop">Steam Workshop</a></h3>
+<pre><code class="language-yaml">source:
+  type: workshop
+  id: 1234567890
+</code></pre>
+<h2 id="output-modes"><a class="header" href="#output-modes">Output Modes</a></h2>
+<ul>
+<li><strong>fit</strong>: Scale to fit, maintain aspect ratio (default)</li>
+<li><strong>fill</strong>: Fill screen, crop if needed</li>
+<li><strong>stretch</strong>: Stretch to fill, ignore aspect ratio</li>
+</ul>
+<h2 id="advanced-options"><a class="header" href="#advanced-options">Advanced Options</a></h2>
+<pre><code class="language-yaml"># HDR settings
+hdr:
+  enabled: true
+  target_nits: 1000
+
+# Performance
+performance:
+  frame_skip: false
+  decode_threads: auto
+
+# Logging
+log_level: info  # error, warn, info, debug
+</code></pre>
+<h2 id="per-output-configuration"><a class="header" href="#per-output-configuration">Per-Output Configuration</a></h2>
+<pre><code class="language-yaml">outputs:
+  - name: DP-1
+    source:
+      type: file
+      path: ~/Videos/left.mp4
+  
+  - name: HDMI-A-1
+    source:
+      type: file
+      path: ~/Videos/right.mp4
+</code></pre>
+<h2 id="reload-config"><a class="header" href="#reload-config">Reload Config</a></h2>
+<pre><code class="language-bash">wayvid-ctl reload-config
+</code></pre>
+<p>See <a href="user-guide/../reference/config.html">Configuration Reference</a> for all options.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="video-sources"><a class="header" href="#video-sources">Video Sources</a></h1>
+<p>wayvid supports multiple video source types.</p>
+<h2 id="file-source"><a class="header" href="#file-source">File Source</a></h2>
+<p>Play a single video file.</p>
+<pre><code class="language-yaml">source:
+  type: file
+  path: /absolute/path/to/video.mp4
+</code></pre>
+<p>Supported formats: MP4, MKV, WEBM, MOV, AVI</p>
+<h2 id="directory-source"><a class="header" href="#directory-source">Directory Source</a></h2>
+<p>Play all videos in a directory.</p>
+<pre><code class="language-yaml">source:
+  type: directory
+  path: ~/Videos/wallpapers/
+  shuffle: false
+  interval: 1800  # Switch every 30 minutes
+</code></pre>
+<p>Options:</p>
+<ul>
+<li><code>shuffle</code>: Randomize playback order</li>
+<li><code>interval</code>: Seconds between videos (0 = play to end)</li>
+</ul>
+<h2 id="steam-workshop-1"><a class="header" href="#steam-workshop-1">Steam Workshop</a></h2>
+<p>Import Wallpaper Engine projects.</p>
+<pre><code class="language-yaml">source:
+  type: workshop
+  id: 1234567890  # Workshop item ID
+</code></pre>
+<h3 id="find-workshop-ids"><a class="header" href="#find-workshop-ids">Find Workshop IDs</a></h3>
+<ol>
+<li>Subscribe to item in Steam Workshop</li>
+<li>List available items:</li>
+</ol>
+<pre><code class="language-bash">wayvid workshop list
+</code></pre>
+<ol start="3">
+<li>Get item details:</li>
+</ol>
+<pre><code class="language-bash">wayvid workshop info 1234567890
+</code></pre>
+<ol start="4">
+<li>Import to config:</li>
+</ol>
+<pre><code class="language-bash">wayvid workshop import 1234567890
+</code></pre>
+<h2 id="url-source-planned"><a class="header" href="#url-source-planned">URL Source (Planned)</a></h2>
+<p>Future support for streaming URLs.</p>
+<h2 id="supported-codecs"><a class="header" href="#supported-codecs">Supported Codecs</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Codec</th><th>Support</th></tr></thead><tbody>
+<tr><td>H.264</td><td>✅ Full</td></tr>
+<tr><td>H.265/HEVC</td><td>✅ Full</td></tr>
+<tr><td>VP9</td><td>✅ Full</td></tr>
+<tr><td>AV1</td><td>✅ Full</td></tr>
+<tr><td>HDR10</td><td>✅ Full</td></tr>
+<tr><td>Dolby Vision</td><td>⚠️ Limited</td></tr>
+</tbody></table>
+</div>
+<h2 id="performance-tips"><a class="header" href="#performance-tips">Performance Tips</a></h2>
+<ul>
+<li>Use H.264 for lower CPU usage</li>
+<li>Use HEVC/VP9 for better compression</li>
+<li>Avoid 4K on weak GPUs</li>
+<li>Pre-encode with target quality</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="multi-monitor-setup"><a class="header" href="#multi-monitor-setup">Multi-Monitor Setup</a></h1>
+<p>Configure independent wallpapers per display.</p>
+<h2 id="list-outputs"><a class="header" href="#list-outputs">List Outputs</a></h2>
+<pre><code class="language-bash">wayvid-ctl list-outputs
+</code></pre>
+<p>Output example:</p>
+<pre><code>DP-1: 2560x1440@144Hz (active)
+HDMI-A-1: 1920x1080@60Hz (active)
+</code></pre>
+<h2 id="independent-wallpapers"><a class="header" href="#independent-wallpapers">Independent Wallpapers</a></h2>
+<pre><code class="language-yaml">outputs:
+  - name: DP-1
+    enabled: true
+    source:
+      type: file
+      path: ~/Videos/main.mp4
+  
+  - name: HDMI-A-1
+    enabled: true
+    source:
+      type: file
+      path: ~/Videos/secondary.mp4
+</code></pre>
+<h2 id="synchronized-playback"><a class="header" href="#synchronized-playback">Synchronized Playback</a></h2>
+<p>Use same source for all outputs:</p>
+<pre><code class="language-yaml">source:
+  type: file
+  path: ~/Videos/wallpaper.mp4
+
+outputs:
+  - name: DP-1
+  - name: HDMI-A-1
+</code></pre>
+<h2 id="disable-specific-output"><a class="header" href="#disable-specific-output">Disable Specific Output</a></h2>
+<pre><code class="language-yaml">outputs:
+  - name: DP-1
+    enabled: true
+  
+  - name: HDMI-A-1
+    enabled: false  # No wallpaper on this output
+</code></pre>
+<h2 id="dynamic-output-changes"><a class="header" href="#dynamic-output-changes">Dynamic Output Changes</a></h2>
+<p>wayvid automatically handles:</p>
+<ul>
+<li>Hot-plug/unplug</li>
+<li>Resolution changes</li>
+<li>Refresh rate changes</li>
+</ul>
+<p>No restart required.</p>
+<h2 id="cli-control"><a class="header" href="#cli-control">CLI Control</a></h2>
+<pre><code class="language-bash"># Pause specific output
+wayvid-ctl pause --output DP-1
+
+# Resume all outputs
+wayvid-ctl resume
+
+# Stop output
+wayvid-ctl stop --output HDMI-A-1
+</code></pre>
+<h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
+<p><strong>Output not detected:</strong></p>
+<ul>
+<li>Check <code>wayvid-ctl list-outputs</code></li>
+<li>Verify output name matches exactly</li>
+<li>Restart compositor if needed</li>
+</ul>
+<p><strong>Performance issues:</strong></p>
+<ul>
+<li>Reduce resolution</li>
+<li>Lower video quality</li>
+<li>Enable hardware decoding</li>
+<li>Use <code>--output</code> flag to test single display</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="hdr-support"><a class="header" href="#hdr-support">HDR Support</a></h1>
+<p>wayvid provides full HDR10 support with tone-mapping.</p>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<ul>
+<li>HDR-capable display</li>
+<li>Compositor with HDR support (Hyprland, Niri)</li>
+<li>HDR-enabled output</li>
+</ul>
+<h2 id="enable-hdr"><a class="header" href="#enable-hdr">Enable HDR</a></h2>
+<pre><code class="language-yaml">hdr:
+  enabled: true
+  target_nits: 1000  # Adjust to your display
+</code></pre>
+<h2 id="target-nits"><a class="header" href="#target-nits">Target Nits</a></h2>
+<p>Common values:</p>
+<ul>
+<li><strong>400-600</strong>: Entry HDR displays</li>
+<li><strong>1000</strong>: Standard HDR10</li>
+<li><strong>1400+</strong>: Premium HDR displays</li>
+</ul>
+<p>Find your display's peak brightness in specifications.</p>
+<h2 id="tone-mapping"><a class="header" href="#tone-mapping">Tone-Mapping</a></h2>
+<p>Automatic conversion between HDR and SDR content.</p>
+<h3 id="hdr-content-on-hdr-display"><a class="header" href="#hdr-content-on-hdr-display">HDR Content on HDR Display</a></h3>
+<p>Direct passthrough, no conversion.</p>
+<h3 id="sdr-content-on-hdr-display"><a class="header" href="#sdr-content-on-hdr-display">SDR Content on HDR Display</a></h3>
+<p>Tone-mapped to HDR using BT.2020 color space.</p>
+<h3 id="hdr-content-on-sdr-display"><a class="header" href="#hdr-content-on-sdr-display">HDR Content on SDR Display</a></h3>
+<p>Tone-mapped to SDR using Reinhard algorithm.</p>
+<h2 id="verify-hdr"><a class="header" href="#verify-hdr">Verify HDR</a></h2>
+<pre><code class="language-bash"># Check if HDR is active
+wayvid-ctl status | grep hdr
+
+# Expected output:
+# hdr: enabled (1000 nits)
+</code></pre>
+<h2 id="supported-formats"><a class="header" href="#supported-formats">Supported Formats</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Format</th><th>Support</th></tr></thead><tbody>
+<tr><td>HDR10</td><td>✅ Full</td></tr>
+<tr><td>HDR10+</td><td>⚠️ Tone-map only</td></tr>
+<tr><td>Dolby Vision</td><td>⚠️ Tone-map only</td></tr>
+<tr><td>HLG</td><td>✅ Full</td></tr>
+</tbody></table>
+</div>
+<h2 id="performance"><a class="header" href="#performance">Performance</a></h2>
+<p>HDR adds minimal overhead:</p>
+<ul>
+<li>~2-5% CPU increase</li>
+<li>Same GPU usage</li>
+<li>No memory impact</li>
+</ul>
+<h2 id="troubleshooting-1"><a class="header" href="#troubleshooting-1">Troubleshooting</a></h2>
+<p><strong>Colors look washed out:</strong></p>
+<ul>
+<li>Verify <code>target_nits</code> matches display</li>
+<li>Check compositor HDR settings</li>
+<li>Ensure video is true HDR</li>
+</ul>
+<p><strong>HDR not working:</strong></p>
+<ul>
+<li>Verify display supports HDR</li>
+<li>Enable HDR in compositor config</li>
+<li>Check <code>wayvid-ctl status</code></li>
+</ul>
+<h2 id="technical-details"><a class="header" href="#technical-details">Technical Details</a></h2>
+<ul>
+<li><strong>Color Space</strong>: BT.2020</li>
+<li><strong>Transfer Function</strong>: PQ (SMPTE ST 2084)</li>
+<li><strong>Bit Depth</strong>: 10-bit</li>
+<li><strong>Tone-Mapping</strong>: Reinhard, Hable, Mobius</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="steam-workshop-integration"><a class="header" href="#steam-workshop-integration">Steam Workshop Integration</a></h1>
+<p>Import Wallpaper Engine projects from Steam Workshop.</p>
+<h2 id="prerequisites-1"><a class="header" href="#prerequisites-1">Prerequisites</a></h2>
+<ul>
+<li>Steam installed</li>
+<li>Wallpaper Engine owned (not required, but helps)</li>
+<li>Workshop items subscribed</li>
+</ul>
+<h2 id="commands"><a class="header" href="#commands">Commands</a></h2>
+<h3 id="list-available-items"><a class="header" href="#list-available-items">List Available Items</a></h3>
+<pre><code class="language-bash">wayvid workshop list
+</code></pre>
+<h3 id="get-item-info"><a class="header" href="#get-item-info">Get Item Info</a></h3>
+<pre><code class="language-bash">wayvid workshop info &lt;workshop_id&gt;
+</code></pre>
+<h3 id="import-item"><a class="header" href="#import-item">Import Item</a></h3>
+<pre><code class="language-bash">wayvid workshop import &lt;workshop_id&gt;
+</code></pre>
+<p>Generates config entry:</p>
+<pre><code class="language-yaml">source:
+  type: workshop
+  id: 1234567890
+</code></pre>
+<h2 id="finding-workshop-ids"><a class="header" href="#finding-workshop-ids">Finding Workshop IDs</a></h2>
+<h3 id="method-1-steam-workshop-page"><a class="header" href="#method-1-steam-workshop-page">Method 1: Steam Workshop Page</a></h3>
+<p>URL format: <code>https://steamcommunity.com/sharedfiles/filedetails/?id=&lt;ID&gt;</code></p>
+<p>Example: <code>id=1234567890</code></p>
+<h3 id="method-2-wayvid-cli"><a class="header" href="#method-2-wayvid-cli">Method 2: wayvid CLI</a></h3>
+<pre><code class="language-bash">wayvid workshop list
+</code></pre>
+<p>Output:</p>
+<pre><code>Found 5 Workshop items:
+  [1234567890] Awesome Wallpaper
+  [9876543210] Cool Animation
+  ...
+</code></pre>
+<h2 id="supported-features"><a class="header" href="#supported-features">Supported Features</a></h2>
+<p>✅ Video wallpapers
+✅ Static images
+✅ Basic animations
+⚠️ Interactive wallpapers (limited)
+❌ Audio (muted by default)
+❌ Web-based wallpapers</p>
+<h2 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h2>
+<p>Workshop items location:</p>
+<pre><code>~/.steam/steam/steamapps/workshop/content/431960/&lt;id&gt;/
+</code></pre>
+<p>wayvid automatically:</p>
+<ul>
+<li>Finds Steam installation</li>
+<li>Locates workshop items</li>
+<li>Parses <code>project.json</code></li>
+<li>Converts to native format</li>
+</ul>
+<h2 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h2>
+<pre><code class="language-yaml">source:
+  type: workshop
+  id: 1234567890
+  
+  # Optional overrides
+  volume: 0
+  loop: true
+</code></pre>
+<h2 id="troubleshooting-2"><a class="header" href="#troubleshooting-2">Troubleshooting</a></h2>
+<p><strong>Items not found:</strong></p>
+<ul>
+<li>Verify Steam is installed</li>
+<li>Check subscriptions in Steam Workshop</li>
+<li>Run <code>wayvid workshop list</code> to debug</li>
+</ul>
+<p><strong>Playback issues:</strong></p>
+<ul>
+<li>Some WE features unsupported</li>
+<li>Check logs: <code>wayvid --log-level debug</code></li>
+<li>Report issues on GitHub</li>
+</ul>
+<h2 id="performance-1"><a class="header" href="#performance-1">Performance</a></h2>
+<p>Workshop items are converted on-the-fly:</p>
+<ul>
+<li>First load: ~1-2s conversion</li>
+<li>Subsequent loads: instant</li>
+</ul>
+<p>Cache location: <code>~/.cache/wayvid/workshop/</code></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="niri-integration"><a class="header" href="#niri-integration">Niri Integration</a></h1>
+<p>First-class support for <a href="https://github.com/YaLTeR/niri">Niri</a> scrolling compositor.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<ul>
+<li>✅ Workspace-aware playback</li>
+<li>✅ Scroll performance optimization</li>
+<li>✅ Native Niri IPC integration</li>
+<li>✅ Zero-config setup</li>
+</ul>
+<h2 id="installation-1"><a class="header" href="#installation-1">Installation</a></h2>
+<pre><code class="language-bash"># Install wayvid
+yay -S wayvid-git
+
+# Add to Niri config
+echo 'spawn-at-startup "wayvid"' &gt;&gt; ~/.config/niri/config.kdl
+</code></pre>
+<h2 id="automatic-optimizations"><a class="header" href="#automatic-optimizations">Automatic Optimizations</a></h2>
+<p>wayvid detects Niri and enables:</p>
+<h3 id="workspace-switching"><a class="header" href="#workspace-switching">Workspace Switching</a></h3>
+<ul>
+<li>Pauses wallpaper on inactive workspaces</li>
+<li>Resumes on workspace activation</li>
+<li>Reduces CPU/GPU usage</li>
+</ul>
+<h3 id="scroll-optimization"><a class="header" href="#scroll-optimization">Scroll Optimization</a></h3>
+<ul>
+<li>Lowers quality during scrolling</li>
+<li>Restores quality when idle</li>
+<li>Maintains smooth 60+ FPS</li>
+</ul>
+<h3 id="output-management"><a class="header" href="#output-management">Output Management</a></h3>
+<ul>
+<li>Tracks output transforms</li>
+<li>Handles dynamic workspaces</li>
+<li>Syncs with Niri window positions</li>
+</ul>
+<h2 id="configuration-2"><a class="header" href="#configuration-2">Configuration</a></h2>
+<p>No special config required. wayvid auto-detects Niri.</p>
+<p>Optional tuning:</p>
+<pre><code class="language-yaml"># Disable workspace pausing
+performance:
+  pause_inactive_workspaces: false
+
+# Adjust scroll quality
+performance:
+  scroll_quality: medium  # low, medium, high
+</code></pre>
+<h2 id="cli-integration"><a class="header" href="#cli-integration">CLI Integration</a></h2>
+<pre><code class="language-bash"># Get current workspace
+wayvid-ctl status | grep workspace
+
+# Force workspace resync
+wayvid-ctl reload-config
+</code></pre>
+<h2 id="performance-2"><a class="header" href="#performance-2">Performance</a></h2>
+<p>Niri-specific optimizations save:</p>
+<ul>
+<li><strong>30-50% CPU</strong> (inactive workspaces paused)</li>
+<li><strong>20-40% GPU</strong> (scroll quality reduction)</li>
+<li><strong>Minimal memory</strong> (smart buffering)</li>
+</ul>
+<h2 id="troubleshooting-3"><a class="header" href="#troubleshooting-3">Troubleshooting</a></h2>
+<p><strong>Wallpaper not showing:</strong></p>
+<ul>
+<li>Ensure Niri ≥ v0.1.0</li>
+<li>Check <code>wayvid-ctl status</code></li>
+<li>Verify layer-shell support</li>
+</ul>
+<p><strong>Stuttering during scroll:</strong></p>
+<ul>
+<li>Lower video resolution</li>
+<li>Reduce <code>scroll_quality</code></li>
+<li>Check GPU drivers</li>
+</ul>
+<p><strong>Workspace detection issues:</strong></p>
+<ul>
+<li>Update Niri to latest</li>
+<li>Check Niri IPC socket: <code>ls $XDG_RUNTIME_DIR/niri/</code></li>
+<li>Report bug with logs</li>
+</ul>
+<h2 id="future-features"><a class="header" href="#future-features">Future Features</a></h2>
+<p>Planned for M7:</p>
+<ul>
+<li>Noctalia Shell integration</li>
+<li>Per-workspace wallpapers</li>
+<li>Gesture support</li>
+<li>Advanced window interactions</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ipc-control"><a class="header" href="#ipc-control">IPC Control</a></h1>
+<p>Control wayvid in real-time via CLI or programmatically.</p>
+<h2 id="cli-tool"><a class="header" href="#cli-tool">CLI Tool</a></h2>
+<p><code>wayvid-ctl</code> provides IPC commands:</p>
+<h3 id="status"><a class="header" href="#status">Status</a></h3>
+<pre><code class="language-bash">wayvid-ctl status
+</code></pre>
+<h3 id="playback-control"><a class="header" href="#playback-control">Playback Control</a></h3>
+<pre><code class="language-bash">wayvid-ctl play [--output DP-1]
+wayvid-ctl pause [--output DP-1]
+wayvid-ctl stop [--output DP-1]
+wayvid-ctl resume [--output DP-1]
+</code></pre>
+<h3 id="configuration-3"><a class="header" href="#configuration-3">Configuration</a></h3>
+<pre><code class="language-bash">wayvid-ctl reload-config
+wayvid-ctl set-volume 50
+wayvid-ctl set-source /path/to/video.mp4
+</code></pre>
+<h3 id="output-management-1"><a class="header" href="#output-management-1">Output Management</a></h3>
+<pre><code class="language-bash">wayvid-ctl list-outputs
+wayvid-ctl enable-output DP-1
+wayvid-ctl disable-output HDMI-A-1
+</code></pre>
+<h2 id="ipc-protocol"><a class="header" href="#ipc-protocol">IPC Protocol</a></h2>
+<p>Unix socket: <code>$XDG_RUNTIME_DIR/wayvid.sock</code></p>
+<h3 id="message-format"><a class="header" href="#message-format">Message Format</a></h3>
+<p>JSON-based protocol:</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "command": "play",
+  "params": {
+    "output": "DP-1"
+  }
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "data": {}
+}
+</code></pre>
+<h3 id="available-commands"><a class="header" href="#available-commands">Available Commands</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>Parameters</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>status</code></td><td>-</td><td>Get current status</td></tr>
+<tr><td><code>play</code></td><td><code>output?</code></td><td>Start playback</td></tr>
+<tr><td><code>pause</code></td><td><code>output?</code></td><td>Pause playback</td></tr>
+<tr><td><code>stop</code></td><td><code>output?</code></td><td>Stop playback</td></tr>
+<tr><td><code>resume</code></td><td><code>output?</code></td><td>Resume playback</td></tr>
+<tr><td><code>reload_config</code></td><td>-</td><td>Reload config file</td></tr>
+<tr><td><code>set_volume</code></td><td><code>volume: u8</code></td><td>Set volume (0-100)</td></tr>
+<tr><td><code>set_source</code></td><td><code>path: string</code></td><td>Change video source</td></tr>
+<tr><td><code>list_outputs</code></td><td>-</td><td>List all outputs</td></tr>
+</tbody></table>
+</div>
+<h2 id="programming-examples"><a class="header" href="#programming-examples">Programming Examples</a></h2>
+<h3 id="python"><a class="header" href="#python">Python</a></h3>
+<pre><code class="language-python">import socket
+import json
+
+sock = socket.socket(socket.AF_UNIX)
+sock.connect('/run/user/1000/wayvid.sock')
+
+# Send command
+cmd = {"command": "pause", "params": {}}
+sock.send(json.dumps(cmd).encode())
+
+# Receive response
+resp = json.loads(sock.recv(1024))
+print(resp)
+</code></pre>
+<h3 id="bash"><a class="header" href="#bash">Bash</a></h3>
+<pre><code class="language-bash">echo '{"command":"status","params":{}}' | nc -U $XDG_RUNTIME_DIR/wayvid.sock
+</code></pre>
+<h3 id="rust"><a class="header" href="#rust">Rust</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use wayvid::ctl::protocol::{IpcCommand, IpcResponse};
+
+let cmd = IpcCommand::Pause { output: None };
+let resp: IpcResponse = send_ipc_command(cmd)?;
+<span class="boring">}</span></code></pre></pre>
+<h2 id="gui-integration"><a class="header" href="#gui-integration">GUI Integration</a></h2>
+<p>Desktop GUI available:</p>
+<pre><code class="language-bash">wayvid-gui
+</code></pre>
+<p>Features:</p>
+<ul>
+<li>Output status monitoring</li>
+<li>Playback controls</li>
+<li>Configuration editing</li>
+<li>Workshop browser</li>
+</ul>
+<h2 id="troubleshooting-4"><a class="header" href="#troubleshooting-4">Troubleshooting</a></h2>
+<p><strong>Socket not found:</strong></p>
+<ul>
+<li>Ensure wayvid is running</li>
+<li>Check: <code>ls $XDG_RUNTIME_DIR/wayvid.sock</code></li>
+</ul>
+<p><strong>Permission denied:</strong></p>
+<ul>
+<li>Socket owned by wayvid user</li>
+<li>Run wayvid-ctl as same user</li>
+</ul>
+<p><strong>No response:</strong></p>
+<ul>
+<li>Check wayvid logs</li>
+<li>Verify JSON syntax</li>
+<li>Use <code>--log-level debug</code></li>
+</ul>
+<h2 id="see-also"><a class="header" href="#see-also">See Also</a></h2>
+<ul>
+<li><a href="features/../reference/config.html">Configuration Reference</a></li>
+<li><a href="features/../reference/ipc-protocol.html">IPC Protocol Reference</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="building-from-source"><a class="header" href="#building-from-source">Building from Source</a></h1>
+<h2 id="prerequisites-2"><a class="header" href="#prerequisites-2">Prerequisites</a></h2>
+<h3 id="system-dependencies"><a class="header" href="#system-dependencies">System Dependencies</a></h3>
+<p><strong>Arch Linux:</strong></p>
+<pre><code class="language-bash">sudo pacman -S rust mpv wayland wayland-protocols libxkbcommon fontconfig
+</code></pre>
+<p><strong>Ubuntu/Debian:</strong></p>
+<pre><code class="language-bash">sudo apt install cargo libmpv-dev libwayland-dev wayland-protocols \
+                 libxkbcommon-dev libfontconfig1-dev libegl1-mesa-dev
+</code></pre>
+<p><strong>Fedora:</strong></p>
+<pre><code class="language-bash">sudo dnf install cargo mpv-libs-devel wayland-devel wayland-protocols-devel \
+                 libxkbcommon-devel fontconfig-devel mesa-libEGL-devel
+</code></pre>
+<h2 id="clone-repository"><a class="header" href="#clone-repository">Clone Repository</a></h2>
+<pre><code class="language-bash">git clone https://github.com/YangYuS8/wayvid
+cd wayvid
+</code></pre>
+<h2 id="build"><a class="header" href="#build">Build</a></h2>
+<h3 id="release-build"><a class="header" href="#release-build">Release Build</a></h3>
+<pre><code class="language-bash">cargo build --release
+</code></pre>
+<p>Binaries in <code>target/release/</code>:</p>
+<ul>
+<li><code>wayvid</code> - Main daemon</li>
+<li><code>wayvid-ctl</code> - CLI control tool</li>
+</ul>
+<h3 id="with-gui"><a class="header" href="#with-gui">With GUI</a></h3>
+<pre><code class="language-bash">cargo build --release --all-features
+</code></pre>
+<p>Additional binary:</p>
+<ul>
+<li><code>wayvid-gui</code> - Desktop GUI</li>
+</ul>
+<h3 id="development-build"><a class="header" href="#development-build">Development Build</a></h3>
+<pre><code class="language-bash">cargo build
+</code></pre>
+<p>Faster compilation, debug symbols, in <code>target/debug/</code>.</p>
+<h2 id="feature-flags"><a class="header" href="#feature-flags">Feature Flags</a></h2>
+<pre><code class="language-bash"># Workshop support
+cargo build --features workshop
+
+# Niri integration
+cargo build --features niri
+
+# GUI
+cargo build --features gui
+
+# All features
+cargo build --all-features
+</code></pre>
+<h2 id="install-1"><a class="header" href="#install-1">Install</a></h2>
+<pre><code class="language-bash">sudo cp target/release/wayvid{,-ctl,-gui} /usr/local/bin/
+</code></pre>
+<p>Or use cargo:</p>
+<pre><code class="language-bash">cargo install --path . --all-features
+</code></pre>
+<h2 id="run-tests"><a class="header" href="#run-tests">Run Tests</a></h2>
+<pre><code class="language-bash">cargo test --all-features
+</code></pre>
+<h2 id="verify"><a class="header" href="#verify">Verify</a></h2>
+<pre><code class="language-bash">wayvid --version
+wayvid-ctl --version
+wayvid-gui --version  # if built with --features gui
+</code></pre>
+<h2 id="clean-build"><a class="header" href="#clean-build">Clean Build</a></h2>
+<pre><code class="language-bash">cargo clean
+</code></pre>
+<h2 id="optimization"><a class="header" href="#optimization">Optimization</a></h2>
+<p>For maximum performance:</p>
+<pre><code class="language-bash">RUSTFLAGS="-C target-cpu=native" cargo build --release
+</code></pre>
+<h2 id="troubleshooting-5"><a class="header" href="#troubleshooting-5">Troubleshooting</a></h2>
+<p><strong>Missing dependencies:</strong></p>
+<ul>
+<li>Check error message for missing library</li>
+<li>Install corresponding <code>-dev</code> or <code>-devel</code> package</li>
+</ul>
+<p><strong>Linker errors:</strong></p>
+<ul>
+<li>Install <code>clang</code> or <code>gcc</code></li>
+<li>Ensure all system libraries present</li>
+</ul>
+<p><strong>Build takes too long:</strong></p>
+<ul>
+<li>Use <code>cargo build</code> (debug) for development</li>
+<li>Enable <code>mold</code> linker (see <a href="dev/./workflow.html">Development Workflow</a>)</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="development-workflow"><a class="header" href="#development-workflow">Development Workflow</a></h1>
+<p>Efficient development practices for wayvid.</p>
+<h2 id="quick-checks"><a class="header" href="#quick-checks">Quick Checks</a></h2>
+<p>Local verification before pushing:</p>
+<pre><code class="language-bash"># Format
+cargo fmt --all
+
+# Lint
+cargo clippy --all-features -- -D warnings
+
+# Check
+cargo check --all-features
+
+# Test
+cargo test --all-features
+</code></pre>
+<h2 id="fast-iteration"><a class="header" href="#fast-iteration">Fast Iteration</a></h2>
+<h3 id="use-debug-builds"><a class="header" href="#use-debug-builds">Use Debug Builds</a></h3>
+<pre><code class="language-bash">cargo build  # Much faster than --release
+./target/debug/wayvid
+</code></pre>
+<h3 id="watch-mode"><a class="header" href="#watch-mode">Watch Mode</a></h3>
+<pre><code class="language-bash">cargo install cargo-watch
+cargo watch -x 'clippy --all-features'
+</code></pre>
+<h3 id="faster-linker"><a class="header" href="#faster-linker">Faster Linker</a></h3>
+<p><strong>Install mold:</strong></p>
+<pre><code class="language-bash"># Arch
+sudo pacman -S mold
+
+# Ubuntu
+sudo apt install mold
+</code></pre>
+<p><strong>Configure (~/.cargo/config.toml):</strong></p>
+<pre><code class="language-toml">[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+</code></pre>
+<h2 id="testing"><a class="header" href="#testing">Testing</a></h2>
+<h3 id="unit-tests"><a class="header" href="#unit-tests">Unit Tests</a></h3>
+<pre><code class="language-bash">cargo test
+</code></pre>
+<h3 id="integration-tests"><a class="header" href="#integration-tests">Integration Tests</a></h3>
+<pre><code class="language-bash">cargo test --test '*'
+</code></pre>
+<h3 id="specific-test"><a class="header" href="#specific-test">Specific Test</a></h3>
+<pre><code class="language-bash">cargo test test_name
+</code></pre>
+<h3 id="with-output"><a class="header" href="#with-output">With Output</a></h3>
+<pre><code class="language-bash">cargo test -- --nocapture
+</code></pre>
+<h2 id="logging"><a class="header" href="#logging">Logging</a></h2>
+<h3 id="enable-debug-logs"><a class="header" href="#enable-debug-logs">Enable Debug Logs</a></h3>
+<pre><code class="language-bash">RUST_LOG=debug wayvid
+</code></pre>
+<h3 id="module-specific"><a class="header" href="#module-specific">Module-Specific</a></h3>
+<pre><code class="language-bash">RUST_LOG=wayvid::video=trace wayvid
+</code></pre>
+<h2 id="profiling"><a class="header" href="#profiling">Profiling</a></h2>
+<h3 id="cpu-profiling"><a class="header" href="#cpu-profiling">CPU Profiling</a></h3>
+<pre><code class="language-bash">cargo install flamegraph
+cargo flamegraph --bin wayvid
+</code></pre>
+<h3 id="memory-profiling"><a class="header" href="#memory-profiling">Memory Profiling</a></h3>
+<pre><code class="language-bash">valgrind --tool=massif ./target/release/wayvid
+</code></pre>
+<h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
+<h3 id="build-docs"><a class="header" href="#build-docs">Build Docs</a></h3>
+<pre><code class="language-bash">cargo doc --all-features --no-deps --open
+</code></pre>
+<h3 id="mdbook"><a class="header" href="#mdbook">mdbook</a></h3>
+<pre><code class="language-bash">cd docs
+mdbook serve --open
+</code></pre>
+<h2 id="git-workflow"><a class="header" href="#git-workflow">Git Workflow</a></h2>
+<h3 id="branch-naming"><a class="header" href="#branch-naming">Branch Naming</a></h3>
+<ul>
+<li><code>feat/description</code> - New features</li>
+<li><code>fix/description</code> - Bug fixes</li>
+<li><code>docs/description</code> - Documentation</li>
+<li><code>refactor/description</code> - Code refactoring</li>
+</ul>
+<h3 id="commit-messages"><a class="header" href="#commit-messages">Commit Messages</a></h3>
+<p>Follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>:</p>
+<pre><code>feat(gui): Add video source browser
+fix(mpv): Resolve memory leak
+docs: Update installation guide
+chore: Update dependencies
+</code></pre>
+<h3 id="before-pushing"><a class="header" href="#before-pushing">Before Pushing</a></h3>
+<pre><code class="language-bash">cargo fmt --all
+cargo clippy --all-features -- -D warnings
+cargo test --all-features
+</code></pre>
+<h2 id="ide-setup"><a class="header" href="#ide-setup">IDE Setup</a></h2>
+<h3 id="vs-code"><a class="header" href="#vs-code">VS Code</a></h3>
+<p>Recommended extensions:</p>
+<ul>
+<li><code>rust-analyzer</code> - Language server</li>
+<li><code>crates</code> - Dependency management</li>
+<li><code>Error Lens</code> - Inline errors</li>
+</ul>
+<p><strong>.vscode/settings.json:</strong></p>
+<pre><code class="language-json">{
+  "rust-analyzer.checkOnSave.command": "clippy",
+  "rust-analyzer.cargo.features": "all"
+}
+</code></pre>
+<h3 id="neovim"><a class="header" href="#neovim">Neovim</a></h3>
+<p>Use <code>rust-tools.nvim</code> with LSP:</p>
+<pre><code class="language-lua">require('rust-tools').setup({})
+</code></pre>
+<h2 id="performance-tips-1"><a class="header" href="#performance-tips-1">Performance Tips</a></h2>
+<ul>
+<li>Use <code>cargo build</code> for dev, <code>--release</code> for testing</li>
+<li>Enable incremental compilation (default)</li>
+<li>Use <code>cargo check</code> for faster feedback</li>
+<li>Run tests on relevant modules only</li>
+<li>Use <code>mold</code> linker for 2-3x faster linking</li>
+</ul>
+<h2 id="cicd"><a class="header" href="#cicd">CI/CD</a></h2>
+<p>GitHub Actions runs on every push:</p>
+<ul>
+<li>Format check</li>
+<li>Clippy (strict)</li>
+<li>Build (all features)</li>
+<li>Tests (all features)</li>
+</ul>
+<p>Verify locally before pushing to save CI time.</p>
+<h2 id="troubleshooting-6"><a class="header" href="#troubleshooting-6">Troubleshooting</a></h2>
+<p><strong>Slow compilation:</strong></p>
+<ul>
+<li>Use <code>cargo check</code> instead of <code>build</code></li>
+<li>Install <code>mold</code> linker</li>
+<li>Reduce feature set during development</li>
+</ul>
+<p><strong>Test failures:</strong></p>
+<ul>
+<li>Check system dependencies</li>
+<li>Verify compositor is running</li>
+<li>Run with <code>RUST_LOG=debug</code></li>
+</ul>
+<p><strong>Memory issues:</strong></p>
+<ul>
+<li>Use <code>cargo clean</code> to clear cache</li>
+<li>Check for resource leaks with <code>valgrind</code></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="architecture"><a class="header" href="#architecture">Architecture</a></h1>
+<p>wayvid's high-level architecture and design decisions.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<pre><code>┌─────────────────┐
+│  Configuration  │
+└────────┬────────┘
+         │
+    ┌────▼─────┐
+    │   Core   │ ── Event Loop
+    └────┬─────┘
+         │
+    ┌────▼──────────────────────┐
+    │   Wayland Backend         │
+    │  ┌──────┐  ┌──────────┐  │
+    │  │Layer │  │  Output  │  │
+    │  │Shell │  │  Manager │  │
+    │  └──────┘  └──────────┘  │
+    └────┬──────────────────────┘
+         │
+    ┌────▼─────────────────┐
+    │   Video Subsystem    │
+    │  ┌──────┐  ┌──────┐ │
+    │  │ mpv  │  │ EGL  │ │
+    │  └──────┘  └──────┘ │
+    └──────────────────────┘
+</code></pre>
+<h2 id="core-components"><a class="header" href="#core-components">Core Components</a></h2>
+<h3 id="configuration-srcconfig"><a class="header" href="#configuration-srcconfig">Configuration (<code>src/config/</code>)</a></h3>
+<ul>
+<li>YAML parsing</li>
+<li>Type validation</li>
+<li>Hot-reload support</li>
+<li>Per-output config</li>
+</ul>
+<h3 id="core-srccore"><a class="header" href="#core-srccore">Core (<code>src/core/</code>)</a></h3>
+<ul>
+<li>Main event loop</li>
+<li>State management</li>
+<li>Output layout tracking</li>
+<li>Power management</li>
+</ul>
+<h3 id="wayland-backend-srcbackendwayland"><a class="header" href="#wayland-backend-srcbackendwayland">Wayland Backend (<code>src/backend/wayland/</code>)</a></h3>
+<ul>
+<li>Layer-shell protocol</li>
+<li>Output management</li>
+<li>Surface creation</li>
+<li>Event handling</li>
+</ul>
+<h3 id="video-srcvideo"><a class="header" href="#video-srcvideo">Video (<code>src/video/</code>)</a></h3>
+<ul>
+<li>mpv integration</li>
+<li>EGL rendering</li>
+<li>Hardware decode</li>
+<li>HDR pipeline</li>
+</ul>
+<h3 id="ipc-srcctl"><a class="header" href="#ipc-srcctl">IPC (<code>src/ctl/</code>)</a></h3>
+<ul>
+<li>Unix socket server</li>
+<li>Protocol handling</li>
+<li>Command dispatch</li>
+</ul>
+<h2 id="data-flow"><a class="header" href="#data-flow">Data Flow</a></h2>
+<pre><code>Config → Core → Backend → Video
+                  ↓         ↓
+              Wayland ← EGL Surface
+</code></pre>
+<ol>
+<li>Config parsed and validated</li>
+<li>Core initializes subsystems</li>
+<li>Backend creates Wayland surfaces</li>
+<li>Video renders to EGL surfaces</li>
+<li>IPC accepts runtime commands</li>
+</ol>
+<h2 id="key-design-decisions"><a class="header" href="#key-design-decisions">Key Design Decisions</a></h2>
+<h3 id="layer-shell"><a class="header" href="#layer-shell">Layer-Shell</a></h3>
+<p>Uses <code>wlr-layer-shell</code> protocol for background placement:</p>
+<ul>
+<li>Guaranteed bottom layer</li>
+<li>No window management needed</li>
+<li>Works with all wlr compositors</li>
+</ul>
+<h3 id="mpv-integration"><a class="header" href="#mpv-integration">mpv Integration</a></h3>
+<p>Uses libmpv for video:</p>
+<ul>
+<li>Mature, stable</li>
+<li>Hardware acceleration</li>
+<li>HDR support</li>
+<li>Wide format support</li>
+</ul>
+<h3 id="egl-rendering"><a class="header" href="#egl-rendering">EGL Rendering</a></h3>
+<p>Direct EGL context sharing:</p>
+<ul>
+<li>Zero-copy textures</li>
+<li>GPU-accelerated</li>
+<li>Wayland-native</li>
+</ul>
+<h3 id="async-architecture"><a class="header" href="#async-architecture">Async Architecture</a></h3>
+<p>Tokio-based async runtime:</p>
+<ul>
+<li>Non-blocking I/O</li>
+<li>Efficient resource usage</li>
+<li>Clean concurrency</li>
+</ul>
+<h2 id="module-breakdown"><a class="header" href="#module-breakdown">Module Breakdown</a></h2>
+<pre><code>src/
+├── backend/        # Wayland integration
+│   └── wayland/
+│       ├── app.rs      # Main app state
+│       ├── output.rs   # Output management
+│       └── surface.rs  # Surface handling
+│
+├── config/         # Configuration
+│   ├── types.rs    # Config structs
+│   ├── watcher.rs  # File watching
+│   └── pattern.rs  # Source patterns
+│
+├── core/           # Core logic
+│   ├── layout.rs   # Output layout
+│   ├── power.rs    # Power management
+│   └── types.rs    # Core types
+│
+├── ctl/            # IPC control
+│   ├── ipc_server.rs   # Unix socket server
+│   ├── protocol.rs     # Command protocol
+│   └── check.rs        # Health checks
+│
+├── video/          # Video subsystem
+│   ├── mpv.rs          # mpv integration
+│   ├── egl.rs          # EGL context
+│   ├── hdr.rs          # HDR pipeline
+│   └── frame_timing.rs # Frame pacing
+│
+└── we/             # Workshop support
+    ├── parser.rs       # WE project parser
+    ├── converter.rs    # WE → native
+    ├── steam.rs        # Steam integration
+    └── workshop.rs     # Workshop scanner
+</code></pre>
+<h2 id="threading-model"><a class="header" href="#threading-model">Threading Model</a></h2>
+<ul>
+<li><strong>Main Thread</strong>: Wayland event loop</li>
+<li><strong>Video Thread</strong>: mpv decoding (internal)</li>
+<li><strong>IPC Thread</strong>: Command handling</li>
+<li><strong>Async Runtime</strong>: I/O operations</li>
+</ul>
+<h2 id="memory-management"><a class="header" href="#memory-management">Memory Management</a></h2>
+<ul>
+<li>Surfaces: Shared GPU memory</li>
+<li>Video frames: mpv-managed</li>
+<li>Config: Arc-wrapped for sharing</li>
+<li>IPC: Short-lived allocations</li>
+</ul>
+<h2 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Operation</th><th>Complexity</th><th>Notes</th></tr></thead><tbody>
+<tr><td>Output add</td><td>O(1)</td><td></td></tr>
+<tr><td>Frame render</td><td>O(n outputs)</td><td>Parallelizable</td></tr>
+<tr><td>Config reload</td><td>O(1)</td><td>Hot-reload</td></tr>
+<tr><td>IPC command</td><td>O(1)</td><td>Async</td></tr>
+</tbody></table>
+</div>
+<h2 id="future-architecture"><a class="header" href="#future-architecture">Future Architecture</a></h2>
+<p>Planned improvements:</p>
+<ul>
+<li>Pluggable video backends</li>
+<li>Multiple video engines</li>
+<li>Shader system</li>
+<li>Advanced compositing</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contributing"><a class="header" href="#contributing">Contributing</a></h1>
+<p>Thank you for considering contributing to wayvid!</p>
+<h2 id="quick-start-1"><a class="header" href="#quick-start-1">Quick Start</a></h2>
+<ol>
+<li>Fork the repository</li>
+<li>Create a feature branch</li>
+<li>Make your changes</li>
+<li>Run tests</li>
+<li>Submit a pull request</li>
+</ol>
+<h2 id="development-setup"><a class="header" href="#development-setup">Development Setup</a></h2>
+<p>See <a href="dev/./building.html">Building from Source</a> and <a href="dev/./workflow.html">Development Workflow</a>.</p>
+<h2 id="code-style"><a class="header" href="#code-style">Code Style</a></h2>
+<ul>
+<li>Follow <code>rustfmt</code> (run <code>cargo fmt</code>)</li>
+<li>Pass <code>clippy</code> (run <code>cargo clippy -- -D warnings</code>)</li>
+<li>Write documentation for public APIs</li>
+<li>Add tests for new features</li>
+</ul>
+<h2 id="commit-messages-1"><a class="header" href="#commit-messages-1">Commit Messages</a></h2>
+<p>Follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>:</p>
+<pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+
+&lt;body&gt;
+
+&lt;footer&gt;
+</code></pre>
+<p>Types: <code>feat</code>, <code>fix</code>, <code>docs</code>, <code>style</code>, <code>refactor</code>, <code>perf</code>, <code>test</code>, <code>chore</code></p>
+<p>Examples:</p>
+<pre><code>feat(gui): Add video source browser
+fix(mpv): Resolve memory leak in HDR pipeline
+docs: Update installation instructions
+</code></pre>
+<h2 id="pull-requests"><a class="header" href="#pull-requests">Pull Requests</a></h2>
+<h3 id="checklist"><a class="header" href="#checklist">Checklist</a></h3>
+<ul>
+<li><input disabled="" type="checkbox"/>
+Code formatted (<code>cargo fmt</code>)</li>
+<li><input disabled="" type="checkbox"/>
+Clippy passes (<code>cargo clippy --all-features -- -D warnings</code>)</li>
+<li><input disabled="" type="checkbox"/>
+Tests pass (<code>cargo test --all-features</code>)</li>
+<li><input disabled="" type="checkbox"/>
+Documentation updated</li>
+<li><input disabled="" type="checkbox"/>
+CHANGELOG.md updated (if user-facing)</li>
+</ul>
+<h3 id="pr-title"><a class="header" href="#pr-title">PR Title</a></h3>
+<p>Use same format as commits: <code>type(scope): description</code></p>
+<h3 id="description"><a class="header" href="#description">Description</a></h3>
+<p>Include:</p>
+<ul>
+<li>What changed</li>
+<li>Why it changed</li>
+<li>How to test</li>
+<li>Related issues</li>
+</ul>
+<h2 id="testing-1"><a class="header" href="#testing-1">Testing</a></h2>
+<h3 id="required"><a class="header" href="#required">Required</a></h3>
+<ul>
+<li>Unit tests for new logic</li>
+<li>Integration tests for features</li>
+<li>Manual testing on supported compositors</li>
+</ul>
+<h3 id="test-coverage"><a class="header" href="#test-coverage">Test Coverage</a></h3>
+<p>Aim for:</p>
+<ul>
+<li>Core logic: 80%+</li>
+<li>Backend: 60%+</li>
+<li>Utils: 70%+</li>
+</ul>
+<h2 id="documentation-1"><a class="header" href="#documentation-1">Documentation</a></h2>
+<p>Update relevant docs:</p>
+<ul>
+<li>Code comments (public APIs)</li>
+<li>User guide (new features)</li>
+<li>Reference (config options)</li>
+<li>CHANGELOG.md</li>
+</ul>
+<h2 id="issue-reports"><a class="header" href="#issue-reports">Issue Reports</a></h2>
+<h3 id="bug-reports"><a class="header" href="#bug-reports">Bug Reports</a></h3>
+<p>Include:</p>
+<ul>
+<li>wayvid version</li>
+<li>Compositor and version</li>
+<li>System info (distro, GPU)</li>
+<li>Steps to reproduce</li>
+<li>Logs (<code>RUST_LOG=debug wayvid</code>)</li>
+</ul>
+<h3 id="feature-requests"><a class="header" href="#feature-requests">Feature Requests</a></h3>
+<p>Include:</p>
+<ul>
+<li>Use case</li>
+<li>Expected behavior</li>
+<li>Alternative solutions considered</li>
+</ul>
+<h2 id="code-review"><a class="header" href="#code-review">Code Review</a></h2>
+<h3 id="what-we-look-for"><a class="header" href="#what-we-look-for">What We Look For</a></h3>
+<ul>
+<li>Correctness</li>
+<li>Performance</li>
+<li>Maintainability</li>
+<li>Documentation</li>
+<li>Test coverage</li>
+</ul>
+<h3 id="response-time"><a class="header" href="#response-time">Response Time</a></h3>
+<ul>
+<li>Initial review: 1-3 days</li>
+<li>Follow-up: 1-2 days</li>
+</ul>
+<h2 id="license-1"><a class="header" href="#license-1">License</a></h2>
+<p>By contributing, you agree to license your code under MIT OR Apache-2.0.</p>
+<h2 id="questions"><a class="header" href="#questions">Questions?</a></h2>
+<ul>
+<li>GitHub Discussions</li>
+<li>Issues for bugs/features</li>
+<li>Email: YangYuS8@163.com</li>
+</ul>
+<h2 id="recognition"><a class="header" href="#recognition">Recognition</a></h2>
+<p>Contributors are:</p>
+<ul>
+<li>Listed in README.md</li>
+<li>Mentioned in release notes</li>
+<li>Given credit in commits</li>
+</ul>
+<p>Thank you for contributing! 🎉</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-reference"><a class="header" href="#configuration-reference">Configuration Reference</a></h1>
+<p>Complete reference of all configuration options.</p>
+<p><em>Full reference coming soon. See <a href="reference/../user-guide/configuration.html">Configuration Guide</a> for common options.</em></p>
+<h2 id="schema"><a class="header" href="#schema">Schema</a></h2>
+<pre><code class="language-yaml"># Global settings
+source: SourceConfig
+playback: PlaybackConfig
+outputs: Vec&lt;OutputConfig&gt;
+hdr: HdrConfig
+performance: PerformanceConfig
+log_level: LogLevel
+</code></pre>
+<p>For now, see <a href="https://github.com/YangYuS8/wayvid/blob/main/configs/config.example.yaml">config.example.yaml</a> for all options.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="cli-commands"><a class="header" href="#cli-commands">CLI Commands</a></h1>
+<p>Complete reference for all CLI commands.</p>
+<h2 id="wayvid-1"><a class="header" href="#wayvid-1">wayvid</a></h2>
+<p>Main daemon.</p>
+<pre><code>wayvid [OPTIONS]
+</code></pre>
+<h3 id="options"><a class="header" href="#options">Options</a></h3>
+<ul>
+<li><code>--config &lt;PATH&gt;</code> - Config file path</li>
+<li><code>--generate-config</code> - Generate default config</li>
+<li><code>--log-level &lt;LEVEL&gt;</code> - Log level (error, warn, info, debug, trace)</li>
+<li><code>--version</code> - Print version</li>
+<li><code>--help</code> - Show help</li>
+</ul>
+<h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
+<pre><code class="language-bash"># Run with custom config
+wayvid --config ~/my-config.yaml
+
+# Generate config
+wayvid --generate-config
+
+# Debug logging
+wayvid --log-level debug
+</code></pre>
+<h2 id="wayvid-ctl"><a class="header" href="#wayvid-ctl">wayvid-ctl</a></h2>
+<p>IPC control tool.</p>
+<pre><code>wayvid-ctl &lt;COMMAND&gt; [OPTIONS]
+</code></pre>
+<h3 id="commands-1"><a class="header" href="#commands-1">Commands</a></h3>
+<h4 id="status-1"><a class="header" href="#status-1">status</a></h4>
+<p>Show current status.</p>
+<pre><code class="language-bash">wayvid-ctl status
+</code></pre>
+<h4 id="play"><a class="header" href="#play">play</a></h4>
+<p>Start playback.</p>
+<pre><code class="language-bash">wayvid-ctl play [--output &lt;NAME&gt;]
+</code></pre>
+<h4 id="pause"><a class="header" href="#pause">pause</a></h4>
+<p>Pause playback.</p>
+<pre><code class="language-bash">wayvid-ctl pause [--output &lt;NAME&gt;]
+</code></pre>
+<h4 id="stop"><a class="header" href="#stop">stop</a></h4>
+<p>Stop playback.</p>
+<pre><code class="language-bash">wayvid-ctl stop [--output &lt;NAME&gt;]
+</code></pre>
+<h4 id="resume"><a class="header" href="#resume">resume</a></h4>
+<p>Resume playback.</p>
+<pre><code class="language-bash">wayvid-ctl resume [--output &lt;NAME&gt;]
+</code></pre>
+<h4 id="reload-config-1"><a class="header" href="#reload-config-1">reload-config</a></h4>
+<p>Reload configuration.</p>
+<pre><code class="language-bash">wayvid-ctl reload-config
+</code></pre>
+<h4 id="set-volume"><a class="header" href="#set-volume">set-volume</a></h4>
+<p>Set volume (0-100).</p>
+<pre><code class="language-bash">wayvid-ctl set-volume &lt;VOLUME&gt;
+</code></pre>
+<h4 id="set-source"><a class="header" href="#set-source">set-source</a></h4>
+<p>Change video source.</p>
+<pre><code class="language-bash">wayvid-ctl set-source &lt;PATH&gt;
+</code></pre>
+<h4 id="list-outputs-1"><a class="header" href="#list-outputs-1">list-outputs</a></h4>
+<p>List all outputs.</p>
+<pre><code class="language-bash">wayvid-ctl list-outputs
+</code></pre>
+<h3 id="global-options"><a class="header" href="#global-options">Global Options</a></h3>
+<ul>
+<li><code>--socket &lt;PATH&gt;</code> - IPC socket path</li>
+<li><code>--help</code> - Show help</li>
+</ul>
+<h2 id="wayvid-workshop"><a class="header" href="#wayvid-workshop">wayvid workshop</a></h2>
+<p>Workshop management (requires <code>--features workshop</code>).</p>
+<pre><code>wayvid workshop &lt;COMMAND&gt;
+</code></pre>
+<h3 id="commands-2"><a class="header" href="#commands-2">Commands</a></h3>
+<h4 id="list"><a class="header" href="#list">list</a></h4>
+<p>List all workshop items.</p>
+<pre><code class="language-bash">wayvid workshop list
+</code></pre>
+<h4 id="info"><a class="header" href="#info">info</a></h4>
+<p>Show item details.</p>
+<pre><code class="language-bash">wayvid workshop info &lt;ID&gt;
+</code></pre>
+<h4 id="import"><a class="header" href="#import">import</a></h4>
+<p>Import item to config.</p>
+<pre><code class="language-bash">wayvid workshop import &lt;ID&gt;
+</code></pre>
+<h2 id="wayvid-gui"><a class="header" href="#wayvid-gui">wayvid-gui</a></h2>
+<p>Desktop GUI (requires <code>--features gui</code>).</p>
+<pre><code>wayvid-gui
+</code></pre>
+<p>No command-line options. Launch GUI directly.</p>
+<h2 id="environment-variables"><a class="header" href="#environment-variables">Environment Variables</a></h2>
+<ul>
+<li><code>RUST_LOG</code> - Log level (overrides <code>--log-level</code>)</li>
+<li><code>XDG_RUNTIME_DIR</code> - IPC socket location</li>
+<li><code>WAYLAND_DISPLAY</code> - Wayland display name</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ipc-protocol-1"><a class="header" href="#ipc-protocol-1">IPC Protocol</a></h1>
+<p>wayvid's IPC protocol specification.</p>
+<h2 id="transport"><a class="header" href="#transport">Transport</a></h2>
+<p><strong>Protocol</strong>: JSON over Unix socket<br />
+<strong>Socket</strong>: <code>$XDG_RUNTIME_DIR/wayvid.sock</code><br />
+<strong>Format</strong>: Newline-delimited JSON</p>
+<h2 id="message-format-1"><a class="header" href="#message-format-1">Message Format</a></h2>
+<h3 id="request"><a class="header" href="#request">Request</a></h3>
+<pre><code class="language-json">{
+  "command": "string",
+  "params": {}
+}
+</code></pre>
+<h3 id="response"><a class="header" href="#response">Response</a></h3>
+<pre><code class="language-json">{
+  "success": boolean,
+  "data": {},
+  "error": "string?"
+}
+</code></pre>
+<h2 id="commands-3"><a class="header" href="#commands-3">Commands</a></h2>
+<h3 id="status-2"><a class="header" href="#status-2">status</a></h3>
+<p>Get daemon status.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{"command": "status", "params": {}}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "running": true,
+    "outputs": [
+      {
+        "name": "DP-1",
+        "resolution": "2560x1440",
+        "playing": true
+      }
+    ]
+  }
+}
+</code></pre>
+<h3 id="play-1"><a class="header" href="#play-1">play</a></h3>
+<p>Start playback.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "command": "play",
+  "params": {
+    "output": "DP-1"  // optional
+  }
+}
+</code></pre>
+<h3 id="pause-1"><a class="header" href="#pause-1">pause</a></h3>
+<p>Pause playback.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "command": "pause",
+  "params": {
+    "output": "DP-1"  // optional
+  }
+}
+</code></pre>
+<h3 id="stop-1"><a class="header" href="#stop-1">stop</a></h3>
+<p>Stop playback.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "command": "stop",
+  "params": {
+    "output": "DP-1"  // optional
+  }
+}
+</code></pre>
+<h3 id="resume-1"><a class="header" href="#resume-1">resume</a></h3>
+<p>Resume playback.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "command": "resume",
+  "params": {
+    "output": "DP-1"  // optional
+  }
+}
+</code></pre>
+<h3 id="reload_config"><a class="header" href="#reload_config">reload_config</a></h3>
+<p>Reload configuration file.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{"command": "reload_config", "params": {}}
+</code></pre>
+<h3 id="set_volume"><a class="header" href="#set_volume">set_volume</a></h3>
+<p>Set volume.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "command": "set_volume",
+  "params": {
+    "volume": 50  // 0-100
+  }
+}
+</code></pre>
+<h3 id="set_source"><a class="header" href="#set_source">set_source</a></h3>
+<p>Change video source.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  "command": "set_source",
+  "params": {
+    "path": "/path/to/video.mp4"
+  }
+}
+</code></pre>
+<h3 id="list_outputs"><a class="header" href="#list_outputs">list_outputs</a></h3>
+<p>List all outputs.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{"command": "list_outputs", "params": {}}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "outputs": ["DP-1", "HDMI-A-1"]
+  }
+}
+</code></pre>
+<h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
+<h3 id="error-response"><a class="header" href="#error-response">Error Response</a></h3>
+<pre><code class="language-json">{
+  "success": false,
+  "error": "Output 'DP-1' not found"
+}
+</code></pre>
+<h3 id="common-errors"><a class="header" href="#common-errors">Common Errors</a></h3>
+<ul>
+<li><code>"daemon not running"</code></li>
+<li><code>"invalid command"</code></li>
+<li><code>"output not found"</code></li>
+<li><code>"invalid parameters"</code></li>
+</ul>
+<h2 id="example-implementation"><a class="header" href="#example-implementation">Example Implementation</a></h2>
+<p>See <a href="reference/../features/ipc.html#programming-examples">IPC Control</a> for code examples.</p>
+<h2 id="versioning"><a class="header" href="#versioning">Versioning</a></h2>
+<p>Protocol version in response:</p>
+<pre><code class="language-json">{
+  "success": true,
+  "version": "1.0",
+  "data": {}
+}
+</code></pre>
+<p>Breaking changes will increment major version.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="wallpaper-engine-format"><a class="header" href="#wallpaper-engine-format">Wallpaper Engine Format</a></h1>
+<p>Specification for Wallpaper Engine project files.</p>
+<h2 id="project-structure-1"><a class="header" href="#project-structure-1">Project Structure</a></h2>
+<pre><code>workshop_id/
+├── project.json       # Manifest
+├── scene.json         # Scene definition (optional)
+├── preview.jpg        # Thumbnail
+└── assets/            # Media files
+    ├── video.mp4
+    ├── audio.mp3
+    └── ...
+</code></pre>
+<h2 id="projectjson"><a class="header" href="#projectjson">project.json</a></h2>
+<p>Main manifest file.</p>
+<h3 id="required-fields"><a class="header" href="#required-fields">Required Fields</a></h3>
+<pre><code class="language-json">{
+  "title": "My Wallpaper",
+  "type": "video",
+  "file": "assets/video.mp4"
+}
+</code></pre>
+<h3 id="full-format"><a class="header" href="#full-format">Full Format</a></h3>
+<pre><code class="language-json">{
+  "title": "Wallpaper Title",
+  "description": "Description",
+  "type": "video",
+  "file": "assets/video.mp4",
+  "preview": "preview.jpg",
+  "tags": ["anime", "scenery"],
+  "general": {
+    "properties": {
+      "schemecolor": "0 0 0"
+    }
+  }
+}
+</code></pre>
+<h2 id="supported-types"><a class="header" href="#supported-types">Supported Types</a></h2>
+<p>wayvid supports these types:</p>
+<ul>
+<li><code>video</code>: Video file (MP4, WebM)</li>
+<li><code>web</code>: HTML/CSS/JS (limited support)</li>
+<li><code>scene</code>: Scene-based (converted to video)</li>
+</ul>
+<h2 id="file-references"><a class="header" href="#file-references">File References</a></h2>
+<p>File paths are relative to project root:</p>
+<pre><code class="language-json">{
+  "file": "assets/video.mp4",      // ✅ Relative
+  "file": "/absolute/path.mp4",     // ❌ Not supported
+  "file": "../outside.mp4"          // ❌ Not supported
+}
+</code></pre>
+<h2 id="audio-handling"><a class="header" href="#audio-handling">Audio Handling</a></h2>
+<p>wayvid extracts audio automatically:</p>
+<pre><code class="language-json">{
+  "type": "video",
+  "file": "video_with_audio.mp4"  // Audio track used if present
+}
+</code></pre>
+<h2 id="scene-format-limited"><a class="header" href="#scene-format-limited">Scene Format (Limited)</a></h2>
+<p>Basic scene.json support:</p>
+<pre><code class="language-json">{
+  "objects": [
+    {
+      "image": "assets/bg.jpg",
+      "origin": "0 0",
+      "scale": "1 1"
+    }
+  ]
+}
+</code></pre>
+<p><strong>Note</strong>: Complex scenes may not render correctly.</p>
+<h2 id="conversion-process"><a class="header" href="#conversion-process">Conversion Process</a></h2>
+<p>When importing:</p>
+<ol>
+<li>Parse <code>project.json</code></li>
+<li>Locate video file</li>
+<li>Verify file exists</li>
+<li>Extract metadata</li>
+<li>Copy to wayvid cache: <code>~/.cache/wayvid/workshop/&lt;id&gt;/</code></li>
+</ol>
+<h2 id="workshop-id-format"><a class="header" href="#workshop-id-format">Workshop ID Format</a></h2>
+<p>Steam Workshop IDs are numeric:</p>
+<pre><code>https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890
+                                                          ^^^^^^^^^^
+                                                          Workshop ID
+</code></pre>
+<h2 id="validation-rules"><a class="header" href="#validation-rules">Validation Rules</a></h2>
+<p>wayvid validates:</p>
+<ul>
+<li>✅ <code>project.json</code> must exist</li>
+<li>✅ <code>file</code> field must be present</li>
+<li>✅ Referenced file must exist</li>
+<li>✅ File must be valid video format</li>
+<li>⚠️ Audio is optional</li>
+<li>⚠️ <code>preview.jpg</code> is optional</li>
+</ul>
+<h2 id="error-handling-1"><a class="header" href="#error-handling-1">Error Handling</a></h2>
+<h3 id="common-issues"><a class="header" href="#common-issues">Common Issues</a></h3>
+<p><strong>Missing file:</strong></p>
+<pre><code class="language-json">{
+  "file": "video.mp4"  // File doesn't exist
+}
+</code></pre>
+<p>→ Error: "File not found: video.mp4"</p>
+<p><strong>Invalid type:</strong></p>
+<pre><code class="language-json">{
+  "type": "unknown"
+}
+</code></pre>
+<p>→ Fallback to video detection</p>
+<p><strong>Missing project.json:</strong>
+→ Error: "Invalid Workshop item"</p>
+<h2 id="examples-1"><a class="header" href="#examples-1">Examples</a></h2>
+<h3 id="simple-video"><a class="header" href="#simple-video">Simple Video</a></h3>
+<pre><code class="language-json">{
+  "title": "Ocean Waves",
+  "type": "video",
+  "file": "ocean.mp4"
+}
+</code></pre>
+<h3 id="video-with-audio"><a class="header" href="#video-with-audio">Video with Audio</a></h3>
+<pre><code class="language-json">{
+  "title": "Rainy City",
+  "type": "video",
+  "file": "city_rain.mp4",
+  "tags": ["rain", "city", "relaxing"]
+}
+</code></pre>
+<h3 id="web-based-experimental"><a class="header" href="#web-based-experimental">Web-Based (Experimental)</a></h3>
+<pre><code class="language-json">{
+  "title": "Clock Widget",
+  "type": "web",
+  "file": "index.html"
+}
+</code></pre>
+<p><strong>Note</strong>: Web support is experimental. Complex WebGL/Canvas may not work.</p>
+<h2 id="reference-implementation"><a class="header" href="#reference-implementation">Reference Implementation</a></h2>
+<p>See <code>src/we/</code> for parsing code:</p>
+<ul>
+<li><code>src/we/parser.rs</code> - JSON parsing</li>
+<li><code>src/we/converter.rs</code> - Format conversion</li>
+<li><code>src/we/workshop.rs</code> - Steam integration</li>
+</ul>
+<h2 id="related"><a class="header" href="#related">Related</a></h2>
+<ul>
+<li><a href="reference/../features/workshop.html">Workshop Integration</a></li>
+<li><a href="reference/config.html">Configuration Reference</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

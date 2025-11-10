@@ -1,0 +1,404 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Architecture - wayvid Documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">wayvid Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/YangYuS8/wayvid" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/YangYuS8/wayvid/edit/main/docs/src/dev/architecture.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="architecture"><a class="header" href="#architecture">Architecture</a></h1>
+<p>wayvid's high-level architecture and design decisions.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<pre><code>┌─────────────────┐
+│  Configuration  │
+└────────┬────────┘
+         │
+    ┌────▼─────┐
+    │   Core   │ ── Event Loop
+    └────┬─────┘
+         │
+    ┌────▼──────────────────────┐
+    │   Wayland Backend         │
+    │  ┌──────┐  ┌──────────┐  │
+    │  │Layer │  │  Output  │  │
+    │  │Shell │  │  Manager │  │
+    │  └──────┘  └──────────┘  │
+    └────┬──────────────────────┘
+         │
+    ┌────▼─────────────────┐
+    │   Video Subsystem    │
+    │  ┌──────┐  ┌──────┐ │
+    │  │ mpv  │  │ EGL  │ │
+    │  └──────┘  └──────┘ │
+    └──────────────────────┘
+</code></pre>
+<h2 id="core-components"><a class="header" href="#core-components">Core Components</a></h2>
+<h3 id="configuration-srcconfig"><a class="header" href="#configuration-srcconfig">Configuration (<code>src/config/</code>)</a></h3>
+<ul>
+<li>YAML parsing</li>
+<li>Type validation</li>
+<li>Hot-reload support</li>
+<li>Per-output config</li>
+</ul>
+<h3 id="core-srccore"><a class="header" href="#core-srccore">Core (<code>src/core/</code>)</a></h3>
+<ul>
+<li>Main event loop</li>
+<li>State management</li>
+<li>Output layout tracking</li>
+<li>Power management</li>
+</ul>
+<h3 id="wayland-backend-srcbackendwayland"><a class="header" href="#wayland-backend-srcbackendwayland">Wayland Backend (<code>src/backend/wayland/</code>)</a></h3>
+<ul>
+<li>Layer-shell protocol</li>
+<li>Output management</li>
+<li>Surface creation</li>
+<li>Event handling</li>
+</ul>
+<h3 id="video-srcvideo"><a class="header" href="#video-srcvideo">Video (<code>src/video/</code>)</a></h3>
+<ul>
+<li>mpv integration</li>
+<li>EGL rendering</li>
+<li>Hardware decode</li>
+<li>HDR pipeline</li>
+</ul>
+<h3 id="ipc-srcctl"><a class="header" href="#ipc-srcctl">IPC (<code>src/ctl/</code>)</a></h3>
+<ul>
+<li>Unix socket server</li>
+<li>Protocol handling</li>
+<li>Command dispatch</li>
+</ul>
+<h2 id="data-flow"><a class="header" href="#data-flow">Data Flow</a></h2>
+<pre><code>Config → Core → Backend → Video
+                  ↓         ↓
+              Wayland ← EGL Surface
+</code></pre>
+<ol>
+<li>Config parsed and validated</li>
+<li>Core initializes subsystems</li>
+<li>Backend creates Wayland surfaces</li>
+<li>Video renders to EGL surfaces</li>
+<li>IPC accepts runtime commands</li>
+</ol>
+<h2 id="key-design-decisions"><a class="header" href="#key-design-decisions">Key Design Decisions</a></h2>
+<h3 id="layer-shell"><a class="header" href="#layer-shell">Layer-Shell</a></h3>
+<p>Uses <code>wlr-layer-shell</code> protocol for background placement:</p>
+<ul>
+<li>Guaranteed bottom layer</li>
+<li>No window management needed</li>
+<li>Works with all wlr compositors</li>
+</ul>
+<h3 id="mpv-integration"><a class="header" href="#mpv-integration">mpv Integration</a></h3>
+<p>Uses libmpv for video:</p>
+<ul>
+<li>Mature, stable</li>
+<li>Hardware acceleration</li>
+<li>HDR support</li>
+<li>Wide format support</li>
+</ul>
+<h3 id="egl-rendering"><a class="header" href="#egl-rendering">EGL Rendering</a></h3>
+<p>Direct EGL context sharing:</p>
+<ul>
+<li>Zero-copy textures</li>
+<li>GPU-accelerated</li>
+<li>Wayland-native</li>
+</ul>
+<h3 id="async-architecture"><a class="header" href="#async-architecture">Async Architecture</a></h3>
+<p>Tokio-based async runtime:</p>
+<ul>
+<li>Non-blocking I/O</li>
+<li>Efficient resource usage</li>
+<li>Clean concurrency</li>
+</ul>
+<h2 id="module-breakdown"><a class="header" href="#module-breakdown">Module Breakdown</a></h2>
+<pre><code>src/
+├── backend/        # Wayland integration
+│   └── wayland/
+│       ├── app.rs      # Main app state
+│       ├── output.rs   # Output management
+│       └── surface.rs  # Surface handling
+│
+├── config/         # Configuration
+│   ├── types.rs    # Config structs
+│   ├── watcher.rs  # File watching
+│   └── pattern.rs  # Source patterns
+│
+├── core/           # Core logic
+│   ├── layout.rs   # Output layout
+│   ├── power.rs    # Power management
+│   └── types.rs    # Core types
+│
+├── ctl/            # IPC control
+│   ├── ipc_server.rs   # Unix socket server
+│   ├── protocol.rs     # Command protocol
+│   └── check.rs        # Health checks
+│
+├── video/          # Video subsystem
+│   ├── mpv.rs          # mpv integration
+│   ├── egl.rs          # EGL context
+│   ├── hdr.rs          # HDR pipeline
+│   └── frame_timing.rs # Frame pacing
+│
+└── we/             # Workshop support
+    ├── parser.rs       # WE project parser
+    ├── converter.rs    # WE → native
+    ├── steam.rs        # Steam integration
+    └── workshop.rs     # Workshop scanner
+</code></pre>
+<h2 id="threading-model"><a class="header" href="#threading-model">Threading Model</a></h2>
+<ul>
+<li><strong>Main Thread</strong>: Wayland event loop</li>
+<li><strong>Video Thread</strong>: mpv decoding (internal)</li>
+<li><strong>IPC Thread</strong>: Command handling</li>
+<li><strong>Async Runtime</strong>: I/O operations</li>
+</ul>
+<h2 id="memory-management"><a class="header" href="#memory-management">Memory Management</a></h2>
+<ul>
+<li>Surfaces: Shared GPU memory</li>
+<li>Video frames: mpv-managed</li>
+<li>Config: Arc-wrapped for sharing</li>
+<li>IPC: Short-lived allocations</li>
+</ul>
+<h2 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Operation</th><th>Complexity</th><th>Notes</th></tr></thead><tbody>
+<tr><td>Output add</td><td>O(1)</td><td></td></tr>
+<tr><td>Frame render</td><td>O(n outputs)</td><td>Parallelizable</td></tr>
+<tr><td>Config reload</td><td>O(1)</td><td>Hot-reload</td></tr>
+<tr><td>IPC command</td><td>O(1)</td><td>Async</td></tr>
+</tbody></table>
+</div>
+<h2 id="future-architecture"><a class="header" href="#future-architecture">Future Architecture</a></h2>
+<p>Planned improvements:</p>
+<ul>
+<li>Pluggable video backends</li>
+<li>Multiple video engines</li>
+<li>Shader system</li>
+<li>Advanced compositing</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../dev/workflow.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../dev/contributing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../dev/workflow.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../dev/contributing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
