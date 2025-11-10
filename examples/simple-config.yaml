@@ -1,9 +1,9 @@
-# wayvid Test Configuration
-# 测试配置文件
+# wayvid Simple Configuration Example
+# 简单配置示例
 
 source:
   type: File
-  path: "/home/yangyus8/code/edupal/功能演示.mp4"
+  path: "~/Videos/wallpaper.mp4"  # Replace with your video file path
 
 layout: Fill
 loop: true

@@ -2,20 +2,32 @@
 
 Useful development and testing scripts.
 
-## Active Scripts
+## Available Scripts
 
 - `dev-check.sh` - Fast development checks (format, clippy)
 - `pre-push-check.sh` - Pre-commit validation (tests, build)
 - `quick-check.sh` - Minimal check (clippy only)
-- `test-hdr-functionality.sh` - HDR feature validation
-- `test-hdr-tonemapping.sh` - HDR tone-mapping tests
-- `verify-hdr-implementation.sh` - HDR implementation verification
 
-## CI Scripts
+## Usage
 
-- `run_comparison_test.sh` - Performance comparison testing
-- `simple_memory_test.sh` - Basic memory usage check
+```bash
+# Quick clippy check
+./scripts/quick-check.sh
 
-## Archived
+# Full development check (format + clippy)
+./scripts/dev-check.sh
 
-Old test and analysis scripts moved to `archive/` subdirectory.
+# Pre-push validation (all checks + tests + build)
+./scripts/pre-push-check.sh
+```
+
+## Testing
+
+The project uses Rust's built-in test framework. Run tests with:
+
+```bash
+cargo test
+cargo test --all-features
+```
+
+Tests are located inline with the source code using `#[test]` attributes.
