@@ -47,7 +47,11 @@ impl WorkshopItem {
 
     /// Get video file path
     pub fn video_path(&self) -> Option<PathBuf> {
-        self.project.as_ref()?.file.as_ref().map(|f| self.path.join(f))
+        self.project
+            .as_ref()?
+            .file
+            .as_ref()
+            .map(|f| self.path.join(f))
     }
 }
 
