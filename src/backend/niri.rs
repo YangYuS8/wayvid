@@ -1,16 +1,17 @@
 //! Niri compositor integration
+#![allow(dead_code)] // Future API extensions
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Niri IPC socket path
 fn niri_socket_path() -> Result<PathBuf> {
-    let socket = std::env::var("NIRI_SOCKET")
-        .context("NIRI_SOCKET not set - not running under Niri?")?;
+    let socket =
+        std::env::var("NIRI_SOCKET").context("NIRI_SOCKET not set - not running under Niri?")?;
     Ok(PathBuf::from(socket))
 }
 
@@ -24,10 +25,10 @@ impl NiriClient {
     pub fn connect() -> Result<Self> {
         let socket = niri_socket_path()?;
         debug!("Connecting to Niri socket: {:?}", socket);
-        
+
         let stream = UnixStream::connect(&socket)
             .with_context(|| format!("Failed to connect to Niri socket: {:?}", socket))?;
-        
+
         info!("Connected to Niri IPC");
         Ok(Self { stream })
     }
@@ -44,9 +45,9 @@ impl NiriClient {
         let mut line = String::new();
         reader.read_line(&mut line)?;
 
-        let response: NiriResponse = serde_json::from_str(&line)
-            .context("Failed to parse Niri response")?;
-        
+        let response: NiriResponse =
+            serde_json::from_str(&line).context("Failed to parse Niri response")?;
+
         Ok(response)
     }
 
@@ -79,9 +80,8 @@ impl NiriClient {
         let mut line = String::new();
         reader.read_line(&mut line)?;
 
-        let event: NiriEvent = serde_json::from_str(&line)
-            .context("Failed to parse Niri event")?;
-        
+        let event: NiriEvent = serde_json::from_str(&line).context("Failed to parse Niri event")?;
+
         Ok(event)
     }
 }
