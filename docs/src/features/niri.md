@@ -21,36 +21,28 @@ echo 'spawn-at-startup "wayvid"' >> ~/.config/niri/config.kdl
 
 ## Automatic Optimizations
 
-wayvid detects Niri and enables:
+wayvid detects Niri via the `NIRI_SOCKET` environment variable and enables workspace-aware optimizations:
 
-### Workspace Switching
-- Pauses wallpaper on inactive workspaces
-- Resumes on workspace activation
-- Reduces CPU/GPU usage
+### Workspace Awareness
+- **Automatic FPS throttling**: Reduces to 1 FPS on inactive workspaces
+- **Instant resume**: Returns to normal FPS when workspace becomes active
+- **Zero configuration**: Works out of the box
 
-### Scroll Optimization
-- Lowers quality during scrolling
-- Restores quality when idle
-- Maintains smooth 60+ FPS
-
-### Output Management
-- Tracks output transforms
-- Handles dynamic workspaces
-- Syncs with Niri window positions
+### Benefits
+- **30-50% CPU savings** when multiple workspaces are in use
+- **Reduced power consumption** on battery
+- **Smoother desktop experience** by freeing resources for active windows
 
 ## Configuration
 
-No special config required. wayvid auto-detects Niri.
+No special configuration required. wayvid automatically detects Niri and enables optimizations.
 
-Optional tuning:
+Standard power management options still apply:
 ```yaml
-# Disable workspace pausing
-performance:
-  pause_inactive_workspaces: false
-
-# Adjust scroll quality
-performance:
-  scroll_quality: medium  # low, medium, high
+power:
+  max_fps: 60          # FPS limit for active workspace (0 = unlimited)
+  pause_on_battery: true
+  pause_when_hidden: true
 ```
 
 ## CLI Integration
@@ -65,32 +57,34 @@ wayvid-ctl reload-config
 
 ## Performance
 
-Niri-specific optimizations save:
-- **30-50% CPU** (inactive workspaces paused)
-- **20-40% GPU** (scroll quality reduction)
-- **Minimal memory** (smart buffering)
+With Niri workspace optimizations enabled:
+- **30-50% CPU reduction** when using multiple workspaces
+- **Automatic power saving** - inactive workspaces throttled to 1 FPS
+- **Seamless experience** - instant resume when switching back
 
 ## Troubleshooting
 
 **Wallpaper not showing:**
 - Ensure Niri ≥ v0.1.0
 - Check `wayvid-ctl status`
-- Verify layer-shell support
+- Verify layer-shell support: `niri msg outputs`
 
-**Stuttering during scroll:**
-- Lower video resolution
-- Reduce `scroll_quality`
-- Check GPU drivers
+**Workspace detection not working:**
+- Check environment: `echo $NIRI_SOCKET`
+- Should point to: `/run/user/1000/niri/niri-socket.XXX`
+- Update Niri to latest version
+- Check logs: `wayvid run --log-level debug`
 
-**Workspace detection issues:**
-- Update Niri to latest
-- Check Niri IPC socket: `ls $XDG_RUNTIME_DIR/niri/`
-- Report bug with logs
+**Performance issues:**
+- Lower video resolution (1080p recommended)
+- Enable hardware decode: `hwdec: true`
+- Set FPS limit: `max_fps: 60`
+- Use efficient codecs (H.264, H.265)
 
 ## Future Features
 
-Planned for M7:
-- Noctalia Shell integration
+Planned for M7+:
 - Per-workspace wallpapers
-- Gesture support
-- Advanced window interactions
+- Scroll performance optimization
+- Advanced quality tuning options
+- Noctalia Shell integration

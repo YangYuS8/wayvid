@@ -43,7 +43,8 @@ build() {
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
     
-    cargo build --frozen --release --all-features
+    # Build with all features including GUI
+    cargo build --frozen --release --all-features --features gui
 }
 
 check() {
@@ -59,6 +60,7 @@ package() {
     # Install binaries
     install -Dm755 target/release/wayvid "$pkgdir/usr/bin/wayvid"
     install -Dm755 target/release/wayvid-ctl "$pkgdir/usr/bin/wayvid-ctl"
+    install -Dm755 target/release/wayvid-gui "$pkgdir/usr/bin/wayvid-gui"
     
     # Install systemd user service
     install -Dm644 systemd/wayvid.service "$pkgdir/usr/lib/systemd/user/wayvid.service"

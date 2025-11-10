@@ -75,7 +75,9 @@ power:
   pause_on_battery: false
   
   # Maximum FPS limit (0 = unlimited)
-  max_fps: 0
+  # Note: On Niri, inactive workspaces automatically throttle to 1 FPS
+  # This setting applies to the active workspace only
+  max_fps: 60  # Recommended: 60 for power saving, 0 for unlimited
 
 # Per-output overrides
 # Use output names from `wayland-info` or `wayvid check`

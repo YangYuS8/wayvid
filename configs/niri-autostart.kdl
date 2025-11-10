@@ -1,14 +1,53 @@
-// wayvid autostart for niri
-// Add this to your niri config file
+// wayvid autostart configuration for niri
+// Add this snippet to your niri config.kdl file
 
-// Method 1: Direct spawn (recommended)
+// Method 1: Direct spawn (recommended for most users)
 spawn-at-startup "wayvid" "run"
 
-// Method 2: With custom config
+// Method 2: With custom config file
 // spawn-at-startup "wayvid" "run" "--config" "/home/user/.config/wayvid/custom.yaml"
 
-// Method 3: Via systemd (alternative)
+// Method 3: With debug logging (for troubleshooting)
+// spawn-at-startup "wayvid" "run" "--log-level" "debug"
+
+// Method 4: Via systemd (alternative, allows easy restart)
 // spawn-at-startup "systemctl" "--user" "start" "wayvid.service"
 
-// Note: Ensure wayvid is in your PATH or use full path:
-// spawn-at-startup "/home/user/.local/bin/wayvid" "run"
+// Note: Ensure wayvid is in your PATH
+// AUR package installs to /usr/bin/wayvid
+// Manual install: use full path like "/home/user/.local/bin/wayvid"
+
+// ============================================================================
+// Recommended niri + wayvid configuration for best performance
+// ============================================================================
+
+// In your niri config.kdl, consider these settings:
+
+// 1. Enable hardware cursor (better performance)
+// prefer-no-csd
+
+// 2. Optimize animations for smooth wallpaper rendering
+// animations {
+//     window-resize {
+//         duration-ms 150
+//     }
+//     workspace-switch {
+//         duration-ms 200
+//     }
+// }
+
+// 3. Configure outputs (example for multi-monitor)
+// output "eDP-1" {
+//     mode "1920x1080@60"
+//     position x=0 y=0
+//     scale 1.0
+// }
+// output "HDMI-A-1" {
+//     mode "2560x1440@144"
+//     position x=1920 y=0
+//     scale 1.0
+// }
+
+// wayvid automatically detects Niri and enables workspace-aware optimizations:
+// - Inactive workspaces: 1 FPS (saves 30-50% CPU)
+// - Active workspace: Full FPS (configured in wayvid config.yaml)
