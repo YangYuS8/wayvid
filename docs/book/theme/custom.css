@@ -2,8 +2,8 @@
 .language-switcher {
     position: fixed;
     top: 10px;
-    right: 60px;
-    z-index: 100;
+    right: 120px;  /* Move further left to avoid menu icons */
+    z-index: 1000; /* Higher z-index to be above menu bar */
 }
 
 .language-switcher select {
@@ -28,12 +28,19 @@
 /* Mobile responsive */
 @media only screen and (max-width: 768px) {
     .language-switcher {
-        top: 5px;
-        right: 45px;
+        top: 55px;     /* Move below menu bar on mobile */
+        right: 10px;
     }
     
     .language-switcher select {
         font-size: 0.8em;
         padding: 4px 8px;
+    }
+}
+
+/* Tablet/Medium screens */
+@media only screen and (max-width: 1024px) {
+    .language-switcher {
+        right: 80px;   /* Adjust for medium screens */
     }
 }
