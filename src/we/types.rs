@@ -9,15 +9,15 @@ pub struct WeProject {
     pub project_type: String,
 
     /// Video file path (relative to project directory)
-    pub file: String,
+    pub file: Option<String>,
 
     /// Project title
     #[serde(default)]
-    pub title: String,
+    pub title: Option<String>,
 
     /// Project description
     #[serde(default)]
-    pub description: String,
+    pub description: Option<String>,
 
     /// Preview image path
     #[serde(default)]

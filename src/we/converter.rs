@@ -117,14 +117,19 @@ pub fn generate_config_with_metadata(project: &WeProject, video_path: PathBuf) -
     // Add metadata header
     yaml.push_str("# wayvid configuration\n");
     yaml.push_str("# Imported from Wallpaper Engine\n");
-    yaml.push_str(&format!("# Title: {}\n", project.title));
+    
+    if let Some(ref title) = project.title {
+        yaml.push_str(&format!("# Title: {}\n", title));
+    }
 
     if let Some(ref workshop_id) = project.workshopid {
         yaml.push_str(&format!("# Workshop ID: {}\n", workshop_id));
     }
 
-    if !project.description.is_empty() {
-        yaml.push_str(&format!("# Description: {}\n", project.description));
+    if let Some(ref desc) = project.description {
+        if !desc.is_empty() {
+            yaml.push_str(&format!("# Description: {}\n", desc));
+        }
     }
 
     yaml.push('\n');
@@ -154,9 +159,9 @@ mod tests {
     fn test_generate_wayvid_config_minimal() {
         let project = WeProject {
             project_type: "video".to_string(),
-            file: "video.mp4".to_string(),
-            title: "Test".to_string(),
-            description: "Test description".to_string(),
+            file: Some("video.mp4".to_string()),
+            title: Some("Test".to_string()),
+            description: Some("Test description".to_string()),
             preview: None,
             workshopid: None,
             general: WeGeneral::default(),
@@ -177,9 +182,9 @@ mod tests {
     fn test_generate_config_with_metadata() {
         let project = WeProject {
             project_type: "video".to_string(),
-            file: "ocean.mp4".to_string(),
-            title: "Ocean Waves".to_string(),
-            description: "Beautiful ocean scene".to_string(),
+            file: Some("ocean.mp4".to_string()),
+            title: Some("Ocean Waves".to_string()),
+            description: Some("Beautiful ocean scene".to_string()),
             preview: None,
             workshopid: Some("123456789".to_string()),
             general: WeGeneral::default(),
