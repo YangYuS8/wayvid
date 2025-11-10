@@ -111,10 +111,10 @@ impl eframe::App for WayvidApp {
                         self.refresh_outputs();
                     }
 
-                    if self.connection_status == ConnectionStatus::Disconnected {
-                        if ui.button("📡 Connect").clicked() {
-                            self.connect_ipc();
-                        }
+                    if self.connection_status == ConnectionStatus::Disconnected
+                        && ui.button("📡 Connect").clicked()
+                    {
+                        self.connect_ipc();
                     }
                 });
             });
@@ -229,12 +229,10 @@ impl WayvidApp {
                                         output: Some(output.name.clone()),
                                     });
                                 }
-                            } else {
-                                if ui.button("▶ Resume").clicked() {
-                                    self.send_command(IpcCommand::Resume {
-                                        output: Some(output.name.clone()),
-                                    });
-                                }
+                            } else if ui.button("▶ Resume").clicked() {
+                                self.send_command(IpcCommand::Resume {
+                                    output: Some(output.name.clone()),
+                                });
                             }
 
                             if ui.button("⚙ Configure").clicked() {
