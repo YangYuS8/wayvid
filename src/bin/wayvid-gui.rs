@@ -97,10 +97,10 @@ impl eframe::App for WayvidApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Poll for IPC responses
         self.poll_responses();
-        
+
         // Request repaint for continuous updates
         ctx.request_repaint();
-        
+
         // Top panel - Title and status
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -166,34 +166,38 @@ impl WayvidApp {
         // Check if wayvid is running
         if !IpcClient::is_running() {
             self.connection_status = ConnectionStatus::Error;
-            self.status_message = "Error: wayvid daemon not running. Start with 'wayvid run'".to_string();
+            self.status_message =
+                "Error: wayvid daemon not running. Start with 'wayvid run'".to_string();
             return;
         }
 
         // Create channels for async communication
         let (cmd_tx, cmd_rx): (Sender<IpcCommand>, Receiver<IpcCommand>) = channel();
         let (resp_tx, resp_rx): (Sender<IpcResponse>, Receiver<IpcResponse>) = channel();
-        
+
         // Spawn IPC thread
         thread::spawn(move || {
             if let Err(e) = Self::ipc_thread(cmd_rx, resp_tx) {
                 eprintln!("IPC thread error: {}", e);
             }
         });
-        
+
         self.ipc_tx = Some(cmd_tx);
         self.ipc_rx = Some(resp_rx);
         self.connection_status = ConnectionStatus::Connected;
         self.status_message = "Connected to wayvid daemon".to_string();
-        
+
         // Request initial status
         self.send_command(IpcCommand::GetStatus);
     }
-    
+
     /// IPC communication thread
-    fn ipc_thread(cmd_rx: Receiver<IpcCommand>, resp_tx: Sender<IpcResponse>) -> anyhow::Result<()> {
+    fn ipc_thread(
+        cmd_rx: Receiver<IpcCommand>,
+        resp_tx: Sender<IpcResponse>,
+    ) -> anyhow::Result<()> {
         let mut client = IpcClient::connect()?;
-        
+
         for command in cmd_rx {
             match client.send_command(&command) {
                 Ok(response) => {
@@ -210,10 +214,10 @@ impl WayvidApp {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Send IPC command
     fn send_command(&mut self, command: IpcCommand) {
         if let Some(ref tx) = self.ipc_tx {
@@ -223,7 +227,7 @@ impl WayvidApp {
             }
         }
     }
-    
+
     /// Poll for IPC responses
     fn poll_responses(&mut self) {
         let responses: Vec<IpcResponse> = if let Some(ref rx) = self.ipc_rx {
@@ -235,26 +239,33 @@ impl WayvidApp {
         } else {
             Vec::new()
         };
-        
+
         for response in responses {
             self.handle_response(response);
         }
     }
-    
+
     /// Handle IPC response
     fn handle_response(&mut self, response: IpcResponse) {
         match response {
             IpcResponse::Success { data } => {
                 if let Some(value) = data {
                     // Try to parse as daemon status
-                    if let Ok(status) = serde_json::from_value::<wayvid::ctl::protocol::DaemonStatus>(value) {
-                        self.outputs = status.outputs.into_iter().map(|o| OutputInfo {
-                            name: o.name,
-                            width: o.width as u32,
-                            height: o.height as u32,
-                            active: o.playing && !o.paused,
-                        }).collect();
-                        self.status_message = format!("Status updated - {} outputs", self.outputs.len());
+                    if let Ok(status) =
+                        serde_json::from_value::<wayvid::ctl::protocol::DaemonStatus>(value)
+                    {
+                        self.outputs = status
+                            .outputs
+                            .into_iter()
+                            .map(|o| OutputInfo {
+                                name: o.name,
+                                width: o.width as u32,
+                                height: o.height as u32,
+                                active: o.playing && !o.paused,
+                            })
+                            .collect();
+                        self.status_message =
+                            format!("Status updated - {} outputs", self.outputs.len());
                     } else {
                         self.status_message = "Command successful".to_string();
                     }

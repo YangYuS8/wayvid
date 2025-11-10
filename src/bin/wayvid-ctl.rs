@@ -94,6 +94,9 @@ enum Commands {
 
     /// Quit the daemon
     Quit,
+
+    /// Run system capability check
+    Check,
 }
 
 /// Parse a source string into VideoSource
@@ -132,6 +135,12 @@ fn parse_video_source(source: &str) -> Result<VideoSource> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Handle check command separately (doesn't use IPC)
+    if matches!(cli.command, Commands::Check) {
+        use wayvid::ctl::check::run_capability_check;
+        return run_capability_check();
+    }
+
     let command = match cli.command {
         Commands::Status => IpcCommand::GetStatus,
         Commands::Pause { output } => IpcCommand::Pause { output },
@@ -154,6 +163,7 @@ fn main() -> Result<()> {
             layout: mode,
         },
         Commands::Quit => IpcCommand::Quit,
+        Commands::Check => unreachable!(), // Handled above
     };
 
     let response = send_command(&command).context("Failed to send command to daemon")?;

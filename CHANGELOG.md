@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-01-XX
+
+### Added
+- **Desktop GUI (`wayvid-gui`)**: Visual control panel for managing wayvid daemon
+  - Real-time status display (playback state, FPS, video info)
+  - Pause/Resume controls with visual feedback
+  - Connection status indicator (daemon running/stopped)
+  - IPC-based communication with daemon
+  - Enabled with `--features gui` (using egui/eframe)
+- **Enhanced Diagnostic Tool (`wayvid-ctl check`)**: Comprehensive system capability checker
+  - Wayland environment validation
+  - Compositor compatibility detection (Hyprland, Niri, Sway, etc.)
+  - Niri integration status and optimization checks
+  - Video backend verification (libmpv)
+  - OpenGL/EGL library detection
+  - Hardware decode support (VA-API, VDPAU)
+  - Daemon status checking
+  - Configuration file validation
+  - Beautiful Unicode box formatting with emoji indicators
+- **IPC Client Module (`ctl::ipc_client`)**: Reusable IPC communication library
+  - Unix socket connection management
+  - Command serialization and response handling
+  - Daemon running status check
+  - Used by both CLI and GUI tools
+
+### Improved
+- **Error Messages**: Dramatically improved user-facing error messages across the codebase
+  - Backend missing: Clear compilation instructions
+  - IPC connection failures: Step-by-step troubleshooting guide
+  - Config file errors: Distinguish between missing file and YAML syntax errors
+  - WE project detection: Show expected project structure
+  - WE import failures: Detailed cause analysis and fix suggestions
+  - All errors now include context and actionable recommendations
+- **Documentation**:
+  - Niri integration docs aligned with actual implementation
+  - Removed unimplemented feature claims
+  - Enhanced configuration examples with Niri-specific guidance
+  - Improved autostart configuration examples
+
+### Fixed
+- **AUR Packaging**: Added GUI support to PKGBUILD and PKGBUILD.stable
+  - Now builds with `--features gui`
+  - Installs all three binaries: `wayvid`, `wayvid-ctl`, `wayvid-gui`
+- **Documentation Accuracy**: Corrected Niri feature documentation
+  - Removed claims about unimplemented scroll optimization
+  - Removed references to non-existent quality tuning settings
+  - Updated to accurately reflect workspace FPS throttling as the sole optimization
+
 ## [0.3.0] - 2025-10-23
 
 ### Added

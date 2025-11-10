@@ -124,11 +124,29 @@ impl Default for PowerConfig {
 impl Config {
     /// Load configuration from YAML file
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let content = fs::read_to_string(path.as_ref())
-            .with_context(|| format!("Failed to read config file: {:?}", path.as_ref()))?;
+        let path_ref = path.as_ref();
+        let content = fs::read_to_string(path_ref)
+            .with_context(|| format!(
+                "❌ Cannot read configuration file\n\n\
+                 Path: {:?}\n\n\
+                 Please check:\n\
+                 1. File exists and is readable\n\
+                 2. Correct permissions are set\n\
+                 3. Use example: cp /usr/share/wayvid/config.example.yaml ~/.config/wayvid/config.yaml",
+                path_ref
+            ))?;
 
         let mut config: Self =
-            serde_yaml::from_str(&content).with_context(|| "Failed to parse YAML configuration")?;
+            serde_yaml::from_str(&content).with_context(|| format!(
+                "❌ Invalid YAML syntax in configuration\n\n\
+                 File: {:?}\n\n\
+                 Please:\n\
+                 1. Check YAML syntax (proper indentation, no tabs)\n\
+                 2. Validate online: https://www.yamllint.com/\n\
+                 3. Compare with example: /usr/share/wayvid/config.example.yaml\n\
+                 4. Or run: wayvid-ctl check",
+                path_ref
+            ))?;
 
         // Validate and fix configuration
         config.validate();

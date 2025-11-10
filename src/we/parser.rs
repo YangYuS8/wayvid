@@ -10,7 +10,15 @@ pub fn detect_we_project(path: &Path) -> Result<PathBuf> {
 
     if !project_file.exists() {
         return Err(anyhow!(
-            "No project.json found in {}. Not a Wallpaper Engine project.",
+            "❌ Not a Wallpaper Engine project\n\n\
+             Path: {}\n\n\
+             Missing file: project.json\n\n\
+             Expected structure:\n\
+             └── project-directory/\n\
+                 ├── project.json  ← Required\n\
+                 └── scene.mp4 (or similar)\n\n\
+             To find Steam Workshop items:\n\
+             ~/.steam/steam/steamapps/workshop/content/431960/",
             path.display()
         ));
     }
@@ -36,7 +44,14 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
     // Validate project type
     if project.project_type != "video" {
         return Err(anyhow!(
-            "Unsupported project type: '{}'. Only 'video' wallpapers are supported.",
+            "❌ Unsupported Wallpaper Engine project type\n\n\
+             Type: '{}'\n\n\
+             wayvid only supports 'video' wallpapers.\n\
+             This project uses:\n\
+             - Web-based (HTML/JS)\n\
+             - Scene-based (3D engine)\n\
+             - Application-based\n\n\
+             Please select a different wallpaper with type='video'.",
             project.project_type
         ));
     }
@@ -58,7 +73,17 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
     let file = project
         .file
         .as_ref()
-        .ok_or_else(|| anyhow!("No video file specified in project"))?;
+        .ok_or_else(|| anyhow!(
+            "❌ Incomplete Wallpaper Engine project\n\n\
+             The project.json does not specify a video file.\n\
+             Field missing: 'file'\n\n\
+             This project may be:\n\
+             - Corrupted or incomplete\n\
+             - Not fully downloaded from Steam Workshop\n\n\
+             Try:\n\
+             - Re-download from Steam Workshop\n\
+             - Verify file integrity in Steam"
+        ))?;
     let video_path = resolve_video_path(project_dir, file)?;
 
     info!("🎬 Video file: {}", video_path.display());
@@ -72,7 +97,17 @@ fn resolve_video_path(project_dir: &Path, file: &str) -> Result<PathBuf> {
 
     if !video_path.exists() {
         return Err(anyhow!(
-            "Video file not found: {}. Ensure the project directory is complete.",
+            "❌ Video file not found\n\n\
+             Expected: {}\n\n\
+             The project.json references this file, but it doesn't exist.\n\n\
+             Possible causes:\n\
+             - Incomplete Steam Workshop download\n\
+             - Project moved/renamed\n\
+             - File permissions issue\n\n\
+             Try:\n\
+             - Verify integrity in Steam\n\
+             - Check file permissions\n\
+             - Re-download the wallpaper",
             video_path.display()
         ));
     }

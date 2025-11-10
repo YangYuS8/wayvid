@@ -112,7 +112,12 @@ fn main() -> Result<()> {
 
             #[cfg(not(feature = "backend-wayland"))]
             {
-                anyhow::bail!("No backend enabled. Please compile with --features backend-wayland");
+                anyhow::bail!(
+                    "❌ No backend enabled\n\n\
+                     wayvid requires Wayland backend support to run.\n\
+                     Please rebuild with: cargo build --features backend-wayland\n\n\
+                     Or if using a package manager, install the correct package variant."
+                );
             }
         }
         Commands::Check => {
