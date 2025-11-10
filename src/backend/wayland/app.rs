@@ -9,6 +9,7 @@ use wayland_client::{
 use wayland_protocols::xdg::xdg_output::zv1::client::{zxdg_output_manager_v1, zxdg_output_v1};
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
 
+use crate::backend::niri::NiriClient;
 use crate::backend::wayland::output::Output;
 use crate::backend::wayland::surface::WaylandSurface;
 use crate::config::watcher::ConfigWatcher;
@@ -38,6 +39,8 @@ pub struct AppState {
     pub frame_timing: FrameTiming,
     pub ipc_server: Option<IpcServer>,
     pub command_rx: Option<Receiver<IpcCommand>>,
+    pub niri_client: Option<NiriClient>,
+    pub focused_workspace: Option<u64>,
 }
 
 impl AppState {
@@ -59,6 +62,8 @@ impl AppState {
             frame_timing: FrameTiming::new(target_fps),
             ipc_server: None,
             command_rx: None,
+            niri_client: None,
+            focused_workspace: None,
         }
     }
 
@@ -130,6 +135,26 @@ impl AppState {
 
     /// Check if FPS limiting should throttle rendering
     fn should_throttle_fps(&mut self) -> bool {
+        // Niri workspace optimization: reduce FPS when not in focus
+        if let Some(ref mut niri_client) = self.niri_client {
+            if let Ok(Some(focused)) = niri_client.get_focused_workspace() {
+                if Some(focused) != self.focused_workspace {
+                    // Not in focused workspace - throttle heavily
+                    self.focused_workspace = Some(focused);
+                    debug!("Workspace changed to {}, throttling to 1 FPS", focused);
+                    
+                    let elapsed = self.last_frame_time.elapsed();
+                    if elapsed < std::time::Duration::from_secs(1) {
+                        return true; // 1 FPS when not focused
+                    } else {
+                        self.last_frame_time = std::time::Instant::now();
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Normal FPS throttling
         let max_fps = self.config.power.max_fps;
 
         if max_fps == 0 {
@@ -746,6 +771,30 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
         Err(e) => {
             warn!("  ✗ Failed to start IPC server: {}", e);
             warn!("    Continuing without IPC support");
+        }
+    }
+
+    // Connect to Niri if running
+    if crate::backend::niri::is_niri() {
+        info!("Detected Niri compositor");
+        match NiriClient::connect() {
+            Ok(mut client) => {
+                // Get initial focused workspace
+                match client.get_focused_workspace() {
+                    Ok(workspace) => {
+                        info!("  ✓ Niri integration enabled (workspace: {:?})", workspace);
+                        state.focused_workspace = workspace;
+                        state.niri_client = Some(client);
+                    }
+                    Err(e) => {
+                        warn!("  ✗ Failed to get workspace info: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("  ✗ Failed to connect to Niri: {}", e);
+                warn!("    Continuing without Niri integration");
+            }
         }
     }
 
