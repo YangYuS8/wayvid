@@ -42,7 +42,9 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
     }
 
     info!("✅ Project type: video");
-    info!("📝 Title: {}", project.title);
+    if let Some(ref title) = project.title {
+        info!("📝 Title: {}", title);
+    }
 
     if let Some(ref workshop_id) = project.workshopid {
         info!("🔗 Workshop ID: {}", workshop_id);
@@ -53,7 +55,11 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
         .parent()
         .ok_or_else(|| anyhow!("Invalid project file path"))?;
 
-    let video_path = resolve_video_path(project_dir, &project.file)?;
+    let file = project
+        .file
+        .as_ref()
+        .ok_or_else(|| anyhow!("No video file specified in project"))?;
+    let video_path = resolve_video_path(project_dir, file)?;
 
     info!("🎬 Video file: {}", video_path.display());
 
@@ -144,8 +150,8 @@ mod tests {
         let (project, video_path) = parse_we_project(&project_file).unwrap();
 
         assert_eq!(project.project_type, "video");
-        assert_eq!(project.file, "video.mp4");
-        assert_eq!(project.title, "Test Video");
+        assert_eq!(project.file.as_deref(), Some("video.mp4"));
+        assert_eq!(project.title.as_deref(), Some("Test Video"));
         assert_eq!(video_path, video_file);
     }
 

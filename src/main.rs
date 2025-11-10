@@ -46,9 +46,33 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
     },
+    /// Workshop commands
+    Workshop {
+        #[command(subcommand)]
+        command: WorkshopCommands,
+    },
     /// Reload configuration (via IPC, future)
     #[cfg(feature = "ipc")]
     Reload,
+}
+
+#[derive(Subcommand)]
+enum WorkshopCommands {
+    /// List Workshop items
+    List,
+    /// Show item details
+    Info {
+        /// Workshop item ID
+        id: u64,
+    },
+    /// Import Workshop item to config
+    Import {
+        /// Workshop item ID
+        id: u64,
+        /// Output config file
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -127,6 +151,82 @@ fn main() -> Result<()> {
             }
 
             info!("🎉 Import completed successfully");
+        }
+        Commands::Workshop { command } => {
+            use we::{SteamLibrary, WorkshopScanner, WALLPAPER_ENGINE_APP_ID};
+
+            match command {
+                WorkshopCommands::List => {
+                    info!("🔍 Scanning Steam Workshop...");
+
+                    let steam = SteamLibrary::discover()?;
+                    let paths = steam.find_workshop_items(WALLPAPER_ENGINE_APP_ID)?;
+                    let scanner = WorkshopScanner::scan(&paths)?;
+
+                    println!("\n📦 Found {} Workshop items:\n", scanner.items().len());
+                    for item in scanner.items() {
+                        println!("  [{}] {}", item.id, item.title());
+                        if let Some(path) = item.video_path() {
+                            println!("      📁 {}", path.display());
+                        }
+                        println!();
+                    }
+                }
+                WorkshopCommands::Info { id } => {
+                    let steam = SteamLibrary::discover()?;
+                    let paths = steam.find_workshop_items(WALLPAPER_ENGINE_APP_ID)?;
+                    let scanner = WorkshopScanner::scan(&paths)?;
+
+                    let item = scanner
+                        .find(id)
+                        .ok_or_else(|| anyhow::anyhow!("Workshop item {} not found", id))?;
+
+                    println!("\n📦 Workshop Item {}\n", id);
+                    println!("Title: {}", item.title());
+                    println!("Path:  {}", item.path.display());
+                    if let Some(video) = item.video_path() {
+                        println!("Video: {}", video.display());
+                    }
+                    if let Some(ref proj) = item.project {
+                        if let Some(ref desc) = &proj.description {
+                            println!("\nDescription:\n{}", desc);
+                        }
+                    }
+                }
+                WorkshopCommands::Import { id, output } => {
+                    info!("🔍 Importing Workshop item {}...", id);
+
+                    let steam = SteamLibrary::discover()?;
+                    let paths = steam.find_workshop_items(WALLPAPER_ENGINE_APP_ID)?;
+                    let scanner = WorkshopScanner::scan(&paths)?;
+
+                    let item = scanner
+                        .find(id)
+                        .ok_or_else(|| anyhow::anyhow!("Workshop item {} not found", id))?;
+
+                    let project = item
+                        .project
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Invalid project"))?;
+
+                    let video_path = item
+                        .video_path()
+                        .ok_or_else(|| anyhow::anyhow!("No video file"))?;
+
+                    let config_yaml =
+                        we::converter::generate_config_with_metadata(project, video_path)?;
+
+                    if let Some(output_path) = output {
+                        let output_path = shellexpand::tilde(&output_path).to_string();
+                        std::fs::write(&output_path, &config_yaml)?;
+                        info!("✅ Config written to: {}", output_path);
+                    } else {
+                        println!("{}", config_yaml);
+                    }
+
+                    info!("🎉 Import completed");
+                }
+            }
         }
         #[cfg(feature = "ipc")]
         Commands::Reload => {
