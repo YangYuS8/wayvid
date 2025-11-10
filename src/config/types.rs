@@ -136,8 +136,8 @@ impl Config {
                 path_ref
             ))?;
 
-        let mut config: Self =
-            serde_yaml::from_str(&content).with_context(|| format!(
+        let mut config: Self = serde_yaml::from_str(&content).with_context(|| {
+            format!(
                 "❌ Invalid YAML syntax in configuration\n\n\
                  File: {:?}\n\n\
                  Please:\n\
@@ -146,7 +146,8 @@ impl Config {
                  3. Compare with example: /usr/share/wayvid/config.example.yaml\n\
                  4. Or run: wayvid-ctl check",
                 path_ref
-            ))?;
+            )
+        })?;
 
         // Validate and fix configuration
         config.validate();

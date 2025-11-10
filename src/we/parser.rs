@@ -70,10 +70,8 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
         .parent()
         .ok_or_else(|| anyhow!("Invalid project file path"))?;
 
-    let file = project
-        .file
-        .as_ref()
-        .ok_or_else(|| anyhow!(
+    let file = project.file.as_ref().ok_or_else(|| {
+        anyhow!(
             "❌ Incomplete Wallpaper Engine project\n\n\
              The project.json does not specify a video file.\n\
              Field missing: 'file'\n\n\
@@ -83,7 +81,8 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
              Try:\n\
              - Re-download from Steam Workshop\n\
              - Verify file integrity in Steam"
-        ))?;
+        )
+    })?;
     let video_path = resolve_video_path(project_dir, file)?;
 
     info!("🎬 Video file: {}", video_path.display());

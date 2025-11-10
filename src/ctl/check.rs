@@ -1,5 +1,5 @@
 use anyhow::Result;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// Run system capability check
 pub fn run_capability_check() -> Result<()> {
@@ -7,8 +7,7 @@ pub fn run_capability_check() -> Result<()> {
     use tracing_subscriber::EnvFilter;
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info"))
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .with_writer(std::io::stdout)
         .without_time()
@@ -59,7 +58,7 @@ pub fn run_capability_check() -> Result<()> {
         println!("╚══════════════════════════════════════════════════╝");
         println!("\nSee recommendations above to fix issues.");
     }
-    
+
     Ok(())
 }
 
@@ -68,7 +67,7 @@ fn check_compositor() {
 
     if let Ok(desktop) = std::env::var("XDG_CURRENT_DESKTOP") {
         info!("  ℹ Desktop: {}", desktop);
-        
+
         let desktop_lower = desktop.to_lowercase();
         if desktop_lower.contains("hyprland") {
             info!("  ✓ Hyprland detected - Fully supported!");
@@ -97,10 +96,10 @@ fn check_compositor() {
 
 fn check_niri() {
     println!("\n[🎯 Niri Integration]");
-    
+
     if let Ok(socket) = std::env::var("NIRI_SOCKET") {
         info!("  ✓ Niri socket detected: {}", socket);
-        
+
         // Check if socket exists
         if std::path::Path::new(&socket).exists() {
             info!("  ✓ Socket file exists");
@@ -118,12 +117,12 @@ fn check_niri() {
 
 fn check_daemon_status() {
     println!("\n[🔌 Daemon Status]");
-    
+
     use crate::ctl::ipc_client::IpcClient;
-    
+
     if IpcClient::is_running() {
         info!("  ✓ wayvid daemon is running");
-        
+
         // Try to get status
         match IpcClient::connect() {
             Ok(mut client) => {
@@ -151,27 +150,25 @@ fn check_daemon_status() {
 
 fn check_config() {
     println!("\n[⚙️  Configuration]");
-    
+
     let config_path = dirs::config_dir()
         .map(|p| p.join("wayvid/config.yaml"))
         .unwrap_or_else(|| std::path::PathBuf::from("~/.config/wayvid/config.yaml"));
-    
+
     if config_path.exists() {
         info!("  ✓ Config file found: {}", config_path.display());
-        
+
         // Try to parse it
         match std::fs::read_to_string(&config_path) {
-            Ok(content) => {
-                match serde_yaml::from_str::<serde_yaml::Value>(&content) {
-                    Ok(_) => {
-                        info!("  ✓ Config file is valid YAML");
-                    }
-                    Err(e) => {
-                        error!("  ✗ Config file has YAML errors: {}", e);
-                        error!("    Fix the syntax errors in your config.yaml");
-                    }
+            Ok(content) => match serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                Ok(_) => {
+                    info!("  ✓ Config file is valid YAML");
                 }
-            }
+                Err(e) => {
+                    error!("  ✗ Config file has YAML errors: {}", e);
+                    error!("    Fix the syntax errors in your config.yaml");
+                }
+            },
             Err(e) => {
                 warn!("  ⚠ Cannot read config file: {}", e);
             }
@@ -179,7 +176,10 @@ fn check_config() {
     } else {
         info!("  ℹ No config file found (using defaults)");
         info!("    Create one at: {}", config_path.display());
-        info!("    Example: cp /usr/share/wayvid/config.example.yaml {}", config_path.display());
+        info!(
+            "    Example: cp /usr/share/wayvid/config.example.yaml {}",
+            config_path.display()
+        );
     }
 }
 
