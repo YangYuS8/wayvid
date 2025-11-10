@@ -34,6 +34,7 @@ struct WayvidApp {
     outputs: Vec<OutputInfo>,
     video_sources: Vec<VideoSource>,
     selected_output: Option<usize>,
+    #[allow(dead_code)] // Reserved for future video source selection feature
     selected_source: Option<usize>,
 
     // Status
@@ -57,6 +58,7 @@ struct OutputInfo {
     active: bool,
 }
 
+#[allow(dead_code)] // Reserved for future video library/browser feature
 #[derive(Clone)]
 struct VideoSource {
     path: String,
@@ -69,6 +71,7 @@ enum ConnectionStatus {
     Disconnected,
     Connecting,
     Connected,
+    #[allow(dead_code)] // Will be used for IPC error handling
     Error,
 }
 
