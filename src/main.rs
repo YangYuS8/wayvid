@@ -158,7 +158,7 @@ fn main() -> Result<()> {
             match command {
                 WorkshopCommands::List => {
                     info!("🔍 Scanning Steam Workshop...");
-                    
+
                     let steam = SteamLibrary::discover()?;
                     let paths = steam.find_workshop_items(WALLPAPER_ENGINE_APP_ID)?;
                     let scanner = WorkshopScanner::scan(&paths)?;
@@ -177,7 +177,8 @@ fn main() -> Result<()> {
                     let paths = steam.find_workshop_items(WALLPAPER_ENGINE_APP_ID)?;
                     let scanner = WorkshopScanner::scan(&paths)?;
 
-                    let item = scanner.find(id)
+                    let item = scanner
+                        .find(id)
                         .ok_or_else(|| anyhow::anyhow!("Workshop item {} not found", id))?;
 
                     println!("\n📦 Workshop Item {}\n", id);
@@ -194,21 +195,26 @@ fn main() -> Result<()> {
                 }
                 WorkshopCommands::Import { id, output } => {
                     info!("🔍 Importing Workshop item {}...", id);
-                    
+
                     let steam = SteamLibrary::discover()?;
                     let paths = steam.find_workshop_items(WALLPAPER_ENGINE_APP_ID)?;
                     let scanner = WorkshopScanner::scan(&paths)?;
 
-                    let item = scanner.find(id)
+                    let item = scanner
+                        .find(id)
                         .ok_or_else(|| anyhow::anyhow!("Workshop item {} not found", id))?;
 
-                    let project = item.project.as_ref()
+                    let project = item
+                        .project
+                        .as_ref()
                         .ok_or_else(|| anyhow::anyhow!("Invalid project"))?;
 
-                    let video_path = item.video_path()
+                    let video_path = item
+                        .video_path()
                         .ok_or_else(|| anyhow::anyhow!("No video file"))?;
 
-                    let config_yaml = we::converter::generate_config_with_metadata(project, video_path)?;
+                    let config_yaml =
+                        we::converter::generate_config_with_metadata(project, video_path)?;
 
                     if let Some(output_path) = output {
                         let output_path = shellexpand::tilde(&output_path).to_string();

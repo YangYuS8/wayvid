@@ -117,7 +117,7 @@ pub fn generate_config_with_metadata(project: &WeProject, video_path: PathBuf) -
     // Add metadata header
     yaml.push_str("# wayvid configuration\n");
     yaml.push_str("# Imported from Wallpaper Engine\n");
-    
+
     if let Some(ref title) = project.title {
         yaml.push_str(&format!("# Title: {}\n", title));
     }

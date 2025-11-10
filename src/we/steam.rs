@@ -18,7 +18,7 @@ impl SteamLibrary {
     pub fn discover() -> Result<Self> {
         let root = Self::find_steam_root()?;
         let libraries = Self::parse_library_folders(&root)?;
-        
+
         Ok(Self { root, libraries })
     }
 
@@ -48,8 +48,7 @@ impl SteamLibrary {
             return Ok(vec![root.to_path_buf()]);
         }
 
-        let content = fs::read_to_string(&vdf_path)
-            .context("Failed to read libraryfolders.vdf")?;
+        let content = fs::read_to_string(&vdf_path).context("Failed to read libraryfolders.vdf")?;
 
         let mut libraries = vec![root.to_path_buf()];
         libraries.extend(Self::parse_vdf_paths(&content));
@@ -61,7 +60,7 @@ impl SteamLibrary {
     /// Parse VDF file for library paths
     fn parse_vdf_paths(content: &str) -> Vec<PathBuf> {
         let mut paths = Vec::new();
-        
+
         for line in content.lines() {
             let line = line.trim();
             // Look for "path" key in VDF
@@ -74,7 +73,7 @@ impl SteamLibrary {
                 }
             }
         }
-        
+
         paths
     }
 

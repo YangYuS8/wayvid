@@ -55,7 +55,9 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
         .parent()
         .ok_or_else(|| anyhow!("Invalid project file path"))?;
 
-    let file = project.file.as_ref()
+    let file = project
+        .file
+        .as_ref()
         .ok_or_else(|| anyhow!("No video file specified in project"))?;
     let video_path = resolve_video_path(project_dir, file)?;
 
