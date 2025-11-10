@@ -13,8 +13,15 @@ This directory contains PKGBUILD files for publishing wayvid on the Arch User Re
 ### wayvid-git (development)
 - **Package name**: `wayvid-git`
 - **Source**: Latest git main branch
-- **Recommended for**: Testing new features
+- **Recommended for**: Testing new features, M6 features (Steam Workshop, Niri integration)
 - **PKGBUILD**: `PKGBUILD`
+
+## New Features (M6)
+
+The git version includes:
+- **Steam Workshop Integration**: Import Wallpaper Engine projects directly
+- **Niri Compositor Support**: Workspace-aware FPS throttling for better performance
+- **Enhanced CLI**: `wayvid workshop list/info/import` commands
 
 ## Building and Installing
 

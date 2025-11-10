@@ -1,8 +1,8 @@
 # Maintainer: wayvid contributors
 pkgname=wayvid-git
-pkgver=r28.8ad0879
+pkgver=r50.012fba5
 pkgrel=1
-pkgdesc="Dynamic video wallpaper engine for Wayland compositors (git version)"
+pkgdesc="Dynamic video wallpaper engine for Wayland with Steam Workshop and Niri support (git version)"
 arch=('x86_64' 'aarch64')
 url="https://github.com/YangYuS8/wayvid"
 license=('MIT' 'Apache-2.0')
@@ -22,6 +22,8 @@ optdepends=(
     'libva-intel-driver: Intel GPU hardware acceleration'
     'libva-mesa-driver: AMD GPU hardware acceleration'
     'nvidia-utils: NVIDIA GPU hardware acceleration'
+    'steam: Steam Workshop integration for Wallpaper Engine imports'
+    'niri: Workspace-aware performance optimizations'
 )
 provides=('wayvid')
 conflicts=('wayvid')
@@ -75,6 +77,7 @@ package() {
     install -Dm644 docs/IPC.md "$pkgdir/usr/share/doc/$pkgname/IPC.md"
     install -Dm644 docs/VIDEO_SOURCES.md "$pkgdir/usr/share/doc/$pkgname/VIDEO_SOURCES.md"
     install -Dm644 docs/WE_FORMAT.md "$pkgdir/usr/share/doc/$pkgname/WE_FORMAT.md"
+    install -Dm644 docs/M6_ROADMAP.md "$pkgdir/usr/share/doc/$pkgname/M6_ROADMAP.md"
     
     # Install licenses
     install -Dm644 LICENSE-MIT "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
