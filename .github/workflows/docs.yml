@@ -1,0 +1,260 @@
+name: Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-docs-tools
+
+      - name: Install mdbook
+        run: |
+          cargo install mdbook --version 0.4.52 --locked || echo "mdbook already installed"
+
+      - name: Install mdbook-i18n-helpers
+        run: |
+          cargo install mdbook-i18n-helpers --version 0.3.6 --locked || echo "mdbook-i18n-helpers already installed"
+
+      - name: Install gettext tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gettext
+
+      - name: Check translation status
+        run: |
+          cd docs
+          echo "## 📊 Translation Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Language | Translated | Fuzzy | Untranslated | Progress |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------------|-------|--------------|----------|" >> $GITHUB_STEP_SUMMARY
+          
+          for po_file in po/*.po; do
+            if [ -f "$po_file" ]; then
+              lang=$(basename "$po_file" .po)
+              stats=$(msgfmt --statistics "$po_file" 2>&1 || echo "0 translated, 0 untranslated")
+              
+              translated=$(echo "$stats" | grep -oP '\d+(?= translated)' || echo "0")
+              fuzzy=$(echo "$stats" | grep -oP '\d+(?= fuzzy)' || echo "0")
+              untranslated=$(echo "$stats" | grep -oP '\d+(?= untranslated)' || echo "0")
+              
+              total=$((translated + fuzzy + untranslated))
+              if [ $total -gt 0 ]; then
+                progress=$((translated * 100 / total))
+              else
+                progress=0
+              fi
+              
+              echo "| $lang | $translated | $fuzzy | $untranslated | $progress% |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Validate PO files
+        run: |
+          cd docs
+          echo "## 🔍 Translation File Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for po_file in po/*.po; do
+            if [ -f "$po_file" ]; then
+              lang=$(basename "$po_file" .po)
+              echo "Validating $lang..."
+              
+              if msgfmt -c -v -o /dev/null "$po_file" 2>&1; then
+                echo "✅ $lang: Valid" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "❌ $lang: Invalid format" >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+              
+              # Check for fuzzy translations
+              fuzzy_count=$(msggrep --fuzzy "$po_file" -o - 2>/dev/null | grep -c "^msgid" || echo "0")
+              if [ "$fuzzy_count" -gt 0 ]; then
+                echo "⚠️  $lang: $fuzzy_count fuzzy translations need review" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
+
+      - name: Build documentation (English)
+        run: |
+          cd docs
+          echo "📘 Building English documentation..."
+          mdbook build
+          echo "✅ English build complete" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build documentation (Chinese)
+        run: |
+          cd docs
+          echo "📘 Building Chinese documentation..."
+          MDBOOK_BOOK__LANGUAGE=zh-CN mdbook build -d book/zh-cn
+          echo "✅ Chinese build complete" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create language selector
+        run: |
+          cd docs
+          cat > book/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>wayvid Documentation</title>
+              <style>
+                  * {
+                      margin: 0;
+                      padding: 0;
+                      box-sizing: border-box;
+                  }
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      min-height: 100vh;
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      color: #fff;
+                  }
+                  .container {
+                      text-align: center;
+                      padding: 2rem;
+                      max-width: 600px;
+                  }
+                  h1 {
+                      font-size: 3rem;
+                      margin-bottom: 1rem;
+                      font-weight: 700;
+                  }
+                  p {
+                      font-size: 1.2rem;
+                      margin-bottom: 3rem;
+                      opacity: 0.9;
+                  }
+                  .language-links {
+                      display: flex;
+                      gap: 2rem;
+                      justify-content: center;
+                      flex-wrap: wrap;
+                  }
+                  a {
+                      display: inline-block;
+                      padding: 1.2rem 2.5rem;
+                      background: rgba(255, 255, 255, 0.1);
+                      color: #fff;
+                      text-decoration: none;
+                      border-radius: 12px;
+                      border: 2px solid rgba(255, 255, 255, 0.3);
+                      backdrop-filter: blur(10px);
+                      font-size: 1.1rem;
+                      font-weight: 600;
+                      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                      min-width: 180px;
+                  }
+                  a:hover {
+                      background: rgba(255, 255, 255, 0.2);
+                      border-color: rgba(255, 255, 255, 0.6);
+                      transform: translateY(-4px);
+                      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                  }
+                  .badge {
+                      display: inline-block;
+                      padding: 0.3rem 0.8rem;
+                      background: rgba(255, 255, 255, 0.2);
+                      border-radius: 20px;
+                      font-size: 0.75rem;
+                      margin-left: 0.5rem;
+                      font-weight: 500;
+                  }
+                  .footer {
+                      margin-top: 3rem;
+                      font-size: 0.9rem;
+                      opacity: 0.7;
+                  }
+                  @media (max-width: 600px) {
+                      h1 { font-size: 2rem; }
+                      .language-links { flex-direction: column; }
+                      a { min-width: 100%; }
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>📖 wayvid</h1>
+                  <p>Choose your language / 选择语言</p>
+                  <div class="language-links">
+                      <a href="./introduction.html">
+                          🇬🇧 English
+                          <span class="badge">Default</span>
+                      </a>
+                      <a href="./zh-cn/introduction.html">
+                          🇨🇳 简体中文
+                          <span class="badge">3.4%</span>
+                      </a>
+                  </div>
+                  <div class="footer">
+                      <p>Wayland Dynamic Video Wallpaper Daemon</p>
+                  </div>
+              </div>
+          </body>
+          </html>
+          EOF
+          echo "✅ Language selector created" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book
+
+  # Deployment job (only on main branch)
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    
+    permissions:
+      pages: write
+      id-token: write
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📖 Documentation is now live at: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Available Languages:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🇬🇧 English: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🇨🇳 Chinese: ${{ steps.deployment.outputs.page_url }}zh-cn/" >> $GITHUB_STEP_SUMMARY

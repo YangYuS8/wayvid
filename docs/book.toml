@@ -1,0 +1,26 @@
+[book]
+title = "wayvid Documentation"
+authors = ["YangYuS8"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+extra-watch-dirs = ["po"]
+
+[preprocessor.gettext]
+after = ["links"]
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/YangYuS8/wayvid"
+edit-url-template = "https://github.com/YangYuS8/wayvid/edit/main/docs/src/{path}"
+
+[output.html.search]
+enable = true
+limit-results = 20
+
+[output.html.fold]
+enable = true
+level = 1

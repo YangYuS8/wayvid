@@ -1,229 +1,195 @@
-# wayvid 文档索引
+# wayvid Documentation
 
-> **最后更新**: 2025-11-03  
-> **文档版本**: 2.0
+Official documentation for wayvid, built with [mdBook](https://rust-lang.github.io/mdBook/) and [mdbook-i18n-helpers](https://github.com/google/mdbook-i18n-helpers).
 
-欢迎来到 wayvid 文档中心！本索引帮助您快速找到所需的文档。
+## 🌍 Languages
 
----
+- **English** (primary source)
+- **简体中文** (Simplified Chinese)
 
-## 📚 用户文档
+## 🛠️ Prerequisites
 
-### 快速开始
-- **[QUICKSTART.md](QUICKSTART.md)** - 5分钟快速开始指南
-  - 安装步骤
-  - 基础配置
-  - 常见问题
+```bash
+# Install mdbook
+cargo install mdbook
 
-### 功能指南
-- **[HDR_USER_GUIDE.md](HDR_USER_GUIDE.md)** - HDR 支持完整指南
-  - HDR 检测和配置
-  - 5种色调映射算法
-  - 内容优化建议
-  - 故障排查
+# Install mdbook-i18n-helpers (for translations)
+cargo install mdbook-i18n-helpers
 
-- **[MULTI_MONITOR_EXAMPLES.md](MULTI_MONITOR_EXAMPLES.md)** - 多显示器配置示例
-  - Per-output 配置
-  - 输出匹配模式
-  - 热插拔处理
-
-### 技术参考
-- **[IPC.md](IPC.md)** - IPC 命令行接口
-  - 命令列表和参数
-  - 使用示例
-  - 集成指南
-
-- **[VIDEO_SOURCES.md](VIDEO_SOURCES.md)** - 视频源配置
-  - 支持的格式
-  - 布局模式
-  - 性能优化
-
-- **[WE_FORMAT.md](WE_FORMAT.md)** - Wallpaper Engine 格式兼容
-  - 项目结构
-  - 参数映射
-  - 转换工具
-
-### 实现细节
-- **[SHARED_DECODE.md](SHARED_DECODE.md)** - 共享解码架构
-  - 实现原理
-  - 性能收益
-  - 使用场景
-
-- **[HDR_WAYLAND_STATUS.md](HDR_WAYLAND_STATUS.md)** - Wayland HDR 支持现状
-  - 协议支持情况
-  - 合成器兼容性
-  - 未来展望
-
-### 技术背景
-- **[HDR_WAYLAND_STATUS.md](HDR_WAYLAND_STATUS.md)** - Wayland HDR 支持现状
-  - 协议支持情况
-  - 合成器兼容性
-  - 未来展望
-
----
-
-## 🔧 开发者文档
-
-### 项目根目录
-- **[README.md](../README.md)** - 项目主页和概览
-- **[AI_PROMPT.md](../AI_PROMPT.md)** - 完整的 AI 开发提示词
-  - 项目全貌
-  - 开发计划
-  - 技术深入解析
-  - 迁移设备指南
-
-- **[CHANGELOG.md](../CHANGELOG.md)** - 版本更新日志
-- **[CONTRIBUTING.md](../CONTRIBUTING.md)** - 贡献指南
-
-### 配置示例
-- **[../examples/config.yaml](../examples/config.yaml)** - 基础配置示例
-- **[../examples/hdr-config.yaml](../examples/hdr-config.yaml)** - HDR 配置示例
-- **[../examples/multi-monitor.yaml](../examples/multi-monitor.yaml)** - 多显示器配置
-
----
-
-## 📁 归档文档
-
-历史文档和开发过程记录已移至 `docs/archive/` 目录：
-
-### 里程碑归档
-- **[archive/m1/](archive/m1/)** - M1 里程碑文档
-  - 交付报告、测试清单、最终测试报告
-
-- **[archive/m2/](archive/m2/)** - M2 里程碑文档
-  - 多显示器实现计划、进度报告、阶段性报告
-
-- **[archive/m3/](archive/m3/)** - M3 里程碑文档
-  - Wallpaper Engine 兼容性交付报告
-
-- **[archive/m4/](archive/m4/)** - M4 里程碑文档
-  - 完成报告
-
-- **[archive/m5/](archive/m5/)** - M5 里程碑文档
-  - 性能优化文档 (共享解码、内存优化、懒加载、帧跳跃)
-  - HDR 和多显示器实现进度
-  - HDR 测试报告和实现总结
-  - 测试指南和 Phase 完成报告
-
-### 其他归档
-- **[archive/releases/](archive/releases/)** - 历史版本发布说明
-- **[archive/development/](archive/development/)** - 开发过程文档
-  - 开发笔记、优化报告、PR 描述
-  - 项目结构、速查表
-
----
-
-## 🗂️ 文档结构总览
-
-```
-rustpaper/
-├── README.md                    # 项目主页
-├── AI_PROMPT.md                 # AI 开发提示词 ⭐
-├── CHANGELOG.md                 # 版本更新日志
-├── CONTRIBUTING.md              # 贡献指南
-├── QUICKSTART.md                # 快速开始
-│
-├── docs/                        # 用户和技术文档
-│   ├── README.md                # 本文件
-│   ├── QUICKSTART.md            # 快速开始指南
-│   │
-│   ├── HDR_USER_GUIDE.md        # HDR 用户指南 ⭐
-│   ├── HDR_WAYLAND_STATUS.md    # Wayland HDR 现状
-│   │
-│   ├── MULTI_MONITOR_EXAMPLES.md # 多显示器示例 ⭐
-│   │
-│   ├── IPC.md                   # IPC 命令参考 ⭐
-│   ├── VIDEO_SOURCES.md         # 视频源配置
-│   ├── WE_FORMAT.md             # WE 格式说明
-│   ├── SHARED_DECODE.md         # 共享解码架构
-│   │
-│   └── archive/                 # 历史文档归档
-│       ├── m1/                  # M1 里程碑
-│       ├── m2/                  # M2 里程碑
-│       ├── m3/                  # M3 里程碑
-│       ├── m4/                  # M4 里程碑
-│       ├── m5/                  # M5 里程碑
-│       ├── releases/            # 发布说明
-│       └── development/         # 开发文档
-│
-├── examples/                    # 配置示例
-│   ├── config.yaml
-│   ├── hdr-config.yaml
-│   └── multi-monitor.yaml
-│
-└── scripts/                     # 测试和验证脚本
-    ├── verify-hdr-implementation.sh
-    ├── test-hdr-functionality.sh
-    └── test-multi-monitor.sh
+# Install gettext tools (for PO file management)
+# Arch Linux:
+sudo pacman -S gettext
+# Debian/Ubuntu:
+sudo apt install gettext
+# macOS:
+brew install gettext
 ```
 
----
+## 📖 Building Documentation
 
-## 🔍 快速查找
+### Quick Build
 
-### 我想要...
+```bash
+./build.sh
+```
 
-**开始使用 wayvid**
-→ [QUICKSTART.md](QUICKSTART.md)
+This will:
+1. Build English documentation → `book/`
+2. Build Chinese documentation → `book/zh-cn/`
+3. Create a language selector index page
 
-**配置 HDR 支持**
-→ [HDR_USER_GUIDE.md](HDR_USER_GUIDE.md)
+### Manual Build
 
-**设置多显示器**
-→ [MULTI_MONITOR_EXAMPLES.md](MULTI_MONITOR_EXAMPLES.md)
+```bash
+# English (default)
+mdbook build
 
-**通过命令行控制**
-→ [IPC.md](IPC.md)
+# Chinese
+MDBOOK_BOOK__LANGUAGE=zh-CN mdbook build -d book/zh-cn
+```
 
-**导入 Wallpaper Engine 壁纸**
-→ [WE_FORMAT.md](WE_FORMAT.md)
+### Local Preview
 
-**了解项目完整状态**
-→ [AI_PROMPT.md](../AI_PROMPT.md)
+```bash
+./serve.sh
+# Opens http://localhost:3000
+```
 
-**查看开发进展**
-→ [CHANGELOG.md](../CHANGELOG.md)
+Or manually:
 
-**贡献代码**
-→ [CONTRIBUTING.md](../CONTRIBUTING.md)
+```bash
+# English
+mdbook serve
 
-**排查问题**
-→ [HDR_USER_GUIDE.md#troubleshooting](HDR_USER_GUIDE.md) + [AI_PROMPT.md#常见问题](../AI_PROMPT.md)
+# Chinese
+MDBOOK_BOOK__LANGUAGE=zh-CN mdbook serve -d book/zh-cn -p 3001
+```
 
----
+## 🌐 Translation Workflow
 
-## 📝 文档维护
+This project uses the [Gettext](https://www.gnu.org/software/gettext/) system for translations, following the [mdbook-i18n-helpers guide](https://github.com/google/mdbook-i18n-helpers/blob/main/i18n-helpers/USAGE.md).
 
-### 文档分类原则
+### 1. Extract Translatable Messages
 
-**保留在 docs/ 的文档**:
-- ✅ 用户常用指南和参考
-- ✅ 核心功能说明
-- ✅ 技术实现细节 (长期有效)
-- ✅ 最新测试报告
+When you update English source files in `src/`, extract new messages:
 
-**归档到 archive/ 的文档**:
-- 📦 历史里程碑报告
-- 📦 阶段性进度文档
-- 📦 过时的测试报告
-- 📦 开发过程笔记
+```bash
+MDBOOK_OUTPUT='{"xgettext": {}}' mdbook build -d po
+```
 
-### 更新文档
+This generates/updates `po/messages.pot` (the PO template).
 
-当文档更新时，请：
-1. 更新文档本身的"最后更新"日期
-2. 如果是重大更改，更新本 README.md
-3. 考虑是否需要同步更新 AI_PROMPT.md
+### 2. Update Translation Files
 
----
+Merge changes into existing translations:
 
-## 📞 获取帮助
+```bash
+msgmerge --update po/zh-CN.po po/messages.pot
+```
 
-- **GitHub Issues**: 报告 Bug 或提出功能请求
-- **GitHub Discussions**: 提问和讨论
-- **Email**: YangYuS8@163.com
+### 3. Translate
 
----
+**Option A: Auto-translate common terms** (quick start):
 
-**文档状态**: ✅ 已整理和归档 (2025-11-03)  
-**总文档数**: 52 个文件 (9 个活跃 + 41 个归档 + 2 个索引)
+```bash
+python3 translate_po.py
+```
+
+**Option B: Use a PO editor** (recommended for quality):
+
+- [Poedit](https://poedit.net/) (GUI, cross-platform)
+- [Lokalize](https://apps.kde.org/lokalize/) (KDE)
+- [Gtranslator](https://wiki.gnome.org/Apps/Gtranslator) (GNOME)
+- Online: [Weblate](https://weblate.org/), [Pontoon](https://pontoon.mozilla.org/)
+
+**⚠️ Never edit PO files by hand-rf dev/ features/ reference/ user-guide/* Use proper tools to ensure correct encoding.
+
+### 4. Remove Fuzzy Markers
+
+After reviewing machine-translated entries, remove "fuzzy" flags in your PO editor. Fuzzy entries won't be translated in the output.
+
+### 5. Build and Test
+
+```bash
+./build.sh
+```
+
+## 📁 Project Structure
+
+```
+docs/
+├── book.toml              # mdBook configuration
+├── build.sh               # Multi-language build script
+├── serve.sh               # Local development server
+├── translate_po.py        # Auto-translation helper
+├── src/                   # English source (primary)
+│   ├── SUMMARY.md
+│   ├── introduction.md
+│   ├── user-guide/
+│   ├── features/
+│   ├── dev/
+│   └── reference/
+├── po/                    # Translation files
+│   ├── messages.pot       # PO template (auto-generated)
+│   └── zh-CN.po           # Chinese translations
+└── book/                  # Built documentation (ignored)
+    ├── index.html         # Language selector
+    ├── *.html             # English docs
+    └── zh-cn/             # Chinese docs
+        └── *.html
+```
+
+## 🔧 Adding a New Language
+
+1. **Extract messages:**
+   ```bash
+   MDBOOK_OUTPUT='{"xgettext": {}}' mdbook build -d po
+   ```
+
+2. **Initialize translation:**
+   ```bash
+   msginit -i po/messages.pot -l <LANG_CODE> -o po/<LANG_CODE>.po
+   ```
+   Example: `msginit -i po/messages.pot -l fr -o po/fr.po`
+
+3. **Translate using a PO editor**
+
+4. **Add to build script:**
+   ```bash
+   # In build.sh, add:
+   MDBOOK_BOOK__LANGUAGE=<LANG_CODE> mdbook build -d book/<LANG_CODE>
+   ```
+
+5. **Update language selector in `build.sh`**
+
+## 📝 Writing Guidelines
+
+- Use clear, concise language
+- Include code examples with syntax highlighting
+- Add tips/warnings where appropriate:
+  ```markdown
+  > **Note:** Important information
+  > **Warning:** Caution required
+  > **Tip:** Helpful suggestion
+  ```
+- Follow the [Rust mdBook Guide](https://rust-lang.github.io/mdBook/format/markdown.html) for Markdown syntax
+
+## 🤝 Contributing
+
+1. Edit English source in `src/`
+2. Extract messages: `MDBOOK_OUTPUT='{"xgettext": {}}' mdbook build -d po`
+3. Update translations: `msgmerge --update po/zh-CN.po po/messages.pot`
+4. Translate in PO editor
+5. Test: `./build.sh`
+6. Submit PR
+
+## 📚 Resources
+
+- [mdBook Documentation](https://rust-lang.github.io/mdBook/)
+- [mdbook-i18n-helpers Guide](https://github.com/google/mdbook-i18n-helpers/blob/main/i18n-helpers/USAGE.md)
+- [Gettext Manual](https://www.gnu.org/software/gettext/manual/)
+- [ISO 639-1 Language Codes](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes)
+
+## 📜 License
+
+Same as wayvid project (MIT License).
