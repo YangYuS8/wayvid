@@ -51,6 +51,11 @@ serde_json = "1.0.145"
 notify = "7.0"
 dirs = "5.0"
 
+# GUI (optional)
+eframe = { version = "0.29", optional = true }
+egui = { version = "0.29", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["png", "jpeg"] }
+
 [dev-dependencies]
 tempfile = "3.8"
 
@@ -66,6 +71,9 @@ backend-wayland = []
 
 # Configuration formats
 config-toml = ["dep:toml"]
+
+# GUI
+gui = ["dep:eframe", "dep:egui", "dep:image"]
 
 # Telemetry (future)
 telemetry = []
@@ -94,3 +102,8 @@ path = "src/main.rs"
 [[bin]]
 name = "wayvid-ctl"
 path = "src/bin/wayvid-ctl.rs"
+
+[[bin]]
+name = "wayvid-gui"
+path = "src/bin/wayvid-gui.rs"
+required-features = ["gui"]
