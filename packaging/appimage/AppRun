@@ -18,14 +18,30 @@ case "$BINARY_NAME" in
     wayvid-ctl|wayvid-ctl.AppImage)
         exec "${APPDIR}/usr/bin/wayvid-ctl" "$@"
         ;;
+    wayvid-gui|wayvid-gui.AppImage)
+        exec "${APPDIR}/usr/bin/wayvid-gui" "$@"
+        ;;
     wayvid|wayvid.AppImage|AppRun)
-        # Check if first argument is "ctl" for convenience
-        if [ "$1" = "ctl" ]; then
-            shift
-            exec "${APPDIR}/usr/bin/wayvid-ctl" "$@"
-        else
-            exec "${APPDIR}/usr/bin/wayvid" "$@"
-        fi
+        # Check if first argument is a subcommand
+        case "$1" in
+            ctl)
+                shift
+                exec "${APPDIR}/usr/bin/wayvid-ctl" "$@"
+                ;;
+            gui)
+                shift
+                if [ -x "${APPDIR}/usr/bin/wayvid-gui" ]; then
+                    exec "${APPDIR}/usr/bin/wayvid-gui" "$@"
+                else
+                    echo "Error: wayvid-gui not included in this AppImage" >&2
+                    echo "Rebuild with: cargo build --release --all-features" >&2
+                    exit 1
+                fi
+                ;;
+            *)
+                exec "${APPDIR}/usr/bin/wayvid" "$@"
+                ;;
+        esac
         ;;
     *)
         exec "${APPDIR}/usr/bin/wayvid" "$@"

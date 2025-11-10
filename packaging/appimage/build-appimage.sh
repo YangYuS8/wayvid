@@ -65,11 +65,20 @@ echo "📋 Copying binaries..."
 cp target/release/wayvid "${APPDIR}/usr/bin/"
 cp target/release/wayvid-ctl "${APPDIR}/usr/bin/"
 
+# Copy GUI binary if it exists (requires --all-features build)
+if [ -f target/release/wayvid-gui ]; then
+    echo "   ✅ Copying wayvid-gui (GUI control panel)"
+    cp target/release/wayvid-gui "${APPDIR}/usr/bin/"
+else
+    echo -e "${YELLOW}   ⚠️  wayvid-gui not found (build with --all-features to include)${NC}"
+fi
+
 # Strip binaries if not already stripped
 if command -v strip &> /dev/null; then
     echo "🔪 Stripping binaries..."
     strip "${APPDIR}/usr/bin/wayvid"
     strip "${APPDIR}/usr/bin/wayvid-ctl"
+    [ -f "${APPDIR}/usr/bin/wayvid-gui" ] && strip "${APPDIR}/usr/bin/wayvid-gui"
 fi
 
 # Optional: Compress binaries with UPX
@@ -77,6 +86,7 @@ if command -v upx &> /dev/null; then
     echo "📦 Compressing binaries with UPX..."
     upx --best --lzma "${APPDIR}/usr/bin/wayvid" || true
     upx --best --lzma "${APPDIR}/usr/bin/wayvid-ctl" || true
+    [ -f "${APPDIR}/usr/bin/wayvid-gui" ] && upx --best --lzma "${APPDIR}/usr/bin/wayvid-gui" || true
 fi
 
 # Copy desktop file
@@ -122,7 +132,7 @@ cp configs/config.example.yaml "${APPDIR}/usr/share/wayvid/"
 cp README.md "${APPDIR}/usr/share/doc/wayvid/"
 cp docs/*.md "${APPDIR}/usr/share/doc/wayvid/" 2>/dev/null || true
 
-# Copy dependencies (libmpv)
+# Copy dependencies (libmpv, GUI libs)
 echo "📦 Copying dependencies..."
 copy_lib() {
     local lib="$1"
@@ -145,6 +155,13 @@ copy_lib "libwayland-client.so"
 copy_lib "libwayland-egl.so"
 copy_lib "libEGL.so"
 copy_lib "libGL.so"
+
+# Copy GUI dependencies (only if wayvid-gui is present)
+if [ -f "${APPDIR}/usr/bin/wayvid-gui" ]; then
+    echo "📦 Copying GUI dependencies..."
+    copy_lib "libfontconfig.so"
+    copy_lib "libxkbcommon.so"
+fi
 
 # Create AppImage
 echo "🎁 Creating AppImage..."
@@ -182,6 +199,9 @@ echo ""
 echo "🚀 Usage:"
 echo "   ./${APPIMAGE_NAME}                    # Run wayvid"
 echo "   ./${APPIMAGE_NAME} ctl status         # Run wayvid-ctl"
+if [ -f "${APPDIR}/usr/bin/wayvid-gui" ]; then
+    echo "   ./${APPIMAGE_NAME} gui                # Run wayvid-gui (GUI control panel)"
+fi
 echo ""
 
 # Create symlink for convenience
