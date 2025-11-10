@@ -1,0 +1,19 @@
+# mdBook build output
+book/
+
+# PO template (auto-generated, don't commit)
+po/messages.pot
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

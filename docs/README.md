@@ -1,128 +1,195 @@
 # wayvid Documentation
 
-Professional documentation built with [mdBook](https://rust-lang.github.io/mdBook/).
+Official documentation for wayvid, built with [mdBook](https://rust-lang.github.io/mdBook/) and [mdbook-i18n-helpers](https://github.com/google/mdbook-i18n-helpers).
 
-## Features
+## 🌍 Languages
 
-- 🌐 **Multi-language Support**: English (en) and Simplified Chinese (zh-CN)
-- 🔄 **Live Language Switcher**: Toggle between languages in top-right corner
-- 📱 **Responsive Design**: Works on desktop and mobile
-- 🔍 **Full-text Search**: Fast client-side search
-- 🎨 **Dark/Light Themes**: Multiple color schemes
+- **English** (primary source)
+- **简体中文** (Simplified Chinese)
 
-## Building
-
-### Prerequisites
+## 🛠️ Prerequisites
 
 ```bash
+# Install mdbook
 cargo install mdbook
+
+# Install mdbook-i18n-helpers (for translations)
+cargo install mdbook-i18n-helpers
+
+# Install gettext tools (for PO file management)
+# Arch Linux:
+sudo pacman -S gettext
+# Debian/Ubuntu:
+sudo apt install gettext
+# macOS:
+brew install gettext
 ```
 
-### Build HTML
+## 📖 Building Documentation
+
+### Quick Build
 
 ```bash
-cd docs
-mdbook build
+./build.sh
 ```
 
-Output: `docs/book/`
+This will:
+1. Build English documentation → `book/`
+2. Build Chinese documentation → `book/zh-cn/`
+3. Create a language selector index page
+
+### Manual Build
+
+```bash
+# English (default)
+mdbook build
+
+# Chinese
+MDBOOK_BOOK__LANGUAGE=zh-CN mdbook build -d book/zh-cn
+```
 
 ### Local Preview
 
 ```bash
-cd docs
-mdbook serve --open
+./serve.sh
+# Opens http://localhost:3000
 ```
 
-Visit: http://localhost:3000
+Or manually:
 
-## Structure
+```bash
+# English
+mdbook serve
+
+# Chinese
+MDBOOK_BOOK__LANGUAGE=zh-CN mdbook serve -d book/zh-cn -p 3001
+```
+
+## 🌐 Translation Workflow
+
+This project uses the [Gettext](https://www.gnu.org/software/gettext/) system for translations, following the [mdbook-i18n-helpers guide](https://github.com/google/mdbook-i18n-helpers/blob/main/i18n-helpers/USAGE.md).
+
+### 1. Extract Translatable Messages
+
+When you update English source files in `src/`, extract new messages:
+
+```bash
+MDBOOK_OUTPUT='{"xgettext": {}}' mdbook build -d po
+```
+
+This generates/updates `po/messages.pot` (the PO template).
+
+### 2. Update Translation Files
+
+Merge changes into existing translations:
+
+```bash
+msgmerge --update po/zh-CN.po po/messages.pot
+```
+
+### 3. Translate
+
+**Option A: Auto-translate common terms** (quick start):
+
+```bash
+python3 translate_po.py
+```
+
+**Option B: Use a PO editor** (recommended for quality):
+
+- [Poedit](https://poedit.net/) (GUI, cross-platform)
+- [Lokalize](https://apps.kde.org/lokalize/) (KDE)
+- [Gtranslator](https://wiki.gnome.org/Apps/Gtranslator) (GNOME)
+- Online: [Weblate](https://weblate.org/), [Pontoon](https://pontoon.mozilla.org/)
+
+**⚠️ Never edit PO files by hand-rf dev/ features/ reference/ user-guide/* Use proper tools to ensure correct encoding.
+
+### 4. Remove Fuzzy Markers
+
+After reviewing machine-translated entries, remove "fuzzy" flags in your PO editor. Fuzzy entries won't be translated in the output.
+
+### 5. Build and Test
+
+```bash
+./build.sh
+```
+
+## 📁 Project Structure
 
 ```
 docs/
 ├── book.toml              # mdBook configuration
-├── src/                   # English documentation
-│   ├── SUMMARY.md         # Table of contents
+├── build.sh               # Multi-language build script
+├── serve.sh               # Local development server
+├── translate_po.py        # Auto-translation helper
+├── src/                   # English source (primary)
+│   ├── SUMMARY.md
 │   ├── introduction.md
-│   ├── user-guide/        # User documentation
-│   ├── features/          # Feature documentation
-│   ├── dev/               # Developer documentation
-│   ├── reference/         # Reference documentation
-│   └── zh_cn/             # Chinese translations
-│       ├── introduction.md
-│       └── user-guide/
-├── theme/                 # Custom theme
-│   ├── custom.css         # Language switcher styles
-│   └── language-switcher.js  # Language switcher logic
-└── book/                  # Generated HTML (gitignored)
+│   ├── user-guide/
+│   ├── features/
+│   ├── dev/
+│   └── reference/
+├── po/                    # Translation files
+│   ├── messages.pot       # PO template (auto-generated)
+│   └── zh-CN.po           # Chinese translations
+└── book/                  # Built documentation (ignored)
+    ├── index.html         # Language selector
+    ├── *.html             # English docs
+    └── zh-cn/             # Chinese docs
+        └── *.html
 ```
 
-## Adding New Pages
+## 🔧 Adding a New Language
 
-### English
+1. **Extract messages:**
+   ```bash
+   MDBOOK_OUTPUT='{"xgettext": {}}' mdbook build -d po
+   ```
 
-1. Create markdown file in `src/`
-2. Add entry to `src/SUMMARY.md`
+2. **Initialize translation:**
+   ```bash
+   msginit -i po/messages.pot -l <LANG_CODE> -o po/<LANG_CODE>.po
+   ```
+   Example: `msginit -i po/messages.pot -l fr -o po/fr.po`
 
-### Chinese Translation
+3. **Translate using a PO editor**
 
-1. Create corresponding file in `src/zh_cn/`
-2. Add entry to `src/SUMMARY_ZH_CN.md` (for reference)
-3. Update `theme/language-switcher.js` page mapping if needed
+4. **Add to build script:**
+   ```bash
+   # In build.sh, add:
+   MDBOOK_BOOK__LANGUAGE=<LANG_CODE> mdbook build -d book/<LANG_CODE>
+   ```
 
-## Language Switcher
+5. **Update language selector in `build.sh`**
 
-The language switcher appears in the top-right corner and:
+## 📝 Writing Guidelines
 
-- Automatically detects current language from URL path
-- Maps corresponding pages between languages
-- Falls back to introduction page if translation unavailable
-- Persists across page navigation
+- Use clear, concise language
+- Include code examples with syntax highlighting
+- Add tips/warnings where appropriate:
+  ```markdown
+  > **Note:** Important information
+  > **Warning:** Caution required
+  > **Tip:** Helpful suggestion
+  ```
+- Follow the [Rust mdBook Guide](https://rust-lang.github.io/mdBook/format/markdown.html) for Markdown syntax
 
-### Adding New Translations
+## 🤝 Contributing
 
-Edit `theme/language-switcher.js`:
+1. Edit English source in `src/`
+2. Extract messages: `MDBOOK_OUTPUT='{"xgettext": {}}' mdbook build -d po`
+3. Update translations: `msgmerge --update po/zh-CN.po po/messages.pot`
+4. Translate in PO editor
+5. Test: `./build.sh`
+6. Submit PR
 
-```javascript
-const languages = {
-    'en': { name: 'English', path: '' },
-    'zh-CN': { name: '简体中文', path: '/zh_cn' },
-    // Add new language:
-    // 'ja': { name: '日本語', path: '/ja' }
-};
-```
+## 📚 Resources
 
-## Deployment
+- [mdBook Documentation](https://rust-lang.github.io/mdBook/)
+- [mdbook-i18n-helpers Guide](https://github.com/google/mdbook-i18n-helpers/blob/main/i18n-helpers/USAGE.md)
+- [Gettext Manual](https://www.gnu.org/software/gettext/manual/)
+- [ISO 639-1 Language Codes](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes)
 
-### GitHub Pages
+## 📜 License
 
-```bash
-# Build documentation
-cd docs && mdbook build
-
-# Deploy book/ directory to gh-pages branch
-# (GitHub Actions can automate this)
-```
-
-### Custom Server
-
-Serve `docs/book/` directory as static files.
-
-## Maintenance
-
-### Update Dependencies
-
-```bash
-cargo install mdbook --force
-```
-
-### Check for Broken Links
-
-```bash
-cd docs
-mdbook test
-```
-
-## License
-
-MIT - See LICENSE-MIT in repository root.
+Same as wayvid project (MIT License).

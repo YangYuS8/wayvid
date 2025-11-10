@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: wayvid Documentation\n"
-"POT-Creation-Date: 2025-11-10T18:42:06+08:00\n"
-"PO-Revision-Date: 2025-11-10T18:42:06+08:00\n"
+"POT-Creation-Date: 2025-11-11T04:19:41+08:00\n"
+"PO-Revision-Date: 2025-11-11T04:19:41+08:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "MIME-Version: 1.0\n"
@@ -55,7 +55,7 @@ msgstr "HDR 支持"
 #: src/SUMMARY.md:19 src/user-guide/configuration.md:49
 #: src/user-guide/video-sources.md:33
 msgid "Steam Workshop"
-msgstr ""
+msgstr "Steam 创意工坊"
 
 #: src/SUMMARY.md:20 src/features/niri.md:1
 msgid "Niri Integration"
@@ -75,7 +75,7 @@ msgstr "从源码构建"
 
 #: src/SUMMARY.md:26 src/dev/workflow.md:1
 msgid "Development Workflow"
-msgstr "开发流程"
+msgstr "开发工作流"
 
 #: src/SUMMARY.md:27 src/dev/architecture.md:1
 msgid "Architecture"
@@ -95,7 +95,7 @@ msgstr "配置参考"
 
 #: src/SUMMARY.md:33 src/reference/cli.md:1
 msgid "CLI Commands"
-msgstr ""
+msgstr "CLI 命令"
 
 #: src/SUMMARY.md:34 src/features/ipc.md:36 src/reference/ipc-protocol.md:1
 msgid "IPC Protocol"
@@ -103,7 +103,7 @@ msgstr "IPC 协议"
 
 #: src/SUMMARY.md:35
 msgid "WE Format"
-msgstr ""
+msgstr "WE 格式"
 
 #: src/introduction.md:1 src/reference/cli.md:5
 msgid "wayvid"
@@ -174,7 +174,7 @@ msgstr ""
 
 #: src/introduction.md:24
 msgid "System Requirements"
-msgstr ""
+msgstr "系统要求"
 
 #: src/introduction.md:26
 msgid "**OS**: Linux with Wayland compositor"
@@ -194,7 +194,7 @@ msgstr ""
 
 #: src/introduction.md:31 src/dev/contributing.md:114
 msgid "License"
-msgstr ""
+msgstr "许可证"
 
 #: src/introduction.md:33
 msgid "wayvid is dual-licensed under MIT OR Apache-2.0."
@@ -351,7 +351,7 @@ msgstr ""
 #: src/user-guide/installation.md:17 src/features/workshop.md:5
 #: src/dev/building.md:3
 msgid "Prerequisites"
-msgstr ""
+msgstr "前置要求"
 
 #: src/user-guide/installation.md:19
 msgid "# Arch/Manjaro\n"
@@ -1069,7 +1069,7 @@ msgstr ""
 
 #: src/features/workshop.md:1
 msgid "Steam Workshop Integration"
-msgstr "Steam 创意工坊集成"
+msgstr ""
 
 #: src/features/workshop.md:3
 msgid "Import Wallpaper Engine projects from Steam Workshop."
@@ -1547,7 +1547,7 @@ msgstr ""
 
 #: src/features/ipc.md:64 src/dev/contributing.md:57
 msgid "Description"
-msgstr ""
+msgstr "描述"
 
 #: src/features/ipc.md:66
 msgid "`status`"
@@ -2038,7 +2038,7 @@ msgstr ""
 #: src/dev/workflow.md:102 src/dev/contributing.md:77
 #: src/dev/contributing.md:107
 msgid "Documentation"
-msgstr ""
+msgstr "文档"
 
 #: src/dev/workflow.md:104
 msgid "Build Docs"
@@ -2238,7 +2238,7 @@ msgstr ""
 
 #: src/dev/architecture.md:5
 msgid "Overview"
-msgstr ""
+msgstr "概览"
 
 #: src/dev/architecture.md:32
 msgid "Core Components"
@@ -2942,7 +2942,7 @@ msgstr ""
 
 #: src/reference/cli.md:13
 msgid "Options"
-msgstr ""
+msgstr "选项"
 
 #: src/reference/cli.md:14
 msgid "`--config <PATH>` - Config file path"
@@ -3331,7 +3331,7 @@ msgstr ""
 
 #: src/reference/we-format.md:1
 msgid "Wallpaper Engine Format"
-msgstr "Wallpaper Engine 格式规范"
+msgstr ""
 
 #: src/reference/we-format.md:3
 msgid "Specification for Wallpaper Engine project files."
