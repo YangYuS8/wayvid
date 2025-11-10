@@ -2,6 +2,8 @@
 
 use eframe::egui;
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
+use wayvid::ctl::ipc_client::IpcClient;
 use wayvid::ctl::protocol::{IpcCommand, IpcResponse};
 
 fn main() -> Result<(), eframe::Error> {
@@ -93,6 +95,12 @@ impl Default for WayvidApp {
 
 impl eframe::App for WayvidApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Poll for IPC responses
+        self.poll_responses();
+        
+        // Request repaint for continuous updates
+        ctx.request_repaint();
+        
         // Top panel - Title and status
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -155,34 +163,119 @@ impl WayvidApp {
         self.connection_status = ConnectionStatus::Connecting;
         self.status_message = "Connecting to wayvid...".to_string();
 
-        // TODO: Implement real IPC connection when IpcClient is exposed
-        // For now, simulate connection with correct channel types
-        let (tx, _rx_cmd): (Sender<IpcCommand>, Receiver<IpcCommand>) = channel();
-        let (_tx_resp, rx): (Sender<IpcResponse>, Receiver<IpcResponse>) = channel();
-        self.ipc_tx = Some(tx);
-        self.ipc_rx = Some(rx);
+        // Check if wayvid is running
+        if !IpcClient::is_running() {
+            self.connection_status = ConnectionStatus::Error;
+            self.status_message = "Error: wayvid daemon not running. Start with 'wayvid run'".to_string();
+            return;
+        }
+
+        // Create channels for async communication
+        let (cmd_tx, cmd_rx): (Sender<IpcCommand>, Receiver<IpcCommand>) = channel();
+        let (resp_tx, resp_rx): (Sender<IpcResponse>, Receiver<IpcResponse>) = channel();
+        
+        // Spawn IPC thread
+        thread::spawn(move || {
+            if let Err(e) = Self::ipc_thread(cmd_rx, resp_tx) {
+                eprintln!("IPC thread error: {}", e);
+            }
+        });
+        
+        self.ipc_tx = Some(cmd_tx);
+        self.ipc_rx = Some(resp_rx);
         self.connection_status = ConnectionStatus::Connected;
-        self.status_message = "Connected (simulated)".to_string();
-        self.refresh_outputs();
+        self.status_message = "Connected to wayvid daemon".to_string();
+        
+        // Request initial status
+        self.send_command(IpcCommand::GetStatus);
+    }
+    
+    /// IPC communication thread
+    fn ipc_thread(cmd_rx: Receiver<IpcCommand>, resp_tx: Sender<IpcResponse>) -> anyhow::Result<()> {
+        let mut client = IpcClient::connect()?;
+        
+        for command in cmd_rx {
+            match client.send_command(&command) {
+                Ok(response) => {
+                    if resp_tx.send(response).is_err() {
+                        break; // GUI closed
+                    }
+                }
+                Err(e) => {
+                    eprintln!("IPC command error: {}", e);
+                    // Send error response
+                    let _ = resp_tx.send(IpcResponse::Error {
+                        message: e.to_string(),
+                    });
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Send IPC command
+    fn send_command(&mut self, command: IpcCommand) {
+        if let Some(ref tx) = self.ipc_tx {
+            if let Err(e) = tx.send(command) {
+                self.status_message = format!("Error sending command: {}", e);
+                self.connection_status = ConnectionStatus::Error;
+            }
+        }
+    }
+    
+    /// Poll for IPC responses
+    fn poll_responses(&mut self) {
+        let responses: Vec<IpcResponse> = if let Some(ref rx) = self.ipc_rx {
+            let mut resps = Vec::new();
+            while let Ok(response) = rx.try_recv() {
+                resps.push(response);
+            }
+            resps
+        } else {
+            Vec::new()
+        };
+        
+        for response in responses {
+            self.handle_response(response);
+        }
+    }
+    
+    /// Handle IPC response
+    fn handle_response(&mut self, response: IpcResponse) {
+        match response {
+            IpcResponse::Success { data } => {
+                if let Some(value) = data {
+                    // Try to parse as daemon status
+                    if let Ok(status) = serde_json::from_value::<wayvid::ctl::protocol::DaemonStatus>(value) {
+                        self.outputs = status.outputs.into_iter().map(|o| OutputInfo {
+                            name: o.name,
+                            width: o.width as u32,
+                            height: o.height as u32,
+                            active: o.playing && !o.paused,
+                        }).collect();
+                        self.status_message = format!("Status updated - {} outputs", self.outputs.len());
+                    } else {
+                        self.status_message = "Command successful".to_string();
+                    }
+                } else {
+                    self.status_message = "Command successful".to_string();
+                }
+            }
+            IpcResponse::Error { message } => {
+                self.status_message = format!("Error: {}", message);
+                self.connection_status = ConnectionStatus::Error;
+            }
+        }
     }
 
     fn refresh_outputs(&mut self) {
-        // Mock data for now
-        self.outputs = vec![
-            OutputInfo {
-                name: "eDP-1".to_string(),
-                width: 1920,
-                height: 1080,
-                active: true,
-            },
-            OutputInfo {
-                name: "HDMI-1".to_string(),
-                width: 2560,
-                height: 1440,
-                active: false,
-            },
-        ];
-        self.status_message = "Outputs refreshed".to_string();
+        if self.connection_status == ConnectionStatus::Connected {
+            self.send_command(IpcCommand::GetStatus);
+            self.status_message = "Refreshing outputs...".to_string();
+        } else {
+            self.status_message = "Not connected. Click 'Connect' first.".to_string();
+        }
     }
 
     fn show_outputs_tab(&mut self, ui: &mut egui::Ui) {
@@ -313,11 +406,6 @@ impl WayvidApp {
         ui.label("About:");
         ui.label(format!("wayvid v{}", env!("CARGO_PKG_VERSION")));
         ui.hyperlink_to("GitHub", "https://github.com/YangYuS8/wayvid");
-    }
-
-    fn send_command(&mut self, _command: IpcCommand) {
-        // TODO: Implement IPC command sending
-        self.status_message = "IPC commands not yet implemented".to_string();
     }
 
     fn scan_workshop(&mut self) {
