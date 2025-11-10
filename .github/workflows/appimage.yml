@@ -1,9 +1,8 @@
-name: Build AppImage
+name: Build AppImage (Manual)
 
+# 此 workflow 仅用于手动触发构建 AppImage
+# 正式发布时使用 release.yml workflow
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -82,12 +81,5 @@ jobs:
             packaging/appimage/build/wayvid-*.AppImage
             packaging/appimage/build/SHA256SUMS
       
-      - name: Upload to Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            packaging/appimage/build/wayvid-*.AppImage
-            packaging/appimage/build/SHA256SUMS
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 手动构建不自动上传到 Release，仅保存为 artifact
+      # 使用 release.yml workflow 进行正式发布

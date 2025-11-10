@@ -1,0 +1,402 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'              # 正式版: v1.2.3
+      - 'v[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+' # Alpha: v1.2.3-alpha.1
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'  # Beta: v1.2.3-beta.2
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'    # RC: v1.2.3-rc.1
+      - 'v[0-9]+.[0-9]+.[0-9]+-hotfix.[0-9]+' # Hotfix: v1.2.3-hotfix.1
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # 验证版本号
+  validate:
+    name: Validate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+      release_type: ${{ steps.version.outputs.release_type }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Extract version info
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # 判断是否为预发布版本
+          if [[ "$VERSION" =~ (alpha|beta|rc|hotfix) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            
+            # 提取发布类型
+            if [[ "$VERSION" =~ alpha ]]; then
+              echo "release_type=Alpha" >> $GITHUB_OUTPUT
+            elif [[ "$VERSION" =~ beta ]]; then
+              echo "release_type=Beta" >> $GITHUB_OUTPUT
+            elif [[ "$VERSION" =~ rc ]]; then
+              echo "release_type=Release Candidate" >> $GITHUB_OUTPUT
+            elif [[ "$VERSION" =~ hotfix ]]; then
+              echo "release_type=Hotfix" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "release_type=Stable" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Version: $VERSION"
+          echo "Is Prerelease: $([ "$VERSION" =~ (alpha|beta|rc|hotfix) ] && echo true || echo false)"
+      
+      - name: Check version matches Cargo.toml
+        run: |
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          
+          # 移除预发布后缀进行比较
+          TAG_BASE_VERSION=$(echo "$TAG_VERSION" | sed 's/-.*$//')
+          
+          if [ "$CARGO_VERSION" != "$TAG_BASE_VERSION" ]; then
+            echo "❌ Version mismatch!"
+            echo "   Cargo.toml: $CARGO_VERSION"
+            echo "   Tag:        $TAG_BASE_VERSION"
+            exit 1
+          fi
+          
+          echo "✅ Version matches: $CARGO_VERSION"
+
+  # 运行完整的质量检查
+  quality:
+    name: Quality Checks
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-dev \
+            libmpv-dev \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libxkbcommon-dev \
+            libfontconfig1-dev
+      
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+          cache: true
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      
+      - name: Run clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
+      
+      - name: Run tests
+        run: cargo test --all-features
+
+  # 构建所有二进制文件
+  build:
+    name: Build (${{ matrix.target }})
+    needs: [validate, quality]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          # 未来可以添加 aarch64
+          # - os: ubuntu-latest
+          #   target: aarch64-unknown-linux-gnu
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-dev \
+            libmpv-dev \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libxkbcommon-dev \
+            libfontconfig1-dev
+      
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          # 正式版使用干净构建
+          cache: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+      
+      - name: Build release binaries
+        run: cargo build --release --all-features --target ${{ matrix.target }}
+      
+      - name: Strip binaries
+        run: |
+          strip target/${{ matrix.target }}/release/wayvid
+          strip target/${{ matrix.target }}/release/wayvid-ctl
+          strip target/${{ matrix.target }}/release/wayvid-gui
+      
+      - name: Create tarball
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../wayvid-${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz \
+            wayvid wayvid-ctl wayvid-gui
+          cd ../../..
+          sha256sum wayvid-${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz > \
+            wayvid-${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz.sha256
+      
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayvid-binaries-${{ matrix.target }}
+          path: |
+            wayvid-*.tar.gz
+            wayvid-*.tar.gz.sha256
+          retention-days: 90
+
+  # 构建 AppImage
+  appimage:
+    name: Build AppImage
+    needs: [validate, quality]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libmpv-dev \
+            libwayland-dev \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libxkbcommon-dev \
+            libfontconfig1-dev \
+            upx-ucl \
+            imagemagick \
+            fuse \
+            libfuse2
+      
+      - name: Download appimagetool
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage \
+            -O /tmp/appimagetool
+          chmod +x /tmp/appimagetool
+          sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
+      
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+      
+      - name: Build AppImage
+        run: |
+          cd packaging/appimage
+          chmod +x build-appimage.sh
+          ./build-appimage.sh ${{ needs.validate.outputs.version }}
+      
+      - name: Test AppImage
+        run: |
+          cd packaging/appimage
+          chmod +x test-appimage.sh
+          ./test-appimage.sh build/wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage
+      
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayvid-appimage
+          path: |
+            packaging/appimage/build/wayvid-*.AppImage
+            packaging/appimage/build/SHA256SUMS
+          retention-days: 90
+
+  # 生成 Release Notes
+  release-notes:
+    name: Generate Release Notes
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.notes.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate release notes
+        id: notes
+        run: |
+          # 获取上一个 tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "First release"
+            CHANGELOG="Initial release of wayvid v${{ needs.validate.outputs.version }}"
+          else
+            echo "Generating changelog from $PREVIOUS_TAG to HEAD"
+            
+            # 生成变更日志
+            CHANGELOG=$(git log $PREVIOUS_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
+            
+            # 分类 commits
+            FEATURES=$(echo "$CHANGELOG" | grep -i "^- feat" || echo "")
+            FIXES=$(echo "$CHANGELOG" | grep -i "^- fix" || echo "")
+            DOCS=$(echo "$CHANGELOG" | grep -i "^- docs" || echo "")
+            OTHERS=$(echo "$CHANGELOG" | grep -v -i "^- \(feat\|fix\|docs\)" || echo "")
+          fi
+          
+          # 构建 Release Notes
+          cat > release_notes.md << EOF
+          ## wayvid ${{ needs.validate.outputs.version }}
+          
+          **Release Type:** ${{ needs.validate.outputs.release_type }}
+          **Build Date:** $(date -u +%Y-%m-%d)
+          
+          ### What's New
+          
+          EOF
+          
+          if [ -n "$FEATURES" ]; then
+            echo "#### ✨ Features" >> release_notes.md
+            echo "$FEATURES" | sed 's/^- feat: /- /' >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          if [ -n "$FIXES" ]; then
+            echo "#### 🐛 Bug Fixes" >> release_notes.md
+            echo "$FIXES" | sed 's/^- fix: /- /' >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          if [ -n "$DOCS" ]; then
+            echo "#### 📚 Documentation" >> release_notes.md
+            echo "$DOCS" | sed 's/^- docs: /- /' >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          if [ -n "$OTHERS" ]; then
+            echo "#### 🔧 Other Changes" >> release_notes.md
+            echo "$OTHERS" >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          # 添加下载链接说明
+          cat >> release_notes.md << EOF
+          ### 📦 Installation
+          
+          #### AppImage (Recommended)
+          \`\`\`bash
+          # Download
+          wget https://github.com/YangYuS8/wayvid/releases/download/v${{ needs.validate.outputs.version }}/wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage
+          chmod +x wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage
+          
+          # Run
+          ./wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage
+          ./wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage gui
+          \`\`\`
+          
+          #### Binary Tarball
+          \`\`\`bash
+          # Download
+          wget https://github.com/YangYuS8/wayvid/releases/download/v${{ needs.validate.outputs.version }}/wayvid-${{ needs.validate.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          tar xzf wayvid-${{ needs.validate.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+          
+          # Install
+          sudo mv wayvid wayvid-ctl wayvid-gui /usr/local/bin/
+          \`\`\`
+          
+          #### Arch Linux (AUR)
+          \`\`\`bash
+          yay -S wayvid-git
+          \`\`\`
+          
+          ### 📋 Checksums
+          
+          See \`SHA256SUMS\` file for checksums of all release artifacts.
+          
+          ### 🔗 Links
+          
+          - [Documentation](https://github.com/YangYuS8/wayvid/blob/main/README.md)
+          - [Changelog](https://github.com/YangYuS8/wayvid/blob/main/CHANGELOG.md)
+          - [Contributing](https://github.com/YangYuS8/wayvid/blob/main/CONTRIBUTING.md)
+          EOF
+          
+          cat release_notes.md
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release_notes.md
+          retention-days: 90
+
+  # 创建 GitHub Release
+  release:
+    name: Create Release
+    needs: [validate, quality, build, appimage, release-notes]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+      
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.AppImage" -o -name "SHA256SUMS" \) -exec cp {} release-files/ \;
+          ls -lh release-files/
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: wayvid ${{ needs.validate.outputs.version }}
+          body_path: release-artifacts/release-notes/release_notes.md
+          prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+          draft: false
+          files: release-files/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
+
+  # 更新 AUR 包（仅正式版）
+  update-aur:
+    name: Update AUR Package
+    needs: [validate, release]
+    if: needs.validate.outputs.is_prerelease == 'false'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Update AUR PKGBUILD
+        run: |
+          echo "🚀 AUR package update would be triggered here"
+          echo "Version: ${{ needs.validate.outputs.version }}"
+          # TODO: 实现自动更新 AUR 包的逻辑
+          # 可以使用 GitHub Action 推送到 AUR 仓库

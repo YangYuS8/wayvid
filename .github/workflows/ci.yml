@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [ main, develop, 'm6-*' ]
+    # 排除 tag 推送，避免与 release workflow 重复
+    tags-ignore:
+      - '**'
   pull_request:
     branches: [ main ]
 
@@ -124,17 +127,16 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  build:
-    name: Build (${{ matrix.target }})
+  # PR 预览构建：仅在 PR 到 main 时构建（不发布）
+  build-preview:
+    name: Build Preview (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    if: github.event_name == 'pull_request'
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          # TODO: aarch64 build requires cross-compilation setup
-          # - os: ubuntu-latest
-          #   target: aarch64-unknown-linux-gnu
     
     steps:
       - uses: actions/checkout@v4
@@ -167,9 +169,14 @@ jobs:
           cp target/${{ matrix.target }}/release/wayvid-ctl artifacts/
           cp target/${{ matrix.target }}/release/wayvid-gui artifacts/
           
-      - name: Upload artifacts
+          # 添加版本信息
+          echo "PR #${{ github.event.pull_request.number }}" > artifacts/VERSION.txt
+          echo "Commit: ${{ github.sha }}" >> artifacts/VERSION.txt
+          echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> artifacts/VERSION.txt
+          
+      - name: Upload preview artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wayvid-binaries-${{ matrix.target }}
+          name: wayvid-preview-pr${{ github.event.pull_request.number }}-${{ matrix.target }}
           path: artifacts/*
-          retention-days: 30
+          retention-days: 7
