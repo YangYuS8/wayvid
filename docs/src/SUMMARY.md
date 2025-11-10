@@ -33,3 +33,11 @@
 - [CLI Commands](./reference/cli.md)
 - [IPC Protocol](./reference/ipc-protocol.md)
 - [WE Format](./reference/we-format.md)
+
+---
+
+# 简体中文
+
+- [简介](./zh_cn/introduction.md)
+  - [快速开始](./zh_cn/user-guide/quick-start.md)
+  - [安装](./zh_cn/user-guide/installation.md)

@@ -26,50 +26,24 @@
             return currentPath;
         }
         
-        // Map of page correspondences
-        const pageMap = {
-            'introduction.html': 'zh_cn/introduction.html',
-            'user-guide/quick-start.html': 'zh_cn/user-guide/quick-start.html',
-            'user-guide/installation.html': 'zh_cn/user-guide/installation.html',
-            'user-guide/configuration.html': 'zh_cn/user-guide/configuration.html',
-            'user-guide/video-sources.html': 'zh_cn/user-guide/video-sources.html',
-            'user-guide/multi-monitor.html': 'zh_cn/user-guide/multi-monitor.html',
-            'features/hdr.html': 'zh_cn/features/hdr.html',
-            'features/workshop.html': 'zh_cn/features/workshop.html',
-            'features/niri.html': 'zh_cn/features/niri.html',
-            'features/ipc.html': 'zh_cn/features/ipc.html',
-            'dev/building.html': 'zh_cn/dev/building.html',
-            'dev/workflow.html': 'zh_cn/dev/workflow.html',
-            'dev/architecture.html': 'zh_cn/dev/architecture.html',
-            'dev/contributing.html': 'zh_cn/dev/contributing.html',
-            'reference/config.html': 'zh_cn/reference/config.html',
-            'reference/cli.html': 'zh_cn/reference/cli.html',
-            'reference/ipc-protocol.html': 'zh_cn/reference/ipc-protocol.html',
-            'reference/we-format.html': 'zh_cn/reference/we-format.html'
-        };
-        
-        // Extract relative page path
-        let pagePath = currentPath.split('/book/')[1] || 'introduction.html';
-        
         if (targetLang === 'zh-CN') {
-            // Switch to Chinese
-            if (currentLang === 'en') {
-                return pageMap[pagePath] 
-                    ? `/book/${pageMap[pagePath]}`
-                    : '/book/zh_cn/introduction.html';
+            // English to Chinese
+            if (currentPath.includes('/zh_cn/')) {
+                return currentPath; // Already Chinese
             }
+            // Insert zh_cn/ before the filename
+            // /introduction.html -> /zh_cn/introduction.html
+            // /user-guide/quick-start.html -> /zh_cn/user-guide/quick-start.html
+            return currentPath.replace(/\/([^/]+\.html)$/, '/zh_cn/$1')
+                              .replace(/\/(user-guide|features|dev|reference)\//, '/zh_cn/$1/');
         } else {
-            // Switch to English
-            if (currentLang === 'zh-CN') {
-                // Reverse lookup
-                const enPath = Object.keys(pageMap).find(
-                    key => pageMap[key] === pagePath.replace('zh_cn/', '')
-                );
-                return enPath ? `/book/${enPath}` : '/book/introduction.html';
+            // Chinese to English
+            if (!currentPath.includes('/zh_cn/')) {
+                return currentPath; // Already English
             }
+            // Remove zh_cn/ from path
+            return currentPath.replace('/zh_cn/', '/');
         }
-        
-        return currentPath;
     }
     
     // Create language switcher

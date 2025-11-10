@@ -1798,6 +1798,356 @@ wayvid --log-level debug
 <li><a href="reference/../features/workshop.html">Workshop Integration</a></li>
 <li><a href="reference/config.html">Configuration Reference</a></li>
 </ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="wayvid-2"><a class="header" href="#wayvid-2">wayvid</a></h1>
+<p><strong>Wayland 动态壁纸守护进程</strong></p>
+<p>wayvid 是一个轻量、高性能的 Wayland 动态壁纸解决方案,专为现代 Linux 桌面环境设计。</p>
+<h2 id="核心特性"><a class="header" href="#核心特性">核心特性</a></h2>
+<ul>
+<li>⚡ <strong>零拷贝渲染</strong>: 共享 GPU 解码缓冲区,内存占用极低</li>
+<li>🎨 <strong>HDR10 支持</strong>: 原生 HDR 色彩管理和色调映射</li>
+<li>🔄 <strong>热重载配置</strong>: 无需重启即可更改壁纸</li>
+<li>🖥️ <strong>多显示器</strong>: 每个显示器独立视频源和布局</li>
+<li>🎮 <strong>Steam 创意工坊</strong>: 一键导入 Wallpaper Engine 壁纸</li>
+<li>🎵 <strong>音频支持</strong>: 可选背景音频播放</li>
+<li>🔌 <strong>IPC 控制</strong>: 通过命令行或 GUI 实时控制</li>
+</ul>
+<h2 id="快速开始"><a class="header" href="#快速开始">快速开始</a></h2>
+<pre><code class="language-bash"># 安装 (Arch Linux)
+yay -S wayvid
+
+# 创建配置
+mkdir -p ~/.config/wayvid
+nano ~/.config/wayvid/config.yaml
+
+# 启动守护进程
+wayvid &amp;
+
+# 控制播放
+wayvid-ctl play
+</code></pre>
+<p>详见 <a href="zh_cn/user-guide/quick-start.html">快速开始指南</a>。</p>
+<h2 id="支持的合成器"><a class="header" href="#支持的合成器">支持的合成器</a></h2>
+<ul>
+<li>✅ Hyprland</li>
+<li>✅ Niri (原生优化)</li>
+<li>✅ Sway</li>
+<li>✅ River</li>
+<li>⚠️ 其他 wlr-layer-shell 合成器 (部分支持)</li>
+</ul>
+<h2 id="系统要求"><a class="header" href="#系统要求">系统要求</a></h2>
+<ul>
+<li><strong>OS</strong>: Linux (Wayland)</li>
+<li><strong>GPU</strong>: OpenGL ES 3.0+ 或 Vulkan</li>
+<li><strong>解码</strong>: VA-API / VDPAU / NVDEC 硬件解码 (推荐)</li>
+<li><strong>依赖</strong>: mpv, ffmpeg, mesa</li>
+</ul>
+<h2 id="项目状态"><a class="header" href="#项目状态">项目状态</a></h2>
+<ul>
+<li>🟢 <strong>稳定版本</strong>: v0.3.x</li>
+<li>🔵 <strong>开发分支</strong>: main</li>
+<li>📦 <strong>打包</strong>: AUR, Nix flake</li>
+</ul>
+<h2 id="文档导航"><a class="header" href="#文档导航">文档导航</a></h2>
+<h3 id="用户"><a class="header" href="#用户">用户</a></h3>
+<ul>
+<li><a href="zh_cn/user-guide/installation.html">安装指南</a></li>
+<li><a href="zh_cn/user-guide/configuration.html">配置说明</a></li>
+<li><a href="zh_cn/features/hdr.html">功能特性</a></li>
+</ul>
+<h3 id="开发者"><a class="header" href="#开发者">开发者</a></h3>
+<ul>
+<li><a href="zh_cn/dev/building.html">构建指南</a></li>
+<li><a href="zh_cn/dev/architecture.html">系统架构</a></li>
+<li><a href="zh_cn/dev/contributing.html">贡献指南</a></li>
+</ul>
+<h2 id="获取帮助"><a class="header" href="#获取帮助">获取帮助</a></h2>
+<ul>
+<li>🐛 <a href="https://github.com/your-username/wayvid/issues">问题反馈</a></li>
+<li>💬 <a href="https://github.com/your-username/wayvid/discussions">讨论区</a></li>
+<li>📖 <a href="https://your-username.github.io/wayvid">完整文档</a></li>
+</ul>
+<h2 id="许可证"><a class="header" href="#许可证">许可证</a></h2>
+<p>MIT License - 详见 <a href="https://github.com/your-username/wayvid/blob/main/LICENSE-MIT">LICENSE-MIT</a></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="快速开始-1"><a class="header" href="#快速开始-1">快速开始</a></h1>
+<p>5分钟启动 wayvid。</p>
+<h2 id="1-安装"><a class="header" href="#1-安装">1. 安装</a></h2>
+<h3 id="arch-linux-1"><a class="header" href="#arch-linux-1">Arch Linux</a></h3>
+<pre><code class="language-bash">yay -S wayvid
+</code></pre>
+<h3 id="其他发行版"><a class="header" href="#其他发行版">其他发行版</a></h3>
+<p>详见<a href="zh_cn/user-guide/installation.html">安装指南</a>。</p>
+<h2 id="2-创建配置"><a class="header" href="#2-创建配置">2. 创建配置</a></h2>
+<pre><code class="language-bash">mkdir -p ~/.config/wayvid
+</code></pre>
+<p>最小配置 <code>~/.config/wayvid/config.yaml</code>:</p>
+<pre><code class="language-yaml">outputs:
+  default:
+    source:
+      type: file
+      path: ~/Videos/wallpaper.mp4
+    layout: fill
+    volume: 0
+</code></pre>
+<p>示例配置:</p>
+<pre><code class="language-bash">cp /usr/share/wayvid/config.example.yaml ~/.config/wayvid/config.yaml
+</code></pre>
+<h2 id="3-准备视频"><a class="header" href="#3-准备视频">3. 准备视频</a></h2>
+<p>支持的格式: MP4, WebM, MKV, MOV</p>
+<pre><code class="language-bash"># 下载示例视频
+mkdir -p ~/Videos
+wget https://example.com/sample.mp4 -O ~/Videos/wallpaper.mp4
+</code></pre>
+<p>或使用 Steam 创意工坊:</p>
+<pre><code class="language-bash">wayvid workshop import 1234567890
+</code></pre>
+<h2 id="4-启动守护进程"><a class="header" href="#4-启动守护进程">4. 启动守护进程</a></h2>
+<h3 id="手动启动"><a class="header" href="#手动启动">手动启动</a></h3>
+<pre><code class="language-bash">wayvid &amp;
+</code></pre>
+<h3 id="自动启动-hyprland"><a class="header" href="#自动启动-hyprland">自动启动 (Hyprland)</a></h3>
+<p><code>~/.config/hypr/hyprland.conf</code>:</p>
+<pre><code>exec-once = wayvid
+</code></pre>
+<h3 id="自动启动-systemd"><a class="header" href="#自动启动-systemd">自动启动 (systemd)</a></h3>
+<pre><code class="language-bash">systemctl --user enable --now wayvid.service
+</code></pre>
+<h2 id="5-控制播放"><a class="header" href="#5-控制播放">5. 控制播放</a></h2>
+<pre><code class="language-bash"># 播放
+wayvid-ctl play
+
+# 暂停
+wayvid-ctl pause
+
+# 停止
+wayvid-ctl stop
+
+# 调整音量
+wayvid-ctl set-volume 30
+
+# 查看状态
+wayvid-ctl status
+</code></pre>
+<h2 id="常见问题"><a class="header" href="#常见问题">常见问题</a></h2>
+<h3 id="黑屏无内容"><a class="header" href="#黑屏无内容">黑屏无内容</a></h3>
+<p>检查日志:</p>
+<pre><code class="language-bash">journalctl --user -u wayvid -f
+</code></pre>
+<p>常见原因:</p>
+<ul>
+<li>视频文件路径错误</li>
+<li>不支持的视频格式</li>
+<li>缺少硬件解码支持</li>
+</ul>
+<h3 id="性能问题"><a class="header" href="#性能问题">性能问题</a></h3>
+<p>启用硬件解码:</p>
+<pre><code class="language-yaml">outputs:
+  default:
+    hwdec: auto  # 或 vaapi / nvdec
+</code></pre>
+<h3 id="多显示器配置"><a class="header" href="#多显示器配置">多显示器配置</a></h3>
+<pre><code class="language-yaml">outputs:
+  DP-1:
+    source:
+      type: file
+      path: ~/Videos/left.mp4
+  HDMI-A-1:
+    source:
+      type: file
+      path: ~/Videos/right.mp4
+</code></pre>
+<h2 id="下一步"><a class="header" href="#下一步">下一步</a></h2>
+<ul>
+<li><a href="zh_cn/user-guide/configuration.html">完整配置选项</a></li>
+<li><a href="zh_cn/user-guide/video-sources.html">视频源类型</a></li>
+<li><a href="zh_cn/user-guide/multi-monitor.html">多显示器设置</a></li>
+<li><a href="zh_cn/user-guide/../features/hdr.html">HDR 支持</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="安装"><a class="header" href="#安装">安装</a></h1>
+<p>在不同发行版上安装 wayvid。</p>
+<h2 id="arch-linux-2"><a class="header" href="#arch-linux-2">Arch Linux</a></h2>
+<h3 id="aur-推荐"><a class="header" href="#aur-推荐">AUR (推荐)</a></h3>
+<pre><code class="language-bash"># 使用 yay
+yay -S wayvid-git
+
+# 或使用 paru
+paru -S wayvid-git
+
+# 手动构建
+git clone https://aur.archlinux.org/wayvid-git.git
+cd wayvid-git
+makepkg -si
+</code></pre>
+<p><strong>可选依赖</strong>（硬件加速）:</p>
+<pre><code class="language-bash"># Intel GPU
+sudo pacman -S intel-media-driver libva-intel-driver
+
+# AMD GPU
+sudo pacman -S mesa libva-mesa-driver
+
+# NVIDIA GPU
+sudo pacman -S nvidia-utils nvidia-vaapi-driver
+</code></pre>
+<h2 id="ubuntu--debian"><a class="header" href="#ubuntu--debian">Ubuntu / Debian</a></h2>
+<h3 id="系统依赖"><a class="header" href="#系统依赖">系统依赖</a></h3>
+<pre><code class="language-bash">sudo apt update
+sudo apt install -y \
+    libwayland-dev \
+    libmpv-dev \
+    libgl1-mesa-dev \
+    libegl1-mesa-dev \
+    cargo \
+    rustc
+</code></pre>
+<h3 id="硬件解码可选但推荐"><a class="header" href="#硬件解码可选但推荐">硬件解码（可选但推荐）</a></h3>
+<pre><code class="language-bash"># Intel
+sudo apt install intel-media-va-driver i965-va-driver
+
+# AMD
+sudo apt install mesa-va-drivers
+
+# NVIDIA (替换版本号)
+sudo apt install nvidia-driver-535 libnvidia-encode-535
+</code></pre>
+<h3 id="从源码构建"><a class="header" href="#从源码构建">从源码构建</a></h3>
+<pre><code class="language-bash">git clone https://github.com/YangYuS8/wayvid.git
+cd wayvid
+cargo build --release
+sudo install -Dm755 target/release/wayvid /usr/local/bin/
+sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/
+</code></pre>
+<h2 id="fedora"><a class="header" href="#fedora">Fedora</a></h2>
+<h3 id="系统依赖-1"><a class="header" href="#系统依赖-1">系统依赖</a></h3>
+<pre><code class="language-bash">sudo dnf install -y \
+    wayland-devel \
+    mpv-libs-devel \
+    mesa-libGL-devel \
+    mesa-libEGL-devel \
+    cargo \
+    rust
+</code></pre>
+<h3 id="硬件解码"><a class="header" href="#硬件解码">硬件解码</a></h3>
+<pre><code class="language-bash"># Intel/AMD
+sudo dnf install libva-intel-driver mesa-va-drivers
+
+# NVIDIA
+sudo dnf install nvidia-driver nvidia-vaapi-driver
+</code></pre>
+<h3 id="构建安装"><a class="header" href="#构建安装">构建安装</a></h3>
+<pre><code class="language-bash">git clone https://github.com/YangYuS8/wayvid.git
+cd wayvid
+cargo build --release
+sudo install -Dm755 target/release/wayvid /usr/local/bin/
+sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/
+</code></pre>
+<h2 id="nixos--nix"><a class="header" href="#nixos--nix">NixOS / Nix</a></h2>
+<h3 id="flake-方式"><a class="header" href="#flake-方式">Flake 方式</a></h3>
+<pre><code class="language-nix">{
+  inputs.wayvid.url = "github:YangYuS8/wayvid";
+  
+  outputs = { self, nixpkgs, wayvid }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [{
+        environment.systemPackages = [ 
+          wayvid.packages.x86_64-linux.default 
+        ];
+      }];
+    };
+  };
+}
+</code></pre>
+<h3 id="直接运行"><a class="header" href="#直接运行">直接运行</a></h3>
+<pre><code class="language-bash">nix run github:YangYuS8/wayvid
+</code></pre>
+<h3 id="安装到-profile"><a class="header" href="#安装到-profile">安装到 Profile</a></h3>
+<pre><code class="language-bash">nix profile install github:YangYuS8/wayvid
+</code></pre>
+<h2 id="从源码构建通用"><a class="header" href="#从源码构建通用">从源码构建（通用）</a></h2>
+<h3 id="1-安装-rust"><a class="header" href="#1-安装-rust">1. 安装 Rust</a></h3>
+<pre><code class="language-bash">curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+</code></pre>
+<h3 id="2-克隆仓库"><a class="header" href="#2-克隆仓库">2. 克隆仓库</a></h3>
+<pre><code class="language-bash">git clone https://github.com/YangYuS8/wayvid.git
+cd wayvid
+</code></pre>
+<h3 id="3-构建"><a class="header" href="#3-构建">3. 构建</a></h3>
+<pre><code class="language-bash"># 完整功能构建
+cargo build --release --all-features
+
+# 仅核心功能
+cargo build --release
+</code></pre>
+<h3 id="4-安装"><a class="header" href="#4-安装">4. 安装</a></h3>
+<pre><code class="language-bash"># 用户安装
+install -Dm755 target/release/wayvid ~/.local/bin/
+install -Dm755 target/release/wayvid-ctl ~/.local/bin/
+
+# 系统安装
+sudo install -Dm755 target/release/wayvid /usr/local/bin/
+sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/
+</code></pre>
+<h2 id="验证安装"><a class="header" href="#验证安装">验证安装</a></h2>
+<pre><code class="language-bash"># 检查版本
+wayvid --version
+
+# 系统能力检查
+wayvid check
+</code></pre>
+<p>预期输出：</p>
+<pre><code>=== wayvid 系统能力检查 ===
+
+[Wayland]
+  ✓ WAYLAND_DISPLAY: wayland-1
+  ✓ 连接: 已建立
+  ✓ 协议: 可用
+    - wl_compositor
+    - wl_output
+    - zwlr_layer_shell_v1
+
+[视频后端]
+  ✓ 后端: libmpv
+  ℹ mpv 0.37.0
+
+[硬件解码]
+  ✓ VA-API 可用
+  ℹ VDPAU 不可用
+</code></pre>
+<h2 id="故障排除"><a class="header" href="#故障排除">故障排除</a></h2>
+<h3 id="找不到-wayvid-命令"><a class="header" href="#找不到-wayvid-命令">找不到 wayvid 命令</a></h3>
+<p>确保 <code>~/.local/bin</code> 在 PATH 中：</p>
+<pre><code class="language-bash">echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.bashrc
+source ~/.bashrc
+</code></pre>
+<h3 id="缺少依赖"><a class="header" href="#缺少依赖">缺少依赖</a></h3>
+<p>检查错误信息并安装对应的包：</p>
+<pre><code class="language-bash"># Arch
+sudo pacman -S wayland libmpv mesa
+
+# Ubuntu
+sudo apt install libwayland-client0 libmpv1 libgl1
+
+# Fedora
+sudo dnf install wayland-client mpv-libs mesa-libGL
+</code></pre>
+<h3 id="va-api-不可用"><a class="header" href="#va-api-不可用">VA-API 不可用</a></h3>
+<pre><code class="language-bash"># 安装 VA-API 驱动
+sudo pacman -S libva-intel-driver  # Intel
+sudo apt install i965-va-driver     # Ubuntu/Debian
+
+# 检查
+vainfo
+</code></pre>
+<h3 id="编译错误"><a class="header" href="#编译错误">编译错误</a></h3>
+<p>确保 Rust 版本 &gt;= 1.75:</p>
+<pre><code class="language-bash">rustc --version
+rustup update
+</code></pre>
+<h2 id="下一步-1"><a class="header" href="#下一步-1">下一步</a></h2>
+<ul>
+<li><a href="zh_cn/user-guide/configuration.html">配置 wayvid</a></li>
+<li><a href="zh_cn/user-guide/video-sources.html">准备视频文件</a></li>
+<li><a href="zh_cn/user-guide/multi-monitor.html">多显示器设置</a></li>
+</ul>
 
                     </main>
 
