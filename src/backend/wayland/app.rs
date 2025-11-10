@@ -142,7 +142,7 @@ impl AppState {
                     // Not in focused workspace - throttle heavily
                     self.focused_workspace = Some(focused);
                     debug!("Workspace changed to {}, throttling to 1 FPS", focused);
-                    
+
                     let elapsed = self.last_frame_time.elapsed();
                     if elapsed < std::time::Duration::from_secs(1) {
                         return true; // 1 FPS when not focused
