@@ -30,6 +30,11 @@ packaging/appimage/*.AppDir/
 config.yaml
 test-videos/
 
+# Test artifacts
+test.log
+test_results/
+tests/
+
 # Nix
 result
 result-*
