@@ -206,10 +206,12 @@ mod tests {
         // Should fail with unsupported type
         let result = parse_we_project(&project_file);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Unsupported project type"));
+        let error_msg = result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("Unsupported") && error_msg.contains("project type"),
+            "Error message should mention unsupported project type, got: {}",
+            error_msg
+        );
     }
 
     #[test]
