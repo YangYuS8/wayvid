@@ -2,11 +2,11 @@
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Documentation](https://img.shields.io/badge/docs-mdbook-blue)](docs/)
+[![Documentation](https://img.shields.io/badge/docs-mdbook-blue)](https://www.yangyus8.top/wayvid/)
 
 A dynamic video wallpaper engine for Wayland compositors, with priority support for **Hyprland** and **niri**. Compatible with Wallpaper Engine's video wallpaper parameters.
 
-> 📖 **[Read Full Documentation](docs/)** | [中文文档](docs/src/SUMMARY_ZH_CN.md)
+> 📖 **[Read Full Documentation](https://www.yangyus8.top/wayvid/)** | **[中文文档](https://www.yangyus8.top/wayvid/zh-cn/)**
 
 ## Features
 
@@ -90,7 +90,7 @@ cd wayvid && cargo build --release
 sudo install -Dm755 target/release/{wayvid,wayvid-ctl} /usr/local/bin/
 ```
 
-📖 **Detailed instructions**: [Installation Guide](docs/src/user-guide/installation.md)
+📖 **Detailed instructions**: [Installation Guide](https://www.yangyus8.top/wayvid/user-guide/installation.html)
 
 ## Configuration
 
@@ -106,7 +106,7 @@ outputs:
     volume: 0
 ```
 
-📖 **Full guide**: [Configuration Reference](docs/src/user-guide/configuration.md) • [Multi-Monitor](docs/src/user-guide/multi-monitor.md)
+📖 **Full guide**: [Configuration Reference](https://www.yangyus8.top/wayvid/user-guide/configuration.html) • [Multi-Monitor](https://www.yangyus8.top/wayvid/user-guide/multi-monitor.html)
 
 ## Usage
 
@@ -123,7 +123,7 @@ wayvid-ctl set-volume 50
 echo "exec-once = wayvid" >> ~/.config/hypr/hyprland.conf
 ```
 
-📖 **Full commands**: [CLI Reference](docs/src/reference/cli.md) • [IPC Control](docs/src/features/ipc.md)
+📖 **Full commands**: [CLI Reference](https://www.yangyus8.top/wayvid/reference/cli.html) • [IPC Control](https://www.yangyus8.top/wayvid/features/ipc.html)
 
 ## Troubleshooting
 
@@ -140,7 +140,7 @@ Common fixes:
 - High CPU → Enable `hwdec: true`, check `vainfo`
 - No hwdec → Install `libva-intel-driver` (Intel) or `nvidia-vaapi-driver` (NVIDIA)
 
-📖 See full [troubleshooting guide](docs/src/user-guide/installation.md#troubleshooting)
+📖 See full [troubleshooting guide](https://www.yangyus8.top/wayvid/user-guide/installation.html#troubleshooting)
 
 
 
@@ -201,11 +201,11 @@ cargo test
 cargo clippy
 ```
 
-📖 See [Developer Guide](docs/src/dev/building.md) • [Architecture](docs/src/dev/architecture.md) • [Contributing](docs/src/dev/contributing.md)
+📖 See [Developer Guide](https://www.yangyus8.top/wayvid/dev/building.html) • [Architecture](https://www.yangyus8.top/wayvid/dev/architecture.html) • [Contributing](https://www.yangyus8.top/wayvid/dev/contributing.html)
 
 ## Documentation
 
-📚 **[Full Documentation](docs/)** - Built with [mdBook](https://rust-lang.github.io/mdBook/)
+📚 **[Full Documentation](https://www.yangyus8.top/wayvid/)** - Built with [mdBook](https://rust-lang.github.io/mdBook/)
 
 ### Quick Start
 ```bash
@@ -221,13 +221,13 @@ wayvid &
 wayvid-ctl play
 ```
 
-See [Quick Start Guide](docs/src/user-guide/quick-start.md) or [快速开始 (中文)](docs/src/zh_cn/user-guide/quick-start.md).
+See [Quick Start Guide](https://www.yangyus8.top/wayvid/user-guide/quick-start.html) or [快速开始 (中文)](https://www.yangyus8.top/wayvid/zh-cn/user-guide/quick-start.html).
 
 ### Documentation Structure
-- **User Guide**: [Installation](docs/src/user-guide/installation.md) • [Configuration](docs/src/user-guide/configuration.md) • [Multi-Monitor](docs/src/user-guide/multi-monitor.md)
-- **Features**: [HDR](docs/src/features/hdr.md) • [Workshop](docs/src/features/workshop.md) • [IPC](docs/src/features/ipc.md) • [Niri](docs/src/features/niri.md)
-- **Developer**: [Building](docs/src/dev/building.md) • [Workflow](docs/src/dev/workflow.md) • [Architecture](docs/src/dev/architecture.md) • [Contributing](docs/src/dev/contributing.md)
-- **Reference**: [Config](docs/src/reference/config.md) • [CLI](docs/src/reference/cli.md) • [IPC Protocol](docs/src/reference/ipc-protocol.md) • [WE Format](docs/src/reference/we-format.md)
+- **User Guide**: [Installation](https://www.yangyus8.top/wayvid/user-guide/installation.html) • [Configuration](https://www.yangyus8.top/wayvid/user-guide/configuration.html) • [Multi-Monitor](https://www.yangyus8.top/wayvid/user-guide/multi-monitor.html)
+- **Features**: [HDR](https://www.yangyus8.top/wayvid/features/hdr.html) • [Workshop](https://www.yangyus8.top/wayvid/features/workshop.html) • [IPC](https://www.yangyus8.top/wayvid/features/ipc.html) • [Niri](https://www.yangyus8.top/wayvid/features/niri.html)
+- **Developer**: [Building](https://www.yangyus8.top/wayvid/dev/building.html) • [Workflow](https://www.yangyus8.top/wayvid/dev/workflow.html) • [Architecture](https://www.yangyus8.top/wayvid/dev/architecture.html) • [Contributing](https://www.yangyus8.top/wayvid/dev/contributing.html)
+- **Reference**: [Config](https://www.yangyus8.top/wayvid/reference/config.html) • [CLI](https://www.yangyus8.top/wayvid/reference/cli.html) • [IPC Protocol](https://www.yangyus8.top/wayvid/reference/ipc-protocol.html) • [WE Format](https://www.yangyus8.top/wayvid/reference/we-format.html)
 
 Build docs locally:
 ```bash
@@ -278,7 +278,7 @@ A: Enable hardware decode: `hwdec: true`. Check: `wayvid check`
 A: Yes: `wayvid-ctl pause/resume/seek/switch`
 
 **Q: Per-monitor videos?**  
-A: Yes, via `per_output` config. See [docs](docs/src/user-guide/multi-monitor.md).
+A: Yes, via `per_output` config. See [docs](https://www.yangyus8.top/wayvid/user-guide/multi-monitor.html).
 
 **Q: Wallpaper Engine support?**  
 A: Video wallpapers only (no HTML/WebGL). Use `wayvid workshop import <id>`.
@@ -287,4 +287,4 @@ A: Video wallpapers only (no HTML/WebGL). Use `wayvid workshop import <id>`.
 
 **Made with ❤️ for the Wayland community**
 
-🐛 [Issues](https://github.com/yourusername/wayvid/issues) • 💬 [Discussions](https://github.com/yourusername/wayvid/discussions) • 📖 [Docs](docs/)
+🐛 [Issues](https://github.com/YangYuS8/wayvid/issues) • 💬 [Discussions](https://github.com/YangYuS8/wayvid/discussions) • 📖 [Docs](https://www.yangyus8.top/wayvid/)
