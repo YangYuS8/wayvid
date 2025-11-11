@@ -394,9 +394,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Update AUR PKGBUILD
+      - name: Prepare PKGBUILD
         run: |
-          echo "🚀 AUR package update would be triggered here"
-          echo "Version: ${{ needs.validate.outputs.version }}"
-          # TODO: 实现自动更新 AUR 包的逻辑
-          # 可以使用 GitHub Action 推送到 AUR 仓库
+          # Update version in PKGBUILD.stable
+          VERSION="${{ needs.validate.outputs.version }}"
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" packaging/aur/PKGBUILD.stable
+          
+          # Download release tarball and calculate SHA256
+          wget "https://github.com/YangYuS8/wayvid/archive/v$VERSION.tar.gz" -O "wayvid-$VERSION.tar.gz"
+          SHA256=$(sha256sum "wayvid-$VERSION.tar.gz" | awk '{print $1}')
+          
+          # Update SHA256 in PKGBUILD.stable
+          sed -i "s/^sha256sums=.*/sha256sums=('$SHA256')/" packaging/aur/PKGBUILD.stable
+          
+          # Generate .SRCINFO
+          mkdir -p aur-package
+          cp packaging/aur/PKGBUILD.stable aur-package/PKGBUILD
+          
+      - name: Generate .SRCINFO
+        uses: Morganamilo/makepkg-action@v1
+        with:
+          pkgdir: aur-package
+          makepkgArgs: --printsrcinfo
+        
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: wayvid
+          pkgbuild: aur-package/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to v${{ needs.validate.outputs.version }}"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
