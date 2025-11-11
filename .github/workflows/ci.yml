@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [ main, dev ]
+    # 排除 tag 推送：release workflow 已包含完整的质量检查
+    tags-ignore:
+      - '**'
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -20,9 +23,6 @@ on:
       - '.editorconfig'
       - 'flake.nix'
       - 'flake.lock'
-    # 排除 tag 推送，避免与 release workflow 重复
-    tags-ignore:
-      - '**'
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -161,11 +161,15 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  # PR 预览构建：仅在 PR 到 main 时构建（不发布）
+  # PR 预览构建：构建完整 release 二进制供测试
+  # 作用：允许审查者下载并测试 PR 的实际二进制文件
+  # 触发：仅在 PR 带有 'needs-binary-test' 标签时自动构建
   build-preview:
     name: Build Preview (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'pull_request'
+    if: |
+      github.event_name == 'pull_request' && 
+      contains(github.event.pull_request.labels.*.name, 'needs-binary-test')
     strategy:
       matrix:
         include:
