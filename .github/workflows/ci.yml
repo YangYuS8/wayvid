@@ -6,6 +6,20 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**.md'
+      - 'LICENSE*'
+      - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+      - 'QUICKSTART.md'
+      - 'README.md'
+      - 'configs/**'
+      - 'examples/**'
+      - 'packaging/**'
+      - 'scripts/**'
+      - 'systemd/**'
+      - '.gitignore'
+      - '.editorconfig'
+      - 'flake.nix'
+      - 'flake.lock'
     # 排除 tag 推送，避免与 release workflow 重复
     tags-ignore:
       - '**'
@@ -14,6 +28,20 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**.md'
+      - 'LICENSE*'
+      - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+      - 'QUICKSTART.md'
+      - 'README.md'
+      - 'configs/**'
+      - 'examples/**'
+      - 'packaging/**'
+      - 'scripts/**'
+      - 'systemd/**'
+      - '.gitignore'
+      - '.editorconfig'
+      - 'flake.nix'
+      - 'flake.lock'
 
 env:
   CARGO_TERM_COLOR: always
