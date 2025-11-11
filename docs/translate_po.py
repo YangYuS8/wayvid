@@ -7,11 +7,11 @@ Adds Chinese translations for common terms and phrases.
 import re
 from pathlib import Path
 
-# Translation dictionary
+# Translation dictionary - 扩展了更多术语
 TRANSLATIONS = {
-    # Navigation
-    "Summary# Summary": "目录",
-    "Introduction\\- Chapter 1": "简介",
+    # Navigation & Structure
+    "Summary": "目录",
+    "Introduction": "简介",
     "User Guide": "用户指南",
     "Quick Start": "快速开始",
     "Installation": "安装",
@@ -36,7 +36,7 @@ TRANSLATIONS = {
     
     # Common terms
     "wayvid": "wayvid",
-    "Wayland Dynamic Video Wallpaper Daemon": "Wayland 动态壁纸守护进程",
+    "Wayland Dynamic Video Wallpaper Daemon": "Wayland 动态视频壁纸守护进程",
     "Core Features": "核心特性",
     "Prerequisites": "前置要求",
     "Supported Compositors": "支持的合成器",
@@ -54,11 +54,57 @@ TRANSLATIONS = {
     "Tip": "提示",
     "See also": "另见",
     "Table of Contents": "目录",
+    "Chapter 1": "第一章",
+    
+    # Technical terms
+    "Video wallpapers": "视频壁纸",
+    "Static images": "静态图片",
+    "Basic animations": "基础动画",
+    "Interactive wallpapers": "交互式壁纸",
+    "Audio": "音频",
+    "Web-based wallpapers": "基于网页的壁纸",
+    "Hardware decode": "硬件解码",
+    "Multi-output": "多输出",
+    "Layer shell": "层级外壳",
+    "Hot-plugging": "热插拔",
+    "Power management": "电源管理",
+    "Playback settings": "播放设置",
+    "Display configuration": "显示配置",
+    "HDR settings": "HDR 设置",
+    "Performance": "性能",
+    "Logging": "日志记录",
     
     # Action words
     "See": "详见",
     "For more details": "详细信息请参阅",
     "Learn more": "了解更多",
+    "Get started": "开始使用",
+    "Download": "下载",
+    "Install": "安装",
+    "Build": "构建",
+    "Run": "运行",
+    "Configure": "配置",
+    "Enable": "启用",
+    "Disable": "禁用",
+    "Check": "检查",
+    
+    # Status indicators
+    "limited": "受限",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "muted": "静音",
+    "paused": "已暂停",
+    "Optional": "可选",
+    "Required": "必需",
+    
+    # File/path related
+    "Video source": "视频源",
+    "file": "文件",
+    "directory": "目录",
+    "workshop": "创意工坊",
+    "path": "路径",
+    "URL format": "URL 格式",
+    "Expected output": "预期输出",
 }
 
 def translate_po_file(po_path: Path):

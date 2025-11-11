@@ -1,14 +1,14 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: wayvid Documentation\n"
-"POT-Creation-Date: 2025-11-11T04:19:41+08:00\n"
+"POT-Creation-Date: 2025-11-11T10:28:29+08:00\n"
 "PO-Revision-Date: 2025-11-11T04:19:41+08:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
+"Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: zh_CN\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #: src/SUMMARY.md:1
@@ -32,7 +32,7 @@ msgid "Installation"
 msgstr "安装"
 
 #: src/SUMMARY.md:12 src/user-guide/configuration.md:1
-#: src/features/workshop.md:77 src/features/niri.md:41 src/features/ipc.md:22
+#: src/features/workshop.md:77 src/features/niri.md:36 src/features/ipc.md:22
 msgid "Configuration"
 msgstr "配置"
 
@@ -202,7 +202,7 @@ msgstr ""
 
 #: src/chapter_1.md:1
 msgid "Chapter 1"
-msgstr ""
+msgstr "第一章"
 
 #: src/user-guide/quick-start.md:3
 msgid "Get wayvid running in 5 minutes."
@@ -210,13 +210,13 @@ msgstr ""
 
 #: src/user-guide/quick-start.md:5 src/dev/building.md:73
 msgid "Install"
-msgstr ""
+msgstr "安装"
 
 #: src/user-guide/quick-start.md:7
 msgid "Arch Linux (AUR)"
 msgstr ""
 
-#: src/user-guide/quick-start.md:12 src/user-guide/installation.md:15
+#: src/user-guide/quick-start.md:12 src/user-guide/installation.md:20
 msgid "From Source"
 msgstr ""
 
@@ -266,7 +266,7 @@ msgstr ""
 #: src/user-guide/video-sources.md:11 src/user-guide/multi-monitor.md:23
 #: src/user-guide/multi-monitor.md:29 src/user-guide/multi-monitor.md:39
 msgid "file"
-msgstr ""
+msgstr "文件"
 
 #: src/user-guide/quick-start.md:33 src/user-guide/configuration.md:37
 #: src/user-guide/configuration.md:44 src/user-guide/configuration.md:86
@@ -274,7 +274,7 @@ msgstr ""
 #: src/user-guide/video-sources.md:24 src/user-guide/multi-monitor.md:24
 #: src/user-guide/multi-monitor.md:30 src/user-guide/multi-monitor.md:40
 msgid "path"
-msgstr ""
+msgstr "路径"
 
 #: src/user-guide/quick-start.md:33 src/user-guide/configuration.md:16
 #: src/user-guide/multi-monitor.md:40
@@ -348,44 +348,68 @@ msgstr ""
 msgid "Development (AUR)"
 msgstr ""
 
-#: src/user-guide/installation.md:17 src/features/workshop.md:5
+#: src/user-guide/installation.md:15
+msgid "**Note:** Both packages include all three binaries:"
+msgstr ""
+
+#: src/user-guide/installation.md:16 src/dev/building.md:39
+msgid "`wayvid` - Main daemon"
+msgstr ""
+
+#: src/user-guide/installation.md:17
+msgid "`wayvid-ctl` - Command-line control tool"
+msgstr ""
+
+#: src/user-guide/installation.md:18
+msgid "`wayvid-gui` - Desktop GUI control panel (requires X11/Wayland session)"
+msgstr ""
+
+#: src/user-guide/installation.md:22 src/features/workshop.md:5
 #: src/dev/building.md:3
 msgid "Prerequisites"
 msgstr "前置要求"
 
-#: src/user-guide/installation.md:19
+#: src/user-guide/installation.md:24
 msgid "# Arch/Manjaro\n"
 msgstr ""
 
-#: src/user-guide/installation.md:21
+#: src/user-guide/installation.md:26
 msgid "# Ubuntu/Debian  \n"
 msgstr ""
 
-#: src/user-guide/installation.md:24
+#: src/user-guide/installation.md:29
 msgid "# Fedora\n"
 msgstr ""
 
-#: src/user-guide/installation.md:29
+#: src/user-guide/installation.md:34
 msgid "Build & Install"
 msgstr ""
 
 #: src/user-guide/installation.md:38
-msgid "Optional: GUI"
+msgid "# Build with all features (including GUI)\n"
 msgstr ""
 
-#: src/user-guide/installation.md:44
+#: src/user-guide/installation.md:41
+msgid "# Install all binaries\n"
+msgstr ""
+
+#: src/user-guide/installation.md:48
 msgid "Verify Installation"
 msgstr ""
 
-#: src/user-guide/installation.md:50
+#: src/user-guide/installation.md:52
+msgid "# GUI control panel\n"
+msgstr ""
+
+#: src/user-guide/installation.md:55
 msgid "Uninstall"
 msgstr ""
 
-#: src/user-guide/installation.md:52
+#: src/user-guide/installation.md:57
 msgid "AUR"
 msgstr ""
 
-#: src/user-guide/installation.md:57
+#: src/user-guide/installation.md:62
 msgid "Manual"
 msgstr ""
 
@@ -458,7 +482,7 @@ msgstr ""
 #: src/user-guide/multi-monitor.md:52 src/user-guide/multi-monitor.md:55
 #: src/features/hdr.md:15
 msgid "enabled"
-msgstr ""
+msgstr "已启用"
 
 #: src/user-guide/configuration.md:28
 msgid "mode"
@@ -486,7 +510,7 @@ msgstr ""
 
 #: src/user-guide/configuration.md:43 src/user-guide/video-sources.md:23
 msgid "directory"
-msgstr ""
+msgstr "目录"
 
 #: src/user-guide/configuration.md:44 src/user-guide/video-sources.md:24
 msgid "~/Videos/wallpapers/"
@@ -507,7 +531,7 @@ msgstr ""
 #: src/user-guide/configuration.md:52 src/user-guide/video-sources.md:39
 #: src/features/workshop.md:31 src/features/workshop.md:81
 msgid "workshop"
-msgstr ""
+msgstr "创意工坊"
 
 #: src/user-guide/configuration.md:53 src/user-guide/video-sources.md:40
 #: src/features/workshop.md:32 src/features/workshop.md:82
@@ -831,7 +855,7 @@ msgid "# Stop output\n"
 msgstr ""
 
 #: src/user-guide/multi-monitor.md:80 src/features/hdr.md:67
-#: src/features/workshop.md:89 src/features/niri.md:73 src/features/ipc.md:122
+#: src/features/workshop.md:89 src/features/niri.md:65 src/features/ipc.md:122
 #: src/dev/building.md:111 src/dev/workflow.md:180
 msgid "Troubleshooting"
 msgstr ""
@@ -852,7 +876,7 @@ msgstr ""
 msgid "Restart compositor if needed"
 msgstr ""
 
-#: src/user-guide/multi-monitor.md:87
+#: src/user-guide/multi-monitor.md:87 src/features/niri.md:78
 msgid "**Performance issues:**"
 msgstr ""
 
@@ -994,10 +1018,10 @@ msgstr ""
 msgid "HLG"
 msgstr ""
 
-#: src/features/hdr.md:60 src/features/workshop.md:101 src/features/niri.md:66
+#: src/features/hdr.md:60 src/features/workshop.md:101 src/features/niri.md:58
 #: src/dev/contributing.md:105
 msgid "Performance"
-msgstr ""
+msgstr "性能"
 
 #: src/features/hdr.md:62
 msgid "HDR adds minimal overhead:"
@@ -1043,7 +1067,7 @@ msgstr ""
 msgid "Enable HDR in compositor config"
 msgstr ""
 
-#: src/features/hdr.md:77 src/features/niri.md:77
+#: src/features/hdr.md:77 src/features/niri.md:69
 msgid "Check `wayvid-ctl status`"
 msgstr ""
 
@@ -1264,183 +1288,169 @@ msgid "Automatic Optimizations"
 msgstr ""
 
 #: src/features/niri.md:24
-msgid "wayvid detects Niri and enables:"
+msgid ""
+"wayvid detects Niri via the `NIRI_SOCKET` environment variable and enables "
+"workspace-aware optimizations:"
 msgstr ""
 
 #: src/features/niri.md:26
-msgid "Workspace Switching"
+msgid "Workspace Awareness"
 msgstr ""
 
 #: src/features/niri.md:27
-msgid "Pauses wallpaper on inactive workspaces"
+msgid "**Automatic FPS throttling**: Reduces to 1 FPS on inactive workspaces"
 msgstr ""
 
 #: src/features/niri.md:28
-msgid "Resumes on workspace activation"
+msgid "**Instant resume**: Returns to normal FPS when workspace becomes active"
 msgstr ""
 
 #: src/features/niri.md:29
-msgid "Reduces CPU/GPU usage"
+msgid "**Zero configuration**: Works out of the box"
 msgstr ""
 
 #: src/features/niri.md:31
-msgid "Scroll Optimization"
+msgid "Benefits"
 msgstr ""
 
 #: src/features/niri.md:32
-msgid "Lowers quality during scrolling"
+msgid "**30-50% CPU savings** when multiple workspaces are in use"
 msgstr ""
 
 #: src/features/niri.md:33
-msgid "Restores quality when idle"
+msgid "**Reduced power consumption** on battery"
 msgstr ""
 
 #: src/features/niri.md:34
-msgid "Maintains smooth 60+ FPS"
-msgstr ""
-
-#: src/features/niri.md:36 src/features/ipc.md:29
-msgid "Output Management"
-msgstr ""
-
-#: src/features/niri.md:37
-msgid "Tracks output transforms"
+msgid "**Smoother desktop experience** by freeing resources for active windows"
 msgstr ""
 
 #: src/features/niri.md:38
-msgid "Handles dynamic workspaces"
+msgid ""
+"No special configuration required. wayvid automatically detects Niri and "
+"enables optimizations."
 msgstr ""
 
-#: src/features/niri.md:39
-msgid "Syncs with Niri window positions"
+#: src/features/niri.md:40
+msgid "Standard power management options still apply:"
+msgstr ""
+
+#: src/features/niri.md:42
+msgid "power"
 msgstr ""
 
 #: src/features/niri.md:43
-msgid "No special config required. wayvid auto-detects Niri."
+msgid "max_fps"
+msgstr ""
+
+#: src/features/niri.md:43
+msgid ""
+"# FPS limit for active workspace (0 = unlimited)\n"
+"  pause_on_battery"
 msgstr ""
 
 #: src/features/niri.md:45
-msgid "Optional tuning:"
+msgid "pause_when_hidden"
 msgstr ""
 
-#: src/features/niri.md:47
-msgid ""
-"# Disable workspace pausing\n"
-"performance"
-msgstr ""
-
-#: src/features/niri.md:49
-msgid "pause_inactive_workspaces"
-msgstr ""
-
-#: src/features/niri.md:50
-msgid ""
-"# Adjust scroll quality\n"
-"performance"
-msgstr ""
-
-#: src/features/niri.md:53
-msgid "scroll_quality"
-msgstr ""
-
-#: src/features/niri.md:53
-msgid "medium  # low, medium, high\n"
-msgstr ""
-
-#: src/features/niri.md:56
+#: src/features/niri.md:48
 msgid "CLI Integration"
 msgstr ""
 
-#: src/features/niri.md:59
+#: src/features/niri.md:51
 msgid "# Get current workspace\n"
 msgstr ""
 
-#: src/features/niri.md:61
+#: src/features/niri.md:53
 msgid "# Force workspace resync\n"
 msgstr ""
 
-#: src/features/niri.md:68
-msgid "Niri-specific optimizations save:"
+#: src/features/niri.md:60
+msgid "With Niri workspace optimizations enabled:"
 msgstr ""
 
-#: src/features/niri.md:69
-msgid "**30-50% CPU** (inactive workspaces paused)"
+#: src/features/niri.md:61
+msgid "**30-50% CPU reduction** when using multiple workspaces"
 msgstr ""
 
-#: src/features/niri.md:70
-msgid "**20-40% GPU** (scroll quality reduction)"
+#: src/features/niri.md:62
+msgid "**Automatic power saving** - inactive workspaces throttled to 1 FPS"
 msgstr ""
 
-#: src/features/niri.md:71
-msgid "**Minimal memory** (smart buffering)"
+#: src/features/niri.md:63
+msgid "**Seamless experience** - instant resume when switching back"
 msgstr ""
 
-#: src/features/niri.md:75
+#: src/features/niri.md:67
 msgid "**Wallpaper not showing:**"
 msgstr ""
 
-#: src/features/niri.md:76
+#: src/features/niri.md:68
 msgid "Ensure Niri ≥ v0.1.0"
 msgstr ""
 
-#: src/features/niri.md:78
-msgid "Verify layer-shell support"
+#: src/features/niri.md:70
+msgid "Verify layer-shell support: `niri msg outputs`"
+msgstr ""
+
+#: src/features/niri.md:72
+msgid "**Workspace detection not working:**"
+msgstr ""
+
+#: src/features/niri.md:73
+msgid "Check environment: `echo $NIRI_SOCKET`"
+msgstr ""
+
+#: src/features/niri.md:74
+msgid "Should point to: `/run/user/1000/niri/niri-socket.XXX`"
+msgstr ""
+
+#: src/features/niri.md:75
+msgid "Update Niri to latest version"
+msgstr ""
+
+#: src/features/niri.md:76
+msgid "Check logs: `wayvid run --log-level debug`"
+msgstr ""
+
+#: src/features/niri.md:79
+msgid "Lower video resolution (1080p recommended)"
 msgstr ""
 
 #: src/features/niri.md:80
-msgid "**Stuttering during scroll:**"
+msgid "Enable hardware decode: `hwdec: true`"
 msgstr ""
 
 #: src/features/niri.md:81
-msgid "Lower video resolution"
+msgid "Set FPS limit: `max_fps: 60`"
 msgstr ""
 
 #: src/features/niri.md:82
-msgid "Reduce `scroll_quality`"
+msgid "Use efficient codecs (H.264, H.265)"
 msgstr ""
 
-#: src/features/niri.md:83
-msgid "Check GPU drivers"
-msgstr ""
-
-#: src/features/niri.md:85
-msgid "**Workspace detection issues:**"
-msgstr ""
-
-#: src/features/niri.md:86
-msgid "Update Niri to latest"
-msgstr ""
-
-#: src/features/niri.md:87
-msgid "Check Niri IPC socket: `ls $XDG_RUNTIME_DIR/niri/`"
-msgstr ""
-
-#: src/features/niri.md:88
-msgid "Report bug with logs"
-msgstr ""
-
-#: src/features/niri.md:90
+#: src/features/niri.md:84
 msgid "Future Features"
 msgstr ""
 
-#: src/features/niri.md:92
-msgid "Planned for M7:"
+#: src/features/niri.md:86
+msgid "Planned for M7+:"
 msgstr ""
 
-#: src/features/niri.md:93
-msgid "Noctalia Shell integration"
-msgstr ""
-
-#: src/features/niri.md:94
+#: src/features/niri.md:87
 msgid "Per-workspace wallpapers"
 msgstr ""
 
-#: src/features/niri.md:95
-msgid "Gesture support"
+#: src/features/niri.md:88
+msgid "Scroll performance optimization"
 msgstr ""
 
-#: src/features/niri.md:96
-msgid "Advanced window interactions"
+#: src/features/niri.md:89
+msgid "Advanced quality tuning options"
+msgstr ""
+
+#: src/features/niri.md:90
+msgid "Noctalia Shell integration"
 msgstr ""
 
 #: src/features/ipc.md:3
@@ -1461,6 +1471,10 @@ msgstr ""
 
 #: src/features/ipc.md:14
 msgid "Playback Control"
+msgstr ""
+
+#: src/features/ipc.md:29
+msgid "Output Management"
 msgstr ""
 
 #: src/features/ipc.md:38
@@ -1776,7 +1790,7 @@ msgstr ""
 
 #: src/dev/building.md:31
 msgid "Build"
-msgstr ""
+msgstr "构建"
 
 #: src/dev/building.md:33
 msgid "Release Build"
@@ -1784,10 +1798,6 @@ msgstr ""
 
 #: src/dev/building.md:38
 msgid "Binaries in `target/release/`:"
-msgstr ""
-
-#: src/dev/building.md:39
-msgid "`wayvid` - Main daemon"
 msgstr ""
 
 #: src/dev/building.md:40
@@ -2005,7 +2015,7 @@ msgstr ""
 
 #: src/dev/workflow.md:77
 msgid "Logging"
-msgstr ""
+msgstr "日志记录"
 
 #: src/dev/workflow.md:79
 msgid "Enable Debug Logs"
@@ -2282,7 +2292,7 @@ msgstr ""
 
 #: src/dev/architecture.md:44
 msgid "Power management"
-msgstr ""
+msgstr "电源管理"
 
 #: src/dev/architecture.md:46
 msgid "Wayland Backend (`src/backend/wayland/`)"
@@ -2318,7 +2328,7 @@ msgstr ""
 
 #: src/dev/architecture.md:55
 msgid "Hardware decode"
-msgstr ""
+msgstr "硬件解码"
 
 #: src/dev/architecture.md:56
 msgid "HDR pipeline"
@@ -2695,7 +2705,7 @@ msgstr ""
 
 #: src/dev/contributing.md:66
 msgid "Required"
-msgstr ""
+msgstr "必需"
 
 #: src/dev/contributing.md:67
 msgid "Unit tests for new logic"
