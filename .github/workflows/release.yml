@@ -333,18 +333,12 @@ jobs:
           git-cliff -o CHANGELOG.md
           cat CHANGELOG.md
       
-      - name: Commit updated CHANGELOG
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          if git diff --quiet CHANGELOG.md; then
-            echo "CHANGELOG.md unchanged"
-          else
-            git add CHANGELOG.md
-            git commit -m "docs: update CHANGELOG.md for v${{ needs.validate.outputs.version }}"
-            git push origin HEAD:main
-          fi
+      - name: Upload CHANGELOG
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+          retention-days: 90
       
       - name: Upload release notes
         uses: actions/upload-artifact@v4
@@ -372,7 +366,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.AppImage" -o -name "SHA256SUMS" \) -exec cp {} release-files/ \;
+          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.AppImage" -o -name "SHA256SUMS" -o -name "CHANGELOG.md" \) -exec cp {} release-files/ \;
           ls -lh release-files/
       
       - name: Create Release
