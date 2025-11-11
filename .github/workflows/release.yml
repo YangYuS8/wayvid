@@ -403,15 +403,21 @@ jobs:
           # Update SHA256 in PKGBUILD.stable
           sed -i "s/^sha256sums=.*/sha256sums=('$SHA256')/" packaging/aur/PKGBUILD.stable
           
-          # Generate .SRCINFO
+          # Prepare for AUR
           mkdir -p aur-package
           cp packaging/aur/PKGBUILD.stable aur-package/PKGBUILD
           
       - name: Generate .SRCINFO
-        uses: Morganamilo/makepkg-action@v1
-        with:
-          pkgdir: aur-package
-          makepkgArgs: --printsrcinfo
+        run: |
+          cd aur-package
+          docker run --rm -v "$(pwd):/pkg" archlinux:latest bash -c "
+            pacman -Syu --noconfirm
+            pacman -S --noconfirm binutils fakeroot
+            cd /pkg
+            chmod -R 777 /pkg
+            su -s /bin/bash nobody -c 'makepkg --printsrcinfo' > .SRCINFO
+          "
+          cat .SRCINFO
         
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
