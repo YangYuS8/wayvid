@@ -229,7 +229,7 @@ jobs:
             packaging/appimage/build/SHA256SUMS
           retention-days: 90
 
-  # 生成 Release Notes
+  # 生成 Release Notes 和更新 CHANGELOG
   release-notes:
     name: Generate Release Notes
     needs: validate
@@ -241,69 +241,53 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: Generate release notes
-        id: notes
+      - name: Install git-cliff
         run: |
-          # 获取上一个 tag
+          wget -q https://github.com/orhun/git-cliff/releases/download/v2.6.1/git-cliff-2.6.1-x86_64-unknown-linux-gnu.tar.gz
+          tar xzf git-cliff-2.6.1-x86_64-unknown-linux-gnu.tar.gz
+          sudo mv git-cliff-2.6.1/git-cliff /usr/local/bin/
+          git-cliff --version
+      
+      - name: Generate CHANGELOG for this release
+        id: changelog
+        run: |
+          # 生成从上一个 tag 到当前 tag 的 changelog
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
           if [ -z "$PREVIOUS_TAG" ]; then
-            echo "First release"
-            CHANGELOG="Initial release of wayvid v${{ needs.validate.outputs.version }}"
+            echo "First release - generating full changelog"
+            git-cliff --latest --strip header -o current_release.md
           else
-            echo "Generating changelog from $PREVIOUS_TAG to HEAD"
-            
-            # 生成变更日志
-            CHANGELOG=$(git log $PREVIOUS_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
-            
-            # 分类 commits
-            FEATURES=$(echo "$CHANGELOG" | grep -i "^- feat" || echo "")
-            FIXES=$(echo "$CHANGELOG" | grep -i "^- fix" || echo "")
-            DOCS=$(echo "$CHANGELOG" | grep -i "^- docs" || echo "")
-            OTHERS=$(echo "$CHANGELOG" | grep -v -i "^- \(feat\|fix\|docs\)" || echo "")
+            echo "Generating changelog from $PREVIOUS_TAG to current"
+            git-cliff --current --strip header -o current_release.md
           fi
           
-          # 构建 Release Notes
-          cat > release_notes.md << EOF
+          cat current_release.md
+      
+      - name: Build complete release notes
+        id: notes
+        run: |
+          # 构建包含安装说明的完整 release notes
+          cat > release_notes.md << 'EOF'
           ## wayvid ${{ needs.validate.outputs.version }}
           
           **Release Type:** ${{ needs.validate.outputs.release_type }}
           **Build Date:** $(date -u +%Y-%m-%d)
           
-          ### What's New
-          
           EOF
           
-          if [ -n "$FEATURES" ]; then
-            echo "#### ✨ Features" >> release_notes.md
-            echo "$FEATURES" | sed 's/^- feat: /- /' >> release_notes.md
-            echo "" >> release_notes.md
-          fi
+          # 添加 changelog 内容
+          cat current_release.md >> release_notes.md
           
-          if [ -n "$FIXES" ]; then
-            echo "#### 🐛 Bug Fixes" >> release_notes.md
-            echo "$FIXES" | sed 's/^- fix: /- /' >> release_notes.md
-            echo "" >> release_notes.md
-          fi
+          # 添加安装说明
+          cat >> release_notes.md << 'EOF'
           
-          if [ -n "$DOCS" ]; then
-            echo "#### 📚 Documentation" >> release_notes.md
-            echo "$DOCS" | sed 's/^- docs: /- /' >> release_notes.md
-            echo "" >> release_notes.md
-          fi
+          ---
           
-          if [ -n "$OTHERS" ]; then
-            echo "#### 🔧 Other Changes" >> release_notes.md
-            echo "$OTHERS" >> release_notes.md
-            echo "" >> release_notes.md
-          fi
-          
-          # 添加下载链接说明
-          cat >> release_notes.md << EOF
           ### 📦 Installation
           
           #### AppImage (Recommended)
-          \`\`\`bash
+          ```bash
           # Download
           wget https://github.com/YangYuS8/wayvid/releases/download/v${{ needs.validate.outputs.version }}/wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage
           chmod +x wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage
@@ -311,38 +295,56 @@ jobs:
           # Run
           ./wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage
           ./wayvid-${{ needs.validate.outputs.version }}-x86_64.AppImage gui
-          \`\`\`
+          ```
           
           #### Binary Tarball
-          \`\`\`bash
+          ```bash
           # Download
           wget https://github.com/YangYuS8/wayvid/releases/download/v${{ needs.validate.outputs.version }}/wayvid-${{ needs.validate.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
           tar xzf wayvid-${{ needs.validate.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
           
           # Install
           sudo mv wayvid wayvid-ctl wayvid-gui /usr/local/bin/
-          \`\`\`
+          ```
           
           #### Arch Linux (AUR)
-          \`\`\`bash
-          yay -S wayvid-git
-          \`\`\`
+          ```bash
+          yay -S wayvid
+          ```
           
           ### 📋 Checksums
           
-          See \`SHA256SUMS\` file for checksums of all release artifacts.
+          See `SHA256SUMS` file for checksums of all release artifacts.
           
           ### 🔗 Links
           
           - [Documentation](https://github.com/YangYuS8/wayvid/blob/main/README.md)
-          - [Changelog](https://github.com/YangYuS8/wayvid/blob/main/CHANGELOG.md)
-          - [Contributing](https://github.com/YangYuS8/wayvid/blob/main/CONTRIBUTING.md)
+          - [Full Changelog](https://github.com/YangYuS8/wayvid/blob/main/CHANGELOG.md)
           EOF
           
           cat release_notes.md
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           cat release_notes.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Update CHANGELOG.md
+        run: |
+          # 生成完整的 CHANGELOG.md
+          git-cliff -o CHANGELOG.md
+          cat CHANGELOG.md
+      
+      - name: Commit updated CHANGELOG
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet CHANGELOG.md; then
+            echo "CHANGELOG.md unchanged"
+          else
+            git add CHANGELOG.md
+            git commit -m "docs: update CHANGELOG.md for v${{ needs.validate.outputs.version }}"
+            git push origin HEAD:main
+          fi
       
       - name: Upload release notes
         uses: actions/upload-artifact@v4
