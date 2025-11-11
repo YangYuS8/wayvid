@@ -411,11 +411,12 @@ jobs:
         run: |
           cd aur-package
           docker run --rm -v "$(pwd):/pkg" archlinux:latest bash -c "
+            useradd -m builder
             pacman -Syu --noconfirm
             pacman -S --noconfirm binutils fakeroot
             cd /pkg
-            chmod -R 777 /pkg
-            su -s /bin/bash nobody -c 'makepkg --printsrcinfo' > .SRCINFO
+            chown -R builder:builder /pkg
+            su - builder -c 'cd /pkg && makepkg --printsrcinfo' > .SRCINFO
           "
           cat .SRCINFO
         
