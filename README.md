@@ -57,8 +57,8 @@ wayvid is now **production-ready** with comprehensive performance optimizations 
 - ✅ **Source Build** - All major distributions
 
 ### What's Next (M6) 🚀
-- 🚧 **Steam Workshop Integration** - One-click import from WE Workshop ([#23](https://github.com/YangYuS8/wayvid/issues/23))
-- � **Niri Optimizations** - Workspace-aware, scroll-optimized ([#24](https://github.com/YangYuS8/wayvid/issues/24))
+- ✅ **Steam Workshop Integration** - One-click import from WE Workshop ([#23](https://github.com/YangYuS8/wayvid/issues/23))
+- 🔜 **Niri Optimizations** - Workspace-aware, scroll-optimized ([#24](https://github.com/YangYuS8/wayvid/issues/24))
 - 🔜 **Playlist Support** - Directory sources with rotation ([#3](https://github.com/YangYuS8/wayvid/issues/3))
 - 🔜 **Arch Linux Enhancements** - Improved AUR packaging ([#25](https://github.com/YangYuS8/wayvid/issues/25))
 - 🔜 **Noctalia Shell Preparation** - D-Bus interface, theme integration
@@ -119,11 +119,14 @@ wayvid-ctl play
 wayvid-ctl pause
 wayvid-ctl set-volume 50
 
+# Workshop (one-command install)
+wayvid workshop install <id> -o ~/.config/wayvid/config.yaml
+
 # Autostart (Hyprland)
 echo "exec-once = wayvid" >> ~/.config/hypr/hyprland.conf
 ```
 
-📖 **Full commands**: [CLI Reference](https://www.yangyus8.top/wayvid/reference/cli.html) • [IPC Control](https://www.yangyus8.top/wayvid/features/ipc.html)
+📖 **Full commands**: [CLI Reference](https://www.yangyus8.top/wayvid/reference/cli.html) • [IPC Control](https://www.yangyus8.top/wayvid/features/ipc.html) • [Workshop](https://www.yangyus8.top/wayvid/features/workshop.html)
 
 ## Troubleshooting
 
