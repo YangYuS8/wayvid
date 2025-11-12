@@ -58,20 +58,50 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum WorkshopCommands {
-    /// List Workshop items
+    /// List local Workshop items (from Steam)
     List,
     /// Show item details
     Info {
         /// Workshop item ID
         id: u64,
     },
-    /// Import Workshop item to config
+    /// Search Workshop items online
+    Search {
+        /// Search query
+        query: String,
+        /// Page number (default: 1)
+        #[arg(short, long, default_value = "1")]
+        page: u32,
+    },
+    /// Download Workshop item from Steam
+    Download {
+        /// Workshop item ID
+        id: u64,
+    },
+    /// Install Workshop item (download + import)
+    Install {
+        /// Workshop item ID
+        id: u64,
+        /// Output config file
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+    /// Import Workshop item to config (local or cached)
     Import {
         /// Workshop item ID
         id: u64,
         /// Output config file
         #[arg(short, long)]
         output: Option<String>,
+    },
+    /// List cached downloads
+    Cache {
+        /// Clear cache
+        #[arg(short, long)]
+        clear: bool,
+        /// Clear specific item
+        #[arg(long)]
+        clear_item: Option<u64>,
     },
 }
 
@@ -158,11 +188,11 @@ fn main() -> Result<()> {
             info!("🎉 Import completed successfully");
         }
         Commands::Workshop { command } => {
-            use we::{SteamLibrary, WorkshopScanner, WALLPAPER_ENGINE_APP_ID};
+            use we::{SteamLibrary, WorkshopDownloader, WorkshopScanner, WALLPAPER_ENGINE_APP_ID};
 
             match command {
                 WorkshopCommands::List => {
-                    info!("🔍 Scanning Steam Workshop...");
+                    info!("🔍 Scanning local Steam Workshop items...");
 
                     let steam = SteamLibrary::discover()?;
                     let paths = steam.find_workshop_items(WALLPAPER_ENGINE_APP_ID)?;
@@ -198,6 +228,72 @@ fn main() -> Result<()> {
                         }
                     }
                 }
+                WorkshopCommands::Search { query, page } => {
+                    println!("\n🔍 Workshop Search\n");
+                    println!("ℹ️  Steam's public API doesn't support direct search.");
+                    println!("   Please use one of these methods:\n");
+                    
+                    println!("📌 Method 1: Browse Workshop in Steam");
+                    println!("   1. Open Steam Workshop: https://steamcommunity.com/app/431960/workshop/");
+                    println!("   2. Search for: {}", query);
+                    println!("   3. Find item ID in URL (e.g., id=123456789)");
+                    println!("   4. Download: wayvid workshop download <id>\n");
+                    
+                    println!("📌 Method 2: Subscribe in Steam Client");
+                    println!("   1. Subscribe to items in Steam");
+                    println!("   2. Run: wayvid workshop list");
+                    println!("   3. Import: wayvid workshop import <id>\n");
+                    
+                    println!("📌 Method 3: Use Item ID Directly");
+                    println!("   wayvid workshop install <id> -o ~/.config/wayvid/config.yaml\n");
+                    
+                    println!("💡 Popular wallpapers can be found at:");
+                    println!("   https://steamcommunity.com/app/431960/workshop/?browsesort=trend");
+                    
+                    // Prevent unused variable warnings
+                    let _ = (query, page);
+                }
+                WorkshopCommands::Download { id } => {
+                    info!("⬇️  Downloading Workshop item {}...", id);
+
+                    let downloader = WorkshopDownloader::new()?;
+                    let item_dir = downloader.download(id)?;
+
+                    println!("\n✅ Downloaded successfully!");
+                    println!("📁 Location: {}", item_dir.display());
+                    println!("\n💡 To import: wayvid workshop import {}", id);
+                }
+                WorkshopCommands::Install { id, output } => {
+                    info!("🚀 Installing Workshop item {}...", id);
+
+                    let downloader = WorkshopDownloader::new()?;
+                    
+                    // Download if not cached
+                    let item_dir = if downloader.list_cached()?.contains(&id) {
+                        info!("📦 Using cached item");
+                        downloader.cache_dir().join(id.to_string())
+                    } else {
+                        info!("⬇️  Downloading...");
+                        downloader.download(id)?
+                    };
+
+                    // Parse and import
+                    info!("🔄 Importing configuration...");
+                    let project_file = we::detect_we_project(&item_dir)?;
+                    let (project, video_path) = we::parse_we_project(&project_file)?;
+                    let config_yaml = we::converter::generate_config_with_metadata(&project, video_path)?;
+
+                    if let Some(output_path) = output {
+                        let output_path = shellexpand::tilde(&output_path).to_string();
+                        std::fs::write(&output_path, &config_yaml)?;
+                        println!("\n✅ Installed successfully!");
+                        println!("📄 Config: {}", output_path);
+                    } else {
+                        println!("\n✅ Configuration generated:\n");
+                        println!("{}", config_yaml);
+                        println!("\n💡 To save: wayvid workshop install {} -o ~/.config/wayvid/config.yaml", id);
+                    }
+                }
                 WorkshopCommands::Import { id, output } => {
                     info!("🔍 Importing Workshop item {}...", id);
 
@@ -230,6 +326,35 @@ fn main() -> Result<()> {
                     }
 
                     info!("🎉 Import completed");
+                }
+                WorkshopCommands::Cache { clear, clear_item } => {
+                    let downloader = WorkshopDownloader::new()?;
+
+                    if let Some(item_id) = clear_item {
+                        info!("🗑️  Clearing cache for item {}...", item_id);
+                        downloader.clear_cache(item_id)?;
+                        println!("✅ Cache cleared for item {}", item_id);
+                    } else if clear {
+                        info!("🗑️  Clearing all cached downloads...");
+                        downloader.clear_all_cache()?;
+                        println!("✅ All cache cleared");
+                    } else {
+                        // List cached items
+                        let cached = downloader.list_cached()?;
+                        
+                        if cached.is_empty() {
+                            println!("\n📦 No cached downloads");
+                        } else {
+                            println!("\n📦 Cached downloads ({}):\n", cached.len());
+                            for item_id in cached {
+                                println!("  [{}]", item_id);
+                            }
+                            println!("\n💡 To clear all: wayvid workshop cache --clear");
+                            println!("💡 To clear one: wayvid workshop cache --clear-item <id>");
+                        }
+                        
+                        println!("\n📁 Cache location: {}", downloader.cache_dir().display());
+                    }
                 }
             }
         }
