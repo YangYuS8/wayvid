@@ -1,6 +1,55 @@
-# wayvid Documentation
+# Documentation
 
-Official documentation for wayvid, built with [mdBook](https://rust-lang.github.io/mdBook/) and [mdbook-i18n-helpers](https://github.com/google/mdbook-i18n-helpers).
+This directory contains wayvid documentation built with [mdBook](https://rust-lang.github.io/mdBook/).
+
+## Translation
+
+The documentation is internationalized using [mdbook-i18n-helpers](https://github.com/google/mdbook-i18n-helpers).
+
+### Update translations
+
+When English documentation is updated, follow these steps to sync translations:
+
+```bash
+# 1. Extract translatable messages
+MDBOOK_OUTPUT='{"xgettext": {}}' mdbook build -d po
+
+# 2. Merge into existing translation
+msgmerge --update po/zh-CN.po po/messages.pot
+
+# 3. Auto-translate untranslated messages (requires Azure Translator API key)
+export AZURE_TRANSLATOR_KEY='your-api-key-here'
+python3 auto_translate.py
+
+# 4. Build documentation
+./build.sh
+```
+
+### Manual translation
+
+For better quality, manually review and edit translations:
+
+```bash
+# Using Poedit (recommended)
+poedit po/zh-CN.po
+
+# Or directly edit the .po file
+vim po/zh-CN.po
+```
+
+### API Key Setup
+
+To use `auto_translate.py`, you need a Microsoft Azure Translator API key:
+
+1. Create an Azure account
+2. Create a Translator resource
+3. Copy the key from Azure portal
+4. Set environment variable:
+   ```bash
+   export AZURE_TRANSLATOR_KEY='your-key-here'
+   ```
+
+**Important:** Never commit API keys to the repository!
 
 ## 🌍 Languages
 
