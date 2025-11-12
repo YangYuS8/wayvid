@@ -232,24 +232,24 @@ fn main() -> Result<()> {
                     println!("\n🔍 Workshop Search\n");
                     println!("ℹ️  Steam's public API doesn't support direct search.");
                     println!("   Please use one of these methods:\n");
-                    
+
                     println!("📌 Method 1: Browse Workshop in Steam");
                     println!("   1. Open Steam Workshop: https://steamcommunity.com/app/431960/workshop/");
                     println!("   2. Search for: {}", query);
                     println!("   3. Find item ID in URL (e.g., id=123456789)");
                     println!("   4. Download: wayvid workshop download <id>\n");
-                    
+
                     println!("📌 Method 2: Subscribe in Steam Client");
                     println!("   1. Subscribe to items in Steam");
                     println!("   2. Run: wayvid workshop list");
                     println!("   3. Import: wayvid workshop import <id>\n");
-                    
+
                     println!("📌 Method 3: Use Item ID Directly");
                     println!("   wayvid workshop install <id> -o ~/.config/wayvid/config.yaml\n");
-                    
+
                     println!("💡 Popular wallpapers can be found at:");
                     println!("   https://steamcommunity.com/app/431960/workshop/?browsesort=trend");
-                    
+
                     // Prevent unused variable warnings
                     let _ = (query, page);
                 }
@@ -267,7 +267,7 @@ fn main() -> Result<()> {
                     info!("🚀 Installing Workshop item {}...", id);
 
                     let downloader = WorkshopDownloader::new()?;
-                    
+
                     // Download if not cached
                     let item_dir = if downloader.list_cached()?.contains(&id) {
                         info!("📦 Using cached item");
@@ -281,7 +281,8 @@ fn main() -> Result<()> {
                     info!("🔄 Importing configuration...");
                     let project_file = we::detect_we_project(&item_dir)?;
                     let (project, video_path) = we::parse_we_project(&project_file)?;
-                    let config_yaml = we::converter::generate_config_with_metadata(&project, video_path)?;
+                    let config_yaml =
+                        we::converter::generate_config_with_metadata(&project, video_path)?;
 
                     if let Some(output_path) = output {
                         let output_path = shellexpand::tilde(&output_path).to_string();
@@ -341,7 +342,7 @@ fn main() -> Result<()> {
                     } else {
                         // List cached items
                         let cached = downloader.list_cached()?;
-                        
+
                         if cached.is_empty() {
                             println!("\n📦 No cached downloads");
                         } else {
@@ -352,7 +353,7 @@ fn main() -> Result<()> {
                             println!("\n💡 To clear all: wayvid workshop cache --clear");
                             println!("💡 To clear one: wayvid workshop cache --clear-item <id>");
                         }
-                        
+
                         println!("\n📁 Cache location: {}", downloader.cache_dir().display());
                     }
                 }

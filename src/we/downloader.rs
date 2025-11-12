@@ -130,13 +130,19 @@ impl WorkshopDownloader {
     /// This method provides item details lookup if you have specific IDs.
     /// For browsing, users should use Steam Workshop directly:
     /// https://steamcommunity.com/app/431960/workshop/
-    pub fn search(&self, _app_id: u32, _query: &str, _page: u32) -> Result<Vec<WorkshopItemDetails>> {
+    #[allow(dead_code)]
+    pub fn search(
+        &self,
+        _app_id: u32,
+        _query: &str,
+        _page: u32,
+    ) -> Result<Vec<WorkshopItemDetails>> {
         // Steam's public API doesn't provide good search capabilities without API key
         // Users should:
         // 1. Browse Workshop in Steam client or web browser
         // 2. Subscribe to items (they'll appear in 'wayvid workshop list')
         // 3. Or use item IDs directly: 'wayvid workshop download <id>'
-        
+
         tracing::warn!(
             "Steam Web API search requires authentication. \
              Please browse Workshop at: https://steamcommunity.com/app/431960/workshop/"
