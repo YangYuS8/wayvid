@@ -71,6 +71,36 @@ impl MpvPlayer {
         set_option("vo", "libmpv");
         set_option("vid", "auto");
 
+        // Configure scaling behavior based on layout mode
+        match config.layout {
+            crate::core::types::LayoutMode::Fill | crate::core::types::LayoutMode::Cover => {
+                // Fill screen, crop if needed (like Wallpaper Engine Fill mode)
+                set_option("keepaspect", "yes");
+                set_option("panscan", "1.0"); // Scale to cover, crop edges
+                set_option("video-align-x", "0"); // Center horizontal
+                set_option("video-align-y", "0"); // Center vertical
+            }
+            crate::core::types::LayoutMode::Stretch => {
+                // Stretch to fill, ignore aspect ratio (like WE Stretch mode)
+                set_option("keepaspect", "no");
+                set_option("video-unscaled", "no");
+            }
+            crate::core::types::LayoutMode::Contain => {
+                // Fit inside screen, maintain aspect (like WE Fit mode)
+                set_option("keepaspect", "yes");
+                set_option("panscan", "0.0"); // No cropping
+                set_option("video-align-x", "0"); // Center horizontal
+                set_option("video-align-y", "0"); // Center vertical
+            }
+            crate::core::types::LayoutMode::Centre => {
+                // Center without scaling (like WE Center mode)
+                set_option("keepaspect", "yes");
+                set_option("video-unscaled", "yes");
+                set_option("video-align-x", "0");
+                set_option("video-align-y", "0");
+            }
+        }
+
         // Memory optimization: Limit video output queue
         set_option("video-latency-hacks", "yes"); // Reduce buffering
         set_option("vd-lavc-dr", "yes"); // Enable direct rendering (less copies)
