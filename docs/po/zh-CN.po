@@ -115,7 +115,7 @@ msgstr "**适用于 Wayland 合成器的高性能视频壁纸引擎**"
 
 #: src/introduction.md:5
 msgid "wayvid brings video wallpapers to Wayland, supporting HDR, multi-monitor setups, and Steam Workshop integration."
-msgstr ""
+msgstr "wayvid 为 Wayland 带来视频壁纸，支持 HDR、多显示器设置和 Steam 创意工坊集成。"
 
 #: src/introduction.md:7
 msgid "Key Features"
@@ -155,19 +155,19 @@ msgstr "快速链接"
 
 #: src/introduction.md:19
 msgid "[Quick Start Guide](./user-guide/quick-start.md) - Get started in 5 minutes"
-msgstr ""
+msgstr "[快速开始指南](./user-guide/quick-start.md) - 5 分钟快速上手"
 
 #: src/introduction.md:20
 msgid "[Installation](./user-guide/installation.md) - Install on your system"
-msgstr "[安装]（./user-guide/installation.md） - 安装在您的系统上"
+msgstr "[安装](./user-guide/installation.md) - 安装在您的系统上"
 
 #: src/introduction.md:21
 msgid "[Configuration](./user-guide/configuration.md) - Customize settings"
-msgstr "[配置]（./user-guide/configuration.md） - 自定义设置"
+msgstr "[配置](./user-guide/configuration.md) - 自定义设置"
 
 #: src/introduction.md:22
 msgid "[GitHub Repository](https://github.com/YangYuS8/wayvid)"
-msgstr "[GitHub 仓库]（https://github.com/YangYuS8/wayvid）"
+msgstr "[GitHub 仓库](https://github.com/YangYuS8/wayvid)"
 
 #: src/introduction.md:24
 msgid "System Requirements"
@@ -179,7 +179,7 @@ msgstr "**作系统**：带有 Wayland 合成器的 Linux"
 
 #: src/introduction.md:27
 msgid "**Compositor**: Hyprland, Sway, Niri (others may work)"
-msgstr "**合成器**：Hyprland、Sway、Niri（其他人可能工作）"
+msgstr "**合成器**：Hyprland、Sway、Niri(其他人可能工作)"
 
 #: src/introduction.md:28
 msgid "**GPU**: Any with EGL support"
@@ -211,7 +211,7 @@ msgstr "安装"
 
 #: src/user-guide/quick-start.md:7
 msgid "Arch Linux (AUR)"
-msgstr "Arch Linux （AUR）"
+msgstr "Arch Linux (AUR)"
 
 #: src/user-guide/quick-start.md:12 src/user-guide/installation.md:20
 msgid "From Source"
@@ -308,6 +308,9 @@ msgid ""
 "spawn-at-startup \"wayvid\"\n"
 "```"
 msgstr ""
+"```kdl\n"
+"spawn-at-startup \"wayvid\"\n"
+"```"
 
 #: src/user-guide/quick-start.md:55
 msgid "Sway"
@@ -323,15 +326,15 @@ msgstr "后续步骤"
 
 #: src/user-guide/quick-start.md:63
 msgid "[Configuration Guide](./configuration.md) - Customize settings"
-msgstr "[配置指南]（./configuration.md） - 自定义设置"
+msgstr "[配置指南](./configuration.md) - 自定义设置"
 
 #: src/user-guide/quick-start.md:64
 msgid "[Video Sources](./video-sources.md) - Learn about source types"
-msgstr "[视频来源]（./video-sources.md） - 了解源类型"
+msgstr "[视频来源](./video-sources.md) - 了解源类型"
 
 #: src/user-guide/quick-start.md:65
 msgid "[Multi-Monitor](./multi-monitor.md) - Set up multiple displays"
-msgstr "[多显示器]（./multi-monitor.md） - 设置多个显示器"
+msgstr "[多显示器](./multi-monitor.md) - 设置多个显示器"
 
 #: src/user-guide/installation.md:3
 msgid "Arch Linux"
@@ -339,11 +342,11 @@ msgstr "拱形Linux"
 
 #: src/user-guide/installation.md:5
 msgid "Stable (AUR)"
-msgstr "稳定 （AUR）"
+msgstr "稳定 (AUR)"
 
 #: src/user-guide/installation.md:10
 msgid "Development (AUR)"
-msgstr "发展 （AUR）"
+msgstr "发展 (AUR)"
 
 #: src/user-guide/installation.md:15
 msgid "**Note:** Both packages include all three binaries:"
@@ -359,7 +362,7 @@ msgstr "'wayvid-ctl' - 命令行控制工具"
 
 #: src/user-guide/installation.md:18
 msgid "`wayvid-gui` - Desktop GUI control panel (requires X11/Wayland session)"
-msgstr "'wayvid-gui' - 桌面 GUI 控制面板（需要 X11/Wayland 会话）"
+msgstr "'wayvid-gui' - 桌面 GUI 控制面板(需要 X11/Wayland 会话)"
 
 #: src/user-guide/installation.md:22 src/features/workshop.md:5
 #: src/dev/building.md:3
@@ -384,7 +387,7 @@ msgstr "构建和安装"
 
 #: src/user-guide/installation.md:38
 msgid "# Build with all features (including GUI)\n"
-msgstr "# 使用所有功能（包括 GUI）进行构建\n"
+msgstr "# 使用所有功能(包括 GUI)进行构建\n"
 
 #: src/user-guide/installation.md:41
 msgid "# Install all binaries\n"
@@ -427,38 +430,48 @@ msgid ""
 "# Video source\n"
 "source"
 msgstr ""
+"# 视频源\n"
+"source"
 
 #: src/user-guide/configuration.md:15
 msgid ""
 "file  # file, directory, workshop\n"
 "  path"
 msgstr ""
+"file  # 文件、目录、创意工坊\n"
+"  path"
 
 #: src/user-guide/configuration.md:17
 msgid ""
 "# Playback settings\n"
 "playback"
 msgstr ""
+"# 播放设置\n"
+"playback"
 
 #: src/user-guide/configuration.md:20 src/features/workshop.md:86
 msgid "loop"
-msgstr "圈"
+msgstr "循环"
 
 #: src/user-guide/configuration.md:21
 msgid "volume"
-msgstr "卷"
+msgstr "音量"
 
 #: src/user-guide/configuration.md:21
 msgid ""
 "# 0-100, 0 = muted\n"
 "  paused"
 msgstr ""
+"# 0-100，0 = 静音\n"
+"  paused"
 
 #: src/user-guide/configuration.md:23
 msgid ""
 "# Display configuration\n"
 "outputs"
 msgstr ""
+"# 显示器配置\n"
+"outputs"
 
 #: src/user-guide/configuration.md:26 src/user-guide/configuration.md:83
 #: src/user-guide/configuration.md:88 src/user-guide/multi-monitor.md:20
@@ -466,13 +479,13 @@ msgstr ""
 #: src/user-guide/multi-monitor.md:44 src/user-guide/multi-monitor.md:51
 #: src/user-guide/multi-monitor.md:54
 msgid "name"
-msgstr "名字"
+msgstr "名称"
 
 #: src/user-guide/configuration.md:26 src/user-guide/configuration.md:83
 #: src/user-guide/multi-monitor.md:20 src/user-guide/multi-monitor.md:43
 #: src/user-guide/multi-monitor.md:51
 msgid "DP-1"
-msgstr "DP-1型"
+msgstr "DP-1"
 
 #: src/user-guide/configuration.md:27 src/user-guide/configuration.md:67
 #: src/user-guide/multi-monitor.md:21 src/user-guide/multi-monitor.md:27
@@ -503,7 +516,7 @@ msgstr "/路径/到/video.mp4"
 
 #: src/user-guide/configuration.md:40
 msgid "Directory (Playlist)"
-msgstr "目录（播放列表）"
+msgstr "目录(播放列表)"
 
 #: src/user-guide/configuration.md:43 src/user-guide/video-sources.md:23
 msgid "directory"
@@ -541,7 +554,7 @@ msgstr "输出模式"
 
 #: src/user-guide/configuration.md:58
 msgid "**fit**: Scale to fit, maintain aspect ratio (default)"
-msgstr "**fit**：缩放以适合，保持纵横比（默认）"
+msgstr "**fit**：缩放以适合，保持纵横比(默认)"
 
 #: src/user-guide/configuration.md:59
 msgid "**fill**: Fill screen, crop if needed"
@@ -560,24 +573,28 @@ msgid ""
 "# HDR settings\n"
 "hdr"
 msgstr ""
+"# HDR 设置\n"
+"hdr"
 
 #: src/user-guide/configuration.md:68 src/features/hdr.md:16
 msgid "target_nits"
-msgstr "target_nits"
+msgstr "目标亮度"
 
 #: src/user-guide/configuration.md:69
 msgid ""
 "# Performance\n"
 "performance"
 msgstr ""
+"# 性能优化\n"
+"performance"
 
 #: src/user-guide/configuration.md:72
 msgid "frame_skip"
-msgstr "frame_skip"
+msgstr "跳帧"
 
 #: src/user-guide/configuration.md:73
 msgid "decode_threads"
-msgstr "decode_threads"
+msgstr "解码线程"
 
 #: src/user-guide/configuration.md:73
 msgid "auto"
@@ -588,6 +605,8 @@ msgid ""
 "# Logging\n"
 "log_level"
 msgstr ""
+"# 日志级别\n"
+"log_level"
 
 #: src/user-guide/configuration.md:76
 msgid "info  # error, warn, info, debug\n"
@@ -622,7 +641,7 @@ msgstr "重新加载配置"
 
 #: src/user-guide/configuration.md:99
 msgid "See [Configuration Reference](../reference/config.md) for all options."
-msgstr "请参阅 [配置参考]（../reference/config.md） 的所有选项。"
+msgstr "请参阅 [配置参考](../reference/config.md) 的所有选项。"
 
 #: src/user-guide/video-sources.md:3
 msgid "wayvid supports multiple video source types."
@@ -666,7 +685,7 @@ msgstr "'shuffle'：随机播放顺序"
 
 #: src/user-guide/video-sources.md:31
 msgid "`interval`: Seconds between videos (0 = play to end)"
-msgstr "'interval'：视频之间的秒数（0 = 播放到结束）"
+msgstr "'interval'：视频之间的秒数(0 = 播放到结束)"
 
 #: src/user-guide/video-sources.md:35
 msgid "Import Wallpaper Engine projects."
@@ -674,11 +693,11 @@ msgstr "导入 Wallpaper Engine 项目。"
 
 #: src/user-guide/video-sources.md:40
 msgid "# Workshop item ID\n"
-msgstr "# 车间项目 ID\n"
+msgstr "# 创意工坊项目 ID\n"
 
 #: src/user-guide/video-sources.md:43
 msgid "Find Workshop IDs"
-msgstr "查找车间 ID"
+msgstr "查找创意工坊 ID"
 
 #: src/user-guide/video-sources.md:45
 msgid "Subscribe to item in Steam Workshop"
@@ -698,7 +717,7 @@ msgstr "导入到配置："
 
 #: src/user-guide/video-sources.md:61
 msgid "URL Source (Planned)"
-msgstr "URL 来源（计划）"
+msgstr "URL 来源(计划)"
 
 #: src/user-guide/video-sources.md:63
 msgid "Future support for streaming URLs."
@@ -907,7 +926,7 @@ msgstr "支持 HDR 的显示器"
 
 #: src/features/hdr.md:8
 msgid "Compositor with HDR support (Hyprland, Niri)"
-msgstr "支持 HDR 的合成器（Hyprland、Niri）"
+msgstr "支持 HDR 的合成器(Hyprland、Niri)"
 
 #: src/features/hdr.md:9
 msgid "HDR-enabled output"
@@ -994,6 +1013,8 @@ msgid ""
 "# Expected output:\n"
 "# hdr: enabled (1000 nits)\n"
 msgstr ""
+"# 预期输出：\n"
+"# hdr: enabled (1000 nits)\n"
 
 #: src/features/hdr.md:51
 msgid "Supported Formats"
@@ -1078,7 +1099,7 @@ msgstr "**色彩空间**：BT.2020"
 
 #: src/features/hdr.md:82
 msgid "**Transfer Function**: PQ (SMPTE ST 2084)"
-msgstr "**传递函数**：PQ （SMPTE ST 2084）"
+msgstr "**传递函数**：PQ (SMPTE ST 2084)"
 
 #: src/features/hdr.md:83
 msgid "**Bit Depth**: 10-bit"
@@ -1102,7 +1123,7 @@ msgstr "安装蒸汽"
 
 #: src/features/workshop.md:8
 msgid "Wallpaper Engine owned (not required, but helps)"
-msgstr "拥有 Wallpaper Engine（不是必需的，但有帮助）"
+msgstr "拥有 Wallpaper Engine(不是必需的，但有帮助)"
 
 #: src/features/workshop.md:9
 msgid "Workshop items subscribed"
@@ -1139,7 +1160,7 @@ msgstr "方法一：Steam 创意工坊页面"
 
 #: src/features/workshop.md:38
 msgid "URL format: `https://steamcommunity.com/sharedfiles/filedetails/?id=<ID>`"
-msgstr ""
+msgstr "URL 格式：`https://steamcommunity.com/sharedfiles/filedetails/?id=<ID>`"
 
 #: src/features/workshop.md:40
 msgid "Example: `id=1234567890`"
@@ -1159,7 +1180,7 @@ msgstr "支持的功能"
 
 #: src/features/workshop.md:57
 msgid "✅ Video wallpapers ✅ Static images ✅ Basic animations ⚠️ Interactive wallpapers (limited) ❌ Audio (muted by default) ❌ Web-based wallpapers"
-msgstr ""
+msgstr "✅ 视频壁纸 ✅ 静态图片 ✅ 基础动画 ⚠️ 交互式壁纸（有限支持） ❌ 音频（默认静音） ❌ 网页壁纸"
 
 #: src/features/workshop.md:64 src/reference/we-format.md:5
 msgid "Project Structure"
@@ -1167,11 +1188,11 @@ msgstr "项目结构"
 
 #: src/features/workshop.md:66
 msgid "Workshop items location:"
-msgstr "车间项目地点："
+msgstr "创意工坊项目地点："
 
 #: src/features/workshop.md:71
 msgid "wayvid automatically:"
-msgstr "wayvid 自动："
+msgstr "wayvid 会自动："
 
 #: src/features/workshop.md:72
 msgid "Finds Steam installation"
@@ -1179,7 +1200,7 @@ msgstr "查找 Steam 安装"
 
 #: src/features/workshop.md:73
 msgid "Locates workshop items"
-msgstr "查找车间物品"
+msgstr "查找创意工坊物品"
 
 #: src/features/workshop.md:74
 msgid "Parses `project.json`"
@@ -1187,13 +1208,15 @@ msgstr "解析“project.json”"
 
 #: src/features/workshop.md:75
 msgid "Converts to native format"
-msgstr "转换为本机格式"
+msgstr "转换为原生格式"
 
 #: src/features/workshop.md:84
 msgid ""
 "# Optional overrides\n"
 "  volume"
 msgstr ""
+"# 可选覆盖\n"
+"  volume"
 
 #: src/features/workshop.md:91
 msgid "**Items not found:**"
@@ -1229,7 +1252,7 @@ msgstr "在 GitHub 上报告问题"
 
 #: src/features/workshop.md:103
 msgid "Workshop items are converted on-the-fly:"
-msgstr "车间物品是即时转换的："
+msgstr "创意工坊物品是即时转换的："
 
 #: src/features/workshop.md:104
 msgid "First load: ~1-2s conversion"
@@ -1245,7 +1268,7 @@ msgstr "缓存位置：'~/.cache/wayvid/workshop/'"
 
 #: src/features/niri.md:3
 msgid "First-class support for [Niri](https://github.com/YaLTeR/niri) scrolling compositor."
-msgstr ""
+msgstr "对 [Niri](https://github.com/YaLTeR/niri) 滚动式合成器的一流支持。"
 
 #: src/features/niri.md:7
 msgid "✅ Workspace-aware playback"
@@ -1273,7 +1296,7 @@ msgstr "# 添加到 Niri 配置\n"
 
 #: src/features/niri.md:19
 msgid "'spawn-at-startup \"wayvid\"'"
-msgstr ""
+msgstr "'spawn-at-startup \"wayvid\"'"
 
 #: src/features/niri.md:22
 msgid "Automatic Optimizations"
@@ -1281,7 +1304,7 @@ msgstr "自动优化"
 
 #: src/features/niri.md:24
 msgid "wayvid detects Niri via the `NIRI_SOCKET` environment variable and enables workspace-aware optimizations:"
-msgstr ""
+msgstr "wayvid 通过 `NIRI_SOCKET` 环境变量检测 Niri，并启用工作区感知优化："
 
 #: src/features/niri.md:26
 msgid "Workspace Awareness"
@@ -1317,7 +1340,7 @@ msgstr "**通过释放活动窗口的资源来获得更流畅的桌面体验**"
 
 #: src/features/niri.md:38
 msgid "No special configuration required. wayvid automatically detects Niri and enables optimizations."
-msgstr ""
+msgstr "无需特殊配置。wayvid 会自动检测 Niri 并启用优化。"
 
 #: src/features/niri.md:40
 msgid "Standard power management options still apply:"
@@ -1336,6 +1359,8 @@ msgid ""
 "# FPS limit for active workspace (0 = unlimited)\n"
 "  pause_on_battery"
 msgstr ""
+"# 活动工作区 FPS 限制（0 = 无限制）\n"
+"  pause_on_battery"
 
 #: src/features/niri.md:45
 msgid "pause_when_hidden"
@@ -1403,7 +1428,7 @@ msgstr "检查日志：“wayvid run --log-level debug”"
 
 #: src/features/niri.md:79
 msgid "Lower video resolution (1080p recommended)"
-msgstr "较低的视频分辨率（推荐 1080p）"
+msgstr "较低的视频分辨率(推荐 1080p)"
 
 #: src/features/niri.md:80
 msgid "Enable hardware decode: `hwdec: true`"
@@ -1415,7 +1440,7 @@ msgstr "设置 FPS 限制：“max_fps：60”"
 
 #: src/features/niri.md:82
 msgid "Use efficient codecs (H.264, H.265)"
-msgstr "使用高效的编解码器（H.264、H.265）"
+msgstr "使用高效的编解码器(H.264、H.265)"
 
 #: src/features/niri.md:84
 msgid "Future Features"
@@ -1492,11 +1517,11 @@ msgstr "**请求：**"
 #: src/reference/ipc-protocol.md:114 src/reference/ipc-protocol.md:123
 #: src/reference/ipc-protocol.md:136 src/reference/ipc-protocol.md:148
 msgid "\"command\""
-msgstr ""
+msgstr "\"command\""
 
 #: src/features/ipc.md:47 src/reference/ipc-protocol.md:63
 msgid "\"play\""
-msgstr ""
+msgstr "\"play\""
 
 #: src/features/ipc.md:48 src/features/ipc.md:87
 #: src/reference/ipc-protocol.md:17 src/reference/ipc-protocol.md:37
@@ -1505,18 +1530,18 @@ msgstr ""
 #: src/reference/ipc-protocol.md:114 src/reference/ipc-protocol.md:124
 #: src/reference/ipc-protocol.md:137 src/reference/ipc-protocol.md:148
 msgid "\"params\""
-msgstr ""
+msgstr "\"params\""
 
 #: src/features/ipc.md:49 src/reference/ipc-protocol.md:65
 #: src/reference/ipc-protocol.md:78 src/reference/ipc-protocol.md:91
 #: src/reference/ipc-protocol.md:104
 msgid "\"output\""
-msgstr ""
+msgstr "\"output\""
 
 #: src/features/ipc.md:49 src/reference/ipc-protocol.md:48
 #: src/reference/ipc-protocol.md:156
 msgid "\"DP-1\""
-msgstr ""
+msgstr "\"DP-1\""
 
 #: src/features/ipc.md:54 src/reference/ipc-protocol.md:40
 #: src/reference/ipc-protocol.md:151
@@ -1527,13 +1552,13 @@ msgstr "**响应：**"
 #: src/reference/ipc-protocol.md:43 src/reference/ipc-protocol.md:154
 #: src/reference/ipc-protocol.md:166 src/reference/ipc-protocol.md:186
 msgid "\"success\""
-msgstr ""
+msgstr "\"success\""
 
 #: src/features/ipc.md:58 src/reference/ipc-protocol.md:25
 #: src/reference/ipc-protocol.md:44 src/reference/ipc-protocol.md:155
 #: src/reference/ipc-protocol.md:188
 msgid "\"data\""
-msgstr ""
+msgstr "\"data\""
 
 #: src/features/ipc.md:62
 msgid "Available Commands"
@@ -1618,7 +1643,7 @@ msgstr "'卷：U8'"
 
 #: src/features/ipc.md:72
 msgid "Set volume (0-100)"
-msgstr "设置音量 （0-100）"
+msgstr "设置音量 (0-100)"
 
 #: src/features/ipc.md:73
 msgid "`set_source`"
@@ -1658,7 +1683,7 @@ msgstr "# 发送命令\n"
 
 #: src/features/ipc.md:87 src/reference/ipc-protocol.md:76
 msgid "\"pause\""
-msgstr ""
+msgstr "\"pause\""
 
 #: src/features/ipc.md:89
 msgid "# Receive response\n"
@@ -1670,11 +1695,11 @@ msgstr "猛击"
 
 #: src/features/ipc.md:97
 msgid "'{\"command\":\"status\",\"params\":{}}'"
-msgstr ""
+msgstr "'{\"command\":\"status\",\"params\":{}}'"
 
 #: src/features/ipc.md:100
 msgid "Rust"
-msgstr "锈"
+msgstr "Rust"
 
 #: src/features/ipc.md:108
 msgid "GUI Integration"
@@ -1702,7 +1727,7 @@ msgstr "配置编辑"
 
 #: src/features/ipc.md:120
 msgid "Workshop browser"
-msgstr "车间浏览器"
+msgstr "创意工坊浏览器"
 
 #: src/features/ipc.md:124
 msgid "**Socket not found:**"
@@ -1818,7 +1843,7 @@ msgstr "功能标志"
 
 #: src/dev/building.md:60
 msgid "# Workshop support\n"
-msgstr "# 车间支持\n"
+msgstr "# 创意工坊支持\n"
 
 #: src/dev/building.md:62
 msgid "# Niri integration\n"
@@ -1862,7 +1887,7 @@ msgstr "为了获得最佳性能："
 
 #: src/dev/building.md:108
 msgid "\"-C target-cpu=native\""
-msgstr ""
+msgstr "\"-C target-cpu=native\""
 
 #: src/dev/building.md:113
 msgid "**Missing dependencies:**"
@@ -1894,11 +1919,11 @@ msgstr "**构建时间太长：**"
 
 #: src/dev/building.md:122
 msgid "Use `cargo build` (debug) for development"
-msgstr "使用“cargo build”（调试）进行开发"
+msgstr "使用“cargo build”(调试)进行开发"
 
 #: src/dev/building.md:123
 msgid "Enable `mold` linker (see [Development Workflow](./workflow.md))"
-msgstr "启用“模具”链接器（参见 [开发工作流程]（./workflow.md））"
+msgstr "启用“模具”链接器(参见 [开发工作流程](./workflow.md))"
 
 #: src/dev/workflow.md:3
 msgid "Efficient development practices for wayvid."
@@ -1966,7 +1991,7 @@ msgstr "# Ubuntu 的\n"
 
 #: src/dev/workflow.md:48
 msgid "**Configure (~/.cargo/config.toml):**"
-msgstr "**配置 （~/.cargo/config.toml）:**"
+msgstr "**配置 (~/.cargo/config.toml):**"
 
 #: src/dev/workflow.md:49
 msgid ""
@@ -1976,6 +2001,11 @@ msgid ""
 "rustflags = [\"-C\", \"link-arg=-fuse-ld=mold\"]\n"
 "```"
 msgstr ""
+"```toml\n"
+"[target.x86_64-unknown-linux-gnu]\n"
+"linker = \"clang\"\n"
+"rustflags = [\"-C\", \"link-arg=-fuse-ld=mold\"]\n"
+"```"
 
 #: src/dev/workflow.md:55 src/dev/contributing.md:64
 msgid "Testing"
@@ -2076,7 +2106,7 @@ msgstr "提交消息"
 
 #: src/dev/workflow.md:124 src/dev/contributing.md:26
 msgid "Follow [Conventional Commits](https://www.conventionalcommits.org/):"
-msgstr "遵循 [常规提交]（https://www.conventionalcommits.org/）："
+msgstr "遵循 [常规提交](https://www.conventionalcommits.org/)："
 
 #: src/dev/workflow.md:133
 msgid "Before Pushing"
@@ -2112,19 +2142,19 @@ msgstr "**.vscode/settings.json：**"
 
 #: src/dev/workflow.md:151
 msgid "\"rust-analyzer.checkOnSave.command\""
-msgstr ""
+msgstr "\"rust-analyzer.checkOnSave.command\""
 
 #: src/dev/workflow.md:151
 msgid "\"clippy\""
-msgstr ""
+msgstr "\"clippy\""
 
 #: src/dev/workflow.md:152
 msgid "\"rust-analyzer.cargo.features\""
-msgstr ""
+msgstr "\"rust-analyzer.cargo.features\""
 
 #: src/dev/workflow.md:152
 msgid "\"all\""
-msgstr ""
+msgstr "\"all\""
 
 #: src/dev/workflow.md:156
 msgid "Neovim"
@@ -2144,7 +2174,7 @@ msgstr "使用 'cargo build' 进行开发，使用 '--release' 进行测试"
 
 #: src/dev/workflow.md:165
 msgid "Enable incremental compilation (default)"
-msgstr "启用增量编译（默认）"
+msgstr "启用增量编译(默认)"
 
 #: src/dev/workflow.md:166
 msgid "Use `cargo check` for faster feedback"
@@ -2172,15 +2202,15 @@ msgstr "格式检查"
 
 #: src/dev/workflow.md:174
 msgid "Clippy (strict)"
-msgstr "Clippy（严格）"
+msgstr "Clippy(严格)"
 
 #: src/dev/workflow.md:175
 msgid "Build (all features)"
-msgstr "构建（所有功能）"
+msgstr "构建(所有功能)"
 
 #: src/dev/workflow.md:176
 msgid "Tests (all features)"
-msgstr "测试（所有功能）"
+msgstr "测试(所有功能)"
 
 #: src/dev/workflow.md:178
 msgid "Verify locally before pushing to save CI time."
@@ -2244,7 +2274,7 @@ msgstr "核心组件"
 
 #: src/dev/architecture.md:34
 msgid "Configuration (`src/config/`)"
-msgstr "配置 （'src/config/'）"
+msgstr "配置 ('src/config/')"
 
 #: src/dev/architecture.md:35
 msgid "YAML parsing"
@@ -2264,7 +2294,7 @@ msgstr "每个输出配置"
 
 #: src/dev/architecture.md:40
 msgid "Core (`src/core/`)"
-msgstr "核心 （'src/core/'）"
+msgstr "核心 ('src/core/')"
 
 #: src/dev/architecture.md:41
 msgid "Main event loop"
@@ -2284,7 +2314,7 @@ msgstr "电源管理"
 
 #: src/dev/architecture.md:46
 msgid "Wayland Backend (`src/backend/wayland/`)"
-msgstr "Wayland 后端 （'src/backend/wayland/'）"
+msgstr "Wayland 后端 ('src/backend/wayland/')"
 
 #: src/dev/architecture.md:47
 msgid "Layer-shell protocol"
@@ -2304,7 +2334,7 @@ msgstr "事件处理"
 
 #: src/dev/architecture.md:52
 msgid "Video (`src/video/`)"
-msgstr "视频 （'src/video/'）"
+msgstr "视频 ('src/video/')"
 
 #: src/dev/architecture.md:53
 msgid "mpv integration"
@@ -2324,7 +2354,7 @@ msgstr "HDR 管线"
 
 #: src/dev/architecture.md:58
 msgid "IPC (`src/ctl/`)"
-msgstr "IPC （'src/ctl/'）"
+msgstr "IPC ('src/ctl/')"
 
 #: src/dev/architecture.md:59
 msgid "Unix socket server"
@@ -2464,7 +2494,7 @@ msgstr "**主线程**：Wayland 事件循环"
 
 #: src/dev/architecture.md:145
 msgid "**Video Thread**: mpv decoding (internal)"
-msgstr "**视频线程**：mpv解码（内部）"
+msgstr "**视频线程**：mpv解码(内部)"
 
 #: src/dev/architecture.md:146
 msgid "**IPC Thread**: Command handling"
@@ -2517,7 +2547,7 @@ msgstr "输出添加"
 #: src/dev/architecture.md:160 src/dev/architecture.md:162
 #: src/dev/architecture.md:163
 msgid "O(1)"
-msgstr "O（1）"
+msgstr "O(1)"
 
 #: src/dev/architecture.md:161
 msgid "Frame render"
@@ -2525,7 +2555,7 @@ msgstr "帧渲染"
 
 #: src/dev/architecture.md:161
 msgid "O(n outputs)"
-msgstr "O（n 个输出）"
+msgstr "O(n 个输出)"
 
 #: src/dev/architecture.md:161
 msgid "Parallelizable"
@@ -2601,7 +2631,7 @@ msgstr "开发设置"
 
 #: src/dev/contributing.md:15
 msgid "See [Building from Source](./building.md) and [Development Workflow](./workflow.md)."
-msgstr ""
+msgstr "参见[从源码构建](./building.md)和[开发工作流](./workflow.md)。"
 
 #: src/dev/contributing.md:17
 msgid "Code Style"
@@ -2609,11 +2639,11 @@ msgstr "代码样式"
 
 #: src/dev/contributing.md:19
 msgid "Follow `rustfmt` (run `cargo fmt`)"
-msgstr "关注 'rustfmt'（运行 'cargo fmt'）"
+msgstr "关注 'rustfmt'(运行 'cargo fmt')"
 
 #: src/dev/contributing.md:20
 msgid "Pass `clippy` (run `cargo clippy -- -D warnings`)"
-msgstr "传递 'clippy'（运行 'cargo clippy -- -D warnings'）"
+msgstr "传递 'clippy'(运行 'cargo clippy -- -D warnings')"
 
 #: src/dev/contributing.md:21
 msgid "Write documentation for public APIs"
@@ -2625,7 +2655,7 @@ msgstr "为新功能添加测试"
 
 #: src/dev/contributing.md:36
 msgid "Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`"
-msgstr ""
+msgstr "类型：`feat`（新功能）、`fix`（修复）、`docs`（文档）、`style`（格式）、`refactor`（重构）、`perf`（性能）、`test`（测试）、`chore`（杂项）"
 
 #: src/dev/contributing.md:38
 msgid "Examples:"
@@ -2641,15 +2671,15 @@ msgstr "清单"
 
 #: src/dev/contributing.md:48
 msgid "Code formatted (`cargo fmt`)"
-msgstr "代码格式化 （“cargo fmt”）"
+msgstr "代码格式化 (“cargo fmt”)"
 
 #: src/dev/contributing.md:49
 msgid "Clippy passes (`cargo clippy --all-features -- -D warnings`)"
-msgstr "Clippy 通过 （“cargo clippy --all-features -- -D warnings'）"
+msgstr "Clippy 通过 (“cargo clippy --all-features -- -D warnings')"
 
 #: src/dev/contributing.md:50
 msgid "Tests pass (`cargo test --all-features`)"
-msgstr "测试通过 （'cargo test --all-features'）"
+msgstr "测试通过 ('cargo test --all-features')"
 
 #: src/dev/contributing.md:51
 msgid "Documentation updated"
@@ -2657,7 +2687,7 @@ msgstr "文档已更新"
 
 #: src/dev/contributing.md:52
 msgid "CHANGELOG.md updated (if user-facing)"
-msgstr "CHANGELOG.md 更新（如果面向用户）"
+msgstr "CHANGELOG.md 更新(如果面向用户)"
 
 #: src/dev/contributing.md:54
 msgid "PR Title"
@@ -2665,7 +2695,7 @@ msgstr "公关标题"
 
 #: src/dev/contributing.md:55
 msgid "Use same format as commits: `type(scope): description`"
-msgstr "使用与提交相同的格式：“type（scope）： description”"
+msgstr "使用与提交相同的格式：“type(scope)： description”"
 
 #: src/dev/contributing.md:58 src/dev/contributing.md:88
 #: src/dev/contributing.md:96
@@ -2730,15 +2760,15 @@ msgstr "更新相关文档："
 
 #: src/dev/contributing.md:80
 msgid "Code comments (public APIs)"
-msgstr "代码注释（公共 API）"
+msgstr "代码注释(公共 API)"
 
 #: src/dev/contributing.md:81
 msgid "User guide (new features)"
-msgstr "用户指南（新功能）"
+msgstr "用户指南(新功能)"
 
 #: src/dev/contributing.md:82
 msgid "Reference (config options)"
-msgstr "参考（配置选项）"
+msgstr "参考(配置选项)"
 
 #: src/dev/contributing.md:83
 msgid "CHANGELOG.md"
@@ -2762,7 +2792,7 @@ msgstr "合成器和版本"
 
 #: src/dev/contributing.md:91
 msgid "System info (distro, GPU)"
-msgstr "系统信息（发行版、GPU）"
+msgstr "系统信息(发行版、GPU)"
 
 #: src/dev/contributing.md:92
 msgid "Steps to reproduce"
@@ -2770,7 +2800,7 @@ msgstr "重现步骤"
 
 #: src/dev/contributing.md:93
 msgid "Logs (`RUST_LOG=debug wayvid`)"
-msgstr "日志 （'RUST_LOG=debug wayvid'）"
+msgstr "日志 ('RUST_LOG=debug wayvid')"
 
 #: src/dev/contributing.md:95
 msgid "Feature Requests"
@@ -2822,7 +2852,7 @@ msgstr "随访：1-2天"
 
 #: src/dev/contributing.md:116
 msgid "By contributing, you agree to license your code under MIT OR Apache-2.0."
-msgstr ""
+msgstr "贡献代码即表示您同意以 MIT 或 Apache-2.0 许可证授权您的代码。"
 
 #: src/dev/contributing.md:118
 msgid "Questions?"
@@ -2870,7 +2900,7 @@ msgstr "所有配置选项的完整参考。"
 
 #: src/reference/config.md:5
 msgid "_Full reference coming soon. See [Configuration Guide](../user-guide/configuration.md) for common options._"
-msgstr ""
+msgstr "_完整参考即将推出。常用选项请参见[配置指南](../user-guide/configuration.md)。_"
 
 #: src/reference/config.md:7
 msgid "Schema"
@@ -2881,6 +2911,8 @@ msgid ""
 "# Global settings\n"
 "source"
 msgstr ""
+"# 全局设置\n"
+"source"
 
 #: src/reference/config.md:11
 msgid "SourceConfig"
@@ -2920,7 +2952,7 @@ msgstr "日志级别"
 
 #: src/reference/config.md:19
 msgid "For now, see [config.example.yaml](https://github.com/YangYuS8/wayvid/blob/main/configs/config.example.yaml) for all options."
-msgstr ""
+msgstr "目前请参见 [config.example.yaml](https://github.com/YangYuS8/wayvid/blob/main/configs/config.example.yaml) 了解所有选项。"
 
 #: src/reference/cli.md:3
 msgid "Complete reference for all CLI commands."
@@ -2944,7 +2976,7 @@ msgstr "'--generate-config' - 生成默认配置"
 
 #: src/reference/cli.md:16
 msgid "`--log-level <LEVEL>` - Log level (error, warn, info, debug, trace)"
-msgstr "'--log-level <LEVEL>' - 日志级别（错误、警告、信息、调试、跟踪）"
+msgstr "'--log-level <LEVEL>' - 日志级别(错误、警告、信息、调试、跟踪)"
 
 #: src/reference/cli.md:17
 msgid "`--version` - Print version"
@@ -3032,7 +3064,7 @@ msgstr "设置音量"
 
 #: src/reference/cli.md:79
 msgid "Set volume (0-100)."
-msgstr "设置音量 （0-100）。"
+msgstr "设置音量 (0-100)。"
 
 #: src/reference/cli.md:84
 msgid "set-source"
@@ -3064,7 +3096,7 @@ msgstr "Wayvid 研讨会"
 
 #: src/reference/cli.md:102
 msgid "Workshop management (requires `--features workshop`)."
-msgstr "车间管理（需要 '--features workshop'）。"
+msgstr "创意工坊管理（需要 '--features workshop'）。"
 
 #: src/reference/cli.md:110
 msgid "list"
@@ -3096,7 +3128,7 @@ msgstr "wayvid-gui"
 
 #: src/reference/cli.md:130
 msgid "Desktop GUI (requires `--features gui`)."
-msgstr "桌面 GUI（需要 '--features gui'）。"
+msgstr "桌面 GUI(需要 '--features gui')。"
 
 #: src/reference/cli.md:136
 msgid "No command-line options. Launch GUI directly."
@@ -3108,7 +3140,7 @@ msgstr "环境变量"
 
 #: src/reference/cli.md:140
 msgid "`RUST_LOG` - Log level (overrides `--log-level`)"
-msgstr "'RUST_LOG' - 日志级别（覆盖 '--log-level'）"
+msgstr "'RUST_LOG' - 日志级别(覆盖 '--log-level')"
 
 #: src/reference/cli.md:141
 msgid "`XDG_RUNTIME_DIR` - IPC socket location"
@@ -3132,6 +3164,9 @@ msgid ""
 "**Socket**: `$XDG_RUNTIME_DIR/wayvid.sock`  \n"
 "**Format**: Newline-delimited JSON"
 msgstr ""
+"**协议**：Unix socket 上的 JSON  \n"
+"**Socket**：`$XDG_RUNTIME_DIR/wayvid.sock`  \n"
+"**格式**：换行符分隔的 JSON"
 
 #: src/reference/ipc-protocol.md:13
 msgid "Request"
@@ -3139,7 +3174,7 @@ msgstr "请求"
 
 #: src/reference/ipc-protocol.md:16
 msgid "\"string\""
-msgstr ""
+msgstr "\"string\""
 
 #: src/reference/ipc-protocol.md:21
 msgid "Response"
@@ -3147,11 +3182,11 @@ msgstr "响应"
 
 #: src/reference/ipc-protocol.md:26 src/reference/ipc-protocol.md:167
 msgid "\"error\""
-msgstr ""
+msgstr "\"error\""
 
 #: src/reference/ipc-protocol.md:26
 msgid "\"string?\""
-msgstr ""
+msgstr "\"string?\""
 
 #: src/reference/ipc-protocol.md:33
 msgid "Get daemon status."
@@ -3159,44 +3194,44 @@ msgstr "获取守护进程状态。"
 
 #: src/reference/ipc-protocol.md:37
 msgid "\"status\""
-msgstr ""
+msgstr "\"status\""
 
 #: src/reference/ipc-protocol.md:45
 msgid "\"running\""
-msgstr ""
+msgstr "\"running\""
 
 #: src/reference/ipc-protocol.md:46 src/reference/ipc-protocol.md:156
 msgid "\"outputs\""
-msgstr ""
+msgstr "\"outputs\""
 
 #: src/reference/ipc-protocol.md:48
 msgid "\"name\""
-msgstr ""
+msgstr "\"name\""
 
 #: src/reference/ipc-protocol.md:49
 msgid "\"resolution\""
-msgstr ""
+msgstr "\"resolution\""
 
 #: src/reference/ipc-protocol.md:49
 msgid "\"2560x1440\""
-msgstr ""
+msgstr "\"2560x1440\""
 
 #: src/reference/ipc-protocol.md:50
 msgid "\"playing\""
-msgstr ""
+msgstr "\"playing\""
 
 #: src/reference/ipc-protocol.md:65 src/reference/ipc-protocol.md:78
 #: src/reference/ipc-protocol.md:91 src/reference/ipc-protocol.md:104
 msgid "\"DP-1\"  // optional\n"
-msgstr ""
+msgstr "\"DP-1\"  // 可选\n"
 
 #: src/reference/ipc-protocol.md:89
 msgid "\"stop\""
-msgstr ""
+msgstr "\"stop\""
 
 #: src/reference/ipc-protocol.md:102
 msgid "\"resume\""
-msgstr ""
+msgstr "\"resume\""
 
 #: src/reference/ipc-protocol.md:109
 msgid "reload_config"
@@ -3208,7 +3243,7 @@ msgstr "重新加载配置文件。"
 
 #: src/reference/ipc-protocol.md:114
 msgid "\"reload_config\""
-msgstr ""
+msgstr "\"reload_config\""
 
 #: src/reference/ipc-protocol.md:117
 msgid "set_volume"
@@ -3220,11 +3255,11 @@ msgstr "设置音量。"
 
 #: src/reference/ipc-protocol.md:123
 msgid "\"set_volume\""
-msgstr ""
+msgstr "\"set_volume\""
 
 #: src/reference/ipc-protocol.md:125
 msgid "\"volume\""
-msgstr ""
+msgstr "\"volume\""
 
 #: src/reference/ipc-protocol.md:125
 msgid "// 0-100\n"
@@ -3236,15 +3271,15 @@ msgstr "set_source"
 
 #: src/reference/ipc-protocol.md:136
 msgid "\"set_source\""
-msgstr ""
+msgstr "\"set_source\""
 
 #: src/reference/ipc-protocol.md:138
 msgid "\"path\""
-msgstr ""
+msgstr "\"path\""
 
 #: src/reference/ipc-protocol.md:138
 msgid "\"/path/to/video.mp4\""
-msgstr ""
+msgstr "\"/path/to/video.mp4\""
 
 #: src/reference/ipc-protocol.md:143
 msgid "list_outputs"
@@ -3252,11 +3287,11 @@ msgstr "list_outputs"
 
 #: src/reference/ipc-protocol.md:148
 msgid "\"list_outputs\""
-msgstr ""
+msgstr "\"list_outputs\""
 
 #: src/reference/ipc-protocol.md:156
 msgid "\"HDMI-A-1\""
-msgstr ""
+msgstr "\"HDMI-A-1\""
 
 #: src/reference/ipc-protocol.md:161 src/reference/we-format.md:128
 msgid "Error Handling"
@@ -3268,7 +3303,7 @@ msgstr "错误响应"
 
 #: src/reference/ipc-protocol.md:167
 msgid "\"Output 'DP-1' not found\""
-msgstr ""
+msgstr "\"Output 'DP-1' not found\""
 
 #: src/reference/ipc-protocol.md:171
 msgid "Common Errors"
@@ -3276,19 +3311,19 @@ msgstr "常见错误"
 
 #: src/reference/ipc-protocol.md:172
 msgid "`\"daemon not running\"`"
-msgstr ""
+msgstr "`\"daemon not running\"`"
 
 #: src/reference/ipc-protocol.md:173
 msgid "`\"invalid command\"`"
-msgstr ""
+msgstr "`\"invalid command\"`"
 
 #: src/reference/ipc-protocol.md:174
 msgid "`\"output not found\"`"
-msgstr ""
+msgstr "`\"output not found\"`"
 
 #: src/reference/ipc-protocol.md:175
 msgid "`\"invalid parameters\"`"
-msgstr ""
+msgstr "`\"invalid parameters\"`"
 
 #: src/reference/ipc-protocol.md:177
 msgid "Example Implementation"
@@ -3296,7 +3331,7 @@ msgstr "示例实现"
 
 #: src/reference/ipc-protocol.md:179
 msgid "See [IPC Control](../features/ipc.md#programming-examples) for code examples."
-msgstr ""
+msgstr "参见 [IPC 控制](../features/ipc.md#programming-examples) 的代码示例。"
 
 #: src/reference/ipc-protocol.md:181
 msgid "Versioning"
@@ -3308,11 +3343,11 @@ msgstr "响应的协议版本："
 
 #: src/reference/ipc-protocol.md:187
 msgid "\"version\""
-msgstr ""
+msgstr "\"version\""
 
 #: src/reference/ipc-protocol.md:187
 msgid "\"1.0\""
-msgstr ""
+msgstr "\"1.0\""
 
 #: src/reference/ipc-protocol.md:192
 msgid "Breaking changes will increment major version."
@@ -3342,36 +3377,36 @@ msgstr "必填字段"
 #: src/reference/we-format.md:157 src/reference/we-format.md:167
 #: src/reference/we-format.md:178
 msgid "\"title\""
-msgstr ""
+msgstr "\"title\""
 
 #: src/reference/we-format.md:26
 msgid "\"My Wallpaper\""
-msgstr ""
+msgstr "\"My Wallpaper\""
 
 #: src/reference/we-format.md:27 src/reference/we-format.md:38
 #: src/reference/we-format.md:76 src/reference/we-format.md:143
 #: src/reference/we-format.md:158 src/reference/we-format.md:168
 #: src/reference/we-format.md:179
 msgid "\"type\""
-msgstr ""
+msgstr "\"type\""
 
 #: src/reference/we-format.md:27 src/reference/we-format.md:38
 #: src/reference/we-format.md:76 src/reference/we-format.md:158
 #: src/reference/we-format.md:168
 msgid "\"video\""
-msgstr ""
+msgstr "\"video\""
 
 #: src/reference/we-format.md:28 src/reference/we-format.md:39
 #: src/reference/we-format.md:64 src/reference/we-format.md:77
 #: src/reference/we-format.md:135 src/reference/we-format.md:159
 #: src/reference/we-format.md:169 src/reference/we-format.md:180
 msgid "\"file\""
-msgstr ""
+msgstr "\"file\""
 
 #: src/reference/we-format.md:28 src/reference/we-format.md:39
 #: src/reference/we-format.md:64
 msgid "\"assets/video.mp4\""
-msgstr ""
+msgstr "\"assets/video.mp4\""
 
 #: src/reference/we-format.md:32
 msgid "Full Format"
@@ -3379,51 +3414,51 @@ msgstr "全格式"
 
 #: src/reference/we-format.md:36
 msgid "\"Wallpaper Title\""
-msgstr ""
+msgstr "\"Wallpaper Title\""
 
 #: src/reference/we-format.md:37
 msgid "\"description\""
-msgstr ""
+msgstr "\"description\""
 
 #: src/reference/we-format.md:37
 msgid "\"Description\""
-msgstr ""
+msgstr "\"Description\""
 
 #: src/reference/we-format.md:40
 msgid "\"preview\""
-msgstr ""
+msgstr "\"preview\""
 
 #: src/reference/we-format.md:40
 msgid "\"preview.jpg\""
-msgstr ""
+msgstr "\"preview.jpg\""
 
 #: src/reference/we-format.md:41 src/reference/we-format.md:170
 msgid "\"tags\""
-msgstr ""
+msgstr "\"tags\""
 
 #: src/reference/we-format.md:41
 msgid "\"anime\""
-msgstr ""
+msgstr "\"anime\""
 
 #: src/reference/we-format.md:41
 msgid "\"scenery\""
-msgstr ""
+msgstr "\"scenery\""
 
 #: src/reference/we-format.md:42
 msgid "\"general\""
-msgstr ""
+msgstr "\"general\""
 
 #: src/reference/we-format.md:43
 msgid "\"properties\""
-msgstr ""
+msgstr "\"properties\""
 
 #: src/reference/we-format.md:44
 msgid "\"schemecolor\""
-msgstr ""
+msgstr "\"schemecolor\""
 
 #: src/reference/we-format.md:44
 msgid "\"0 0 0\""
-msgstr ""
+msgstr "\"0 0 0\""
 
 #: src/reference/we-format.md:50
 msgid "Supported Types"
@@ -3435,15 +3470,15 @@ msgstr "wayvid 支持以下类型："
 
 #: src/reference/we-format.md:54
 msgid "`video`: Video file (MP4, WebM)"
-msgstr "'video'：视频文件（MP4、WebM）"
+msgstr "'video'：视频文件(MP4、WebM)"
 
 #: src/reference/we-format.md:55
 msgid "`web`: HTML/CSS/JS (limited support)"
-msgstr "'web'：HTML/CSS/JS（有限支持）"
+msgstr "'web'：HTML/CSS/JS(有限支持)"
 
 #: src/reference/we-format.md:56
 msgid "`scene`: Scene-based (converted to video)"
-msgstr "'scene'：基于场景（转换为视频）"
+msgstr "'scene'：基于场景(转换为视频)"
 
 #: src/reference/we-format.md:58
 msgid "File References"
@@ -3458,20 +3493,24 @@ msgid ""
 "// ✅ Relative\n"
 "  \"file\""
 msgstr ""
+"// ✅ 相对路径\n"
+"  \"file\""
 
 #: src/reference/we-format.md:65
 msgid "\"/absolute/path.mp4\""
-msgstr ""
+msgstr "\"/absolute/path.mp4\""
 
 #: src/reference/we-format.md:65
 msgid ""
 "// ❌ Not supported\n"
 "  \"file\""
 msgstr ""
+"// ❌ 不支持\n"
+"  \"file\""
 
 #: src/reference/we-format.md:66
 msgid "\"../outside.mp4\"          // ❌ Not supported\n"
-msgstr ""
+msgstr "\"../outside.mp4\"          // ❌ 不支持\n"
 
 #: src/reference/we-format.md:70
 msgid "Audio Handling"
@@ -3483,11 +3522,11 @@ msgstr "wayvid 自动提取音频："
 
 #: src/reference/we-format.md:77
 msgid "\"video_with_audio.mp4\"  // Audio track used if present\n"
-msgstr ""
+msgstr "\"video_with_audio.mp4\"  // 如果存在音频轨道则使用\n"
 
 #: src/reference/we-format.md:81
 msgid "Scene Format (Limited)"
-msgstr "场景格式（有限）"
+msgstr "场景格式(有限)"
 
 #: src/reference/we-format.md:83
 msgid "Basic scene.json support:"
@@ -3495,31 +3534,31 @@ msgstr "基本scene.json支持："
 
 #: src/reference/we-format.md:87
 msgid "\"objects\""
-msgstr ""
+msgstr "\"objects\""
 
 #: src/reference/we-format.md:89
 msgid "\"image\""
-msgstr ""
+msgstr "\"image\""
 
 #: src/reference/we-format.md:89
 msgid "\"assets/bg.jpg\""
-msgstr ""
+msgstr "\"assets/bg.jpg\""
 
 #: src/reference/we-format.md:90
 msgid "\"origin\""
-msgstr ""
+msgstr "\"origin\""
 
 #: src/reference/we-format.md:90
 msgid "\"0 0\""
-msgstr ""
+msgstr "\"0 0\""
 
 #: src/reference/we-format.md:91
 msgid "\"scale\""
-msgstr ""
+msgstr "\"scale\""
 
 #: src/reference/we-format.md:91
 msgid "\"1 1\""
-msgstr ""
+msgstr "\"1 1\""
 
 #: src/reference/we-format.md:97
 msgid "**Note**: Complex scenes may not render correctly."
@@ -3555,7 +3594,7 @@ msgstr "复制到 wayvid 缓存： '~/.cache/wayvid/workshop/<id>/'"
 
 #: src/reference/we-format.md:109
 msgid "Workshop ID Format"
-msgstr "车间 ID 格式"
+msgstr "创意工坊 ID 格式"
 
 #: src/reference/we-format.md:111
 msgid "Steam Workshop IDs are numeric:"
@@ -3569,6 +3608,11 @@ msgid ""
 "                                                          Workshop ID\n"
 "```"
 msgstr ""
+"```\n"
+"https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890\n"
+"                                                          ^^^^^^^^^^\n"
+"                                                          创意工坊 ID\n"
+"```"
 
 #: src/reference/we-format.md:118
 msgid "Validation Rules"
@@ -3612,11 +3656,11 @@ msgstr "**丢失文件：**"
 
 #: src/reference/we-format.md:135
 msgid "\"video.mp4\"  // File doesn't exist\n"
-msgstr ""
+msgstr "\"video.mp4\"  // 文件不存在\n"
 
 #: src/reference/we-format.md:138
 msgid "→ Error: \"File not found: video.mp4\""
-msgstr ""
+msgstr "→ 错误：\"文件未找到：video.mp4\""
 
 #: src/reference/we-format.md:140
 msgid "**Invalid type:**"
@@ -3624,7 +3668,7 @@ msgstr "**无效类型：**"
 
 #: src/reference/we-format.md:143
 msgid "\"unknown\""
-msgstr ""
+msgstr "\"unknown\""
 
 #: src/reference/we-format.md:146
 msgid "→ Fallback to video detection"
@@ -3632,7 +3676,7 @@ msgstr "→回退到视频检测"
 
 #: src/reference/we-format.md:148
 msgid "**Missing project.json:** → Error: \"Invalid Workshop item\""
-msgstr ""
+msgstr "**缺少 project.json：** → 错误：\"无效的创意工坊项目\""
 
 #: src/reference/we-format.md:153
 msgid "Simple Video"
@@ -3640,11 +3684,11 @@ msgstr "简单视频"
 
 #: src/reference/we-format.md:157
 msgid "\"Ocean Waves\""
-msgstr ""
+msgstr "\"Ocean Waves\""
 
 #: src/reference/we-format.md:159
 msgid "\"ocean.mp4\""
-msgstr ""
+msgstr "\"ocean.mp4\""
 
 #: src/reference/we-format.md:163
 msgid "Video with Audio"
@@ -3652,43 +3696,43 @@ msgstr "带音频的视频"
 
 #: src/reference/we-format.md:167
 msgid "\"Rainy City\""
-msgstr ""
+msgstr "\"Rainy City\""
 
 #: src/reference/we-format.md:169
 msgid "\"city_rain.mp4\""
-msgstr ""
+msgstr "\"city_rain.mp4\""
 
 #: src/reference/we-format.md:170
 msgid "\"rain\""
-msgstr ""
+msgstr "\"rain\""
 
 #: src/reference/we-format.md:170
 msgid "\"city\""
-msgstr ""
+msgstr "\"city\""
 
 #: src/reference/we-format.md:170
 msgid "\"relaxing\""
-msgstr ""
+msgstr "\"relaxing\""
 
 #: src/reference/we-format.md:174
 msgid "Web-Based (Experimental)"
-msgstr "基于网络（实验性）"
+msgstr "基于网络(实验性)"
 
 #: src/reference/we-format.md:178
 msgid "\"Clock Widget\""
-msgstr ""
+msgstr "\"Clock Widget\""
 
 #: src/reference/we-format.md:179
 msgid "\"web\""
-msgstr ""
+msgstr "\"web\""
 
 #: src/reference/we-format.md:180
 msgid "\"index.html\""
-msgstr ""
+msgstr "\"index.html\""
 
 #: src/reference/we-format.md:184
 msgid "**Note**: Web support is experimental. Complex WebGL/Canvas may not work."
-msgstr ""
+msgstr "**注意**：网页支持仍为实验性功能。复杂的 WebGL/Canvas 可能无法正常工作。"
 
 #: src/reference/we-format.md:186
 msgid "Reference Implementation"
@@ -3700,11 +3744,11 @@ msgstr "有关解析代码，请参阅 'src/we/'："
 
 #: src/reference/we-format.md:189
 msgid "`src/we/parser.rs` - JSON parsing"
-msgstr "'src/we/parser.rs' - JSON 解析"
+msgstr "`src/we/parser.rs` - JSON 解析"
 
 #: src/reference/we-format.md:190
 msgid "`src/we/converter.rs` - Format conversion"
-msgstr "'src/we/converter.rs' - 格式转换"
+msgstr "`src/we/converter.rs` - 格式转换"
 
 #: src/reference/we-format.md:191
 msgid "`src/we/workshop.rs` - Steam integration"
@@ -3716,8 +3760,8 @@ msgstr "相关"
 
 #: src/reference/we-format.md:195
 msgid "[Workshop Integration](../features/workshop.md)"
-msgstr "[车间集成](../features/workshop.md）"
+msgstr "[创意工坊集成](../features/workshop.md）"
 
 #: src/reference/we-format.md:196
 msgid "[Configuration Reference](config.md)"
-msgstr "[配置参考]（config.md）"
+msgstr "[配置参考](config.md)"
