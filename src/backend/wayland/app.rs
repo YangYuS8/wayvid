@@ -335,9 +335,10 @@ impl AppState {
             let targets: Vec<String> = if let Some(output_name) = output {
                 vec![output_name]
             } else {
-                self.surfaces.keys().map(|&id| {
-                    self.surfaces[&id].output_info.name.clone()
-                }).collect()
+                self.surfaces
+                    .keys()
+                    .map(|&id| self.surfaces[&id].output_info.name.clone())
+                    .collect()
             };
 
             for output_name in targets {
