@@ -53,11 +53,35 @@ source:
   id: 1234567890
 ```
 
-## Output Modes
+## Layout Modes
 
-- **fit**: Scale to fit, maintain aspect ratio (default)
-- **fill**: Fill screen, crop if needed
-- **stretch**: Stretch to fill, ignore aspect ratio
+Different scaling modes control how video fits the screen:
+
+- **Fill** (default): Scale to cover entire screen, crop edges if needed
+  - Maintains aspect ratio
+  - No black bars, may crop video content
+  - Uses MPV `panscan=1.0` for optimal filling
+  
+- **Contain**: Scale to fit inside screen, letterbox if needed
+  - Maintains aspect ratio
+  - May show black bars (letterbox/pillarbox)
+  - Displays full video content
+  
+- **Stretch**: Stretch to fill screen, ignore aspect ratio
+  - Distorts video to match screen dimensions
+  - No black bars, no cropping
+  - May look unnatural
+  
+- **Cover**: Alias for Fill mode
+  
+- **Centre**: Display at original size, centered
+  - No scaling applied
+  - Shows black bars if video smaller than screen
+
+**Example:**
+```yaml
+layout: Fill  # or: Contain, Stretch, Cover, Centre
+```
 
 ## Advanced Options
 
