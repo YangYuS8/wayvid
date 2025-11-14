@@ -10,13 +10,14 @@ A dynamic video wallpaper engine for Wayland compositors, with priority support 
 
 ## Features
 
+- ✅ **GUI Control Panel** - Full-featured graphical interface with Workshop integration
 - ✅ **Native Wayland** - Uses `wlr-layer-shell` for background layer placement
 - ✅ **Full Input Passthrough** - Wallpaper doesn't interfere with desktop interaction
 - ✅ **Multi-Monitor** - Per-output configuration with hotplug support
 - ✅ **Hardware Decode** - VA-API/NVDEC support with software fallback
 - ✅ **Flexible Layouts** - Fill, Contain, Stretch, Cover, Centre modes
 - ✅ **Multi-Source Support** - Local files, HTTP/RTSP streams, pipes, image sequences
-- ✅ **Runtime Control** - Control playback via `wayvid-ctl` (pause, seek, switch, etc.)
+- ✅ **Runtime Control** - CLI via `wayvid-ctl` + GUI control panel
 - ✅ **Hot Reload** - Config changes applied instantly without restart
 - ✅ **Power Management** - Battery detection, FPS limiting, auto-pause
 - ✅ **OpenGL Rendering** - Full EGL/OpenGL integration with mpv render API
@@ -86,8 +87,8 @@ nix profile install github:YangYuS8/wayvid
 
 # From source
 git clone https://github.com/YangYuS8/wayvid.git
-cd wayvid && cargo build --release
-sudo install -Dm755 target/release/{wayvid,wayvid-ctl} /usr/local/bin/
+cd wayvid && cargo build --release --all-features
+sudo install -Dm755 target/release/{wayvid,wayvid-ctl,wayvid-gui} /usr/local/bin/
 ```
 
 📖 **Detailed instructions**: [Installation Guide](https://www.yangyus8.top/wayvid/user-guide/installation.html)
@@ -114,7 +115,10 @@ outputs:
 # Run
 wayvid
 
-# Control
+# GUI Control Panel (NEW!)
+wayvid-gui
+
+# CLI Control
 wayvid-ctl play
 wayvid-ctl pause
 wayvid-ctl set-volume 50
@@ -126,7 +130,7 @@ wayvid workshop install <id> -o ~/.config/wayvid/config.yaml
 echo "exec-once = wayvid" >> ~/.config/hypr/hyprland.conf
 ```
 
-📖 **Full commands**: [CLI Reference](https://www.yangyus8.top/wayvid/reference/cli.html) • [IPC Control](https://www.yangyus8.top/wayvid/features/ipc.html) • [Workshop](https://www.yangyus8.top/wayvid/features/workshop.html)
+📖 **Full commands**: [GUI Guide](https://www.yangyus8.top/wayvid/user-guide/gui.html) • [CLI Reference](https://www.yangyus8.top/wayvid/reference/cli.html) • [IPC Control](https://www.yangyus8.top/wayvid/features/ipc.html) • [Workshop](https://www.yangyus8.top/wayvid/features/workshop.html)
 
 ## Troubleshooting
 

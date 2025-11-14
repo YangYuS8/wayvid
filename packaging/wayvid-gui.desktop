@@ -1,0 +1,30 @@
+[Desktop Entry]
+Name=wayvid Control Panel
+GenericName=Wallpaper Manager
+Comment=Control wayvid dynamic wallpaper daemon
+Comment[zh_CN]=控制 wayvid 动态壁纸守护进程
+Icon=video-display
+Exec=wayvid-gui
+Terminal=false
+Type=Application
+Categories=Utility;System;Settings;
+Keywords=wallpaper;video;background;wayland;
+StartupWMClass=wayvid-gui
+StartupNotify=true
+
+Actions=StartDaemon;StopDaemon;Status;
+
+[Desktop Action StartDaemon]
+Name=Start Daemon
+Name[zh_CN]=启动守护进程
+Exec=wayvid run --config ~/.config/wayvid/config.yaml
+
+[Desktop Action StopDaemon]
+Name=Stop Daemon
+Name[zh_CN]=停止守护进程
+Exec=killall wayvid
+
+[Desktop Action Status]
+Name=Check Status
+Name[zh_CN]=检查状态
+Exec=wayvid-ctl status
