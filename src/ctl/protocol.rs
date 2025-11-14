@@ -27,6 +27,12 @@ pub enum IpcCommand {
     /// Switch video source for specific output
     SwitchSource { output: String, source: VideoSource },
 
+    /// Set video source for specific output (simplified version accepting path string)
+    SetSource {
+        output: Option<String>,
+        source: String, // File path or URL
+    },
+
     /// Reload configuration from file
     ReloadConfig,
 

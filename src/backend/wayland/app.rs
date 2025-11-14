@@ -189,6 +189,9 @@ impl AppState {
             IpcCommand::SwitchSource { output, source } => {
                 self.handle_switch_source_command(output, source);
             }
+            IpcCommand::SetSource { output, source } => {
+                self.handle_set_source_command(output, source);
+            }
             IpcCommand::SetPlaybackRate { output, rate } => {
                 self.handle_set_rate_command(output, rate);
             }
@@ -322,6 +325,33 @@ impl AppState {
                 }
             }
             warn!("Output not found: {}", output);
+        }
+    }
+
+    /// Handle set source command (simplified version)
+    fn handle_set_source_command(&mut self, output: Option<String>, source_path: String) {
+        #[cfg(feature = "video-mpv")]
+        {
+            let targets: Vec<String> = if let Some(output_name) = output {
+                vec![output_name]
+            } else {
+                self.surfaces.keys().map(|&id| {
+                    self.surfaces[&id].output_info.name.clone()
+                }).collect()
+            };
+
+            for output_name in targets {
+                for surface in self.surfaces.values_mut() {
+                    if surface.output_info.name == output_name {
+                        if let Err(e) = surface.switch_source(&source_path) {
+                            warn!("Failed to set source on {}: {}", output_name, e);
+                        } else {
+                            info!("Set {} to source: {}", output_name, source_path);
+                        }
+                        break;
+                    }
+                }
+            }
         }
     }
 
