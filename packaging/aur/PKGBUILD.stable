@@ -9,7 +9,7 @@ url="https://github.com/YangYuS8/wayvid"
 license=('MIT' 'Apache-2.0')
 depends=(
     'wayland'
-    'libmpv'
+    'mpv'
     'gcc-libs'
     'glibc'
 )
