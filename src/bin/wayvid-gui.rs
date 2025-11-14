@@ -37,7 +37,6 @@ struct WayvidApp {
     video_sources: Vec<VideoSource>,
     workshop_items: Vec<WorkshopItemInfo>,
     selected_output: Option<usize>,
-    selected_source: Option<usize>,
     selected_workshop: Option<usize>,
 
     // Input fields
@@ -86,6 +85,7 @@ struct VideoSource {
 struct WorkshopItemInfo {
     id: u64,
     title: String,
+    #[allow(dead_code)] // Reserved for future file browser feature
     path: String,
     video_path: Option<String>,
     is_valid: bool,
@@ -110,7 +110,6 @@ impl Default for WayvidApp {
             video_sources: Vec::new(),
             workshop_items: Vec::new(),
             selected_output: None,
-            selected_source: None,
             selected_workshop: None,
             video_path_input: String::new(),
             url_input: String::new(),
