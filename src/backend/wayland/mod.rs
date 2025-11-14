@@ -1,4 +1,5 @@
 pub mod app;
+pub mod conflicts;
 pub mod output;
 pub mod surface;
 

@@ -174,9 +174,9 @@ mod tests {
         let video_path = PathBuf::from("/path/to/video.mp4");
         let config = generate_wayvid_config(&project, video_path).unwrap();
 
-        // Check defaults
+        // Check defaults (volume converted from WE 50 -> wayvid 0.5)
         assert_eq!(config.playback_rate, 1.0);
-        assert_eq!(config.volume, 50.0);
+        assert_eq!(config.volume, 0.5);
         assert!(config.r#loop);
         assert_eq!(config.layout, LayoutMode::Contain);
     }

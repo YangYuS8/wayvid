@@ -735,6 +735,9 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
 
     info!("Starting wayvid Wayland backend");
 
+    // Check for conflicting wallpaper managers
+    crate::backend::wayland::conflicts::check_wallpaper_conflicts();
+
     let conn = Connection::connect_to_env().context("Failed to connect to Wayland compositor")?;
 
     let (globals, mut event_queue) =

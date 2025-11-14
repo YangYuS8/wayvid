@@ -33,3 +33,4 @@
 - [CLI Commands](./reference/cli.md)
 - [IPC Protocol](./reference/ipc-protocol.md)
 - [WE Format](./reference/we-format.md)
+- [Wallpaper Manager Conflicts](./reference/conflicts.md)
