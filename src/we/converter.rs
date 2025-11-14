@@ -41,6 +41,9 @@ pub fn generate_wayvid_config(project: &WeProject, video_path: PathBuf) -> Resul
     // Determine mute status
     let mute = props.volume == 0.0;
 
+    // Convert volume from WE range (0-100) to wayvid range (0.0-1.0)
+    let volume = (props.volume / 100.0).clamp(0.0, 1.0);
+
     // Warn about unsupported features
     if props.audio_processing {
         warn!("⚠️  Audio processing is enabled in WE project but not supported by wayvid");
@@ -63,7 +66,7 @@ pub fn generate_wayvid_config(project: &WeProject, video_path: PathBuf) -> Resul
         start_time: 0.0,
         playback_rate: props.rate,
         mute,
-        volume: props.volume,
+        volume,
         hwdec: true,
         hdr_mode: Default::default(),
         tone_mapping: Default::default(),

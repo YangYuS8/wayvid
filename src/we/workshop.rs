@@ -27,7 +27,9 @@ impl WorkshopItem {
             .and_then(|s| s.parse().ok())
             .context("Invalid workshop item ID")?;
 
-        let project = parse_we_project(&path).ok().map(|(proj, _)| proj);
+        // Parser expects project.json file path
+        let project_json = path.join("project.json");
+        let project = parse_we_project(&project_json).ok().map(|(proj, _)| proj);
 
         Ok(Self { id, path, project })
     }

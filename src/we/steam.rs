@@ -91,6 +91,7 @@ impl SteamLibrary {
     /// Find Workshop items for app ID
     pub fn find_workshop_items(&self, app_id: u32) -> Result<Vec<PathBuf>> {
         let mut items = Vec::new();
+        let mut seen_ids = std::collections::HashSet::new();
 
         for library in std::iter::once(&self.root).chain(&self.libraries) {
             let workshop_path = library
@@ -106,7 +107,15 @@ impl SteamLibrary {
             for entry in fs::read_dir(&workshop_path)? {
                 let entry = entry?;
                 if entry.file_type()?.is_dir() {
-                    items.push(entry.path());
+                    // Extract workshop ID from directory name to deduplicate
+                    if let Some(id_str) = entry.file_name().to_str() {
+                        if let Ok(id) = id_str.parse::<u64>() {
+                            // Only add if we haven't seen this ID before
+                            if seen_ids.insert(id) {
+                                items.push(entry.path());
+                            }
+                        }
+                    }
                 }
             }
         }
