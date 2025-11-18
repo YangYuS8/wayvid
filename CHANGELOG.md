@@ -2,11 +2,24 @@
 
 ### 🐛 Bug Fixes
 
+- *(build)* Include Cargo.lock for binary crate
+
+### 📚 Documentation
+
+- *(aur)* Add troubleshooting for Cargo.lock build error
+## [0.4.3] - 2025-11-18
+
+### 🐛 Bug Fixes
+
 - *(aur)* 修复依赖包名 libmpv -> mpv
 
 ### 📚 Documentation
 
 - *(i18n)* 完善中文翻译并修正机器翻译错误
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.4.3
 ## [0.4.2] - 2025-11-14
 
 ### 🚀 Features
