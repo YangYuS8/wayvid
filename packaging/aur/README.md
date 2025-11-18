@@ -177,6 +177,14 @@ sudo pacman -S rust
 sudo pacman -S wayland libmpv
 ```
 
+**Error**: `Cargo.lock does not exist` (versions before 2025-01-18)
+```bash
+# This was fixed in commit 9a9a0a9
+# Cargo.lock is now included in the repository
+# Update to latest git version or wait for next release
+git pull origin main
+```
+
 ### Test Fails
 
 Tests are currently minimal and skipped with `|| true` in the PKGBUILD.
