@@ -61,13 +61,11 @@ jobs:
           CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           TAG_VERSION="${{ steps.version.outputs.version }}"
           
-          # 移除预发布后缀进行比较
-          TAG_BASE_VERSION=$(echo "$TAG_VERSION" | sed 's/-.*$//')
-          
-          if [ "$CARGO_VERSION" != "$TAG_BASE_VERSION" ]; then
+          # 版本必须完全匹配（包括预发布后缀）
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
             echo "❌ Version mismatch!"
             echo "   Cargo.toml: $CARGO_VERSION"
-            echo "   Tag:        $TAG_BASE_VERSION"
+            echo "   Tag:        $TAG_VERSION"
             exit 1
           fi
           
