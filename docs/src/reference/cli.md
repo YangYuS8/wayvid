@@ -4,29 +4,81 @@ Complete reference for all CLI commands.
 
 ## wayvid
 
-Main daemon.
+Main daemon and management tool.
 
 ```
-wayvid [OPTIONS]
+wayvid <COMMAND> [OPTIONS]
 ```
 
-### Options
-- `--config <PATH>` - Config file path
-- `--generate-config` - Generate default config
+### Commands
+
+#### run
+Run the wallpaper engine daemon.
+```bash
+wayvid run [--config <PATH>]
+
+# Examples
+wayvid run
+wayvid run --config ~/.config/wayvid/custom.yaml
+wayvid run --log-level debug
+```
+
+#### daemon
+Manage wayvid daemon (via systemd).
+```bash
+# Start daemon
+wayvid daemon start
+
+# Stop daemon
+wayvid daemon stop
+
+# Restart daemon
+wayvid daemon restart
+
+# Check status
+wayvid daemon status
+
+# View logs
+wayvid daemon logs
+wayvid daemon logs --follow
+wayvid daemon logs --lines 100
+```
+
+**Note:** These commands use systemd user services. Ensure `wayvid.service` is installed.
+
+#### check
+Check system capabilities and dependencies.
+```bash
+wayvid check
+```
+
+#### import
+Import Wallpaper Engine project.
+```bash
+wayvid import <PROJECT_DIR> [--output <PATH>]
+
+# Example
+wayvid import ~/steamapps/workshop/content/431960/1234567890 -o config.yaml
+```
+
+### Global Options
 - `--log-level <LEVEL>` - Log level (error, warn, info, debug, trace)
 - `--version` - Print version
 - `--help` - Show help
 
 ### Examples
 ```bash
-# Run with custom config
-wayvid --config ~/my-config.yaml
+# Start daemon with systemd
+wayvid daemon start
 
-# Generate config
-wayvid --generate-config
+# Run directly with custom config
+wayvid run --config ~/my-config.yaml
 
 # Debug logging
-wayvid --log-level debug
+wayvid run --log-level debug
+
+# Check system capabilities
+wayvid check
 ```
 
 ## wayvid-ctl

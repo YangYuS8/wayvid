@@ -8,10 +8,58 @@ wayvid includes a graphical control panel for easy management.
 wayvid-gui
 ```
 
+**Note:** The GUI is now **fully decoupled** from the daemon. It functions as a:
+- 📝 **Configuration Editor** - Visual interface for config.yaml
+- 🎛️ **Control Panel** - Runtime control via IPC
+- 📊 **Status Monitor** - Real-time daemon status
+- 🔧 **Daemon Manager** - Start/stop/restart daemon
+
 Or build with GUI support:
 ```bash
 cargo build --release --bin wayvid-gui --features gui
 ```
+
+## Daemon Management
+
+The GUI can now **manage the daemon lifecycle**:
+
+### Top Panel Controls
+
+**When daemon is running:**
+- ⏹ **Stop Daemon** - Stop wayvid service
+- 🔄 **Restart** - Restart daemon (useful after config changes)
+
+**When daemon is NOT running:**
+- 🚀 **Start Daemon** - Start wayvid via systemd
+
+**Connection Status:**
+- 🟢 **● Connected** - GUI is connected to daemon
+- 🟡 **● Connecting...** - Attempting connection
+- ⚪ **● Disconnected** - Not connected
+- 🔴 **● Error** - Connection error
+
+**If daemon is not running**, the GUI displays:
+```
+⚠ wayvid daemon is not running. Start it using the button above or run:
+   systemctl --user start wayvid.service
+```
+
+### Typical Usage
+
+**Option 1: GUI manages daemon (Easiest)**
+1. Launch `wayvid-gui`
+2. Click **🚀 Start Daemon**
+3. GUI auto-connects when daemon is ready
+
+**Option 2: Manual daemon, GUI for control**
+1. Start daemon: `systemctl --user start wayvid.service`
+2. Launch `wayvid-gui`
+3. GUI auto-connects if daemon is running
+
+**Option 3: Fully independent**
+1. Daemon runs as systemd service (always-on)
+2. Open GUI when you need to change settings
+3. Close GUI when done (daemon keeps running)
 
 ## Features
 
@@ -94,19 +142,26 @@ Configure playback and application:
 
 ## Typical Workflow
 
-1. **Start wayvid daemon:**
-   ```bash
-   wayvid run --config ~/.config/wayvid/config.yaml &
-   ```
+### Quick Start (GUI Manages Everything)
 
-2. **Launch GUI:**
+1. **Launch GUI:**
    ```bash
    wayvid-gui
    ```
 
-3. **Connect to daemon:**
-   - Click **📡 Connect** button
-   - Status should show **● Connected**
+2. **Start daemon (if not running):**
+   - If you see "⚠ wayvid daemon is not running"
+   - Click **🚀 Start Daemon** button
+   - Wait for status to show **● Connected**
+
+3. **Or start daemon manually first:**
+   ```bash
+   systemctl --user start wayvid.service
+   # Then launch GUI
+   wayvid-gui
+   ```
+
+### Configure Wallpaper
 
 4. **Select an output:**
    - Go to **📺 Outputs** tab
@@ -147,9 +202,26 @@ Configure playback and application:
 ## Troubleshooting
 
 ### "wayvid daemon not running"
-Start the daemon first:
+**Solution 1: Use GUI button**
+- Click **🚀 Start Daemon** in top panel
+
+**Solution 2: Start via systemd**
 ```bash
-wayvid run --config ~/.config/wayvid/config.yaml &
+systemctl --user start wayvid.service
+```
+
+**Solution 3: Start manually**
+```bash
+wayvid run &
+```
+
+**Check if daemon is running:**
+```bash
+# Via systemctl
+systemctl --user status wayvid.service
+
+# Or check process
+ps aux | grep wayvid
 ```
 
 ### "No outputs detected"

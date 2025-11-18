@@ -51,6 +51,12 @@ struct WayvidApp {
     config_loop: bool,
     config_hwdec: bool,
 
+    // Config file editing
+    config_path: String,
+    config_content: String,
+    config_edited: bool,
+    show_config_editor: bool,
+
     // Status
     status_message: String,
     connection_status: ConnectionStatus,
@@ -119,6 +125,10 @@ impl Default for WayvidApp {
             config_mute: true,
             config_loop: true,
             config_hwdec: true,
+            config_path: String::new(),
+            config_content: String::new(),
+            config_edited: false,
+            show_config_editor: false,
             status_message: "Not connected".to_string(),
             connection_status: ConnectionStatus::Disconnected,
             workshop_scan_running: false,
@@ -139,6 +149,34 @@ impl eframe::App for WayvidApp {
             ui.horizontal(|ui| {
                 ui.heading("🎬 wayvid Control Panel");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // Daemon management buttons
+                    let daemon_running = IpcClient::is_running();
+
+                    if daemon_running {
+                        if ui
+                            .button("⏹ Stop Daemon")
+                            .on_hover_text("Stop wayvid daemon (systemctl stop)")
+                            .clicked()
+                        {
+                            self.stop_daemon();
+                        }
+                        if ui
+                            .button("🔄 Restart")
+                            .on_hover_text("Restart wayvid daemon")
+                            .clicked()
+                        {
+                            self.restart_daemon();
+                        }
+                    } else if ui
+                        .button("🚀 Start Daemon")
+                        .on_hover_text("Start wayvid daemon (systemctl start)")
+                        .clicked()
+                    {
+                        self.start_daemon();
+                    }
+
+                    ui.separator();
+
                     // Connection status indicator
                     let (color, text) = match self.connection_status {
                         ConnectionStatus::Connected => (egui::Color32::GREEN, "● Connected"),
@@ -159,6 +197,18 @@ impl eframe::App for WayvidApp {
                     }
                 });
             });
+
+            // Show daemon status notice if not running
+            if !IpcClient::is_running() && self.connection_status == ConnectionStatus::Disconnected
+            {
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.label("⚠");
+                    ui.colored_label(egui::Color32::YELLOW, "wayvid daemon is not running.");
+                    ui.label("Start it using the button above or run:");
+                    ui.code("systemctl --user start wayvid.service");
+                });
+            }
         });
 
         // Bottom panel - Status bar
@@ -192,6 +242,160 @@ impl eframe::App for WayvidApp {
 }
 
 impl WayvidApp {
+    /// Start wayvid daemon via systemd
+    fn start_daemon(&mut self) {
+        self.status_message = "Starting wayvid daemon...".to_string();
+
+        match std::process::Command::new("systemctl")
+            .args(["--user", "start", "wayvid.service"])
+            .status()
+        {
+            Ok(status) => {
+                if status.success() {
+                    self.status_message =
+                        "✓ Daemon started successfully. Connecting...".to_string();
+                    // Wait a moment for daemon to initialize
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    self.connect_ipc();
+                } else {
+                    self.status_message =
+                        "✗ Failed to start daemon. Check systemd status.".to_string();
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("✗ Error starting daemon: {}. Try manual start: systemctl --user start wayvid.service", e);
+            }
+        }
+    }
+
+    /// Stop wayvid daemon via systemd
+    fn stop_daemon(&mut self) {
+        self.status_message = "Stopping wayvid daemon...".to_string();
+
+        match std::process::Command::new("systemctl")
+            .args(["--user", "stop", "wayvid.service"])
+            .status()
+        {
+            Ok(status) => {
+                if status.success() {
+                    self.status_message = "✓ Daemon stopped successfully.".to_string();
+                    self.connection_status = ConnectionStatus::Disconnected;
+                    self.ipc_tx = None;
+                    self.ipc_rx = None;
+                } else {
+                    self.status_message = "✗ Failed to stop daemon.".to_string();
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("✗ Error stopping daemon: {}", e);
+            }
+        }
+    }
+
+    /// Restart wayvid daemon via systemd
+    fn restart_daemon(&mut self) {
+        self.status_message = "Restarting wayvid daemon...".to_string();
+
+        match std::process::Command::new("systemctl")
+            .args(["--user", "restart", "wayvid.service"])
+            .status()
+        {
+            Ok(status) => {
+                if status.success() {
+                    self.status_message = "✓ Daemon restarted. Reconnecting...".to_string();
+                    self.connection_status = ConnectionStatus::Disconnected;
+                    self.ipc_tx = None;
+                    self.ipc_rx = None;
+                    // Wait for daemon to restart
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    self.connect_ipc();
+                } else {
+                    self.status_message = "✗ Failed to restart daemon.".to_string();
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("✗ Error restarting daemon: {}", e);
+            }
+        }
+    }
+
+    /// Load config file from default location
+    fn load_config_file(&mut self) {
+        use std::path::PathBuf;
+
+        // Get default config path
+        let config_path = if let Ok(xdg_config) = std::env::var("XDG_CONFIG_HOME") {
+            PathBuf::from(xdg_config).join("wayvid/config.yaml")
+        } else if let Ok(home) = std::env::var("HOME") {
+            PathBuf::from(home).join(".config/wayvid/config.yaml")
+        } else {
+            self.status_message = "✗ Cannot determine config path".to_string();
+            return;
+        };
+
+        self.config_path = config_path.to_string_lossy().to_string();
+
+        match std::fs::read_to_string(&config_path) {
+            Ok(content) => {
+                self.config_content = content;
+                self.config_edited = false;
+                self.status_message = format!("✓ Loaded config from {}", self.config_path);
+            }
+            Err(e) => {
+                self.status_message =
+                    format!("✗ Failed to load config: {}. Using default template.", e);
+                // Provide a default template
+                self.config_content = include_str!("../../configs/config.example.yaml").to_string();
+                self.config_edited = true;
+            }
+        }
+    }
+
+    /// Save config file
+    fn save_config_file(&mut self) {
+        use std::io::Write;
+        use std::path::Path;
+
+        let path = Path::new(&self.config_path);
+
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = path.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                self.status_message = format!("✗ Failed to create config directory: {}", e);
+                return;
+            }
+        }
+
+        // Write config file
+        match std::fs::File::create(path) {
+            Ok(mut file) => {
+                if let Err(e) = file.write_all(self.config_content.as_bytes()) {
+                    self.status_message = format!("✗ Failed to write config: {}", e);
+                } else {
+                    self.config_edited = false;
+                    self.status_message = format!("✓ Config saved to {}", self.config_path);
+
+                    // Trigger config reload if daemon is connected
+                    if self.connection_status == ConnectionStatus::Connected {
+                        self.send_command(IpcCommand::ReloadConfig);
+                        self.status_message += " and daemon notified to reload";
+                    }
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("✗ Failed to open config file: {}", e);
+            }
+        }
+    }
+
+    /// Validate YAML syntax
+    fn validate_config(&self) -> Result<(), String> {
+        match serde_yaml::from_str::<serde_yaml::Value>(&self.config_content) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("YAML syntax error: {}", e)),
+        }
+    }
+
     fn connect_ipc(&mut self) {
         self.connection_status = ConnectionStatus::Connecting;
         self.status_message = "Connecting to wayvid...".to_string();
@@ -200,7 +404,7 @@ impl WayvidApp {
         if !IpcClient::is_running() {
             self.connection_status = ConnectionStatus::Error;
             self.status_message =
-                "Error: wayvid daemon not running. Start with 'wayvid run'".to_string();
+                "✗ wayvid daemon not running. Click 'Start Daemon' button or run: systemctl --user start wayvid.service".to_string();
             return;
         }
 
@@ -644,6 +848,84 @@ impl WayvidApp {
         ui.separator();
 
         egui::ScrollArea::vertical().show(ui, |ui| {
+            // Config File Editor
+            ui.group(|ui| {
+                ui.heading("📝 Configuration File Editor");
+                ui.label("Edit config.yaml directly with visual interface");
+
+                ui.horizontal(|ui| {
+                    if ui.button("📂 Load Config").clicked() {
+                        self.load_config_file();
+                        self.show_config_editor = true;
+                    }
+
+                    if self.show_config_editor {
+                        if ui.button("💾 Save Config").clicked() {
+                            self.save_config_file();
+                        }
+
+                        if ui.button("✖ Close Editor").clicked() {
+                            if self.config_edited {
+                                // TODO: Add confirmation dialog
+                            }
+                            self.show_config_editor = false;
+                        }
+
+                        // Validate button
+                        let validation_result = self.validate_config();
+                        let (color, text) = match validation_result {
+                            Ok(_) => (egui::Color32::GREEN, "✓ Valid YAML"),
+                            Err(ref e) => (egui::Color32::RED, e.as_str()),
+                        };
+                        ui.colored_label(color, text);
+                    }
+                });
+
+                if self.show_config_editor {
+                    ui.add_space(5.0);
+                    ui.label(format!("Editing: {}", self.config_path));
+                    if self.config_edited {
+                        ui.colored_label(egui::Color32::YELLOW, "⚠ Unsaved changes");
+                    }
+
+                    ui.separator();
+
+                    // Text editor
+                    let text_edit = egui::TextEdit::multiline(&mut self.config_content)
+                        .code_editor()
+                        .desired_width(f32::INFINITY)
+                        .desired_rows(20);
+
+                    if ui.add(text_edit).changed() {
+                        self.config_edited = true;
+                    }
+
+                    ui.separator();
+
+                    // Quick actions
+                    ui.horizontal(|ui| {
+                        if ui.button("🔄 Reload from Disk").clicked() {
+                            self.load_config_file();
+                        }
+
+                        if ui.button("📋 Copy to Clipboard").clicked() {
+                            ui.output_mut(|o| o.copied_text = self.config_content.clone());
+                            self.status_message = "✓ Config copied to clipboard".to_string();
+                        }
+
+                        if ui.button("📥 Example Config").clicked() {
+                            self.config_content =
+                                include_str!("../../configs/config.example.yaml").to_string();
+                            self.config_edited = true;
+                        }
+                    });
+                } else {
+                    ui.label("👉 Click 'Load Config' to start editing");
+                }
+            });
+
+            ui.add_space(10.0);
+
             // Video Configuration
             ui.group(|ui| {
                 ui.heading("🎬 Video Configuration");

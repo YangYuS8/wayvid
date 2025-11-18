@@ -997,6 +997,10 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     );
     info!("   Lazy initialization: resources allocated on first render");
 
+    // Notify systemd that daemon is ready
+    #[cfg(target_os = "linux")]
+    notify_systemd_ready();
+
     // Frame statistics reporting
     let mut last_stats_report = std::time::Instant::now();
     const STATS_REPORT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
@@ -1153,6 +1157,29 @@ impl Dispatch<zxdg_output_v1::ZxdgOutputV1, u32> for AppState {
                 debug!("Output {} xdg_output done", output_id);
             }
             _ => {}
+        }
+    }
+}
+
+/// Notify systemd that daemon is ready (Linux-specific)
+#[cfg(target_os = "linux")]
+fn notify_systemd_ready() {
+    use std::os::unix::net::UnixDatagram;
+
+    // Check if we're running under systemd
+    if let Ok(notify_socket) = std::env::var("NOTIFY_SOCKET") {
+        if !notify_socket.is_empty() {
+            // Try to send notification via Unix socket
+            if let Ok(sock) = UnixDatagram::unbound() {
+                match sock.send_to(b"READY=1", &notify_socket) {
+                    Ok(_) => {
+                        info!("✓ Notified systemd: service ready");
+                    }
+                    Err(e) => {
+                        warn!("Failed to notify systemd: {}", e);
+                    }
+                }
+            }
         }
     }
 }

@@ -35,6 +35,11 @@ enum Commands {
         #[arg(short, long, default_value = "~/.config/wayvid/config.yaml")]
         config: String,
     },
+    /// Daemon management commands
+    Daemon {
+        #[command(subcommand)]
+        command: DaemonCommands,
+    },
     /// Check system capabilities
     Check,
     /// Import Wallpaper Engine project
@@ -54,6 +59,27 @@ enum Commands {
     /// Reload configuration (via IPC, future)
     #[cfg(feature = "ipc")]
     Reload,
+}
+
+#[derive(Subcommand)]
+enum DaemonCommands {
+    /// Start wayvid daemon (via systemd)
+    Start,
+    /// Stop wayvid daemon (via systemd)
+    Stop,
+    /// Restart wayvid daemon (via systemd)
+    Restart,
+    /// Check daemon status
+    Status,
+    /// View daemon logs
+    Logs {
+        /// Follow logs in real-time
+        #[arg(short, long)]
+        follow: bool,
+        /// Number of lines to show
+        #[arg(short, long, default_value = "50")]
+        lines: u32,
+    },
 }
 
 #[derive(Subcommand)]
@@ -149,6 +175,9 @@ fn main() -> Result<()> {
                      Or if using a package manager, install the correct package variant."
                 );
             }
+        }
+        Commands::Daemon { command } => {
+            handle_daemon_command(command)?;
         }
         Commands::Check => {
             ctl::check::run_capability_check()?;
@@ -364,6 +393,81 @@ fn main() -> Result<()> {
             info!("Reloading configuration...");
             use ctl::protocol::IpcCommand;
             ctl::ipc_server::send_command(&IpcCommand::ReloadConfig)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Handle daemon management commands
+fn handle_daemon_command(command: DaemonCommands) -> Result<()> {
+    use std::process::Command;
+
+    match command {
+        DaemonCommands::Start => {
+            println!("🚀 Starting wayvid daemon...");
+            let status = Command::new("systemctl")
+                .args(["--user", "start", "wayvid.service"])
+                .status()?;
+
+            if status.success() {
+                println!("✓ Daemon started successfully");
+                println!("\n💡 Check status: wayvid daemon status");
+                println!("💡 View logs: wayvid daemon logs --follow");
+            } else {
+                anyhow::bail!("✗ Failed to start daemon");
+            }
+        }
+        DaemonCommands::Stop => {
+            println!("⏹ Stopping wayvid daemon...");
+            let status = Command::new("systemctl")
+                .args(["--user", "stop", "wayvid.service"])
+                .status()?;
+
+            if status.success() {
+                println!("✓ Daemon stopped successfully");
+            } else {
+                anyhow::bail!("✗ Failed to stop daemon");
+            }
+        }
+        DaemonCommands::Restart => {
+            println!("🔄 Restarting wayvid daemon...");
+            let status = Command::new("systemctl")
+                .args(["--user", "restart", "wayvid.service"])
+                .status()?;
+
+            if status.success() {
+                println!("✓ Daemon restarted successfully");
+                println!("\n💡 View logs: wayvid daemon logs --follow");
+            } else {
+                anyhow::bail!("✗ Failed to restart daemon");
+            }
+        }
+        DaemonCommands::Status => {
+            println!("📊 Checking daemon status...\n");
+            let status = Command::new("systemctl")
+                .args(["--user", "status", "wayvid.service"])
+                .status()?;
+
+            if !status.success() {
+                println!("\n💡 Daemon is not running. Start with: wayvid daemon start");
+            }
+        }
+        DaemonCommands::Logs { follow, lines } => {
+            println!("📜 Viewing daemon logs...\n");
+            let lines_str = lines.to_string();
+            let mut args = vec!["--user", "-u", "wayvid", "-n", lines_str.as_str()];
+
+            if follow {
+                args.push("-f");
+                println!("(Press Ctrl+C to exit)\n");
+            }
+
+            let status = Command::new("journalctl").args(&args).status()?;
+
+            if !status.success() {
+                anyhow::bail!("✗ Failed to view logs");
+            }
         }
     }
 

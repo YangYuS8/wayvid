@@ -1,3 +1,12 @@
+## [unreleased]
+
+### 🐛 Bug Fixes
+
+- *(aur)* 修复依赖包名 libmpv -> mpv
+
+### 📚 Documentation
+
+- *(i18n)* 完善中文翻译并修正机器翻译错误
 ## [0.4.2] - 2025-11-14
 
 ### 🚀 Features
@@ -26,6 +35,7 @@
 - *(conflicts)* Rewrite in English per international standards
 - 更新 Layout 模式说明
 - 添加 GUI 控制面板文档和测试工具
+- Update CHANGELOG for v0.4.2
 
 ### 🧪 Testing
 

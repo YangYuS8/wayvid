@@ -1,21 +1,57 @@
+// ============================================================================
 // wayvid autostart configuration for niri
+// ============================================================================
 // Add this snippet to your niri config.kdl file
+// Location: ~/.config/niri/config.kdl
+//
+// Choose ONE of the methods below based on your preference
 
-// Method 1: Direct spawn (recommended for most users)
+
+// ----------------------------------------------------------------------------
+// Method 1: Direct spawn (推荐 - 简单直接)
+// ----------------------------------------------------------------------------
 spawn-at-startup "wayvid" "run"
 
-// Method 2: With custom config file
-// spawn-at-startup "wayvid" "run" "--config" "/home/user/.config/wayvid/custom.yaml"
 
-// Method 3: With debug logging (for troubleshooting)
-// spawn-at-startup "wayvid" "run" "--log-level" "debug"
-
-// Method 4: Via systemd (alternative, allows easy restart)
+// ----------------------------------------------------------------------------
+// Method 2: Via systemd (推荐 - 更好的进程管理)
+// ----------------------------------------------------------------------------
+// 优点：可以使用 systemctl 命令管理服务（start/stop/restart/status）
+// 配置 systemd 服务后使用此方法
+//
 // spawn-at-startup "systemctl" "--user" "start" "wayvid.service"
 
-// Note: Ensure wayvid is in your PATH
-// AUR package installs to /usr/bin/wayvid
-// Manual install: use full path like "/home/user/.local/bin/wayvid"
+
+// ----------------------------------------------------------------------------
+// Method 3: With custom config file (自定义配置)
+// ----------------------------------------------------------------------------
+// spawn-at-startup "wayvid" "run" "--config" "/home/user/.config/wayvid/custom.yaml"
+
+
+// ----------------------------------------------------------------------------
+// Method 4: With debug logging (调试模式)
+// ----------------------------------------------------------------------------
+// 用于排查问题，日志会输出到 journalctl
+// spawn-at-startup "wayvid" "run" "--log-level" "debug"
+
+
+// ============================================================================
+// 安装说明
+// ============================================================================
+// 1. 确保 wayvid 在你的 PATH 中
+//    - AUR 包安装到: /usr/bin/wayvid
+//    - 手动编译安装: ~/.local/bin/wayvid (需要添加到 PATH)
+//
+// 2. 如果使用 systemd 方法，需要先启用服务：
+//    systemctl --user enable wayvid.service
+//
+// 3. 配置文件位置: ~/.config/wayvid/config.yaml
+//    如果不存在，wayvid 会使用默认配置
+
+
+// ============================================================================
+// Niri + wayvid 性能优化建议
+// ============================================================================
 
 // ============================================================================
 // Recommended niri + wayvid configuration for best performance

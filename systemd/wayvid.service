@@ -1,18 +1,36 @@
 [Unit]
 Description=wayvid - Wayland Video Wallpaper Engine
-Documentation=https://github.com/yourusername/wayvid
+Documentation=https://github.com/YangYuS8/wayvid
 After=graphical-session.target
+# 依赖 Wayland 会话
+Wants=wayland-session.target
+After=wayland-session.target
 PartOf=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/wayvid run --config %h/.config/wayvid/config.yaml
+# 优先使用系统安装路径，回退到用户本地路径
+ExecStart=/usr/bin/env bash -c 'exec "$(command -v wayvid || echo %h/.local/bin/wayvid)" run'
 Restart=on-failure
-RestartSec=5
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
 
-# Resource limits (optional, adjust as needed)
-# MemoryMax=2G
-# CPUQuota=50%
+# 环境变量
+Environment="RUST_LOG=wayvid=info"
+
+# 资源限制
+MemoryMax=2G
+CPUQuota=80%
+
+# 安全加固
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# 允许读写配置和缓存目录
+ReadWritePaths=%h/.config/wayvid %h/.cache/wayvid %C/wayvid
+# 允许访问运行时目录（用于 IPC socket）
+ReadWritePaths=%t
 
 [Install]
 WantedBy=graphical-session.target
