@@ -1,6 +1,7 @@
 # Rust
 target/
-Cargo.lock
+# Note: Cargo.lock should be committed for binary crates (wayvid is a binary project)
+# See: https://doc.rust-lang.org/cargo/faq.html#why-do-binaries-have-cargolock-in-version-control-but-not-libraries
 **/*.rs.bk
 *.pdb
 
