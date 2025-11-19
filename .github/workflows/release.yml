@@ -378,9 +378,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_unmatched_files: true
 
-  # 更新 AUR 包（仅正式版）
-  update-aur:
-    name: Update AUR Package
+  # 更新 AUR 稳定版包（仅正式版）
+  update-aur-stable:
+    name: Update AUR Stable Package
     needs: [validate, release]
     if: needs.validate.outputs.is_prerelease == 'false'
     runs-on: ubuntu-latest
@@ -427,4 +427,53 @@ jobs:
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: "Update to v${{ needs.validate.outputs.version }}"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
+
+  # 更新 AUR Git 包（仅预发布版）
+  update-aur-git:
+    name: Update AUR Git Package
+    needs: [validate, release]
+    if: needs.validate.outputs.is_prerelease == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Update PKGBUILD for git version
+        run: |
+          # Copy git PKGBUILD
+          mkdir -p aur-git-package
+          cp packaging/aur/PKGBUILD aur-git-package/PKGBUILD
+          
+          # Update pkgrel to trigger rebuild (increment by 1)
+          cd aur-git-package
+          CURRENT_REL=$(grep '^pkgrel=' PKGBUILD | sed 's/pkgrel=//')
+          NEW_REL=$((CURRENT_REL + 1))
+          sed -i "s/^pkgrel=.*/pkgrel=$NEW_REL/" PKGBUILD
+          
+          echo "Updated pkgrel from $CURRENT_REL to $NEW_REL"
+          cat PKGBUILD
+          
+      - name: Generate .SRCINFO
+        run: |
+          cd aur-git-package
+          docker run --rm -v "$(pwd):/pkg" archlinux:latest bash -c "
+            useradd -m builder
+            pacman -Syu --noconfirm
+            pacman -S --noconfirm binutils fakeroot git
+            cd /pkg
+            chown -R builder:builder /pkg
+            su - builder -c 'cd /pkg && makepkg --printsrcinfo' > .SRCINFO
+          "
+          cat .SRCINFO
+        
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: wayvid-git
+          pkgbuild: aur-git-package/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update for prerelease v${{ needs.validate.outputs.version }}"
           ssh_keyscan_types: rsa,ecdsa,ed25519
