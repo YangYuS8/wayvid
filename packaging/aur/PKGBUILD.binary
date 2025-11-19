@@ -21,11 +21,12 @@ provides=('wayvid')
 conflicts=('wayvid-git')
 
 package() {
-    install -Dm755 "$srcdir/../target/release/wayvid" "$pkgdir/usr/bin/wayvid"
-    install -Dm755 "$srcdir/../target/release/wayvid-ctl" "$pkgdir/usr/bin/wayvid-ctl"
-    install -Dm755 "$srcdir/../target/release/wayvid-gui" "$pkgdir/usr/bin/wayvid-gui"
-    install -Dm644 "$srcdir/../systemd/wayvid.service" "$pkgdir/usr/lib/systemd/user/wayvid.service"
-    install -Dm644 "$srcdir/../configs/config.example.yaml" "$pkgdir/usr/share/wayvid/config.example.yaml"
-    install -Dm644 "$srcdir/../README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
-    install -Dm644 "$srcdir/../LICENSE-MIT" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+    cd "$startdir"
+    install -Dm755 target/release/wayvid "$pkgdir/usr/bin/wayvid"
+    install -Dm755 target/release/wayvid-ctl "$pkgdir/usr/bin/wayvid-ctl"
+    install -Dm755 target/release/wayvid-gui "$pkgdir/usr/bin/wayvid-gui"
+    install -Dm644 systemd/wayvid.service "$pkgdir/usr/lib/systemd/user/wayvid.service"
+    install -Dm644 configs/config.example.yaml "$pkgdir/usr/share/wayvid/config.example.yaml"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 LICENSE-MIT "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
 }

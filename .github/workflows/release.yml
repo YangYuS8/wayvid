@@ -182,10 +182,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: wayvid-binaries-x86_64-unknown-linux-gnu
-          path: target/release
+          path: artifacts
       
-      - name: Make binaries executable
-        run: chmod +x target/release/*
+      - name: Prepare binaries for packaging
+        run: |
+          mkdir -p target/release
+          cp artifacts/* target/release/
+          chmod +x target/release/*
       
       - name: Install system dependencies
         run: |
@@ -238,7 +241,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: wayvid-binaries-x86_64-unknown-linux-gnu
-          path: downloaded-binaries
+          path: artifacts
+      
+      - name: Prepare binaries
+        run: |
+          mkdir -p target/release
+          cp artifacts/* target/release/
+          chmod +x target/release/*
       
       - name: Build in Arch container
         run: |
@@ -247,7 +256,7 @@ jobs:
             cd /workspace
             
             # 安装最小依赖 (不需要 rust/cargo，使用预编译二进制)
-            pacman -Syu --noconfirm
+            pacman -Syu --noconfirm --disable-download-timeout
             pacman -S --noconfirm \
               base-devel \
               git
@@ -255,11 +264,6 @@ jobs:
             # 创建构建用户
             useradd -m builder
             chown -R builder:builder /workspace
-            
-            # 复制预编译的二进制文件到 target/release
-            mkdir -p target/release
-            cp downloaded-binaries/* target/release/
-            chmod +x target/release/*
             
             # 使用 PKGBUILD.binary 并更新版本号
             ORIGINAL_VERSION='${{ needs.validate.outputs.version }}'
@@ -301,10 +305,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: wayvid-binaries-x86_64-unknown-linux-gnu
-          path: target/release
+          path: artifacts
       
-      - name: Make binaries executable
-        run: chmod +x target/release/*
+      - name: Prepare binaries for packaging
+        run: |
+          mkdir -p target/release
+          cp artifacts/* target/release/
+          chmod +x target/release/*
       
       - name: Install cargo-deb
         run: |
