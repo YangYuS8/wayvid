@@ -4,17 +4,21 @@ This directory contains PKGBUILD files for publishing wayvid on the Arch User Re
 
 ## Available Packages
 
-### wayvid (stable)
+### wayvid (stable) - **Pre-compiled Binary**
 - **Package name**: `wayvid`
-- **Source**: Official release tarballs from GitHub
-- **Recommended for**: Most users
+- **Distribution**: Pre-compiled binary package from GitHub Releases
+- **Installation time**: **5-10 seconds** (no compilation required)
+- **Recommended for**: Most users seeking fast installation
 - **PKGBUILD**: `PKGBUILD.stable`
+- **Note**: Downloads pre-built `.pkg.tar.zst` directly from GitHub
 
-### wayvid-git (development)
+### wayvid-git (development) - Source Build
 - **Package name**: `wayvid-git`
-- **Source**: Latest git main branch
-- **Recommended for**: Testing new features, M6 features (Steam Workshop, Niri integration)
+- **Source**: Latest git main branch (compiled from source)
+- **Installation time**: ~5-15 minutes (full Rust compilation)
+- **Recommended for**: Developers, testing new features, M6 features (Steam Workshop, Niri integration)
 - **PKGBUILD**: `PKGBUILD`
+- **Note**: Compiles from source for cutting-edge features and customization
 
 ## New Features (M6)
 
@@ -32,16 +36,16 @@ Install required tools:
 sudo pacman -S base-devel git
 ```
 
-### Build from Source
+### Installation Methods
 
-#### Option 1: Install from AUR (once published)
+#### Option 1: Install from AUR (Recommended)
 
 Using an AUR helper (e.g., `yay`):
 ```bash
-# Stable version
+# Stable version (pre-compiled binary, FAST!)
 yay -S wayvid
 
-# Development version
+# Development version (compiled from source)
 yay -S wayvid-git
 ```
 
@@ -51,9 +55,13 @@ Using `makepkg` manually:
 git clone https://aur.archlinux.org/wayvid.git
 cd wayvid
 
-# Build and install
+# Install (downloads pre-compiled package)
 makepkg -si
 ```
+
+**Performance Comparison:**
+- **wayvid (binary)**: Installation completes in **5-10 seconds**
+- **wayvid-git (source)**: Installation takes **5-15 minutes** (requires full Rust compilation)
 
 #### Option 2: Build Locally (for testing)
 
@@ -124,21 +132,58 @@ makepkg -c
    git push
    ```
 
-#### For wayvid (stable)
+#### For wayvid (stable) - Binary Package Mode
 
-Same process as above, but:
-- Use `PKGBUILD.stable` as the source
-- Clone `ssh://aur@aur.archlinux.org/wayvid.git`
-- Update `pkgver` and `sha256sums` for each release
+**Important**: The stable package uses pre-compiled binaries from GitHub Releases.
 
-### Updating Checksums
+1. Clone AUR repository:
+   ```bash
+   git clone ssh://aur@aur.archlinux.org/wayvid.git aur-wayvid
+   cd aur-wayvid
+   ```
 
-For stable releases, update SHA256 checksum:
-```bash
-curl -sL https://github.com/YangYuS8/wayvid/archive/v0.3.0.tar.gz | sha256sum
-```
+2. Copy PKGBUILD:
+   ```bash
+   cp ../PKGBUILD.stable PKGBUILD
+   ```
 
-Update the `sha256sums` array in PKGBUILD with the result.
+3. Update version:
+   ```bash
+   # Update pkgver to match the new release
+   sed -i 's/^pkgver=.*/pkgver=0.4.0/' PKGBUILD
+   ```
+
+4. Generate .SRCINFO:
+   ```bash
+   makepkg --printsrcinfo > .SRCINFO
+   ```
+
+5. **No checksum update needed**: Binary package uses `sha256sums=('SKIP')` as the `.pkg.tar.zst` is downloaded from GitHub Release and verified by pacman.
+
+6. Test installation (optional):
+   ```bash
+   makepkg -si
+   ```
+
+7. Commit and push:
+   ```bash
+   git add PKGBUILD .SRCINFO
+   git commit -m "Update to version X.Y.Z (pre-compiled binary)"
+   git push
+   ```
+
+### Binary vs Source Package
+
+**wayvid (stable)** is now distributed as a **binary package** for faster installation:
+- **No compilation required**: Downloads pre-built `.pkg.tar.zst` from GitHub
+- **No build dependencies**: Users don't need rust, cargo, or other build tools
+- **Fast installation**: Completes in seconds instead of minutes
+- **Automatic updates**: Handled by CI/CD on each release
+
+**wayvid-git (development)** remains a **source package**:
+- Compiles from latest git commit
+- Requires full build environment (rust, cargo, etc.)
+- Longer installation time but provides cutting-edge features
 
 ## Package Validation
 
@@ -204,11 +249,21 @@ makepkg -si
 
 ### Version Updates
 
-1. Update `pkgver` in PKGBUILD
-2. Update `pkgrel` to 1 for new versions
+**For wayvid (stable - binary package):**
+1. Update `pkgver` in PKGBUILD.stable
+2. Reset `pkgrel` to 1 for new versions
 3. Increment `pkgrel` for packaging changes (same version)
+4. **No checksum update needed** (uses SKIP for binary packages)
+5. Update `.SRCINFO` after any PKGBUILD changes
+6. Push to AUR (handled automatically by CI/CD)
+
+**For wayvid-git (source package):**
+1. Update dependencies if needed
+2. Increment `pkgrel` for packaging changes
+3. `pkgver()` function handles version automatically
 4. Update `.SRCINFO` after any PKGBUILD changes
-5. Test build before publishing
+5. Test build on clean system
+6. Push to AUR (handled automatically by CI/CD for pre-releases)
 
 ### Release Checklist
 

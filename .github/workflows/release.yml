@@ -227,6 +227,63 @@ jobs:
             packaging/appimage/build/SHA256SUMS
           retention-days: 90
 
+  # 构建 Arch Linux 包
+  build-arch-package:
+    name: Build Arch Package
+    needs: [validate, quality]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build in Arch container
+        run: |
+          docker run --rm -v "$(pwd):/workspace" archlinux:latest bash -c "
+            set -e
+            cd /workspace
+            
+            # 安装依赖
+            pacman -Syu --noconfirm
+            pacman -S --noconfirm \
+              base-devel \
+              rust \
+              cargo \
+              git \
+              wayland \
+              mpv \
+              gcc-libs \
+              glibc \
+              zstd
+            
+            # 创建构建用户
+            useradd -m builder
+            chown -R builder:builder /workspace
+            
+            # 使用 PKGBUILD.stable 构建
+            cp packaging/aur/PKGBUILD.stable PKGBUILD
+            
+            # 更新版本号
+            sed -i 's/^pkgver=.*/pkgver=${{ needs.validate.outputs.version }}/' PKGBUILD
+            
+            # 构建包
+            su - builder -c 'cd /workspace && makepkg --noconfirm --skipinteg'
+            
+            # 移动构建产物
+            mv wayvid-*.pkg.tar.zst /workspace/
+            
+            # 生成校验和
+            sha256sum wayvid-*.pkg.tar.zst > wayvid-${{ needs.validate.outputs.version }}-x86_64.pkg.tar.zst.sha256
+          "
+      
+      - name: Upload Arch package
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayvid-arch-package
+          path: |
+            wayvid-*.pkg.tar.zst
+            wayvid-*.pkg.tar.zst.sha256
+          retention-days: 90
+
   # 生成 Release Notes 和更新 CHANGELOG
   release-notes:
     name: Generate Release Notes
@@ -348,7 +405,7 @@ jobs:
   # 创建 GitHub Release
   release:
     name: Create Release
-    needs: [validate, quality, build, appimage, release-notes]
+    needs: [validate, quality, build, appimage, build-arch-package, release-notes]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -364,7 +421,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.AppImage" -o -name "SHA256SUMS" -o -name "CHANGELOG.md" \) -exec cp {} release-files/ \;
+          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.AppImage" -o -name "*.pkg.tar.zst" -o -name "SHA256SUMS" -o -name "CHANGELOG.md" \) -exec cp {} release-files/ \;
           ls -lh release-files/
       
       - name: Create Release
@@ -390,16 +447,12 @@ jobs:
       
       - name: Prepare PKGBUILD
         run: |
-          # Update version in PKGBUILD.stable
+          # Update version in PKGBUILD.stable (binary package mode)
           VERSION="${{ needs.validate.outputs.version }}"
           sed -i "s/^pkgver=.*/pkgver=$VERSION/" packaging/aur/PKGBUILD.stable
           
-          # Download release tarball and calculate SHA256
-          wget "https://github.com/YangYuS8/wayvid/archive/v$VERSION.tar.gz" -O "wayvid-$VERSION.tar.gz"
-          SHA256=$(sha256sum "wayvid-$VERSION.tar.gz" | awk '{print $1}')
-          
-          # Update SHA256 in PKGBUILD.stable
-          sed -i "s/^sha256sums=.*/sha256sums=('$SHA256')/" packaging/aur/PKGBUILD.stable
+          # Binary package uses SKIP for checksum (downloaded from GitHub Release)
+          # No need to calculate SHA256, pacman will verify the package signature
           
           # Prepare for AUR
           mkdir -p aur-package

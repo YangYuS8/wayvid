@@ -1,8 +1,12 @@
-## [unreleased]
+## [0.4.3-hotfix.3] - 2025-11-19
 
 ### 🐛 Bug Fixes
 
 - *(aur)* 添加缺失的 zstd 依赖
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare v0.4.3-hotfix.3
 ## [0.4.3-hotfix.2] - 2025-11-19
 
 ### 🚀 Features
