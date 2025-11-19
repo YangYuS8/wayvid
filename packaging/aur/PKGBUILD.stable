@@ -26,11 +26,31 @@ optdepends=(
 )
 provides=('wayvid')
 conflicts=('wayvid-git')
-source=("$pkgname-$pkgver-x86_64.pkg.tar.zst::$url/releases/download/v$pkgver/$pkgname-$pkgver-x86_64.pkg.tar.zst")
-sha256sums=('SKIP')
+source=(
+    "$pkgname-$pkgver.tar.gz::$url/releases/download/v$pkgver/$pkgname-$pkgver-x86_64-unknown-linux-gnu.tar.gz"
+    "$url/raw/refs/heads/main/systemd/wayvid.service"
+    "$url/raw/refs/heads/main/configs/config.example.yaml"
+    "$url/raw/refs/heads/main/README.md"
+    "$url/raw/refs/heads/main/LICENSE-MIT"
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 options=('!strip')
 
 package() {
-    # Extract pre-compiled package content
-    cp -a "$srcdir"/* "$pkgdir"/
+    # Install binaries
+    install -Dm755 "$srcdir/wayvid" "$pkgdir/usr/bin/wayvid"
+    install -Dm755 "$srcdir/wayvid-ctl" "$pkgdir/usr/bin/wayvid-ctl"
+    install -Dm755 "$srcdir/wayvid-gui" "$pkgdir/usr/bin/wayvid-gui"
+    
+    # Install systemd service
+    install -Dm644 "$srcdir/wayvid.service" "$pkgdir/usr/lib/systemd/user/wayvid.service"
+    
+    # Install config example
+    install -Dm644 "$srcdir/config.example.yaml" "$pkgdir/usr/share/wayvid/config.example.yaml"
+    
+    # Install documentation
+    install -Dm644 "$srcdir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+    
+    # Install license
+    install -Dm644 "$srcdir/LICENSE-MIT" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
 }
