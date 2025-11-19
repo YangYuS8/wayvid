@@ -1,3 +1,8 @@
+## [unreleased]
+
+### 🚀 Features
+
+- Convert AUR stable package to binary distribution
 ## [0.4.3-hotfix.3] - 2025-11-19
 
 ### 🐛 Bug Fixes
