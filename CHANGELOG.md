@@ -1,12 +1,23 @@
 ## [unreleased]
 
+### 🚀 Features
+
+- *(ci)* 为预发布版本添加 AUR Git 包自动发布
+## [0.4.3-hotfix.1] - 2025-11-18
+
 ### 🐛 Bug Fixes
 
 - *(build)* Include Cargo.lock for binary crate
+- 更新 wayvid 版本为 0.4.3-hotfix.1
+- *(ci)* 修复 release workflow 版本验证逻辑
 
 ### 📚 Documentation
 
 - *(aur)* Add troubleshooting for Cargo.lock build error
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare v0.4.3-hotfix.1
 ## [0.4.3] - 2025-11-18
 
 ### 🐛 Bug Fixes
