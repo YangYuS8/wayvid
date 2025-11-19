@@ -1,8 +1,17 @@
 ## [unreleased]
 
+### 🐛 Bug Fixes
+
+- *(aur)* 添加缺失的 zstd 依赖
+## [0.4.3-hotfix.2] - 2025-11-19
+
 ### 🚀 Features
 
 - *(ci)* 为预发布版本添加 AUR Git 包自动发布
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare v0.4.3-hotfix.2
 ## [0.4.3-hotfix.1] - 2025-11-18
 
 ### 🐛 Bug Fixes
