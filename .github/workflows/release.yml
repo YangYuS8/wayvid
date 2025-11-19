@@ -187,8 +187,16 @@ jobs:
       - name: Prepare binaries for packaging
         run: |
           mkdir -p target/release
-          cp artifacts/* target/release/
-          chmod +x target/release/*
+          # Extract tarballs produced by the build job into target/release
+          for f in artifacts/*.tar.gz; do
+            if [ -f "$f" ]; then
+              tar -xzf "$f" -C target/release || true
+            fi
+          done
+          # Fallback: if artifacts contain raw binaries, copy them
+          shopt -s nullglob || true
+          cp artifacts/* target/release/ 2>/dev/null || true
+          chmod +x target/release/* || true
       
       - name: Install system dependencies
         run: |
@@ -246,8 +254,13 @@ jobs:
       - name: Prepare binaries
         run: |
           mkdir -p target/release
-          cp artifacts/* target/release/
-          chmod +x target/release/*
+          for f in artifacts/*.tar.gz; do
+            if [ -f "$f" ]; then
+              tar -xzf "$f" -C target/release || true
+            fi
+          done
+          cp artifacts/* target/release/ 2>/dev/null || true
+          chmod +x target/release/* || true
       
       - name: Build in Arch container
         run: |
@@ -310,8 +323,13 @@ jobs:
       - name: Prepare binaries for packaging
         run: |
           mkdir -p target/release
-          cp artifacts/* target/release/
-          chmod +x target/release/*
+          for f in artifacts/*.tar.gz; do
+            if [ -f "$f" ]; then
+              tar -xzf "$f" -C target/release || true
+            fi
+          done
+          cp artifacts/* target/release/ 2>/dev/null || true
+          chmod +x target/release/* || true
       
       - name: Install cargo-deb
         run: |
