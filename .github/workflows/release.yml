@@ -214,12 +214,12 @@ jobs:
           chmod +x /tmp/appimagetool
           sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
       
-      - name: Build AppImage (reusing binaries)
+      - name: Build AppImage (using precompiled binaries)
         run: |
           cd packaging/appimage
           chmod +x build-appimage.sh
-          # build-appimage.sh 现在会使用 target/release 中已有的二进制文件
-          ./build-appimage.sh ${{ needs.validate.outputs.version }}
+          # Use NO_BUILD=1 to skip compilation and use precompiled binaries from target/release
+          NO_BUILD=1 ./build-appimage.sh ${{ needs.validate.outputs.version }}
       
       - name: Test AppImage
         run: |

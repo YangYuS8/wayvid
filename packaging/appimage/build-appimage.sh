@@ -46,10 +46,15 @@ echo "🧹 Cleaning previous build..."
 rm -rf "${BUILD_DIR}"
 mkdir -p "${APPDIR}"
 
-# Build wayvid in release mode
-echo "🔨 Building wayvid (release mode)..."
-cd "$(git rev-parse --show-toplevel)"
-cargo build --release --all-features
+# Build wayvid in release mode (unless NO_BUILD=1)
+if [ "${NO_BUILD}" = "1" ]; then
+    echo "⚡ Skipping build (using precompiled binaries from target/release)"
+    cd "$(git rev-parse --show-toplevel)"
+else
+    echo "🔨 Building wayvid (release mode)..."
+    cd "$(git rev-parse --show-toplevel)"
+    cargo build --release --all-features
+fi
 
 # Create AppDir structure
 echo "📦 Creating AppDir structure..."
