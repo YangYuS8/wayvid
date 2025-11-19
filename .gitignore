@@ -22,6 +22,9 @@ Thumbs.db
 *.AppImage
 packaging/*/*.tar.gz
 packaging/*/*.pkg.tar.zst
+packaging/aur/wayvid
+packaging/aur/src
+packaging/aur/pkg
 
 # AppImage build directory
 packaging/appimage/build/

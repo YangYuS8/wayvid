@@ -4512,7 +4512,7 @@ dependencies = [
 
 [[package]]
 name = "wayvid"
-version = "0.4.3-hotfix.4"
+version = "0.4.3-hotfix.5"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
