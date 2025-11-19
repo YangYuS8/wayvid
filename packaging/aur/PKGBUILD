@@ -53,6 +53,9 @@ build() {
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
     
+    # Use system zstd library instead of building from source
+    export ZSTD_SYS_USE_PKG_CONFIG=1
+    
     # Build with all features including GUI
     cargo build --frozen --release --all-features --features gui
 }
