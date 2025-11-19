@@ -1,0 +1,31 @@
+# Maintainer: wayvid contributors
+# NOTE: This PKGBUILD is used by CI to create the binary package from pre-compiled binaries
+
+pkgname=wayvid
+pkgver=__VERSION__
+pkgrel=1
+pkgdesc="Dynamic video wallpaper engine for Wayland with Steam Workshop and Niri support"
+arch=('x86_64')
+url="https://github.com/YangYuS8/wayvid"
+license=('MIT' 'Apache-2.0')
+depends=('wayland' 'mpv' 'gcc-libs' 'glibc' 'zstd')
+optdepends=(
+    'mesa: Hardware video decoding with VA-API'
+    'libva-intel-driver: Intel GPU hardware acceleration'
+    'libva-mesa-driver: AMD GPU hardware acceleration'
+    'nvidia-utils: NVIDIA GPU hardware acceleration'
+    'steam: Steam Workshop integration for Wallpaper Engine imports'
+    'niri: Workspace-aware performance optimizations'
+)
+provides=('wayvid')
+conflicts=('wayvid-git')
+
+package() {
+    install -Dm755 "$srcdir/../target/release/wayvid" "$pkgdir/usr/bin/wayvid"
+    install -Dm755 "$srcdir/../target/release/wayvid-ctl" "$pkgdir/usr/bin/wayvid-ctl"
+    install -Dm755 "$srcdir/../target/release/wayvid-gui" "$pkgdir/usr/bin/wayvid-gui"
+    install -Dm644 "$srcdir/../systemd/wayvid.service" "$pkgdir/usr/lib/systemd/user/wayvid.service"
+    install -Dm644 "$srcdir/../configs/config.example.yaml" "$pkgdir/usr/share/wayvid/config.example.yaml"
+    install -Dm644 "$srcdir/../README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 "$srcdir/../LICENSE-MIT" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+}

@@ -1,8 +1,12 @@
-## [unreleased]
+## [0.4.3-hotfix.4] - 2025-11-19
 
 ### 🚀 Features
 
 - Convert AUR stable package to binary distribution
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare v0.4.3-hotfix.4
 ## [0.4.3-hotfix.3] - 2025-11-19
 
 ### 🐛 Bug Fixes

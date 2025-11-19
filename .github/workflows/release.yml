@@ -169,25 +169,28 @@ jobs:
             wayvid-*.tar.gz.sha256
           retention-days: 90
 
-  # 构建 AppImage
+  # 构建 AppImage (复用 build job 的二进制)
   appimage:
     name: Build AppImage
-    needs: [validate, quality]
+    needs: [validate, build]
     runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
       
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wayvid-binaries-x86_64-unknown-linux-gnu
+          path: target/release
+      
+      - name: Make binaries executable
+        run: chmod +x target/release/*
+      
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libmpv-dev \
-            libwayland-dev \
-            libgl1-mesa-dev \
-            libegl1-mesa-dev \
-            libxkbcommon-dev \
-            libfontconfig1-dev \
             upx-ucl \
             imagemagick \
             fuse \
@@ -200,16 +203,11 @@ jobs:
           chmod +x /tmp/appimagetool
           sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
       
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          cache: ${{ needs.validate.outputs.is_prerelease == 'true' }}
-      
-      - name: Build AppImage
+      - name: Build AppImage (reusing binaries)
         run: |
           cd packaging/appimage
           chmod +x build-appimage.sh
+          # build-appimage.sh 现在会使用 target/release 中已有的二进制文件
           ./build-appimage.sh ${{ needs.validate.outputs.version }}
       
       - name: Test AppImage
@@ -227,14 +225,20 @@ jobs:
             packaging/appimage/build/SHA256SUMS
           retention-days: 90
 
-  # 构建 Arch Linux 包
+  # 构建 Arch Linux 包 (复用 build job 的二进制)
   build-arch-package:
     name: Build Arch Package
-    needs: [validate, quality]
+    needs: [validate, build]
     runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wayvid-binaries-x86_64-unknown-linux-gnu
+          path: downloaded-binaries
       
       - name: Build in Arch container
         run: |
@@ -242,37 +246,37 @@ jobs:
             set -e
             cd /workspace
             
-            # 安装依赖
+            # 安装最小依赖 (不需要 rust/cargo，使用预编译二进制)
             pacman -Syu --noconfirm
             pacman -S --noconfirm \
               base-devel \
-              rust \
-              cargo \
-              git \
-              wayland \
-              mpv \
-              gcc-libs \
-              glibc \
-              zstd
+              git
             
             # 创建构建用户
             useradd -m builder
             chown -R builder:builder /workspace
             
-            # 使用 PKGBUILD.stable 构建
-            cp packaging/aur/PKGBUILD.stable PKGBUILD
+            # 复制预编译的二进制文件到 target/release
+            mkdir -p target/release
+            cp downloaded-binaries/* target/release/
+            chmod +x target/release/*
             
-            # 更新版本号
-            sed -i 's/^pkgver=.*/pkgver=${{ needs.validate.outputs.version }}/' PKGBUILD
+            # 使用 PKGBUILD.binary 并更新版本号
+            ORIGINAL_VERSION='${{ needs.validate.outputs.version }}'
+            ARCH_VERSION=\$(echo \"\$ORIGINAL_VERSION\" | sed 's/-/_/g')
             
-            # 构建包
-            su - builder -c 'cd /workspace && makepkg --noconfirm --skipinteg'
+            cp packaging/aur/PKGBUILD.binary PKGBUILD
+            sed -i \"s/__VERSION__/\$ARCH_VERSION/\" PKGBUILD
+            
+            # 构建包 (直接打包预编译的二进制文件)
+            su - builder -c 'cd /workspace && makepkg --noconfirm'
             
             # 移动构建产物
             mv wayvid-*.pkg.tar.zst /workspace/
             
-            # 生成校验和
-            sha256sum wayvid-*.pkg.tar.zst > wayvid-${{ needs.validate.outputs.version }}-x86_64.pkg.tar.zst.sha256
+            # 生成校验和 (使用 Arch 版本号格式)
+            ARCH_VERSION=$(echo '${{ needs.validate.outputs.version }}' | sed 's/-/_/g')
+            sha256sum wayvid-*.pkg.tar.zst > wayvid-${ARCH_VERSION}-x86_64.pkg.tar.zst.sha256
           "
       
       - name: Upload Arch package
@@ -282,6 +286,45 @@ jobs:
           path: |
             wayvid-*.pkg.tar.zst
             wayvid-*.pkg.tar.zst.sha256
+          retention-days: 90
+
+  # 构建 Debian 包 (复用 build job 的二进制)
+  build-deb-package:
+    name: Build Debian Package
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wayvid-binaries-x86_64-unknown-linux-gnu
+          path: target/release
+      
+      - name: Make binaries executable
+        run: chmod +x target/release/*
+      
+      - name: Install cargo-deb
+        run: |
+          cargo install cargo-deb --version 2.8.0 --locked
+      
+      - name: Build .deb package (reusing binaries)
+        run: cargo deb --no-build --no-strip --verbose
+      
+      - name: Generate checksum
+        run: |
+          cd target/debian
+          sha256sum *.deb > wayvid_${{ needs.validate.outputs.version }}_amd64.deb.sha256
+      
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayvid-deb-package
+          path: |
+            target/debian/*.deb
+            target/debian/*.sha256
           retention-days: 90
 
   # 生成 Release Notes 和更新 CHANGELOG
@@ -367,6 +410,16 @@ jobs:
           yay -S wayvid
           ```
           
+          #### Debian/Ubuntu
+          ```bash
+          # Download
+          wget https://github.com/YangYuS8/wayvid/releases/download/v${{ needs.validate.outputs.version }}/wayvid_${{ needs.validate.outputs.version }}_amd64.deb
+          
+          # Install
+          sudo dpkg -i wayvid_${{ needs.validate.outputs.version }}_amd64.deb
+          sudo apt-get install -f  # Install dependencies if needed
+          ```
+          
           ### 📋 Checksums
           
           See `SHA256SUMS` file for checksums of all release artifacts.
@@ -405,7 +458,7 @@ jobs:
   # 创建 GitHub Release
   release:
     name: Create Release
-    needs: [validate, quality, build, appimage, build-arch-package, release-notes]
+    needs: [validate, quality, build, appimage, build-arch-package, build-deb-package, release-notes]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -421,7 +474,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release-files
-          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.AppImage" -o -name "*.pkg.tar.zst" -o -name "SHA256SUMS" -o -name "CHANGELOG.md" \) -exec cp {} release-files/ \;
+          find release-artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.AppImage" -o -name "*.pkg.tar.zst" -o -name "*.deb" -o -name "SHA256SUMS" -o -name "CHANGELOG.md" \) -exec cp {} release-files/ \;
           ls -lh release-files/
       
       - name: Create Release

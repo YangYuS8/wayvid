@@ -111,3 +111,24 @@ path = "src/bin/wayvid-ctl.rs"
 name = "wayvid-gui"
 path = "src/bin/wayvid-gui.rs"
 required-features = ["gui"]
+
+[package.metadata.deb]
+maintainer = "wayvid contributors <wayvid@example.com>"
+copyright = "2024-2025, wayvid contributors <wayvid@example.com>"
+license-file = ["LICENSE-MIT", "4"]
+extended-description = """\
+wayvid is a dynamic video wallpaper engine for Wayland compositors.
+It supports multi-monitor setups, HDR video playback, hardware decoding,
+and Steam Workshop integration for importing Wallpaper Engine projects."""
+depends = "$auto, libwayland-client0, libmpv2 | libmpv1, libgcc-s1, libc6"
+section = "video"
+priority = "optional"
+assets = [
+    ["target/release/wayvid", "usr/bin/", "755"],
+    ["target/release/wayvid-ctl", "usr/bin/", "755"],
+    ["target/release/wayvid-gui", "usr/bin/", "755"],
+    ["systemd/wayvid.service", "usr/lib/systemd/user/", "644"],
+    ["configs/config.example.yaml", "usr/share/wayvid/", "644"],
+    ["README.md", "usr/share/doc/wayvid/", "644"],
+    ["LICENSE-MIT", "usr/share/doc/wayvid/", "644"],
+]
