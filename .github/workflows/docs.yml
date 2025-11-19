@@ -33,14 +33,30 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-docs-tools
+          cache-on-failure: true
 
-      - name: Install mdbook
+      - name: Install mdbook (from binary)
         run: |
-          cargo install mdbook --version 0.4.52 --locked || echo "mdbook already installed"
+          MDBOOK_VERSION=0.4.52
+          if ! command -v mdbook &> /dev/null || ! mdbook --version | grep -q "$MDBOOK_VERSION"; then
+            echo "Installing mdbook $MDBOOK_VERSION from GitHub..."
+            wget -q "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+            tar -xzf "mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+            sudo mv mdbook /usr/local/bin/
+            rm "mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          else
+            echo "mdbook already installed"
+          fi
+          mdbook --version
 
       - name: Install mdbook-i18n-helpers
         run: |
-          cargo install mdbook-i18n-helpers --version 0.3.6 --locked || echo "mdbook-i18n-helpers already installed"
+          # 使用 cargo-binstall 加速安装（如果可用）或回退到 cargo install
+          if ! command -v mdbook-i18n-helpers &> /dev/null; then
+            cargo install mdbook-i18n-helpers --version 0.3.6 --locked
+          else
+            echo "mdbook-i18n-helpers already installed"
+          fi
 
       - name: Install gettext tools
         run: |
