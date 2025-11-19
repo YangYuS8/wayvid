@@ -17,6 +17,10 @@ makedepends=(
     'rust'
     'cargo'
     'git'
+    'wayland-protocols'
+    'mesa'
+    'libxkbcommon'
+    'fontconfig'
 )
 optdepends=(
     'mesa: Hardware video decoding with VA-API'
