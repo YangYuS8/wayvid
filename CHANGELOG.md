@@ -1,8 +1,48 @@
+## [unreleased]
+
+### 📚 Documentation
+
+- *(openspec)* Update optimize-release-workflow task progress
+## [0.4.4-alpha.1] - 2025-11-25
+
+### 🚀 Features
+
+- *(openspec)* 添加 OpenSpec 提示和项目文档以支持变更管理
+
+### 📚 Documentation
+
+- *(openspec)* Initialize OpenSpec with core specifications
+- Add Ko-fi sponsorship support in README
+
+### ⚡ Performance
+
+- Optimize CI workflow and apply Rust performance improvements
+- *(release)* Optimize build workflow with Rust Performance Book techniques
+## [0.4.3-hotfix.5] - 2025-11-19
+
+### 🐛 Bug Fixes
+
+- *(aur)* Add build dependencies to PKGBUILD
+- *(aur)* Use system zstd library for linking
+- *(aur)* Fix PKGBUILD build failures
 ## [0.4.3-hotfix.4] - 2025-11-19
 
 ### 🚀 Features
 
 - Convert AUR stable package to binary distribution
+- Add Debian package support and optimize workflow performance
+
+### 🐛 Bug Fixes
+
+- Resolve artifact path issues in all packaging jobs
+- *(release)* Extract uploaded tarballs into target/release for packaging jobs
+- *(appimage)* Use precompiled binaries instead of recompiling
+- *(ci)* Skip AppImage tests and remove Arch package build job
+- *(ci)* Completely remove Arch package build job and update AUR workflow
+
+### ⚡ Performance
+
+- Optimize CI and docs workflows
 
 ### ⚙️ Miscellaneous Tasks
 

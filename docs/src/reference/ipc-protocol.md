@@ -6,91 +6,85 @@ wayvid's IPC protocol specification.
 
 **Protocol**: JSON over Unix socket  
 **Socket**: `$XDG_RUNTIME_DIR/wayvid.sock`  
-**Format**: Newline-delimited JSON
+**Format**: Newline-delimited JSON (request-response)
 
 ## Message Format
 
 ### Request
 ```json
 {
-  "command": "string",
-  "params": {}
+  "command": "get-status"
 }
 ```
+
+Commands use **kebab-case** naming convention.
 
 ### Response
 ```json
 {
-  "success": boolean,
-  "data": {},
-  "error": "string?"
+  "status": "success",
+  "data": {}
+}
+```
+
+Or for errors:
+```json
+{
+  "status": "error",
+  "message": "Error description"
 }
 ```
 
 ## Commands
 
-### status
-Get daemon status.
+### get-status
+Get daemon status including all outputs.
 
 **Request:**
 ```json
-{"command": "status", "params": {}}
+{"command": "get-status"}
 ```
 
 **Response:**
 ```json
 {
-  "success": true,
+  "status": "success",
   "data": {
-    "running": true,
+    "version": "0.4.4-alpha.2",
     "outputs": [
       {
-        "name": "DP-1",
-        "resolution": "2560x1440",
-        "playing": true
+        "name": "HDMI-A-1",
+        "width": 2560,
+        "height": 1440,
+        "playing": true,
+        "paused": false,
+        "current_time": 12.5,
+        "duration": 120.0,
+        "source": "/path/to/video.mp4",
+        "layout": "Fill",
+        "volume": 0.5,
+        "muted": true,
+        "playback_rate": 1.0
       }
     ]
   }
 }
 ```
 
-### play
-Start playback.
-
-**Request:**
-```json
-{
-  "command": "play",
-  "params": {
-    "output": "DP-1"  // optional
-  }
-}
-```
-
 ### pause
-Pause playback.
+Pause playback on specific or all outputs.
 
 **Request:**
 ```json
 {
   "command": "pause",
-  "params": {
-    "output": "DP-1"  // optional
-  }
+  "output": "HDMI-A-1"
 }
 ```
 
-### stop
-Stop playback.
-
-**Request:**
+Or pause all:
 ```json
-{
-  "command": "stop",
-  "params": {
-    "output": "DP-1"  // optional
-  }
-}
+{"command": "pause"}
 ```
 
 ### resume
@@ -100,62 +94,112 @@ Resume playback.
 ```json
 {
   "command": "resume",
-  "params": {
-    "output": "DP-1"  // optional
-  }
+  "output": "HDMI-A-1"
 }
 ```
 
-### reload_config
-Reload configuration file.
-
-**Request:**
-```json
-{"command": "reload_config", "params": {}}
-```
-
-### set_volume
-Set volume.
+### seek
+Seek to specific time (seconds).
 
 **Request:**
 ```json
 {
-  "command": "set_volume",
-  "params": {
-    "volume": 50  // 0-100
-  }
+  "command": "seek",
+  "output": "HDMI-A-1",
+  "time": 30.5
 }
 ```
 
-### set_source
-Change video source.
+### switch-source
+Change video source for an output.
 
 **Request:**
 ```json
 {
-  "command": "set_source",
-  "params": {
-    "path": "/path/to/video.mp4"
+  "command": "switch-source",
+  "output": "HDMI-A-1",
+  "source": {
+    "type": "File",
+    "path": "/path/to/new-video.mp4"
   }
 }
 ```
 
-### list_outputs
-List all outputs.
+### set-source
+Set video source (simplified, path only).
 
 **Request:**
 ```json
-{"command": "list_outputs", "params": {}}
+{
+  "command": "set-source",
+  "output": "HDMI-A-1",
+  "source": "/path/to/video.mp4"
+}
 ```
 
-**Response:**
+### reload-config
+Reload configuration from file.
+
+**Request:**
+```json
+{"command": "reload-config"}
+```
+
+### set-playback-rate
+Set playback speed.
+
+**Request:**
 ```json
 {
-  "success": true,
-  "data": {
-    "outputs": ["DP-1", "HDMI-A-1"]
-  }
+  "command": "set-playback-rate",
+  "output": "HDMI-A-1",
+  "rate": 1.5
 }
+```
+
+### set-volume
+Set volume (0.0 - 1.0).
+
+**Request:**
+```json
+{
+  "command": "set-volume",
+  "output": "HDMI-A-1",
+  "volume": 0.8
+}
+```
+
+### toggle-mute
+Toggle audio mute.
+
+**Request:**
+```json
+{
+  "command": "toggle-mute",
+  "output": "HDMI-A-1"
+}
+```
+
+### set-layout
+Set layout mode.
+
+**Request:**
+```json
+{
+  "command": "set-layout",
+  "output": "HDMI-A-1",
+  "layout": "fill"
+}
+```
+
+Available layouts: `fill`, `contain`, `stretch`, `cover`, `centre`
+
+### quit
+Stop the daemon.
+
+**Request:**
+```json
+{"command": "quit"}
 ```
 
 ## Error Handling
@@ -163,30 +207,80 @@ List all outputs.
 ### Error Response
 ```json
 {
-  "success": false,
-  "error": "Output 'DP-1' not found"
+  "status": "error",
+  "message": "Output 'DP-1' not found"
 }
 ```
 
 ### Common Errors
-- `"daemon not running"`
-- `"invalid command"`
-- `"output not found"`
-- `"invalid parameters"`
+- `"Timeout waiting for daemon response"` - Daemon busy or unresponsive
+- `"Failed to connect to daemon"` - Daemon not running
+- `"Failed to parse command"` - Invalid JSON syntax
+- `"Output not found"` - Specified output doesn't exist
 
-## Example Implementation
+## Example Implementations
 
-See [IPC Control](../features/ipc.md#programming-examples) for code examples.
+### Python
+```python
+import socket
+import json
 
-## Versioning
+def send_command(command):
+    sock = socket.socket(socket.AF_UNIX)
+    sock.connect('/run/user/1000/wayvid.sock')
+    
+    sock.send((json.dumps(command) + '\n').encode())
+    response = sock.recv(4096).decode()
+    sock.close()
+    
+    return json.loads(response)
 
-Protocol version in response:
-```json
-{
-  "success": true,
-  "version": "1.0",
-  "data": {}
+# Get status
+status = send_command({"command": "get-status"})
+print(status)
+
+# Pause playback
+send_command({"command": "pause"})
+```
+
+### Bash
+```bash
+echo '{"command":"get-status"}' | nc -U $XDG_RUNTIME_DIR/wayvid.sock
+```
+
+### Rust
+```rust
+use wayvid::ctl::protocol::{IpcCommand, IpcResponse};
+use wayvid::ctl::ipc_client::IpcClient;
+
+let mut client = IpcClient::connect()?;
+let response = client.send_command(&IpcCommand::GetStatus)?;
+
+match response {
+    IpcResponse::Success { data } => {
+        if let Some(status) = data {
+            println!("{}", serde_json::to_string_pretty(&status)?);
+        }
+    }
+    IpcResponse::Error { message } => {
+        eprintln!("Error: {}", message);
+    }
 }
 ```
 
-Breaking changes will increment major version.
+## Architecture
+
+The IPC system uses a request-response pattern:
+
+1. Client connects to Unix socket
+2. Client sends JSON command (newline-terminated)
+3. Daemon processes command and generates response
+4. Daemon sends JSON response (newline-terminated)
+5. Connection can be reused for multiple commands
+
+The daemon uses non-blocking event polling to handle IPC requests alongside Wayland events, ensuring responsive command processing.
+
+## See Also
+
+- [IPC Control](../features/ipc.md) - User guide
+- [CLI Commands](./cli.md) - Command-line interface

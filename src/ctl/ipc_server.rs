@@ -8,6 +8,12 @@ use tracing::{debug, error, info, warn};
 
 use crate::ctl::protocol::{IpcCommand, IpcResponse};
 
+/// Request with response channel
+pub struct IpcRequest {
+    pub command: IpcCommand,
+    pub response_tx: Sender<IpcResponse>,
+}
+
 /// IPC server for receiving commands from wayvid-ctl
 pub struct IpcServer {
     socket_path: PathBuf,
@@ -16,7 +22,7 @@ pub struct IpcServer {
 
 impl IpcServer {
     /// Create and start IPC server
-    pub fn start() -> Result<(Self, Receiver<IpcCommand>)> {
+    pub fn start() -> Result<(Self, Receiver<IpcRequest>)> {
         let socket_path = Self::get_socket_path()?;
 
         // Remove old socket if exists
@@ -30,11 +36,11 @@ impl IpcServer {
 
         info!("IPC server listening on: {:?}", socket_path);
 
-        let (cmd_tx, cmd_rx) = channel();
+        let (req_tx, req_rx) = channel();
         let socket_path_clone = socket_path.clone();
 
         let listener_thread = thread::spawn(move || {
-            Self::listener_loop(listener, cmd_tx);
+            Self::listener_loop(listener, req_tx);
         });
 
         Ok((
@@ -42,7 +48,7 @@ impl IpcServer {
                 socket_path: socket_path_clone,
                 _listener_thread: listener_thread,
             },
-            cmd_rx,
+            req_rx,
         ))
     }
 
@@ -57,11 +63,11 @@ impl IpcServer {
     }
 
     /// Main listener loop
-    fn listener_loop(listener: UnixListener, cmd_tx: Sender<IpcCommand>) {
+    fn listener_loop(listener: UnixListener, req_tx: Sender<IpcRequest>) {
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    let tx = cmd_tx.clone();
+                    let tx = req_tx.clone();
                     thread::spawn(move || {
                         if let Err(e) = Self::handle_client(stream, tx) {
                             error!("Error handling client: {}", e);
@@ -76,7 +82,7 @@ impl IpcServer {
     }
 
     /// Handle a single client connection
-    fn handle_client(mut stream: UnixStream, cmd_tx: Sender<IpcCommand>) -> Result<()> {
+    fn handle_client(mut stream: UnixStream, req_tx: Sender<IpcRequest>) -> Result<()> {
         let mut reader = BufReader::new(stream.try_clone()?);
         let mut line = String::new();
 
@@ -88,13 +94,25 @@ impl IpcServer {
         let command: IpcCommand = serde_json::from_str(&line)
             .with_context(|| format!("Failed to parse command: {}", line))?;
 
-        // Send command to main thread
-        cmd_tx
-            .send(command.clone())
-            .context("Failed to send command to main thread")?;
+        // Create response channel
+        let (response_tx, response_rx) = channel();
 
-        // Send success response
-        let response = IpcResponse::Success { data: None };
+        // Send request to main thread
+        req_tx
+            .send(IpcRequest {
+                command,
+                response_tx,
+            })
+            .context("Failed to send request to main thread")?;
+
+        // Wait for response from daemon (with timeout)
+        let response = response_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap_or_else(|_| IpcResponse::Error {
+                message: "Timeout waiting for daemon response".to_string(),
+            });
+
+        // Send response to client
         let response_json = serde_json::to_string(&response)?;
         writeln!(stream, "{}", response_json)?;
         stream.flush()?;

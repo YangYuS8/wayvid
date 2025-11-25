@@ -1,10 +1,14 @@
-//! wayvid GUI Control Panel
+//! wayvid GUI Control Panel with i18n support
 
 use eframe::egui;
+use rust_i18n::t;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use wayvid::ctl::ipc_client::IpcClient;
 use wayvid::ctl::protocol::{IpcCommand, IpcResponse};
+
+// Initialize i18n with locales
+rust_i18n::i18n!("locales", fallback = "en");
 
 fn main() -> Result<(), eframe::Error> {
     // Initialize tracing
@@ -12,18 +16,103 @@ fn main() -> Result<(), eframe::Error> {
         .with_env_filter("wayvid_gui=debug,wayvid=debug")
         .init();
 
+    // Detect system locale and set language
+    if let Some(locale) = sys_locale::get_locale() {
+        let lang = if locale.starts_with("zh") {
+            "zh-CN"
+        } else {
+            "en"
+        };
+        rust_i18n::set_locale(lang);
+    }
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1024.0, 768.0])
-            .with_title("wayvid Control Panel"),
+            .with_min_inner_size([800.0, 600.0])
+            .with_title(t!("app_title")),
         ..Default::default()
     };
 
     eframe::run_native(
         "wayvid",
         options,
-        Box::new(|_cc| Ok(Box::new(WayvidApp::default()))),
+        Box::new(|cc| {
+            // Configure modern visual style
+            setup_custom_style(&cc.egui_ctx);
+            Ok(Box::new(WayvidApp::default()))
+        }),
     )
+}
+
+/// Setup custom visual style for modern look
+fn setup_custom_style(ctx: &egui::Context) {
+    // Add Chinese font support
+    let mut fonts = egui::FontDefinitions::default();
+
+    // Load system Chinese font (Noto Sans CJK SC is commonly available on Linux)
+    // Try multiple common Chinese fonts
+    let chinese_font_paths = [
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/OTF/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/TTF/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/wenquanyi/wqy-microhei/wqy-microhei.ttc",
+        "/usr/share/fonts/wenquanyi/wqy-zenhei/wqy-zenhei.ttc",
+    ];
+
+    let mut font_loaded = false;
+    for font_path in &chinese_font_paths {
+        if let Ok(font_data) = std::fs::read(font_path) {
+            fonts.font_data.insert(
+                "chinese_font".to_owned(),
+                egui::FontData::from_owned(font_data).into(),
+            );
+
+            // Add Chinese font as fallback for proportional text
+            fonts
+                .families
+                .entry(egui::FontFamily::Proportional)
+                .or_default()
+                .push("chinese_font".to_owned());
+
+            // Add Chinese font as fallback for monospace text
+            fonts
+                .families
+                .entry(egui::FontFamily::Monospace)
+                .or_default()
+                .push("chinese_font".to_owned());
+
+            font_loaded = true;
+            tracing::info!("Loaded Chinese font from: {}", font_path);
+            break;
+        }
+    }
+
+    if !font_loaded {
+        tracing::warn!("No Chinese font found. Chinese characters may not display correctly.");
+    }
+
+    ctx.set_fonts(fonts);
+
+    let mut style = (*ctx.style()).clone();
+
+    // Rounded corners for modern look
+    style.visuals.window_rounding = egui::Rounding::same(8.0);
+    style.visuals.widgets.noninteractive.rounding = egui::Rounding::same(6.0);
+    style.visuals.widgets.inactive.rounding = egui::Rounding::same(6.0);
+    style.visuals.widgets.hovered.rounding = egui::Rounding::same(6.0);
+    style.visuals.widgets.active.rounding = egui::Rounding::same(6.0);
+
+    // Better spacing
+    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+    style.spacing.window_margin = egui::Margin::same(12.0);
+    style.spacing.button_padding = egui::vec2(12.0, 6.0);
+
+    ctx.set_style(style);
 }
 
 struct WayvidApp {
@@ -56,6 +145,9 @@ struct WayvidApp {
     config_content: String,
     config_edited: bool,
     show_config_editor: bool,
+
+    // Language selection
+    current_language: String,
 
     // Status
     status_message: String,
@@ -108,6 +200,7 @@ enum ConnectionStatus {
 
 impl Default for WayvidApp {
     fn default() -> Self {
+        let current_language = rust_i18n::locale().to_string();
         Self {
             ipc_tx: None,
             ipc_rx: None,
@@ -129,7 +222,8 @@ impl Default for WayvidApp {
             config_content: String::new(),
             config_edited: false,
             show_config_editor: false,
-            status_message: "Not connected".to_string(),
+            current_language,
+            status_message: t!("msg_not_connected").to_string(),
             connection_status: ConnectionStatus::Disconnected,
             workshop_scan_running: false,
         }
@@ -138,113 +232,171 @@ impl Default for WayvidApp {
 
 impl eframe::App for WayvidApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Auto-connect if daemon is running and we're disconnected
+        if self.connection_status == ConnectionStatus::Disconnected && IpcClient::is_running() {
+            self.connect_ipc();
+        }
+
         // Poll for IPC responses
         self.poll_responses();
 
         // Request repaint for continuous updates
         ctx.request_repaint();
 
-        // Top panel - Title and status
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading("🎬 wayvid Control Panel");
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // Daemon management buttons
-                    let daemon_running = IpcClient::is_running();
-
-                    if daemon_running {
-                        if ui
-                            .button("⏹ Stop Daemon")
-                            .on_hover_text("Stop wayvid daemon (systemctl stop)")
-                            .clicked()
-                        {
-                            self.stop_daemon();
-                        }
-                        if ui
-                            .button("🔄 Restart")
-                            .on_hover_text("Restart wayvid daemon")
-                            .clicked()
-                        {
-                            self.restart_daemon();
-                        }
-                    } else if ui
-                        .button("🚀 Start Daemon")
-                        .on_hover_text("Start wayvid daemon (systemctl start)")
-                        .clicked()
-                    {
-                        self.start_daemon();
-                    }
-
-                    ui.separator();
-
-                    // Connection status indicator
-                    let (color, text) = match self.connection_status {
-                        ConnectionStatus::Connected => (egui::Color32::GREEN, "● Connected"),
-                        ConnectionStatus::Connecting => (egui::Color32::YELLOW, "● Connecting..."),
-                        ConnectionStatus::Disconnected => (egui::Color32::GRAY, "● Disconnected"),
-                        ConnectionStatus::Error => (egui::Color32::RED, "● Error"),
-                    };
-                    ui.colored_label(color, text);
-
-                    if ui.button("🔄 Refresh").clicked() {
-                        self.refresh_outputs();
-                    }
-
-                    if self.connection_status == ConnectionStatus::Disconnected
-                        && ui.button("📡 Connect").clicked()
-                    {
-                        self.connect_ipc();
-                    }
-                });
-            });
-
-            // Show daemon status notice if not running
-            if !IpcClient::is_running() && self.connection_status == ConnectionStatus::Disconnected
-            {
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.label("⚠");
-                    ui.colored_label(egui::Color32::YELLOW, "wayvid daemon is not running.");
-                    ui.label("Start it using the button above or run:");
-                    ui.code("systemctl --user start wayvid.service");
-                });
-            }
-        });
-
-        // Bottom panel - Status bar
-        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(&self.status_message);
-            });
-        });
-
-        // Left panel - Navigation tabs
-        egui::SidePanel::left("side_panel")
-            .default_width(150.0)
+        // Top panel with modern styling
+        egui::TopBottomPanel::top("top_panel")
+            .frame(
+                egui::Frame::none()
+                    .fill(ctx.style().visuals.panel_fill)
+                    .inner_margin(egui::Margin::symmetric(16.0, 12.0)),
+            )
             .show(ctx, |ui| {
-                ui.heading("Navigation");
-                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.heading(t!("panel_heading"));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        // Daemon management buttons
+                        let daemon_running = IpcClient::is_running();
 
-                ui.selectable_value(&mut self.selected_tab, Tab::Outputs, "📺 Outputs");
-                ui.selectable_value(&mut self.selected_tab, Tab::Sources, "🎬 Video Sources");
-                ui.selectable_value(&mut self.selected_tab, Tab::Workshop, "🎮 Workshop");
-                ui.selectable_value(&mut self.selected_tab, Tab::Settings, "⚙ Settings");
+                        if daemon_running {
+                            if ui
+                                .button(t!("panel_daemon_stop"))
+                                .on_hover_text(t!("panel_daemon_stop_tooltip"))
+                                .clicked()
+                            {
+                                self.stop_daemon();
+                            }
+                            if ui
+                                .button(t!("panel_daemon_restart"))
+                                .on_hover_text(t!("panel_daemon_restart_tooltip"))
+                                .clicked()
+                            {
+                                self.restart_daemon();
+                            }
+                        } else if ui
+                            .button(t!("panel_daemon_start"))
+                            .on_hover_text(t!("panel_daemon_start_tooltip"))
+                            .clicked()
+                        {
+                            self.start_daemon();
+                        }
+
+                        ui.separator();
+
+                        // Connection status indicator
+                        let (color, text) = match self.connection_status {
+                            ConnectionStatus::Connected => {
+                                (egui::Color32::from_rgb(76, 175, 80), t!("status_connected"))
+                            }
+                            ConnectionStatus::Connecting => (
+                                egui::Color32::from_rgb(255, 193, 7),
+                                t!("status_connecting"),
+                            ),
+                            ConnectionStatus::Disconnected => {
+                                (egui::Color32::GRAY, t!("status_disconnected"))
+                            }
+                            ConnectionStatus::Error => {
+                                (egui::Color32::from_rgb(244, 67, 54), t!("status_error"))
+                            }
+                        };
+                        ui.colored_label(color, text);
+
+                        if ui.button(t!("btn_refresh")).clicked() {
+                            self.refresh_outputs();
+                        }
+
+                        if self.connection_status == ConnectionStatus::Disconnected
+                            && ui.button(t!("btn_connect")).clicked()
+                        {
+                            self.connect_ipc();
+                        }
+                    });
+                });
+
+                // Show daemon status notice if not running
+                if !IpcClient::is_running()
+                    && self.connection_status == ConnectionStatus::Disconnected
+                {
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        ui.label("⚠");
+                        ui.colored_label(egui::Color32::from_rgb(255, 193, 7), t!("daemon_notice"));
+                        ui.label(t!("daemon_notice_hint"));
+                        ui.code("systemctl --user start wayvid.service");
+                    });
+                }
+            });
+
+        // Bottom status bar
+        egui::TopBottomPanel::bottom("bottom_panel")
+            .frame(
+                egui::Frame::none()
+                    .fill(ctx.style().visuals.panel_fill)
+                    .inner_margin(egui::Margin::symmetric(16.0, 8.0)),
+            )
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(&self.status_message);
+                });
+            });
+
+        // Left navigation panel with modern styling
+        egui::SidePanel::left("side_panel")
+            .default_width(180.0)
+            .frame(
+                egui::Frame::none()
+                    .fill(ctx.style().visuals.panel_fill)
+                    .inner_margin(egui::Margin::same(12.0)),
+            )
+            .show(ctx, |ui| {
+                ui.heading(t!("nav_title"));
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(8.0);
+
+                // Modern navigation buttons
+                self.nav_button(ui, Tab::Outputs, &t!("nav_outputs"));
+                self.nav_button(ui, Tab::Sources, &t!("nav_sources"));
+                self.nav_button(ui, Tab::Workshop, &t!("nav_workshop"));
+                self.nav_button(ui, Tab::Settings, &t!("nav_settings"));
             });
 
         // Central panel - Main content
-        egui::CentralPanel::default().show(ctx, |ui| match self.selected_tab {
-            Tab::Outputs => self.show_outputs_tab(ui),
-            Tab::Sources => self.show_sources_tab(ui),
-            Tab::Workshop => self.show_workshop_tab(ui),
-            Tab::Settings => self.show_settings_tab(ui),
-        });
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::none()
+                    .fill(ctx.style().visuals.panel_fill)
+                    .inner_margin(egui::Margin::same(16.0)),
+            )
+            .show(ctx, |ui| match self.selected_tab {
+                Tab::Outputs => self.show_outputs_tab(ui),
+                Tab::Sources => self.show_sources_tab(ui),
+                Tab::Workshop => self.show_workshop_tab(ui),
+                Tab::Settings => self.show_settings_tab(ui),
+            });
     }
 }
 
 impl WayvidApp {
+    /// Custom navigation button with selection state
+    fn nav_button(&mut self, ui: &mut egui::Ui, tab: Tab, label: &str) {
+        let is_selected = self.selected_tab == tab;
+        let button = egui::Button::new(label)
+            .fill(if is_selected {
+                ui.style().visuals.selection.bg_fill
+            } else {
+                egui::Color32::TRANSPARENT
+            })
+            .min_size(egui::vec2(ui.available_width(), 36.0));
+
+        if ui.add(button).clicked() {
+            self.selected_tab = tab;
+        }
+        ui.add_space(4.0);
+    }
+
     /// Start wayvid daemon via systemd
     fn start_daemon(&mut self) {
-        self.status_message = "Starting wayvid daemon...".to_string();
+        self.status_message = t!("msg_starting_daemon").to_string();
 
         match std::process::Command::new("systemctl")
             .args(["--user", "start", "wayvid.service"])
@@ -252,25 +404,24 @@ impl WayvidApp {
         {
             Ok(status) => {
                 if status.success() {
-                    self.status_message =
-                        "✓ Daemon started successfully. Connecting...".to_string();
+                    self.status_message = t!("msg_daemon_started").to_string();
                     // Wait a moment for daemon to initialize
                     std::thread::sleep(std::time::Duration::from_millis(500));
                     self.connect_ipc();
                 } else {
-                    self.status_message =
-                        "✗ Failed to start daemon. Check systemd status.".to_string();
+                    self.status_message = t!("msg_daemon_start_failed").to_string();
                 }
             }
             Err(e) => {
-                self.status_message = format!("✗ Error starting daemon: {}. Try manual start: systemctl --user start wayvid.service", e);
+                self.status_message =
+                    t!("msg_daemon_start_error", error = e.to_string()).to_string();
             }
         }
     }
 
     /// Stop wayvid daemon via systemd
     fn stop_daemon(&mut self) {
-        self.status_message = "Stopping wayvid daemon...".to_string();
+        self.status_message = t!("msg_stopping_daemon").to_string();
 
         match std::process::Command::new("systemctl")
             .args(["--user", "stop", "wayvid.service"])
@@ -278,23 +429,24 @@ impl WayvidApp {
         {
             Ok(status) => {
                 if status.success() {
-                    self.status_message = "✓ Daemon stopped successfully.".to_string();
+                    self.status_message = t!("msg_daemon_stopped").to_string();
                     self.connection_status = ConnectionStatus::Disconnected;
                     self.ipc_tx = None;
                     self.ipc_rx = None;
                 } else {
-                    self.status_message = "✗ Failed to stop daemon.".to_string();
+                    self.status_message = t!("msg_daemon_stop_failed").to_string();
                 }
             }
             Err(e) => {
-                self.status_message = format!("✗ Error stopping daemon: {}", e);
+                self.status_message =
+                    t!("msg_daemon_stop_error", error = e.to_string()).to_string();
             }
         }
     }
 
     /// Restart wayvid daemon via systemd
     fn restart_daemon(&mut self) {
-        self.status_message = "Restarting wayvid daemon...".to_string();
+        self.status_message = t!("msg_restarting_daemon").to_string();
 
         match std::process::Command::new("systemctl")
             .args(["--user", "restart", "wayvid.service"])
@@ -302,7 +454,7 @@ impl WayvidApp {
         {
             Ok(status) => {
                 if status.success() {
-                    self.status_message = "✓ Daemon restarted. Reconnecting...".to_string();
+                    self.status_message = t!("msg_daemon_restarted").to_string();
                     self.connection_status = ConnectionStatus::Disconnected;
                     self.ipc_tx = None;
                     self.ipc_rx = None;
@@ -310,11 +462,12 @@ impl WayvidApp {
                     std::thread::sleep(std::time::Duration::from_secs(1));
                     self.connect_ipc();
                 } else {
-                    self.status_message = "✗ Failed to restart daemon.".to_string();
+                    self.status_message = t!("msg_daemon_restart_failed").to_string();
                 }
             }
             Err(e) => {
-                self.status_message = format!("✗ Error restarting daemon: {}", e);
+                self.status_message =
+                    t!("msg_daemon_restart_error", error = e.to_string()).to_string();
             }
         }
     }
@@ -329,7 +482,7 @@ impl WayvidApp {
         } else if let Ok(home) = std::env::var("HOME") {
             PathBuf::from(home).join(".config/wayvid/config.yaml")
         } else {
-            self.status_message = "✗ Cannot determine config path".to_string();
+            self.status_message = t!("msg_config_path_error").to_string();
             return;
         };
 
@@ -339,11 +492,12 @@ impl WayvidApp {
             Ok(content) => {
                 self.config_content = content;
                 self.config_edited = false;
-                self.status_message = format!("✓ Loaded config from {}", self.config_path);
+                self.status_message =
+                    t!("msg_config_loaded", path = self.config_path.clone()).to_string();
             }
             Err(e) => {
                 self.status_message =
-                    format!("✗ Failed to load config: {}. Using default template.", e);
+                    t!("msg_config_load_failed", error = e.to_string()).to_string();
                 // Provide a default template
                 self.config_content = include_str!("../../configs/config.example.yaml").to_string();
                 self.config_edited = true;
@@ -361,7 +515,8 @@ impl WayvidApp {
         // Create parent directory if it doesn't exist
         if let Some(parent) = path.parent() {
             if let Err(e) = std::fs::create_dir_all(parent) {
-                self.status_message = format!("✗ Failed to create config directory: {}", e);
+                self.status_message =
+                    t!("msg_config_dir_failed", error = e.to_string()).to_string();
                 return;
             }
         }
@@ -370,20 +525,23 @@ impl WayvidApp {
         match std::fs::File::create(path) {
             Ok(mut file) => {
                 if let Err(e) = file.write_all(self.config_content.as_bytes()) {
-                    self.status_message = format!("✗ Failed to write config: {}", e);
+                    self.status_message =
+                        t!("msg_config_save_failed", error = e.to_string()).to_string();
                 } else {
                     self.config_edited = false;
-                    self.status_message = format!("✓ Config saved to {}", self.config_path);
+                    self.status_message =
+                        t!("msg_config_saved", path = self.config_path.clone()).to_string();
 
                     // Trigger config reload if daemon is connected
                     if self.connection_status == ConnectionStatus::Connected {
                         self.send_command(IpcCommand::ReloadConfig);
-                        self.status_message += " and daemon notified to reload";
+                        self.status_message += &t!("msg_config_reloaded");
                     }
                 }
             }
             Err(e) => {
-                self.status_message = format!("✗ Failed to open config file: {}", e);
+                self.status_message =
+                    t!("msg_config_open_failed", error = e.to_string()).to_string();
             }
         }
     }
@@ -398,13 +556,12 @@ impl WayvidApp {
 
     fn connect_ipc(&mut self) {
         self.connection_status = ConnectionStatus::Connecting;
-        self.status_message = "Connecting to wayvid...".to_string();
+        self.status_message = t!("msg_connecting").to_string();
 
         // Check if wayvid is running
         if !IpcClient::is_running() {
             self.connection_status = ConnectionStatus::Error;
-            self.status_message =
-                "✗ wayvid daemon not running. Click 'Start Daemon' button or run: systemctl --user start wayvid.service".to_string();
+            self.status_message = t!("msg_daemon_not_running").to_string();
             return;
         }
 
@@ -422,7 +579,7 @@ impl WayvidApp {
         self.ipc_tx = Some(cmd_tx);
         self.ipc_rx = Some(resp_rx);
         self.connection_status = ConnectionStatus::Connected;
-        self.status_message = "Connected to wayvid daemon".to_string();
+        self.status_message = t!("msg_connected").to_string();
 
         // Request initial status
         self.send_command(IpcCommand::GetStatus);
@@ -459,7 +616,7 @@ impl WayvidApp {
     fn send_command(&mut self, command: IpcCommand) {
         if let Some(ref tx) = self.ipc_tx {
             if let Err(e) = tx.send(command) {
-                self.status_message = format!("Error sending command: {}", e);
+                self.status_message = t!("msg_error", message = e.to_string()).to_string();
                 self.connection_status = ConnectionStatus::Error;
             }
         }
@@ -502,16 +659,16 @@ impl WayvidApp {
                             })
                             .collect();
                         self.status_message =
-                            format!("Status updated - {} outputs", self.outputs.len());
+                            t!("msg_status_updated", count = self.outputs.len()).to_string();
                     } else {
-                        self.status_message = "Command successful".to_string();
+                        self.status_message = t!("msg_command_success").to_string();
                     }
                 } else {
-                    self.status_message = "Command successful".to_string();
+                    self.status_message = t!("msg_command_success").to_string();
                 }
             }
             IpcResponse::Error { message } => {
-                self.status_message = format!("Error: {}", message);
+                self.status_message = t!("msg_error", message = message).to_string();
                 self.connection_status = ConnectionStatus::Error;
             }
         }
@@ -520,21 +677,23 @@ impl WayvidApp {
     fn refresh_outputs(&mut self) {
         if self.connection_status == ConnectionStatus::Connected {
             self.send_command(IpcCommand::GetStatus);
-            self.status_message = "Refreshing outputs...".to_string();
+            self.status_message = t!("msg_refreshing").to_string();
         } else {
-            self.status_message = "Not connected. Click 'Connect' first.".to_string();
+            self.status_message = t!("msg_not_connected_hint").to_string();
         }
     }
 
     fn show_outputs_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Output Management");
+        ui.heading(t!("outputs_title"));
+        ui.add_space(8.0);
         ui.separator();
+        ui.add_space(8.0);
 
         if self.outputs.is_empty() {
             ui.vertical_centered(|ui| {
                 ui.add_space(100.0);
-                ui.label("No outputs detected");
-                ui.label("Click 'Connect' to detect displays");
+                ui.label(t!("outputs_empty"));
+                ui.label(t!("outputs_empty_hint"));
             });
             return;
         }
@@ -544,68 +703,93 @@ impl WayvidApp {
             for (idx, output) in outputs.iter().enumerate() {
                 let is_selected = self.selected_output == Some(idx);
 
-                ui.group(|ui| {
-                    ui.horizontal(|ui| {
-                        // Selection checkbox
-                        let mut selected = is_selected;
-                        if ui.checkbox(&mut selected, "").changed() {
-                            self.selected_output = if selected { Some(idx) } else { None };
-                        }
-
-                        // Output info
-                        ui.vertical(|ui| {
-                            ui.heading(&output.name);
-                            ui.label(format!("{}×{}", output.width, output.height));
-                            if output.active {
-                                ui.colored_label(egui::Color32::GREEN, "● Active");
-                            } else {
-                                ui.colored_label(egui::Color32::GRAY, "○ Inactive");
+                egui::Frame::none()
+                    .fill(if is_selected {
+                        ui.style().visuals.selection.bg_fill.gamma_multiply(0.3)
+                    } else {
+                        ui.style().visuals.widgets.noninteractive.bg_fill
+                    })
+                    .rounding(egui::Rounding::same(8.0))
+                    .inner_margin(egui::Margin::same(12.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            // Selection checkbox
+                            let mut selected = is_selected;
+                            if ui.checkbox(&mut selected, "").changed() {
+                                self.selected_output = if selected { Some(idx) } else { None };
                             }
-                        });
 
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if output.active {
-                                if ui.button("⏸ Pause").clicked() {
-                                    self.send_command(IpcCommand::Pause {
-                                        output: Some(output.name.clone()),
-                                    });
+                            // Output info
+                            ui.vertical(|ui| {
+                                ui.heading(&output.name);
+                                ui.label(format!("{}×{}", output.width, output.height));
+                                if output.active {
+                                    ui.colored_label(
+                                        egui::Color32::from_rgb(76, 175, 80),
+                                        t!("outputs_active"),
+                                    );
+                                } else {
+                                    ui.colored_label(egui::Color32::GRAY, t!("outputs_inactive"));
                                 }
-                            } else if ui.button("▶ Resume").clicked() {
-                                self.send_command(IpcCommand::Resume {
-                                    output: Some(output.name.clone()),
-                                });
-                            }
+                            });
 
-                            if ui.button("⚙ Configure").clicked() {
-                                self.status_message =
-                                    format!("Configuring output: {}", output.name);
-                            }
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if output.active {
+                                        if ui.button(t!("outputs_pause")).clicked() {
+                                            self.send_command(IpcCommand::Pause {
+                                                output: Some(output.name.clone()),
+                                            });
+                                        }
+                                    } else if ui.button(t!("outputs_resume")).clicked() {
+                                        self.send_command(IpcCommand::Resume {
+                                            output: Some(output.name.clone()),
+                                        });
+                                    }
+
+                                    if ui.button(t!("outputs_configure")).clicked() {
+                                        self.status_message =
+                                            t!("msg_configuring", output = output.name.clone())
+                                                .to_string();
+                                    }
+                                },
+                            );
                         });
                     });
-                });
 
-                ui.add_space(5.0);
+                ui.add_space(8.0);
             }
         });
     }
 
     fn show_sources_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Video Sources");
+        ui.heading(t!("sources_title"));
+        ui.add_space(8.0);
         ui.separator();
+        ui.add_space(8.0);
 
         // Local file section
-        ui.group(|ui| {
-            ui.heading("📁 Local File");
-            ui.horizontal(|ui| {
-                ui.label("Path:");
-                ui.text_edit_singleline(&mut self.video_path_input);
-                if ui.button("Browse...").clicked() {
-                    // Native file dialog support would require rfd crate
-                    self.status_message = "Hint: Drag & drop files or paste path".to_string();
-                }
-            });
-            ui.horizontal(|ui| {
-                if ui.button("✓ Apply to Selected Output").clicked() {
+        egui::Frame::none()
+            .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+            .rounding(egui::Rounding::same(8.0))
+            .inner_margin(egui::Margin::same(12.0))
+            .show(ui, |ui| {
+                ui.heading(t!("sources_local_title"));
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(t!("sources_local_path"));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.video_path_input)
+                            .desired_width(ui.available_width() - 100.0),
+                    );
+                    if ui.button(t!("btn_browse")).clicked() {
+                        // Native file dialog support would require rfd crate
+                        self.status_message = t!("sources_local_hint").to_string();
+                    }
+                });
+                ui.add_space(4.0);
+                if ui.button(t!("btn_apply")).clicked() {
                     if let Some(idx) = self.selected_output {
                         if !self.video_path_input.is_empty() {
                             let output_name = self.outputs[idx].name.clone();
@@ -613,27 +797,35 @@ impl WayvidApp {
                                 output: Some(output_name.clone()),
                                 source: self.video_path_input.clone(),
                             });
-                            self.status_message = format!("Applying video to {}", output_name);
+                            self.status_message =
+                                t!("msg_applying_video", output = output_name).to_string();
                         }
                     } else {
-                        self.status_message = "Please select an output first".to_string();
+                        self.status_message = t!("sources_select_output").to_string();
                     }
                 }
             });
-        });
 
-        ui.add_space(10.0);
+        ui.add_space(12.0);
 
         // URL stream section
-        ui.group(|ui| {
-            ui.heading("🌐 Stream URL");
-            ui.horizontal(|ui| {
-                ui.label("URL:");
-                ui.text_edit_singleline(&mut self.url_input);
-            });
-            ui.label("Supports: HTTP(S), RTSP, HLS, DASH");
-            ui.horizontal(|ui| {
-                if ui.button("✓ Apply URL to Selected Output").clicked() {
+        egui::Frame::none()
+            .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+            .rounding(egui::Rounding::same(8.0))
+            .inner_margin(egui::Margin::same(12.0))
+            .show(ui, |ui| {
+                ui.heading(t!("sources_stream_title"));
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(t!("sources_stream_url"));
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.url_input)
+                            .desired_width(ui.available_width() - 80.0),
+                    );
+                });
+                ui.label(t!("sources_stream_formats"));
+                ui.add_space(4.0);
+                if ui.button(t!("btn_apply_url")).clicked() {
                     if let Some(idx) = self.selected_output {
                         if !self.url_input.is_empty() {
                             let output_name = self.outputs[idx].name.clone();
@@ -641,52 +833,59 @@ impl WayvidApp {
                                 output: Some(output_name.clone()),
                                 source: self.url_input.clone(),
                             });
-                            self.status_message = format!("Applying stream to {}", output_name);
+                            self.status_message =
+                                t!("msg_applying_stream", output = output_name).to_string();
                         }
                     } else {
-                        self.status_message = "Please select an output first".to_string();
+                        self.status_message = t!("sources_select_output").to_string();
                     }
                 }
             });
-        });
 
-        ui.add_space(10.0);
+        ui.add_space(12.0);
 
         // Quick access to common paths
-        ui.group(|ui| {
-            ui.heading("📂 Quick Access");
-            ui.label("Common video directories:");
-            let common_paths = vec![
-                (
-                    "~/Videos",
-                    std::env::var("HOME").ok().map(|h| format!("{}/Videos", h)),
-                ),
-                (
-                    "~/Pictures",
-                    std::env::var("HOME")
-                        .ok()
-                        .map(|h| format!("{}/Pictures", h)),
-                ),
-                (
-                    "~/Downloads",
-                    std::env::var("HOME")
-                        .ok()
-                        .map(|h| format!("{}/Downloads", h)),
-                ),
-            ];
-            for (label, path_opt) in common_paths {
-                if let Some(path) = path_opt {
-                    if ui.button(label).clicked() {
-                        self.video_path_input = path;
+        egui::Frame::none()
+            .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+            .rounding(egui::Rounding::same(8.0))
+            .inner_margin(egui::Margin::same(12.0))
+            .show(ui, |ui| {
+                ui.heading(t!("sources_quick_title"));
+                ui.label(t!("sources_quick_hint"));
+                ui.add_space(4.0);
+                let common_paths = vec![
+                    (
+                        "~/Videos",
+                        std::env::var("HOME").ok().map(|h| format!("{}/Videos", h)),
+                    ),
+                    (
+                        "~/Pictures",
+                        std::env::var("HOME")
+                            .ok()
+                            .map(|h| format!("{}/Pictures", h)),
+                    ),
+                    (
+                        "~/Downloads",
+                        std::env::var("HOME")
+                            .ok()
+                            .map(|h| format!("{}/Downloads", h)),
+                    ),
+                ];
+                ui.horizontal(|ui| {
+                    for (label, path_opt) in common_paths {
+                        if let Some(path) = path_opt {
+                            if ui.button(label).clicked() {
+                                self.video_path_input = path;
+                            }
+                        }
                     }
-                }
-            }
-        });
+                });
+            });
 
         if !self.video_sources.is_empty() {
-            ui.add_space(10.0);
+            ui.add_space(12.0);
             ui.separator();
-            ui.heading("Recent Sources");
+            ui.heading(t!("sources_recent"));
             egui::ScrollArea::vertical()
                 .max_height(200.0)
                 .show(ui, |ui| {
@@ -701,18 +900,18 @@ impl WayvidApp {
     }
 
     fn show_workshop_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Steam Workshop");
-        ui.separator();
+        ui.heading(t!("workshop_title"));
+        ui.add_space(8.0);
 
         ui.horizontal(|ui| {
-            ui.label("🔍 Search:");
-            ui.text_edit_singleline(&mut self.workshop_search);
+            ui.label(t!("workshop_search"));
+            ui.add(egui::TextEdit::singleline(&mut self.workshop_search).desired_width(200.0));
 
             if ui
                 .button(if self.workshop_scan_running {
-                    "⏳ Scanning..."
+                    t!("workshop_scanning").to_string()
                 } else {
-                    "🔄 Scan Workshop"
+                    t!("workshop_scan").to_string()
                 })
                 .clicked()
                 && !self.workshop_scan_running
@@ -720,21 +919,22 @@ impl WayvidApp {
                 self.scan_workshop();
             }
 
-            ui.label(format!("Found: {} items", self.workshop_items.len()));
+            ui.label(t!("workshop_found", count = self.workshop_items.len()));
         });
 
-        ui.add_space(10.0);
+        ui.separator();
+        ui.add_space(8.0);
 
         if self.workshop_items.is_empty() {
             ui.vertical_centered(|ui| {
-                ui.add_space(100.0);
-                ui.label("No Workshop items found");
-                ui.label("Click 'Scan Workshop' to search for Wallpaper Engine items");
-                ui.add_space(20.0);
-                ui.label("Make sure you have:");
-                ui.label("  • Steam installed");
-                ui.label("  • Wallpaper Engine in your library");
-                ui.label("  • Workshop items subscribed");
+                ui.add_space(80.0);
+                ui.label(t!("workshop_empty"));
+                ui.label(t!("workshop_empty_hint"));
+                ui.add_space(16.0);
+                ui.label(t!("workshop_requirements_title"));
+                ui.label(t!("workshop_requirements_steam"));
+                ui.label(t!("workshop_requirements_we"));
+                ui.label(t!("workshop_requirements_subscribed"));
             });
         } else {
             // Filter items based on search (clone to avoid borrow conflicts)
@@ -756,81 +956,96 @@ impl WayvidApp {
                 })
                 .collect();
 
-            ui.label(format!(
-                "Showing {} of {} items",
-                filtered_items.len(),
-                workshop_items.len()
+            ui.label(t!(
+                "workshop_showing",
+                shown = filtered_items.len(),
+                total = workshop_items.len()
             ));
 
             egui::ScrollArea::vertical().show(ui, |ui| {
                 // Grid layout for Workshop items
-                let num_columns = (ui.available_width() / 300.0).max(1.0) as usize;
+                let num_columns = (ui.available_width() / 320.0).max(1.0) as usize;
                 egui::Grid::new("workshop_grid")
                     .num_columns(num_columns)
-                    .spacing([10.0, 10.0])
+                    .spacing([12.0, 12.0])
                     .show(ui, |ui| {
                         let mut column = 0;
                         for (idx, item) in filtered_items {
                             let is_selected = self.selected_workshop == Some(idx);
 
-                            ui.group(|ui| {
-                                ui.set_min_width(280.0);
-                                ui.set_max_width(280.0);
+                            egui::Frame::none()
+                                .fill(if is_selected {
+                                    ui.style().visuals.selection.bg_fill.gamma_multiply(0.3)
+                                } else {
+                                    ui.style().visuals.widgets.noninteractive.bg_fill
+                                })
+                                .rounding(egui::Rounding::same(8.0))
+                                .inner_margin(egui::Margin::same(12.0))
+                                .show(ui, |ui| {
+                                    ui.set_min_width(280.0);
+                                    ui.set_max_width(280.0);
 
-                                // Selection state
-                                let mut selected = is_selected;
-                                if ui.checkbox(&mut selected, "").changed() {
-                                    self.selected_workshop =
-                                        if selected { Some(idx) } else { None };
-                                }
-
-                                // Item info
-                                ui.vertical(|ui| {
-                                    ui.heading(&item.title);
-                                    ui.label(format!("ID: {}", item.id));
-
-                                    // Status indicator
-                                    if item.is_valid && item.video_path.is_some() {
-                                        ui.colored_label(
-                                            egui::Color32::GREEN,
-                                            "✓ Valid video wallpaper",
-                                        );
-                                    } else {
-                                        ui.colored_label(
-                                            egui::Color32::YELLOW,
-                                            "⚠ No video or invalid",
-                                        );
+                                    // Selection state
+                                    let mut selected = is_selected;
+                                    if ui.checkbox(&mut selected, "").changed() {
+                                        self.selected_workshop =
+                                            if selected { Some(idx) } else { None };
                                     }
 
-                                    ui.add_space(5.0);
+                                    // Item info
+                                    ui.vertical(|ui| {
+                                        ui.heading(&item.title);
+                                        ui.label(format!("ID: {}", item.id));
 
-                                    // Action buttons
-                                    ui.horizontal(|ui| {
-                                        if item.is_valid && ui.button("▶ Preview").clicked() {
-                                            if let Some(ref video_path) = item.video_path {
-                                                self.video_path_input = video_path.clone();
-                                                self.selected_tab = Tab::Sources;
-                                                self.status_message =
-                                                    format!("Preview: {}", item.title);
-                                            }
+                                        // Status indicator
+                                        if item.is_valid && item.video_path.is_some() {
+                                            ui.colored_label(
+                                                egui::Color32::from_rgb(76, 175, 80),
+                                                t!("workshop_valid"),
+                                            );
+                                        } else {
+                                            ui.colored_label(
+                                                egui::Color32::from_rgb(255, 193, 7),
+                                                t!("workshop_invalid"),
+                                            );
                                         }
 
-                                        if item.is_valid && ui.button("📥 Import").clicked() {
-                                            self.import_workshop_item(item.id);
+                                        ui.add_space(8.0);
+
+                                        // Action buttons
+                                        ui.horizontal(|ui| {
+                                            if item.is_valid
+                                                && ui.button(t!("workshop_preview")).clicked()
+                                            {
+                                                if let Some(ref video_path) = item.video_path {
+                                                    self.video_path_input = video_path.clone();
+                                                    self.selected_tab = Tab::Sources;
+                                                    self.status_message = t!(
+                                                        "msg_preview",
+                                                        title = item.title.clone()
+                                                    )
+                                                    .to_string();
+                                                }
+                                            }
+
+                                            if item.is_valid
+                                                && ui.button(t!("workshop_import")).clicked()
+                                            {
+                                                self.import_workshop_item(item.id);
+                                            }
+                                        });
+
+                                        // Show video path in small text
+                                        if let Some(ref video_path) = item.video_path {
+                                            ui.add_space(4.0);
+                                            ui.label(
+                                                egui::RichText::new(video_path)
+                                                    .small()
+                                                    .color(egui::Color32::GRAY),
+                                            );
                                         }
                                     });
-
-                                    // Show video path in small text
-                                    if let Some(ref video_path) = item.video_path {
-                                        ui.add_space(3.0);
-                                        ui.label(
-                                            egui::RichText::new(video_path)
-                                                .small()
-                                                .color(egui::Color32::GRAY),
-                                        );
-                                    }
                                 });
-                            });
 
                             column += 1;
                             if column >= num_columns {
@@ -844,212 +1059,274 @@ impl WayvidApp {
     }
 
     fn show_settings_tab(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Settings");
+        ui.heading(t!("settings_title"));
+        ui.add_space(8.0);
         ui.separator();
+        ui.add_space(8.0);
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            // Config File Editor
-            ui.group(|ui| {
-                ui.heading("📝 Configuration File Editor");
-                ui.label("Edit config.yaml directly with visual interface");
+            // Language settings (top priority for i18n)
+            egui::Frame::none()
+                .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.heading(t!("settings_language_title"));
+                    ui.add_space(4.0);
 
-                ui.horizontal(|ui| {
-                    if ui.button("📂 Load Config").clicked() {
-                        self.load_config_file();
-                        self.show_config_editor = true;
-                    }
-
-                    if self.show_config_editor {
-                        if ui.button("💾 Save Config").clicked() {
-                            self.save_config_file();
-                        }
-
-                        if ui.button("✖ Close Editor").clicked() {
-                            if self.config_edited {
-                                // TODO: Add confirmation dialog
-                            }
-                            self.show_config_editor = false;
-                        }
-
-                        // Validate button
-                        let validation_result = self.validate_config();
-                        let (color, text) = match validation_result {
-                            Ok(_) => (egui::Color32::GREEN, "✓ Valid YAML"),
-                            Err(ref e) => (egui::Color32::RED, e.as_str()),
-                        };
-                        ui.colored_label(color, text);
-                    }
+                    ui.horizontal(|ui| {
+                        ui.label(t!("settings_language_select"));
+                        egui::ComboBox::from_id_salt("language_select")
+                            .selected_text(&self.current_language)
+                            .show_ui(ui, |ui| {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.current_language,
+                                        "en".to_string(),
+                                        "English",
+                                    )
+                                    .clicked()
+                                {
+                                    rust_i18n::set_locale("en");
+                                }
+                                if ui
+                                    .selectable_value(
+                                        &mut self.current_language,
+                                        "zh-CN".to_string(),
+                                        "简体中文",
+                                    )
+                                    .clicked()
+                                {
+                                    rust_i18n::set_locale("zh-CN");
+                                }
+                            });
+                    });
                 });
 
-                if self.show_config_editor {
-                    ui.add_space(5.0);
-                    ui.label(format!("Editing: {}", self.config_path));
-                    if self.config_edited {
-                        ui.colored_label(egui::Color32::YELLOW, "⚠ Unsaved changes");
-                    }
+            ui.add_space(12.0);
 
-                    ui.separator();
+            // Config File Editor
+            egui::Frame::none()
+                .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.heading(t!("settings_config_title"));
+                    ui.label(t!("settings_config_hint"));
+                    ui.add_space(8.0);
 
-                    // Text editor
-                    let text_edit = egui::TextEdit::multiline(&mut self.config_content)
-                        .code_editor()
-                        .desired_width(f32::INFINITY)
-                        .desired_rows(20);
-
-                    if ui.add(text_edit).changed() {
-                        self.config_edited = true;
-                    }
-
-                    ui.separator();
-
-                    // Quick actions
                     ui.horizontal(|ui| {
-                        if ui.button("🔄 Reload from Disk").clicked() {
+                        if ui.button(t!("settings_config_load")).clicked() {
                             self.load_config_file();
+                            self.show_config_editor = true;
                         }
 
-                        if ui.button("📋 Copy to Clipboard").clicked() {
-                            ui.output_mut(|o| o.copied_text = self.config_content.clone());
-                            self.status_message = "✓ Config copied to clipboard".to_string();
-                        }
+                        if self.show_config_editor {
+                            if ui.button(t!("settings_config_save")).clicked() {
+                                self.save_config_file();
+                            }
 
-                        if ui.button("📥 Example Config").clicked() {
-                            self.config_content =
-                                include_str!("../../configs/config.example.yaml").to_string();
-                            self.config_edited = true;
+                            if ui.button(t!("settings_config_close")).clicked() {
+                                self.show_config_editor = false;
+                            }
+
+                            // Validate button
+                            let validation_result = self.validate_config();
+                            let (color, text) = match validation_result {
+                                Ok(_) => (
+                                    egui::Color32::from_rgb(76, 175, 80),
+                                    t!("settings_config_valid").to_string(),
+                                ),
+                                Err(ref e) => (egui::Color32::from_rgb(244, 67, 54), e.clone()),
+                            };
+                            ui.colored_label(color, text);
                         }
                     });
-                } else {
-                    ui.label("👉 Click 'Load Config' to start editing");
-                }
-            });
 
-            ui.add_space(10.0);
+                    if self.show_config_editor {
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            ui.label(format!(
+                                "{} {}",
+                                t!("settings_config_editing"),
+                                self.config_path
+                            ));
+                            if self.config_edited {
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(255, 193, 7),
+                                    t!("settings_config_unsaved"),
+                                );
+                            }
+                        });
+
+                        ui.separator();
+
+                        // Text editor
+                        let text_edit = egui::TextEdit::multiline(&mut self.config_content)
+                            .code_editor()
+                            .desired_width(f32::INFINITY)
+                            .desired_rows(15);
+
+                        if ui.add(text_edit).changed() {
+                            self.config_edited = true;
+                        }
+
+                        ui.add_space(8.0);
+
+                        // Quick actions
+                        ui.horizontal(|ui| {
+                            if ui.button(t!("settings_config_reload")).clicked() {
+                                self.load_config_file();
+                            }
+
+                            if ui.button(t!("settings_config_copy")).clicked() {
+                                ui.output_mut(|o| o.copied_text = self.config_content.clone());
+                                self.status_message = t!("settings_config_copied").to_string();
+                            }
+
+                            if ui.button(t!("settings_config_example")).clicked() {
+                                self.config_content =
+                                    include_str!("../../configs/config.example.yaml").to_string();
+                                self.config_edited = true;
+                            }
+                        });
+                    } else {
+                        ui.label(t!("settings_config_start"));
+                    }
+                });
+
+            ui.add_space(12.0);
 
             // Video Configuration
-            ui.group(|ui| {
-                ui.heading("🎬 Video Configuration");
+            egui::Frame::none()
+                .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.heading(t!("settings_video_title"));
+                    ui.add_space(8.0);
 
-                ui.horizontal(|ui| {
-                    ui.label("Layout Mode:");
-                    egui::ComboBox::from_id_salt("layout_mode")
-                        .selected_text(&self.config_layout)
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.config_layout,
-                                "Fill".to_string(),
-                                "Fill (recommended)",
+                    ui.horizontal(|ui| {
+                        ui.label(t!("settings_video_layout"));
+                        egui::ComboBox::from_id_salt("layout_mode")
+                            .selected_text(&self.config_layout)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.config_layout,
+                                    "Fill".to_string(),
+                                    t!("settings_video_layout_fill"),
+                                );
+                                ui.selectable_value(
+                                    &mut self.config_layout,
+                                    "Contain".to_string(),
+                                    t!("settings_video_layout_contain"),
+                                );
+                                ui.selectable_value(
+                                    &mut self.config_layout,
+                                    "Stretch".to_string(),
+                                    t!("settings_video_layout_stretch"),
+                                );
+                                ui.selectable_value(
+                                    &mut self.config_layout,
+                                    "Cover".to_string(),
+                                    t!("settings_video_layout_cover"),
+                                );
+                                ui.selectable_value(
+                                    &mut self.config_layout,
+                                    "Centre".to_string(),
+                                    t!("settings_video_layout_centre"),
+                                );
+                            });
+                    });
+
+                    ui.add_space(4.0);
+                    let desc = match self.config_layout.as_str() {
+                        "Fill" => t!("settings_video_layout_fill_desc"),
+                        "Contain" => t!("settings_video_layout_contain_desc"),
+                        "Stretch" => t!("settings_video_layout_stretch_desc"),
+                        "Cover" => t!("settings_video_layout_cover_desc"),
+                        "Centre" => t!("settings_video_layout_centre_desc"),
+                        _ => "".into(),
+                    };
+                    ui.label(desc);
+
+                    ui.add_space(8.0);
+
+                    ui.checkbox(&mut self.config_loop, t!("settings_video_loop"));
+                    ui.checkbox(&mut self.config_hwdec, t!("settings_video_hwdec"));
+
+                    ui.add_space(4.0);
+
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut self.config_mute, t!("settings_video_mute"));
+                        if !self.config_mute {
+                            ui.label(t!("settings_video_volume"));
+                            let volume_pct = (self.config_volume * 100.0) as i32;
+                            ui.add(
+                                egui::Slider::new(&mut self.config_volume, 0.0..=1.0)
+                                    .text(format!("{}%", volume_pct)),
                             );
-                            ui.selectable_value(
-                                &mut self.config_layout,
-                                "Contain".to_string(),
-                                "Contain",
-                            );
-                            ui.selectable_value(
-                                &mut self.config_layout,
-                                "Stretch".to_string(),
-                                "Stretch",
-                            );
-                            ui.selectable_value(
-                                &mut self.config_layout,
-                                "Cover".to_string(),
-                                "Cover",
-                            );
-                            ui.selectable_value(
-                                &mut self.config_layout,
-                                "Centre".to_string(),
-                                "Centre",
-                            );
-                        });
+                        }
+                    });
+
+                    ui.add_space(8.0);
+
+                    ui.horizontal(|ui| {
+                        if ui.button(t!("settings_video_apply")).clicked() {
+                            if let Some(idx) = self.selected_output {
+                                let output_name = self.outputs[idx].name.clone();
+                                // Send config update commands
+                                self.send_command(IpcCommand::ReloadConfig);
+                                self.status_message =
+                                    t!("msg_config_applied", output = output_name).to_string();
+                            } else {
+                                self.status_message = t!("sources_select_output").to_string();
+                            }
+                        }
+
+                        if ui.button(t!("settings_video_export")).clicked() {
+                            self.status_message = t!("msg_export_not_implemented").to_string();
+                        }
+                    });
                 });
 
-                ui.add_space(5.0);
-                match self.config_layout.as_str() {
-                    "Fill" => ui.label("↔ Scale to cover screen, crop edges (no black bars)"),
-                    "Contain" => ui.label("↔ Fit inside screen (may have black bars)"),
-                    "Stretch" => ui.label("↔ Stretch to fill (may distort)"),
-                    "Cover" => ui.label("↔ Alias for Fill mode"),
-                    "Centre" => ui.label("↔ Original size, centered"),
-                    _ => ui.label(""),
-                };
-
-                ui.add_space(10.0);
-
-                ui.checkbox(&mut self.config_loop, "Loop playback");
-                ui.checkbox(&mut self.config_hwdec, "Hardware decoding (VA-API/NVDEC)");
-
-                ui.add_space(5.0);
-
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.config_mute, "Mute");
-                    if !self.config_mute {
-                        ui.label("Volume:");
-                        let volume_pct = (self.config_volume * 100.0) as i32;
-                        ui.add(
-                            egui::Slider::new(&mut self.config_volume, 0.0..=1.0)
-                                .text(format!("{}%", volume_pct)),
-                        );
-                    }
-                });
-
-                ui.add_space(10.0);
-
-                if ui.button("💾 Apply to Selected Output").clicked() {
-                    if let Some(idx) = self.selected_output {
-                        let output_name = self.outputs[idx].name.clone();
-                        // Send config update commands
-                        self.send_command(IpcCommand::ReloadConfig);
-                        self.status_message = format!("Config applied to {}", output_name);
-                    } else {
-                        self.status_message = "Please select an output first".to_string();
-                    }
-                }
-
-                if ui.button("📋 Save as Config File").clicked() {
-                    self.status_message = "Config export not implemented yet".to_string();
-                }
-            });
-
-            ui.add_space(10.0);
-
-            // Application Settings
-            ui.group(|ui| {
-                ui.heading("⚙ Application");
-                ui.label("These settings are for future use:");
-                let mut auto_connect = false;
-                let mut tray_icon = false;
-                let mut notifications = true;
-                ui.checkbox(&mut auto_connect, "Auto-connect on startup");
-                ui.checkbox(&mut tray_icon, "Show system tray icon");
-                ui.checkbox(&mut notifications, "Enable notifications");
-            });
-
-            ui.add_space(10.0);
+            ui.add_space(12.0);
 
             // Performance
-            ui.group(|ui| {
-                ui.heading("⚡ Performance");
-                ui.label("Max FPS: Unlimited (vsync)");
-                ui.label("Memory limit: 100 MB (default)");
-                ui.label("Decode mode: Shared (optimal)");
-            });
+            egui::Frame::none()
+                .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.heading(t!("settings_perf_title"));
+                    ui.label(t!("settings_perf_fps"));
+                    ui.label(t!("settings_perf_memory"));
+                    ui.label(t!("settings_perf_decode"));
+                });
 
-            ui.add_space(10.0);
+            ui.add_space(12.0);
 
             // About
-            ui.group(|ui| {
-                ui.heading("ℹ About");
-                ui.label(format!("wayvid v{}", env!("CARGO_PKG_VERSION")));
-                ui.label("Dynamic video wallpaper engine for Wayland");
-                ui.add_space(5.0);
-                ui.horizontal(|ui| {
-                    ui.hyperlink_to("🔗 GitHub", "https://github.com/YangYuS8/wayvid");
-                    ui.hyperlink_to(
-                        "📖 Documentation",
-                        "https://github.com/YangYuS8/wayvid/tree/main/docs",
-                    );
+            egui::Frame::none()
+                .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.heading(t!("settings_about_title"));
+                    ui.label(format!("wayvid v{}", env!("CARGO_PKG_VERSION")));
+                    ui.label(t!("settings_about_description"));
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        ui.hyperlink_to(
+                            t!("settings_about_github"),
+                            "https://github.com/YangYuS8/wayvid",
+                        );
+                        ui.hyperlink_to(
+                            t!("settings_about_docs"),
+                            "https://www.yangyus8.top/wayvid/",
+                        );
+                    });
                 });
-            });
         });
     }
 
@@ -1058,7 +1335,7 @@ impl WayvidApp {
         use wayvid::we::workshop::{WorkshopScanner, WALLPAPER_ENGINE_APP_ID};
 
         self.workshop_scan_running = true;
-        self.status_message = "Scanning Workshop items...".to_string();
+        self.status_message = t!("msg_scanning_workshop").to_string();
         self.workshop_items.clear();
 
         match SteamLibrary::discover() {
@@ -1078,22 +1355,26 @@ impl WayvidApp {
                                 is_valid: item.is_valid(),
                             })
                             .collect();
-                        self.status_message = format!(
-                            "✓ Found {} Workshop items ({} valid)",
-                            self.workshop_items.len(),
-                            self.workshop_items.iter().filter(|i| i.is_valid).count()
-                        );
+                        let valid_count = self.workshop_items.iter().filter(|i| i.is_valid).count();
+                        self.status_message = t!(
+                            "msg_workshop_found",
+                            total = self.workshop_items.len(),
+                            valid = valid_count
+                        )
+                        .to_string();
                     }
                     Err(e) => {
-                        self.status_message = format!("Scanner error: {}", e);
+                        self.status_message =
+                            t!("msg_workshop_error", error = e.to_string()).to_string();
                     }
                 },
                 Err(e) => {
-                    self.status_message = format!("Workshop scan error: {}", e);
+                    self.status_message =
+                        t!("msg_workshop_scan_error", error = e.to_string()).to_string();
                 }
             },
             Err(e) => {
-                self.status_message = format!("Steam not found: {}", e);
+                self.status_message = t!("msg_steam_not_found", error = e.to_string()).to_string();
             }
         }
 
@@ -1101,20 +1382,16 @@ impl WayvidApp {
     }
 
     fn import_workshop_item(&mut self, id: u64) {
-        self.status_message = format!("Importing Workshop item {}...", id);
+        self.status_message = t!("msg_importing", id = id).to_string();
 
         // Find the item
         if let Some(item) = self.workshop_items.iter().find(|i| i.id == id) {
             if let Some(ref video_path) = item.video_path {
                 // Set as current video source
                 self.video_path_input = video_path.clone();
-                self.status_message = format!(
-                    "✓ Imported: {} - Apply to an output in Sources tab",
-                    item.title
-                );
+                self.status_message = t!("msg_imported", title = item.title.clone()).to_string();
             } else {
-                self.status_message =
-                    "Error: No video file found in this Workshop item".to_string();
+                self.status_message = t!("msg_import_no_video").to_string();
             }
         }
     }

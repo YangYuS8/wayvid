@@ -69,10 +69,20 @@ impl WaylandSurface {
             (),
         );
 
-        // Configure layer surface for input passthrough
-        layer_surface.set_exclusive_zone(0);
+        // Configure layer surface for full screen coverage
+        // -1 means ignore exclusive zones from other surfaces (panels, bars)
+        // This ensures wallpaper covers entire screen including behind panels
+        layer_surface.set_exclusive_zone(-1);
         layer_surface
             .set_keyboard_interactivity(zwlr_layer_surface_v1::KeyboardInteractivity::None);
+
+        // Anchor to all edges for full coverage
+        layer_surface.set_anchor(
+            zwlr_layer_surface_v1::Anchor::Top
+                | zwlr_layer_surface_v1::Anchor::Bottom
+                | zwlr_layer_surface_v1::Anchor::Left
+                | zwlr_layer_surface_v1::Anchor::Right,
+        );
 
         // Set size to output dimensions
         layer_surface.set_size(output_info.width as u32, output_info.height as u32);

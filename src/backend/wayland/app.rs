@@ -16,8 +16,8 @@ use crate::config::watcher::ConfigWatcher;
 use crate::config::Config;
 use crate::core::power::PowerManager;
 use crate::core::types::VideoSource;
-use crate::ctl::ipc_server::IpcServer;
-use crate::ctl::protocol::IpcCommand;
+use crate::ctl::ipc_server::{IpcRequest, IpcServer};
+use crate::ctl::protocol::{IpcCommand, IpcResponse};
 use crate::video::egl::EglContext;
 use crate::video::frame_timing::FrameTiming;
 use std::path::PathBuf;
@@ -38,7 +38,7 @@ pub struct AppState {
     pub last_frame_time: std::time::Instant,
     pub frame_timing: FrameTiming,
     pub ipc_server: Option<IpcServer>,
-    pub command_rx: Option<Receiver<IpcCommand>>,
+    pub request_rx: Option<Receiver<IpcRequest>>,
     pub niri_client: Option<NiriClient>,
     pub focused_workspace: Option<u64>,
 }
@@ -61,7 +61,7 @@ impl AppState {
             last_frame_time: std::time::Instant::now(),
             frame_timing: FrameTiming::new(target_fps),
             ipc_server: None,
-            command_rx: None,
+            request_rx: None,
             niri_client: None,
             focused_workspace: None,
         }
@@ -172,52 +172,111 @@ impl AppState {
         }
     }
 
-    /// Handle IPC command
+    /// Handle IPC command (legacy method for internal use)
+    #[allow(dead_code)]
     fn handle_command(&mut self, command: IpcCommand) {
-        use crate::ctl::protocol::IpcCommand;
+        let _ = self.handle_command_with_response(command);
+    }
 
+    /// Handle IPC command and return response
+    fn handle_command_with_response(&mut self, command: IpcCommand) -> IpcResponse {
         match command {
             IpcCommand::Pause { output } => {
                 self.handle_pause_command(output);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::Resume { output } => {
                 self.handle_resume_command(output);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::Seek { output, time } => {
                 self.handle_seek_command(output, time);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::SwitchSource { output, source } => {
                 self.handle_switch_source_command(output, source);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::SetSource { output, source } => {
                 self.handle_set_source_command(output, source);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::SetPlaybackRate { output, rate } => {
                 self.handle_set_rate_command(output, rate);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::SetVolume { output, volume } => {
                 self.handle_set_volume_command(output, volume);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::ToggleMute { output } => {
                 self.handle_toggle_mute_command(output);
+                IpcResponse::Success { data: None }
             }
             IpcCommand::SetLayout { output, layout } => {
                 self.handle_set_layout_command(output, layout);
+                IpcResponse::Success { data: None }
             }
-            IpcCommand::GetStatus => {
-                self.handle_get_status_command();
-            }
+            IpcCommand::GetStatus => self.handle_get_status_response(),
             IpcCommand::ReloadConfig => {
                 self.handle_reload_config_command();
+                IpcResponse::Success { data: None }
             }
             IpcCommand::Quit => {
                 info!("Received quit command");
                 self.running = false;
+                IpcResponse::Success { data: None }
             }
         }
     }
 
-    /// Handle pause command
+    /// Handle get status command and return response with data
+    fn handle_get_status_response(&self) -> IpcResponse {
+        use crate::ctl::protocol::{DaemonStatus, OutputStatus};
+
+        let mut outputs = Vec::new();
+
+        #[cfg(feature = "video-mpv")]
+        {
+            for (_id, surface) in &self.surfaces {
+                // get_status returns Option<(is_playing, current_time, duration)>
+                let status = surface.get_status();
+                let (playing, current_time, duration) = match status {
+                    Some((is_playing, time, dur)) => (is_playing, time, dur),
+                    None => (false, 0.0, 0.0),
+                };
+
+                outputs.push(OutputStatus {
+                    name: surface.output_info.name.clone(),
+                    width: surface.output_info.width,
+                    height: surface.output_info.height,
+                    playing,
+                    paused: !playing,
+                    current_time,
+                    duration,
+                    source: surface.config.source.get_mpv_path(),
+                    layout: format!("{:?}", surface.config.layout),
+                    volume: surface.config.volume,
+                    muted: surface.config.mute,
+                    playback_rate: surface.config.playback_rate,
+                });
+            }
+        }
+
+        let status = DaemonStatus {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            outputs,
+        };
+
+        match serde_json::to_value(status) {
+            Ok(data) => IpcResponse::Success { data: Some(data) },
+            Err(e) => IpcResponse::Error {
+                message: format!("Failed to serialize status: {}", e),
+            },
+        }
+    }
+
+    /// Handle IPC command (old method, deprecated)
     fn handle_pause_command(&mut self, output: Option<String>) {
         #[cfg(feature = "video-mpv")]
         {
@@ -437,29 +496,6 @@ impl AppState {
             }
         }
         warn!("Output not found: {}", output);
-    }
-
-    /// Handle get status command (prints to log for now)
-    fn handle_get_status_command(&mut self) {
-        #[cfg(feature = "video-mpv")]
-        {
-            info!("=== Wayvid Status ===");
-            info!("Running: {}", self.running);
-            info!("Outputs: {}", self.surfaces.len());
-            for (id, surface) in &self.surfaces {
-                let status = surface.get_status();
-                info!(
-                    "  [{}] {} ({}x{}) - Layout: {:?}, Playing: {:?}",
-                    id,
-                    surface.output_info.name,
-                    surface.output_info.width,
-                    surface.output_info.height,
-                    surface.config.layout,
-                    status,
-                );
-            }
-            info!("====================");
-        }
     }
 
     /// Handle reload config command
@@ -800,7 +836,7 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
         Ok((server, rx)) => {
             info!("  ✓ IPC server listening on: {:?}", server.socket_path());
             state.ipc_server = Some(server);
-            state.command_rx = Some(rx);
+            state.request_rx = Some(rx);
         }
         Err(e) => {
             warn!("  ✗ Failed to start IPC server: {}", e);
@@ -1005,26 +1041,74 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     let mut last_stats_report = std::time::Instant::now();
     const STATS_REPORT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
 
-    // Main event loop with vsync
-    while state.running {
-        event_queue
-            .blocking_dispatch(&mut state)
-            .context("Event dispatch failed")?;
+    use std::os::fd::AsFd;
+    use std::os::fd::AsRawFd;
 
-        // Process IPC commands (non-blocking)
-        let commands: Vec<IpcCommand> = if let Some(ref rx) = state.command_rx {
-            let mut cmds = Vec::new();
-            while let Ok(command) = rx.try_recv() {
-                cmds.push(command);
+    // Get the Wayland connection file descriptor for polling
+    let wayland_fd = conn.as_fd().as_raw_fd();
+
+    // Main event loop with polling
+    while state.running {
+        // Try to dispatch pending events first (non-blocking)
+        if let Err(e) = event_queue.dispatch_pending(&mut state) {
+            warn!("Failed to dispatch pending events: {}", e);
+        }
+
+        // Flush pending requests
+        if let Err(e) = event_queue.flush() {
+            warn!("Failed to flush event queue: {}", e);
+        }
+
+        // Prepare to read from Wayland connection
+        if let Some(guard) = event_queue.prepare_read() {
+            // Use libc poll with timeout to check for new events
+            let mut poll_fd = libc::pollfd {
+                fd: wayland_fd,
+                events: libc::POLLIN,
+                revents: 0,
+            };
+
+            // Poll with 16ms timeout (roughly 60 FPS) to allow IPC processing
+            let ret = unsafe { libc::poll(&mut poll_fd, 1, 16) };
+
+            if ret > 0 && (poll_fd.revents & libc::POLLIN) != 0 {
+                // Events available, read them
+                if let Err(e) = guard.read() {
+                    warn!("Failed to read Wayland events: {}", e);
+                }
+            } else {
+                // Timeout or error - drop guard without reading (this cancels the read)
+                drop(guard);
             }
-            cmds
+        } else {
+            // Cannot prepare read - there might be pending events,
+            // just sleep briefly and continue to allow IPC processing
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        // Dispatch any new events
+        if let Err(e) = event_queue.dispatch_pending(&mut state) {
+            warn!("Failed to dispatch events: {}", e);
+        }
+
+        // Process IPC requests (non-blocking)
+        let requests: Vec<IpcRequest> = if let Some(ref rx) = state.request_rx {
+            let mut reqs = Vec::new();
+            while let Ok(request) = rx.try_recv() {
+                reqs.push(request);
+            }
+            reqs
         } else {
             Vec::new()
         };
 
-        for command in commands {
-            info!("Processing IPC command: {:?}", command);
-            state.handle_command(command);
+        for request in requests {
+            info!("Processing IPC command: {:?}", request.command);
+            let response = state.handle_command_with_response(request.command);
+            // Send response back to client
+            if let Err(e) = request.response_tx.send(response) {
+                warn!("Failed to send IPC response: {}", e);
+            }
         }
 
         // Check for config file changes (non-blocking)
