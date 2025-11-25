@@ -265,6 +265,16 @@ wayvid is dual-licensed under your choice of:
 
 ---
 
+## ☕ Support the Project
+
+If you find wayvid useful, consider supporting its development:
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Me-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/yangyus8)
+
+Your support helps maintain and improve wayvid! Every contribution is appreciated. 💙
+
+---
+
 ## 🙏 Acknowledgments
 
 wayvid is built on top of excellent open-source projects:
