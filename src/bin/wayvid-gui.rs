@@ -69,7 +69,7 @@ fn setup_custom_style(ctx: &egui::Context) {
         if let Ok(font_data) = std::fs::read(font_path) {
             fonts.font_data.insert(
                 "chinese_font".to_owned(),
-                egui::FontData::from_owned(font_data).into(),
+                egui::FontData::from_owned(font_data),
             );
 
             // Add Chinese font as fallback for proportional text

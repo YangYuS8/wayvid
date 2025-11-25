@@ -238,7 +238,7 @@ impl AppState {
 
         #[cfg(feature = "video-mpv")]
         {
-            for (_id, surface) in &self.surfaces {
+            for surface in self.surfaces.values() {
                 // get_status returns Option<(is_playing, current_time, duration)>
                 let status = surface.get_status();
                 let (playing, current_time, duration) = match status {
