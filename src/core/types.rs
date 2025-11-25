@@ -114,6 +114,7 @@ impl VideoSource {
 
     /// Get the source as a display string (for UI/logging)
     #[allow(dead_code)]
+    #[inline]
     fn get_source_string(&self) -> &str {
         match self {
             VideoSource::File { path } => path,
@@ -133,6 +134,7 @@ impl VideoSource {
     }
 
     /// Check if this is a streaming source (needs special handling)
+    #[inline]
     pub fn is_streaming(&self) -> bool {
         matches!(
             self,
@@ -141,6 +143,7 @@ impl VideoSource {
     }
 
     /// Check if this is an image sequence (needs loop handling)
+    #[inline]
     pub fn is_image_sequence(&self) -> bool {
         matches!(self, VideoSource::ImageSequence { .. })
     }

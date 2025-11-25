@@ -70,24 +70,27 @@ impl FrameTiming {
     }
 
     /// Record the start of a new frame
+    #[inline]
     pub fn begin_frame(&mut self) {
         self.last_frame_start = Instant::now();
     }
 
     /// Record the completion of a frame and update statistics
+    #[inline]
     pub fn end_frame(&mut self) {
         let duration = self.last_frame_start.elapsed();
 
         // Add to history, maintaining size limit
-        self.frame_durations.push_back(duration);
-        if self.frame_durations.len() > FRAME_HISTORY_SIZE {
+        if self.frame_durations.len() >= FRAME_HISTORY_SIZE {
             self.frame_durations.pop_front();
         }
+        self.frame_durations.push_back(duration);
 
         self.frames_rendered += 1;
     }
 
     /// Record that a frame was skipped
+    #[inline]
     pub fn record_skip(&mut self) {
         self.frames_skipped += 1;
     }
@@ -153,6 +156,7 @@ impl FrameTiming {
     /// Calculate current load as percentage of frame budget
     ///
     /// Returns a value between 0.0 (no load) and >1.0 (overloaded)
+    #[inline]
     pub fn get_load_percentage(&self) -> f64 {
         if self.frame_durations.is_empty() {
             return 0.0;
@@ -160,13 +164,11 @@ impl FrameTiming {
 
         // Calculate average frame duration from recent history
         let total: Duration = self.frame_durations.iter().sum();
-        let avg_duration = total / self.frame_durations.len() as u32;
+        let len = self.frame_durations.len() as u32;
+        let avg_duration = total / len;
 
-        // Convert to load percentage
-        let avg_ms = avg_duration.as_secs_f64() * 1000.0;
-        let target_ms = self.target_frame_duration.as_secs_f64() * 1000.0;
-
-        avg_ms / target_ms
+        // Convert to load percentage (avoid ms conversion)
+        avg_duration.as_secs_f64() / self.target_frame_duration.as_secs_f64()
     }
 
     /// Get statistics for monitoring

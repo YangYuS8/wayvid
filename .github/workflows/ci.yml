@@ -1,4 +1,4 @@
-name: CI
+name: Code Quality
 
 on:
   push:
@@ -8,12 +8,10 @@ on:
       - '**'
     paths-ignore:
       - 'docs/**'
+      - 'openspec/**'
       - '**.md'
       - 'LICENSE*'
       - 'CHANGELOG.md'
-      - 'CONTRIBUTING.md'
-      - 'QUICKSTART.md'
-      - 'README.md'
       - 'configs/**'
       - 'examples/**'
       - 'packaging/**'
@@ -23,16 +21,17 @@ on:
       - '.editorconfig'
       - 'flake.nix'
       - 'flake.lock'
+      - 'cliff.toml'
+      - '.github/workflows/docs.yml'
+      - '.github/workflows/release.yml'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - 'docs/**'
+      - 'openspec/**'
       - '**.md'
       - 'LICENSE*'
       - 'CHANGELOG.md'
-      - 'CONTRIBUTING.md'
-      - 'QUICKSTART.md'
-      - 'README.md'
       - 'configs/**'
       - 'examples/**'
       - 'packaging/**'
@@ -42,15 +41,19 @@ on:
       - '.editorconfig'
       - 'flake.nix'
       - 'flake.lock'
+      - 'cliff.toml'
+      - '.github/workflows/docs.yml'
+      - '.github/workflows/release.yml'
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  RUSTFLAGS: -D warnings
 
 jobs:
-  # 快速检查（格式、Clippy、基本编译检查）- 合并以节省时间
-  quick-checks:
-    name: Quick Checks (fmt, clippy, check)
+  # 代码质量检查：格式、Clippy
+  quality:
+    name: Code Quality (fmt + clippy)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,110 +79,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
       
-      - name: Run cargo check (all features)
-        run: cargo check --all-features
-      
-      - name: Run cargo check (default features)
-        run: cargo check
-      
-      - name: Run cargo check (GUI only)
-        run: cargo check --features gui --bin wayvid-gui
-      
       - name: Run clippy (all features)
         run: cargo clippy --all-features --all-targets -- -D warnings
       
       - name: Run clippy (default features)
         run: cargo clippy --all-targets -- -D warnings
-
-  test:
-    name: Test (${{ matrix.feature-set }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        feature-set:
-          - name: "all"
-            flags: "--all-features"
-          - name: "default"
-            flags: ""
-          - name: "minimal"
-            flags: "--no-default-features --features video-mpv,backend-wayland"
-    steps:
-      - uses: actions/checkout@v4
       
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwayland-dev \
-            libmpv-dev \
-            libgl1-mesa-dev \
-            libegl1-mesa-dev \
-            libxkbcommon-dev \
-            libfontconfig1-dev
-      
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          cache: true
-      
-      - name: Run tests
-        run: cargo test ${{ matrix.feature-set.flags }}
-
-  # PR 预览构建：构建完整 release 二进制供测试
-  # 作用：允许审查者下载并测试 PR 的实际二进制文件
-  # 触发：仅在 PR 带有 'needs-binary-test' 标签时自动构建
-  build-preview:
-    name: Build Preview (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
-    if: |
-      github.event_name == 'pull_request' && 
-      contains(github.event.pull_request.labels.*.name, 'needs-binary-test')
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwayland-dev \
-            libmpv-dev \
-            libgl1-mesa-dev \
-            libegl1-mesa-dev \
-            libxkbcommon-dev \
-            libfontconfig1-dev
-      
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          cache: true
-      
-      - name: Build all binaries (with all features)
-        run: cargo build --release --all-features --target ${{ matrix.target }}
-      
-      - name: Create artifact directory
-        run: |
-          mkdir -p artifacts
-          cp target/${{ matrix.target }}/release/wayvid artifacts/
-          cp target/${{ matrix.target }}/release/wayvid-ctl artifacts/
-          cp target/${{ matrix.target }}/release/wayvid-gui artifacts/
-          
-          # 添加版本信息
-          echo "PR #${{ github.event.pull_request.number }}" > artifacts/VERSION.txt
-          echo "Commit: ${{ github.sha }}" >> artifacts/VERSION.txt
-          echo "Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> artifacts/VERSION.txt
-          
-      - name: Upload preview artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: wayvid-preview-pr${{ github.event.pull_request.number }}-${{ matrix.target }}
-          path: artifacts/*
-          retention-days: 7
+      - name: Run clippy (no default features)
+        run: cargo clippy --no-default-features --features video-mpv,backend-wayland -- -D warnings

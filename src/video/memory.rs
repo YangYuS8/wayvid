@@ -56,16 +56,17 @@ impl MemoryStats {
 
     /// Format memory size in human-readable form
     pub fn format_bytes(bytes: usize) -> String {
-        const KB: usize = 1024;
-        const MB: usize = KB * 1024;
-        const GB: usize = MB * 1024;
+        const KB: f64 = 1024.0;
+        const MB: f64 = KB * 1024.0;
+        const GB: f64 = MB * 1024.0;
 
-        if bytes >= GB {
-            format!("{:.2} GB", bytes as f64 / GB as f64)
-        } else if bytes >= MB {
-            format!("{:.2} MB", bytes as f64 / MB as f64)
-        } else if bytes >= KB {
-            format!("{:.2} KB", bytes as f64 / KB as f64)
+        let bytes_f = bytes as f64;
+        if bytes_f >= GB {
+            format!("{:.2} GB", bytes_f / GB)
+        } else if bytes_f >= MB {
+            format!("{:.2} MB", bytes_f / MB)
+        } else if bytes_f >= KB {
+            format!("{:.2} KB", bytes_f / KB)
         } else {
             format!("{} B", bytes)
         }
@@ -86,15 +87,16 @@ impl MemoryStats {
 
 /// Track memory allocation
 #[allow(dead_code)]
+#[inline]
 pub fn track_allocation(bytes: usize) {
     let allocated = TOTAL_ALLOCATED.fetch_add(bytes, Ordering::Relaxed) + bytes;
     let deallocated = TOTAL_DEALLOCATED.load(Ordering::Relaxed);
     let current = allocated.saturating_sub(deallocated);
 
-    // Update peak if needed
-    let mut peak = PEAK_USAGE.load(Ordering::Relaxed);
+    // Update peak if needed (use Release for synchronization)
+    let mut peak = PEAK_USAGE.load(Ordering::Acquire);
     while current > peak {
-        match PEAK_USAGE.compare_exchange_weak(peak, current, Ordering::Relaxed, Ordering::Relaxed)
+        match PEAK_USAGE.compare_exchange_weak(peak, current, Ordering::Release, Ordering::Acquire)
         {
             Ok(_) => break,
             Err(p) => peak = p,
@@ -103,6 +105,7 @@ pub fn track_allocation(bytes: usize) {
 }
 
 /// Track memory deallocation
+#[inline]
 pub fn track_deallocation(bytes: usize) {
     TOTAL_DEALLOCATED.fetch_add(bytes, Ordering::Relaxed);
 }
@@ -196,24 +199,23 @@ impl BufferPool {
     /// Acquire a buffer from the pool or allocate a new one
     #[allow(dead_code)]
     pub fn acquire(&self, min_capacity: usize) -> ManagedBuffer {
-        let mut buffers = self.buffers.lock().unwrap();
+        // Try to find and remove a suitable buffer (hold lock minimally)
+        let buffer = {
+            let mut buffers = self.buffers.lock().unwrap();
+            buffers
+                .iter()
+                .position(|buf| buf.capacity() >= min_capacity)
+                .map(|pos| buffers.swap_remove(pos))
+        };
 
-        // Try to find a suitable buffer in the pool
-        if let Some(pos) = buffers
-            .iter()
-            .position(|buf| buf.capacity() >= min_capacity)
-        {
-            let buffer = buffers.swap_remove(pos);
-            debug!(
-                "♻️ Reused buffer from pool (capacity: {})",
-                buffer.capacity()
-            );
-            return buffer;
+        if let Some(buf) = buffer {
+            debug!("♻️ Reused buffer from pool (capacity: {})", buf.capacity());
+            buf
+        } else {
+            // Allocate a new buffer
+            debug!("🆕 Allocated new buffer (capacity: {})", min_capacity);
+            ManagedBuffer::new(min_capacity)
         }
-
-        // Allocate a new buffer
-        debug!("🆕 Allocated new buffer (capacity: {})", min_capacity);
-        ManagedBuffer::new(min_capacity)
     }
 
     /// Return a buffer to the pool

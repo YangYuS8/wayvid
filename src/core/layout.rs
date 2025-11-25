@@ -13,6 +13,7 @@ pub struct LayoutTransform {
 }
 
 /// Calculate layout transform for rendering video to output
+#[inline]
 pub fn calculate_layout(
     mode: LayoutMode,
     video_width: i32,

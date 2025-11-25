@@ -526,8 +526,9 @@ impl MpvPlayer {
     /// Get video dimensions (width, height)
     /// Returns None if video is not loaded or dimensions are not available
     /// Caches result to avoid repeated property access
+    #[inline]
     pub fn get_video_dimensions(&mut self) -> Option<(i32, i32)> {
-        // Return cached value if available
+        // Return cached value if available (fast path)
         if let Some(dims) = self.cached_dimensions {
             return Some(dims);
         }
@@ -553,6 +554,7 @@ impl MpvPlayer {
     }
 
     /// Get an i64 property from MPV
+    #[inline]
     fn get_property_i64(&self, name: &str) -> Option<i64> {
         let prop_name = CString::new(name).ok()?;
         let mut value: i64 = 0;
@@ -566,11 +568,7 @@ impl MpvPlayer {
             )
         };
 
-        if ret == 0 {
-            Some(value)
-        } else {
-            None
-        }
+        (ret == 0).then_some(value)
     }
 
     /// Get a string property from MPV
@@ -613,6 +611,7 @@ impl MpvPlayer {
     }
 
     /// Get a f64 property from MPV
+    #[inline]
     fn get_property_f64(&self, name: &str) -> Option<f64> {
         let prop_name = CString::new(name).ok()?;
         let mut value: f64 = 0.0;
@@ -626,11 +625,7 @@ impl MpvPlayer {
             )
         };
 
-        if ret == 0 {
-            Some(value)
-        } else {
-            None
-        }
+        (ret == 0).then_some(value)
     }
 
     /// Get HDR metadata from the currently playing video
