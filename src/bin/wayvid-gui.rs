@@ -590,20 +590,28 @@ impl WayvidApp {
         cmd_rx: Receiver<IpcCommand>,
         resp_tx: Sender<IpcResponse>,
     ) -> anyhow::Result<()> {
-        let mut client = IpcClient::connect()?;
-
+        // Process each command with a fresh connection
+        // The server closes the connection after each request/response
         for command in cmd_rx {
-            match client.send_command(&command) {
-                Ok(response) => {
-                    if resp_tx.send(response).is_err() {
-                        break; // GUI closed
+            // Create new connection for each command
+            match IpcClient::connect() {
+                Ok(mut client) => match client.send_command(&command) {
+                    Ok(response) => {
+                        if resp_tx.send(response).is_err() {
+                            break; // GUI closed
+                        }
                     }
-                }
+                    Err(e) => {
+                        eprintln!("IPC command error: {}", e);
+                        let _ = resp_tx.send(IpcResponse::Error {
+                            message: e.to_string(),
+                        });
+                    }
+                },
                 Err(e) => {
-                    eprintln!("IPC command error: {}", e);
-                    // Send error response
+                    eprintln!("IPC connection error: {}", e);
                     let _ = resp_tx.send(IpcResponse::Error {
-                        message: e.to_string(),
+                        message: format!("Connection failed: {}", e),
                     });
                 }
             }
