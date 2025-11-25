@@ -12,6 +12,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Performance optimizations (Rust Performance Book)
+  RUSTFLAGS: "-C target-cpu=x86-64-v2 -C link-arg=-fuse-ld=lld"
+  CARGO_INCREMENTAL: 0  # Disable incremental for release builds (better LTO)
 
 jobs:
   # 验证版本号
@@ -132,18 +135,28 @@ jobs:
             libgl1-mesa-dev \
             libegl1-mesa-dev \
             libxkbcommon-dev \
-            libfontconfig1-dev
+            libfontconfig1-dev \
+            lld \
+            clang
       
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           target: ${{ matrix.target }}
-          # 正式版使用干净构建
-          cache: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+          # Enable caching for faster builds
+          cache: true
       
-      - name: Build release binaries
-        run: cargo build --release --all-features --target ${{ matrix.target }}
+      - name: Build release binaries (optimized)
+        run: |
+          echo "Building with optimized profile..."
+          echo "RUSTFLAGS: $RUSTFLAGS"
+          cargo build --release --all-features --target ${{ matrix.target }}
+          
+          # Display binary sizes
+          echo "Binary sizes:"
+          ls -lh target/${{ matrix.target }}/release/wayvid*
+          du -h target/${{ matrix.target }}/release/wayvid*
       
       - name: Strip binaries
         run: |

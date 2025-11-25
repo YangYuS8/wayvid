@@ -1,6 +1,6 @@
 [package]
 name = "wayvid"
-version = "0.4.3-hotfix.5"
+version = "0.4.4-alpha.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
@@ -86,11 +86,21 @@ telemetry = []
 ipc = []
 tray = []
 
+# Optimized release profile (based on Rust Performance Book)
 [profile.release]
+opt-level = 3              # Maximum optimization
+lto = "thin"              # Link-Time Optimization (thin = faster build, fat = smaller binary)
+codegen-units = 1          # Single codegen unit for maximum optimization
+strip = true               # Strip symbols for smaller binary size
+panic = "abort"            # Smaller binary, faster unwinding
+
+# Alternative ultra-optimized profile (use with: cargo build --profile release-opt)
+# Trades longer compile time for maximum runtime performance
+[profile.release-opt]
+inherits = "release"
+lto = "fat"               # Full LTO for maximum optimization
 opt-level = 3
-lto = "thin"
 codegen-units = 1
-strip = true
 
 [profile.dev]
 opt-level = 1
