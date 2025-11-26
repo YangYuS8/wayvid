@@ -1,6 +1,6 @@
 # GUI Control Panel
 
-wayvid includes a graphical control panel for easy management.
+wayvid-gui provides an intuitive graphical interface for managing video wallpapers, redesigned with a Wallpaper Engine-inspired layout for streamlined workflow.
 
 ## Starting the GUI
 
@@ -8,267 +8,233 @@ wayvid includes a graphical control panel for easy management.
 wayvid-gui
 ```
 
-**Note:** The GUI is now **fully decoupled** from the daemon. It functions as a:
-- 📝 **Configuration Editor** - Visual interface for config.yaml
-- 🎛️ **Control Panel** - Runtime control via IPC
+The GUI automatically connects to the daemon when running. It functions as:
+- 🖼️ **Wallpaper Manager** - Browse and apply wallpapers
+- 🎛️ **Control Panel** - Runtime playback control via IPC
 - 📊 **Status Monitor** - Real-time daemon status
-- 🔧 **Daemon Manager** - Start/stop/restart daemon
+- 🔧 **Configuration Editor** - Visual config editing
 
-Or build with GUI support:
-```bash
-cargo build --release --bin wayvid-gui --features gui
+## Interface Overview
+
+The new interface follows a Wallpaper Engine-inspired design:
+
 ```
+┌─────────────────────────────────────────────────────────────┐
+│  [Wallpapers]  [Settings]                        [🌐 EN/中] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐      │
+│   │  Video  │  │  Video  │  │  Video  │  │  Video  │      │
+│   │   1     │  │   2     │  │   3     │  │   4     │      │
+│   │ [✓]     │  │         │  │         │  │         │      │
+│   └─────────┘  └─────────┘  └─────────┘  └─────────┘      │
+│                                                             │
+│   ┌─────────┐  ┌─────────┐  ┌─────────┐                   │
+│   │Workshop │  │Workshop │  │Workshop │  [+ Add]          │
+│   │  Item   │  │  Item   │  │  Item   │                   │
+│   └─────────┘  └─────────┘  └─────────┘                   │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
+│  │  DP-1    │  │ HDMI-A-1 │  │  eDP-1   │   ← Monitor Bar │
+│  │  [✓]     │  │          │  │          │                  │
+│  └──────────┘  └──────────┘  └──────────┘                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Elements
+
+1. **Bottom Monitor Selector**: Quick access to all connected displays
+2. **Unified Wallpaper Library**: All sources (local, workshop) in one grid
+3. **Click-to-Apply**: Single click to select, double-click to apply
+4. **Simplified Tabs**: Just "Wallpapers" and "Settings"
 
 ## Daemon Management
 
-The GUI can now **manage the daemon lifecycle**:
+### Connection Status (Top Panel)
 
-### Top Panel Controls
+| Status | Meaning |
+|--------|---------|
+| 🟢 **Connected** | GUI is connected to daemon |
+| 🟡 **Connecting...** | Attempting connection |
+| ⚪ **Disconnected** | Daemon not running |
+| 🔴 **Error** | Connection failed |
+
+### Control Buttons
 
 **When daemon is running:**
 - ⏹ **Stop Daemon** - Stop wayvid service
-- 🔄 **Restart** - Restart daemon (useful after config changes)
+- 🔄 **Restart** - Restart daemon
 
 **When daemon is NOT running:**
 - 🚀 **Start Daemon** - Start wayvid via systemd
 
-**Connection Status:**
-- 🟢 **● Connected** - GUI is connected to daemon
-- 🟡 **● Connecting...** - Attempting connection
-- ⚪ **● Disconnected** - Not connected
-- 🔴 **● Error** - Connection error
-
-**If daemon is not running**, the GUI displays:
-```
-⚠ wayvid daemon is not running. Start it using the button above or run:
-   systemctl --user start wayvid.service
-```
-
-### Typical Usage
-
-**Option 1: GUI manages daemon (Easiest)**
-1. Launch `wayvid-gui`
-2. Click **🚀 Start Daemon**
-3. GUI auto-connects when daemon is ready
-
-**Option 2: Manual daemon, GUI for control**
-1. Start daemon: `systemctl --user start wayvid.service`
-2. Launch `wayvid-gui`
-3. GUI auto-connects if daemon is running
-
-**Option 3: Fully independent**
-1. Daemon runs as systemd service (always-on)
-2. Open GUI when you need to change settings
-3. Close GUI when done (daemon keeps running)
-
 ## Features
 
-### 📺 Outputs Tab
+### 🖼️ Wallpapers Tab (Unified Library)
 
-Manage connected displays:
-- View all detected outputs (monitors)
-- Monitor resolution and status
-- Pause/Resume playback per output
-- Select outputs for configuration
+The main view combines all wallpaper sources:
 
-**Actions:**
-- Click checkbox to select an output
-- Use **Pause/Resume** buttons for playback control
-- Click **Configure** for per-output settings
+| Source Type | Icon | Description |
+|-------------|------|-------------|
+| Local File | 📁 | Video files from filesystem |
+| Directory | 📂 | Folders (playlist mode) |
+| URL | 🌐 | HTTP/RTSP streams |
+| Workshop | 🎮 | Wallpaper Engine items |
 
-### 🎬 Video Sources Tab
+**Interaction:**
+- **Single Click**: Select wallpaper (shows info)
+- **Double Click**: Apply to selected monitor
+- **Drag & Drop**: Drop video files onto window
 
-Add and manage video sources:
+**Grid Features:**
+- Thumbnail previews (when available)
+- Source type indicators
+- Selection highlight
+- Add button for new sources
 
-**Local Files:**
-- Enter file path or drag & drop
-- Browse common directories (Videos, Pictures, Downloads)
-- Apply to selected output
+### ⚙️ Settings Tab
 
-**Stream URLs:**
-- HTTP(S), RTSP, HLS, DASH support
-- Enter URL and apply to output
+Configure playback and daemon behavior:
 
-**Quick Access:**
-- One-click access to ~/Videos, ~/Pictures, ~/Downloads
-- Recent sources history
+**Layout Mode:**
+- **Fill** (default): Cover screen, crop if needed
+- **Contain**: Fit inside screen (may letterbox)
+- **Stretch**: Fill exactly (may distort)
+- **Cover**: Alias for Fill
+- **Centre**: Original size, centered
 
-### 🎮 Workshop Tab
+**Playback:**
+- Loop: Enable/disable video looping
+- Volume: 0-100% slider
+- Mute: Toggle audio
 
-Steam Workshop integration:
+**Power Management:**
+- Battery-aware throttling
+- Workspace visibility detection (Niri)
 
-**Features:**
-- **Scan Workshop**: Detect installed Wallpaper Engine items
-- **Search**: Filter by title or ID
-- **Grid View**: Browse wallpapers visually
-- **Preview**: Open video in Sources tab
-- **Import**: One-click config generation
+## Bottom Monitor Bar
 
-**Status Indicators:**
-- ✓ Valid video wallpaper (green)
-- ⚠ No video or invalid (yellow)
+The bottom panel shows all connected displays:
 
-**Actions:**
-- **▶ Preview**: Load video into Sources tab
-- **📥 Import**: Generate config for the Workshop item
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐              │
+│  │   DP-1     │  │  HDMI-A-1  │  │   eDP-1    │              │
+│  │ 2560x1440  │  │ 1920x1080  │  │ 1920x1200  │              │
+│  │    [✓]     │  │            │  │            │              │
+│  └────────────┘  └────────────┘  └────────────┘              │
+└──────────────────────────────────────────────────────────────┘
+```
 
-### ⚙ Settings Tab
+- **Click** a monitor to select it as target
+- **Selected monitor** shows checkmark and highlight
+- **Resolution** displayed under name
+- **Active source** shown if playing
 
-Configure playback and application:
+## Quick Workflow
 
-**Video Configuration:**
-- **Layout Mode**: Fill, Contain, Stretch, Cover, Centre
-  - *Fill*: Scale to cover screen, crop edges (recommended)
-  - *Contain*: Fit inside screen (may have black bars)
-  - *Stretch*: Fill screen (may distort)
-  - *Centre*: Original size, centered
-- **Loop playback**: Enable/disable looping
-- **Hardware decoding**: VA-API/NVDEC support
-- **Mute**: Toggle audio
-- **Volume**: 0-100% slider
+### Apply Wallpaper (3 Steps)
 
-**Actions:**
-- **Apply to Selected Output**: Update output configuration
-- **Save as Config File**: Export to YAML (future)
+1. **Select Monitor**: Click target in bottom bar
+2. **Browse Wallpapers**: Find desired wallpaper in grid
+3. **Apply**: Double-click wallpaper (or single-click + Enter)
 
-**Performance:**
-- Max FPS: Unlimited (vsync)
-- Memory limit: 100 MB (default)
-- Decode mode: Shared (optimal)
+### Add New Wallpaper
 
-**About:**
-- Version information
-- Links to GitHub and documentation
+1. Click **[+ Add]** button in wallpaper grid
+2. Choose source type (File, Directory, URL, Workshop)
+3. Enter path or select from file browser
+4. Wallpaper appears in library
 
-## Typical Workflow
+### Multi-Monitor Setup
 
-### Quick Start (GUI Manages Everything)
+1. Select first monitor in bottom bar
+2. Double-click desired wallpaper
+3. Select second monitor
+4. Double-click different wallpaper
+5. Each monitor plays independently
 
-1. **Launch GUI:**
-   ```bash
-   wayvid-gui
-   ```
+## Language Support
 
-2. **Start daemon (if not running):**
-   - If you see "⚠ wayvid daemon is not running"
-   - Click **🚀 Start Daemon** button
-   - Wait for status to show **● Connected**
+wayvid-gui supports multiple languages:
 
-3. **Or start daemon manually first:**
-   ```bash
-   systemctl --user start wayvid.service
-   # Then launch GUI
-   wayvid-gui
-   ```
+- 🇺🇸 English (default)
+- 🇨🇳 简体中文
 
-### Configure Wallpaper
-
-4. **Select an output:**
-   - Go to **📺 Outputs** tab
-   - Click checkbox next to desired monitor
-
-5. **Choose video source:**
-   
-   **Option A - Local File:**
-   - Go to **🎬 Video Sources** tab
-   - Enter path or use Quick Access
-   - Click **✓ Apply to Selected Output**
-   
-   **Option B - Workshop:**
-   - Go to **🎮 Workshop** tab
-   - Click **🔄 Scan Workshop**
-   - Find desired wallpaper
-   - Click **📥 Import**
-   - Go back to Sources tab and apply
-
-6. **Configure playback:**
-   - Go to **⚙ Settings** tab
-   - Choose Layout Mode (Fill recommended)
-   - Adjust volume, loop, etc.
-   - Click **💾 Apply to Selected Output**
-
-## Requirements
-
-- wayvid daemon must be running
-- IPC socket at `/run/user/$UID/wayvid.sock`
-- For Workshop: Steam + Wallpaper Engine installed
+**Auto-detection**: GUI detects system locale on startup.
+**Manual switch**: Use language selector (🌐) in top-right corner.
 
 ## Keyboard Shortcuts
 
-- `Ctrl+Q`: Quit GUI
-- `F5`: Refresh outputs
-- `Esc`: Deselect output
+| Key | Action |
+|-----|--------|
+| `Enter` | Apply selected wallpaper |
+| `Space` | Toggle play/pause |
+| `Escape` | Deselect wallpaper |
+| `Ctrl+R` | Reload configuration |
+| `Ctrl+Q` | Quit GUI |
+| `F5` | Refresh outputs |
 
 ## Troubleshooting
 
-### "wayvid daemon not running"
-**Solution 1: Use GUI button**
-- Click **🚀 Start Daemon** in top panel
+### "Daemon not running"
 
-**Solution 2: Start via systemd**
 ```bash
+# Option 1: Use GUI button
+# Click 🚀 Start Daemon
+
+# Option 2: Start via systemd
 systemctl --user start wayvid.service
-```
 
-**Solution 3: Start manually**
-```bash
+# Option 3: Start manually
 wayvid run &
 ```
 
-**Check if daemon is running:**
-```bash
-# Via systemctl
-systemctl --user status wayvid.service
+### No monitors shown
 
-# Or check process
-ps aux | grep wayvid
+- Ensure you're on a Wayland session
+- Check compositor supports wlr-layer-shell
+- Click refresh or restart GUI
+
+### Wallpapers not appearing
+
+- Verify file paths are accessible
+- Supported formats: MP4, WebM, MKV, AVI, MOV
+- For Workshop: Ensure Steam is installed
+
+### GUI font issues (Chinese)
+
+```bash
+# Install CJK fonts
+sudo pacman -S noto-fonts-cjk       # Arch
+sudo apt install fonts-noto-cjk     # Debian/Ubuntu
 ```
 
-### "No outputs detected"
-1. Check if wayvid is running: `ps aux | grep wayvid`
-2. Click **🔄 Refresh** button
-3. Check logs: `journalctl --user -u wayvid -f`
+### Workshop items not found
 
-### "No Workshop items found"
-Ensure:
-- Steam is installed
-- Wallpaper Engine is in your library
-- You have subscribed to Workshop items
-- Items are downloaded (check Steam Workshop tab)
-
-### GUI doesn't start
-Build with GUI support:
-```bash
-cargo build --release --bin wayvid-gui --features gui
-```
+1. Verify Steam is installed
+2. Check Wallpaper Engine is in library
+3. Ensure items are downloaded
+4. Try rescanning: Click refresh button
 
 ## Architecture
 
-The GUI uses:
+The GUI is built with:
 - **egui/eframe**: Immediate mode GUI framework
-- **IPC**: Unix socket communication with daemon
-- **Threading**: Async IPC communication
+- **rust-i18n**: Internationalization
+- **IPC Client**: Unix socket communication
 
-Communication flow:
 ```
-GUI → IPC Socket → wayvid daemon → Wayland compositor
+GUI ─────► IPC Socket ─────► wayvid daemon
+            ▲                     │
+            │                     ▼
+         Response          Wayland compositor
 ```
-
-## Future Enhancements
-
-Planned features:
-- [ ] Native file dialog (requires rfd crate)
-- [ ] Drag & drop file support
-- [ ] System tray icon
-- [ ] Auto-connect on startup
-- [ ] Live video preview
-- [ ] Config file editor with syntax highlighting
-- [ ] Workshop thumbnail display
-- [ ] Playlist management
-- [ ] Per-output timeline/scrubbing
 
 ## See Also
 
 - [Configuration Guide](configuration.md)
 - [CLI Control](../reference/cli.md)
-- [IPC Protocol](../reference/ipc.md)
+- [IPC Protocol](../features/ipc.md)
+- [Steam Workshop](../features/workshop.md)

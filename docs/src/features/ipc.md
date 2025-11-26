@@ -4,21 +4,26 @@ Control wayvid in real-time via CLI, GUI, or programmatically.
 
 ## GUI Control Panel
 
-The easiest way to control wayvid:
+The easiest way to control wayvid - now with a Wallpaper Engine-inspired interface:
 
 ```bash
 wayvid-gui
 ```
 
 **Features:**
-- 🖥️ **Multi-monitor display** with real-time status
-- 🎬 **Playback controls** (play, pause, seek, volume)
-- 📁 **Video source browser** with file picker
-- 🎮 **Steam Workshop integration** with one-click apply
-- ⚙️ **Configuration editor** with live preview
+- 🖼️ **Unified wallpaper library** - All sources in one grid view
+- 🖥️ **Bottom monitor selector** - Quick access to all displays
+- 🎬 **Click-to-apply** - Single click to select, double-click to apply
+- 🎮 **Steam Workshop integration** - Browse and apply Workshop items
+- ⚙️ **Settings panel** - Layout, volume, and playback options
 - 🌍 **Multi-language support** (English, 中文)
 
-The GUI automatically connects to the daemon when it's running and shows connection status in real-time.
+**Quick Workflow:**
+1. Select target monitor in bottom bar
+2. Browse wallpapers in unified grid
+3. Double-click to apply
+
+See [GUI Guide](../user-guide/gui.md) for detailed documentation.
 
 ## CLI Tool
 

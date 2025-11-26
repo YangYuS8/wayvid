@@ -1,8 +1,9 @@
-# Summary# Summary
+# Summary
 
 
 
-[Introduction](./introduction.md)- [Chapter 1](./chapter_1.md)
+[Introduction](./introduction.md)
+- [Chapter 1](./chapter_1.md)
 
 
 # User Guide
@@ -10,6 +11,7 @@
 - [Quick Start](./user-guide/quick-start.md)
 - [Installation](./user-guide/installation.md)
 - [Configuration](./user-guide/configuration.md)
+- [GUI Control Panel](./user-guide/gui.md)
 - [Video Sources](./user-guide/video-sources.md)
 - [Multi-Monitor Setup](./user-guide/multi-monitor.md)
 

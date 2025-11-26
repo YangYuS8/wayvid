@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: wayvid Documentation\n"
-"POT-Creation-Date: 2025-11-11T10:28:29+08:00\n"
+"POT-Creation-Date: 2025-11-26T16:00:57+08:00\n"
 "PO-Revision-Date: 2025-11-11T04:19:41+08:00\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -12,98 +12,117 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #: src/SUMMARY.md:1
-msgid "Summary# Summary"
+#, fuzzy
+msgid "Summary"
 msgstr "目录"
 
 #: src/SUMMARY.md:5
-msgid "Introduction\\- Chapter 1"
+#, fuzzy
+msgid "Introduction"
 msgstr "引言\\- 第1章"
 
-#: src/SUMMARY.md:8
+#: src/SUMMARY.md:6 src/chapter_1.md:1
+msgid "Chapter 1"
+msgstr "第一章"
+
+#: src/SUMMARY.md:9
 msgid "User Guide"
 msgstr "用户指南"
 
-#: src/SUMMARY.md:10 src/user-guide/quick-start.md:1 src/dev/contributing.md:5
+#: src/SUMMARY.md:11 src/user-guide/quick-start.md:1 src/features/workshop.md:5
+#: src/dev/contributing.md:5
 msgid "Quick Start"
 msgstr "快速开始"
 
-#: src/SUMMARY.md:11 src/user-guide/installation.md:1 src/features/niri.md:12
+#: src/SUMMARY.md:12 src/user-guide/installation.md:1 src/features/niri.md:12
 msgid "Installation"
 msgstr "安装"
 
-#: src/SUMMARY.md:12 src/user-guide/configuration.md:1
-#: src/features/workshop.md:77 src/features/niri.md:36 src/features/ipc.md:22
+#: src/SUMMARY.md:13 src/user-guide/configuration.md:1 src/features/niri.md:36
+#: src/features/ipc.md:78
 msgid "Configuration"
 msgstr "配置"
 
-#: src/SUMMARY.md:13 src/user-guide/video-sources.md:1
+#: src/SUMMARY.md:14 src/user-guide/gui.md:1 src/features/ipc.md:5
+#, fuzzy
+msgid "GUI Control Panel"
+msgstr "# GUI 控制面板\n"
+
+#: src/SUMMARY.md:15 src/user-guide/video-sources.md:1
 msgid "Video Sources"
 msgstr "视频源"
 
-#: src/SUMMARY.md:14 src/user-guide/multi-monitor.md:1
+#: src/SUMMARY.md:16 src/user-guide/gui.md:150
+#: src/user-guide/multi-monitor.md:1
 msgid "Multi-Monitor Setup"
 msgstr "多显示器设置"
 
-#: src/SUMMARY.md:16 src/features/niri.md:5
+#: src/SUMMARY.md:18 src/user-guide/gui.md:72 src/features/niri.md:5
 msgid "Features"
 msgstr "功能特性"
 
-#: src/SUMMARY.md:18 src/features/hdr.md:1
+#: src/SUMMARY.md:20 src/features/hdr.md:1
 msgid "HDR Support"
 msgstr "HDR 支持"
 
-#: src/SUMMARY.md:19 src/user-guide/configuration.md:49
+#: src/SUMMARY.md:21 src/user-guide/configuration.md:49
 #: src/user-guide/video-sources.md:33
 msgid "Steam Workshop"
 msgstr "Steam 创意工坊"
 
-#: src/SUMMARY.md:20 src/features/niri.md:1
+#: src/SUMMARY.md:22 src/features/niri.md:1
 msgid "Niri Integration"
 msgstr "Niri 集成"
 
-#: src/SUMMARY.md:21 src/features/ipc.md:1
+#: src/SUMMARY.md:23 src/features/ipc.md:1
 msgid "IPC Control"
 msgstr "IPC 控制"
 
-#: src/SUMMARY.md:23
+#: src/SUMMARY.md:25
 msgid "Developer Guide"
 msgstr "开发者指南"
 
-#: src/SUMMARY.md:25 src/dev/building.md:1
+#: src/SUMMARY.md:27 src/dev/building.md:1
 msgid "Building from Source"
 msgstr "从源码构建"
 
-#: src/SUMMARY.md:26 src/dev/workflow.md:1
+#: src/SUMMARY.md:28 src/dev/workflow.md:1
 msgid "Development Workflow"
 msgstr "开发工作流"
 
-#: src/SUMMARY.md:27 src/dev/architecture.md:1
+#: src/SUMMARY.md:29 src/user-guide/gui.md:221 src/dev/architecture.md:1
+#: src/reference/ipc-protocol.md:271
 msgid "Architecture"
 msgstr "系统架构"
 
-#: src/SUMMARY.md:28 src/dev/contributing.md:1
+#: src/SUMMARY.md:30 src/dev/contributing.md:1
 msgid "Contributing"
 msgstr "贡献指南"
 
-#: src/SUMMARY.md:30
+#: src/SUMMARY.md:32
 msgid "Reference"
 msgstr "参考文档"
 
-#: src/SUMMARY.md:32 src/reference/config.md:1
+#: src/SUMMARY.md:34 src/reference/config.md:1
 msgid "Configuration Reference"
 msgstr "配置参考"
 
-#: src/SUMMARY.md:33 src/reference/cli.md:1
+#: src/SUMMARY.md:35 src/reference/cli.md:1
 msgid "CLI Commands"
 msgstr "CLI 命令"
 
-#: src/SUMMARY.md:34 src/features/ipc.md:36 src/reference/ipc-protocol.md:1
+#: src/SUMMARY.md:36 src/features/ipc.md:89 src/reference/ipc-protocol.md:1
 msgid "IPC Protocol"
 msgstr "IPC 协议"
 
-#: src/SUMMARY.md:35
+#: src/SUMMARY.md:37
 msgid "WE Format"
 msgstr "WE 格式"
+
+#: src/SUMMARY.md:38 src/reference/conflicts.md:1
+#, fuzzy
+msgid "Wallpaper Manager Conflicts"
+msgstr "Wallpaper Engine 格式"
 
 #: src/introduction.md:1 src/reference/cli.md:5
 msgid "wayvid"
@@ -114,8 +133,11 @@ msgid "**A high-performance video wallpaper engine for Wayland compositors**"
 msgstr "**适用于 Wayland 合成器的高性能视频壁纸引擎**"
 
 #: src/introduction.md:5
-msgid "wayvid brings video wallpapers to Wayland, supporting HDR, multi-monitor setups, and Steam Workshop integration."
-msgstr "wayvid 为 Wayland 带来视频壁纸，支持 HDR、多显示器设置和 Steam 创意工坊集成。"
+msgid ""
+"wayvid brings video wallpapers to Wayland, supporting HDR, multi-monitor "
+"setups, and Steam Workshop integration."
+msgstr ""
+"wayvid 为 Wayland 带来视频壁纸，支持 HDR、多显示器设置和 Steam 创意工坊集成。"
 
 #: src/introduction.md:7
 msgid "Key Features"
@@ -126,19 +148,26 @@ msgid "🎬 **Multiple Video Sources**: Local files, directories, Steam Workshop
 msgstr "🎬 **多个视频源**：本地文件、目录、Steam 创意工坊"
 
 #: src/introduction.md:10
-msgid "🖥️ **Multi-Monitor**: Independent or synchronized playback"
+#, fuzzy
+msgid "🖥️ **Multi-Monitor**: Independent or synchronized playback per display"
 msgstr "🖥️ **多显示器**：独立或同步播放"
 
 #: src/introduction.md:11
-msgid "🌈 **HDR Support**: Full 10-bit HDR pipeline with tone-mapping"
+#, fuzzy
+msgid ""
+"🌈 **HDR Support**: Full 10-bit HDR pipeline with automatic tone-mapping"
 msgstr "🌈 **HDR 支持**：带色调映射的完整 10 位 HDR 管线"
 
 #: src/introduction.md:12
-msgid "🎮 **Steam Workshop**: Direct import of Wallpaper Engine projects"
+#, fuzzy
+msgid "🎮 **Steam Workshop**: Direct import of Wallpaper Engine video projects"
 msgstr "🎮 **Steam 创意工坊**：直接导入 Wallpaper Engine 项目"
 
 #: src/introduction.md:13
-msgid "🪟 **Niri Optimized**: First-class support for Niri compositor"
+#, fuzzy
+msgid ""
+"🪟 **Niri Optimized**: First-class support for Niri compositor with "
+"workspace awareness"
 msgstr "🪟 **Niri 优化**：对 Niri 合成器的一流支持"
 
 #: src/introduction.md:14
@@ -146,60 +175,104 @@ msgid "🔌 **IPC Control**: Real-time control via CLI/GUI"
 msgstr "🔌 **IPC 控制**：通过 CLI/GUI 进行实时控制"
 
 #: src/introduction.md:15
-msgid "⚡ **Performance**: Hardware-accelerated, low CPU/memory usage"
+#, fuzzy
+msgid ""
+"⚡ **Performance**: Hardware-accelerated (VA-API/NVDEC), low CPU/memory usage"
 msgstr "⚡ **性能**：硬件加速，低 CPU/内存使用率"
 
-#: src/introduction.md:17
+#: src/introduction.md:16
+msgid ""
+"🖼️ **Wallpaper Engine Style GUI**: Intuitive control panel with bottom "
+"monitor bar"
+msgstr ""
+
+#: src/introduction.md:18
 msgid "Quick Links"
 msgstr "快速链接"
 
-#: src/introduction.md:19
-msgid "[Quick Start Guide](./user-guide/quick-start.md) - Get started in 5 minutes"
+#: src/introduction.md:20
+msgid ""
+"[Quick Start Guide](./user-guide/quick-start.md) - Get started in 5 minutes"
 msgstr "[快速开始指南](./user-guide/quick-start.md) - 5 分钟快速上手"
 
-#: src/introduction.md:20
+#: src/introduction.md:21
 msgid "[Installation](./user-guide/installation.md) - Install on your system"
 msgstr "[安装](./user-guide/installation.md) - 安装在您的系统上"
 
-#: src/introduction.md:21
+#: src/introduction.md:22
 msgid "[Configuration](./user-guide/configuration.md) - Customize settings"
 msgstr "[配置](./user-guide/configuration.md) - 自定义设置"
 
-#: src/introduction.md:22
+#: src/introduction.md:23
+msgid "[GUI Guide](./user-guide/gui.md) - Control panel usage"
+msgstr ""
+
+#: src/introduction.md:24
 msgid "[GitHub Repository](https://github.com/YangYuS8/wayvid)"
 msgstr "[GitHub 仓库](https://github.com/YangYuS8/wayvid)"
 
-#: src/introduction.md:24
+#: src/introduction.md:26
 msgid "System Requirements"
 msgstr "系统要求"
 
-#: src/introduction.md:26
+#: src/introduction.md:28
 msgid "**OS**: Linux with Wayland compositor"
 msgstr "**作系统**：带有 Wayland 合成器的 Linux"
 
-#: src/introduction.md:27
-msgid "**Compositor**: Hyprland, Sway, Niri (others may work)"
+#: src/introduction.md:29
+#, fuzzy
+msgid ""
+"**Compositor**: Hyprland, Niri (full support), Sway, River (partial support)"
 msgstr "**合成器**：Hyprland、Sway、Niri(其他人可能工作)"
 
-#: src/introduction.md:28
-msgid "**GPU**: Any with EGL support"
+#: src/introduction.md:30
+#, fuzzy
+msgid "**GPU**: Any with EGL and OpenGL ES 3.0 support"
 msgstr "**GPU**：任何支持 EGL 的"
 
-#: src/introduction.md:29
-msgid "**Libraries**: libmpv, libEGL"
+#: src/introduction.md:31
+#, fuzzy
+msgid "**Libraries**: libmpv, libEGL, libwayland-client"
 msgstr "**库**：libmpv、libEGL"
 
-#: src/introduction.md:31 src/dev/contributing.md:114
+#: src/introduction.md:33
+#, fuzzy
+msgid "Recent Improvements"
+msgstr "计划改进："
+
+#: src/introduction.md:35
+msgid "v0.4.4+"
+msgstr ""
+
+#: src/introduction.md:36
+msgid ""
+"**Optimized Frame Rendering**: Proper Wayland frame callback handling, "
+"reduced CPU usage by ~40%"
+msgstr ""
+
+#: src/introduction.md:37
+msgid ""
+"**Wallpaper Engine Style GUI**: Redesigned interface with bottom monitor "
+"selector and unified wallpaper library"
+msgstr ""
+
+#: src/introduction.md:38
+msgid ""
+"**Click-to-Apply**: Single click to select, double-click to apply wallpapers"
+msgstr ""
+
+#: src/introduction.md:39
+msgid ""
+"**Shared Decoder**: Memory-efficient multi-monitor support with frame sharing"
+msgstr ""
+
+#: src/introduction.md:41 src/dev/contributing.md:114
 msgid "License"
 msgstr "许可证"
 
-#: src/introduction.md:33
+#: src/introduction.md:43
 msgid "wayvid is dual-licensed under MIT OR Apache-2.0."
 msgstr "wayvid 在 MIT 或 Apache-2.0 下获得双重许可。"
-
-#: src/chapter_1.md:1
-msgid "Chapter 1"
-msgstr "第一章"
 
 #: src/user-guide/quick-start.md:3
 msgid "Get wayvid running in 5 minutes."
@@ -239,35 +312,33 @@ msgstr "编辑配置："
 
 #: src/user-guide/quick-start.md:31 src/user-guide/configuration.md:35
 #: src/user-guide/configuration.md:42 src/user-guide/configuration.md:51
-#: src/user-guide/configuration.md:84 src/user-guide/configuration.md:89
+#: src/user-guide/configuration.md:108 src/user-guide/configuration.md:113
 #: src/user-guide/video-sources.md:10 src/user-guide/video-sources.md:22
 #: src/user-guide/video-sources.md:38 src/user-guide/multi-monitor.md:22
 #: src/user-guide/multi-monitor.md:28 src/user-guide/multi-monitor.md:38
-#: src/features/workshop.md:30 src/features/workshop.md:80
 msgid "source"
 msgstr "源"
 
 #: src/user-guide/quick-start.md:32 src/user-guide/configuration.md:15
 #: src/user-guide/configuration.md:36 src/user-guide/configuration.md:43
-#: src/user-guide/configuration.md:52 src/user-guide/configuration.md:85
-#: src/user-guide/configuration.md:90 src/user-guide/video-sources.md:11
+#: src/user-guide/configuration.md:52 src/user-guide/configuration.md:109
+#: src/user-guide/configuration.md:114 src/user-guide/video-sources.md:11
 #: src/user-guide/video-sources.md:23 src/user-guide/video-sources.md:39
 #: src/user-guide/multi-monitor.md:23 src/user-guide/multi-monitor.md:29
-#: src/user-guide/multi-monitor.md:39 src/features/workshop.md:31
-#: src/features/workshop.md:81
+#: src/user-guide/multi-monitor.md:39
 msgid "type"
 msgstr "类型"
 
 #: src/user-guide/quick-start.md:32 src/user-guide/configuration.md:36
-#: src/user-guide/configuration.md:85 src/user-guide/configuration.md:90
+#: src/user-guide/configuration.md:109 src/user-guide/configuration.md:114
 #: src/user-guide/video-sources.md:11 src/user-guide/multi-monitor.md:23
 #: src/user-guide/multi-monitor.md:29 src/user-guide/multi-monitor.md:39
 msgid "file"
 msgstr "文件"
 
 #: src/user-guide/quick-start.md:33 src/user-guide/configuration.md:37
-#: src/user-guide/configuration.md:44 src/user-guide/configuration.md:86
-#: src/user-guide/configuration.md:91 src/user-guide/video-sources.md:12
+#: src/user-guide/configuration.md:44 src/user-guide/configuration.md:110
+#: src/user-guide/configuration.md:115 src/user-guide/video-sources.md:12
 #: src/user-guide/video-sources.md:24 src/user-guide/multi-monitor.md:24
 #: src/user-guide/multi-monitor.md:30 src/user-guide/multi-monitor.md:40
 msgid "path"
@@ -282,57 +353,165 @@ msgstr "~/视频/wallpaper.mp4"
 msgid "3. Run"
 msgstr "3. 运行"
 
-#: src/user-guide/quick-start.md:41
+#: src/user-guide/quick-start.md:38
+msgid "**Choose one of the following methods:**"
+msgstr ""
+
+#: src/user-guide/quick-start.md:40
+msgid "Method 1: Direct Run (Simple)"
+msgstr ""
+
+#: src/user-guide/quick-start.md:45
+msgid "Method 2: systemd Service (Recommended)"
+msgstr ""
+
+#: src/user-guide/quick-start.md:47
+msgid "# Enable and start service\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:50 src/reference/cli.md:37
+#, fuzzy
+msgid "# Check status\n"
+msgstr "# 检查\n"
+
+#: src/user-guide/quick-start.md:53 src/reference/cli.md:40
+msgid "# View logs\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:58
+#, fuzzy
+msgid "Method 3: GUI Control Panel"
+msgstr "# GUI 控制面板\n"
+
+#: src/user-guide/quick-start.md:60
+msgid "# Launch GUI (will prompt to start daemon if needed)\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:64
 msgid "Auto-Start"
 msgstr "自动启动"
 
-#: src/user-guide/quick-start.md:43
+#: src/user-guide/quick-start.md:66
+msgid "Method 1: systemd (Recommended)"
+msgstr ""
+
+#: src/user-guide/quick-start.md:67
+msgid "**Best for**: All compositors, easy management, auto-restart on failure"
+msgstr ""
+
+#: src/user-guide/quick-start.md:70
+msgid "# One-time setup\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:72
+msgid "# Starts automatically on login\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:76
+msgid "**Advantages:**"
+msgstr ""
+
+#: src/user-guide/quick-start.md:77
+#, fuzzy
+msgid "✅ Automatic restart on crash"
+msgstr "自动优化"
+
+#: src/user-guide/quick-start.md:78
+msgid "✅ Easy management (`systemctl start/stop/restart`)"
+msgstr ""
+
+#: src/user-guide/quick-start.md:79
+msgid "✅ Centralized logging (`journalctl`)"
+msgstr ""
+
+#: src/user-guide/quick-start.md:80
+msgid "✅ Resource limits and security"
+msgstr ""
+
+#: src/user-guide/quick-start.md:82
+msgid "Method 2: Compositor Config (Alternative)"
+msgstr ""
+
+#: src/user-guide/quick-start.md:84
 msgid "Hyprland"
 msgstr "海普兰"
 
-#: src/user-guide/quick-start.md:44
+#: src/user-guide/quick-start.md:85
 msgid "Add to `~/.config/hypr/hyprland.conf`:"
 msgstr "添加到 '~/.config/hypr/hyprland.conf'："
 
-#: src/user-guide/quick-start.md:49
+#: src/user-guide/quick-start.md:94
 msgid "Niri"
 msgstr "尼里"
 
-#: src/user-guide/quick-start.md:50
+#: src/user-guide/quick-start.md:95
 msgid "Add to `~/.config/niri/config.kdl`:"
 msgstr "添加到 '~/.config/niri/config.kdl'："
 
-#: src/user-guide/quick-start.md:51
+#: src/user-guide/quick-start.md:96
 msgid ""
 "```kdl\n"
-"spawn-at-startup \"wayvid\"\n"
+"// Option A: Direct spawn\n"
+"spawn-at-startup \"wayvid\" \"run\"\n"
+"\n"
+"// Option B: Via systemd (recommended)\n"
+"spawn-at-startup \"systemctl\" \"--user\" \"start\" \"wayvid.service\"\n"
 "```"
 msgstr ""
-"```kdl\n"
-"spawn-at-startup \"wayvid\"\n"
-"```"
 
-#: src/user-guide/quick-start.md:55
+#: src/user-guide/quick-start.md:104
 msgid "Sway"
 msgstr "摇摆"
 
-#: src/user-guide/quick-start.md:56
+#: src/user-guide/quick-start.md:105
 msgid "Add to `~/.config/sway/config`:"
 msgstr "添加到“~/.config/sway/config”："
 
-#: src/user-guide/quick-start.md:61
+#: src/user-guide/quick-start.md:114
+msgid "Method 3: GUI Auto-Start"
+msgstr ""
+
+#: src/user-guide/quick-start.md:115
+msgid ""
+"Launch `wayvid-gui` and use the **\"Start Daemon\"** button. The GUI can "
+"manage the daemon without terminal commands."
+msgstr ""
+
+#: src/user-guide/quick-start.md:117
+#, fuzzy
+msgid "Management Commands"
+msgstr "可用命令"
+
+#: src/user-guide/quick-start.md:120
+msgid "# Start/stop/restart daemon\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:124
+#, fuzzy
+msgid "# Check daemon status\n"
+msgstr "获取守护进程状态。"
+
+#: src/user-guide/quick-start.md:127
+msgid "# View real-time logs\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:130
+msgid "# Control playback (requires daemon running)\n"
+msgstr ""
+
+#: src/user-guide/quick-start.md:137
 msgid "Next Steps"
 msgstr "后续步骤"
 
-#: src/user-guide/quick-start.md:63
+#: src/user-guide/quick-start.md:139
 msgid "[Configuration Guide](./configuration.md) - Customize settings"
 msgstr "[配置指南](./configuration.md) - 自定义设置"
 
-#: src/user-guide/quick-start.md:64
+#: src/user-guide/quick-start.md:140
 msgid "[Video Sources](./video-sources.md) - Learn about source types"
 msgstr "[视频来源](./video-sources.md) - 了解源类型"
 
-#: src/user-guide/quick-start.md:65
+#: src/user-guide/quick-start.md:141
 msgid "[Multi-Monitor](./multi-monitor.md) - Set up multiple displays"
 msgstr "[多显示器](./multi-monitor.md) - 设置多个显示器"
 
@@ -364,8 +543,7 @@ msgstr "'wayvid-ctl' - 命令行控制工具"
 msgid "`wayvid-gui` - Desktop GUI control panel (requires X11/Wayland session)"
 msgstr "'wayvid-gui' - 桌面 GUI 控制面板(需要 X11/Wayland 会话)"
 
-#: src/user-guide/installation.md:22 src/features/workshop.md:5
-#: src/dev/building.md:3
+#: src/user-guide/installation.md:22 src/dev/building.md:3
 msgid "Prerequisites"
 msgstr "前置要求"
 
@@ -449,7 +627,7 @@ msgstr ""
 "# 播放设置\n"
 "playback"
 
-#: src/user-guide/configuration.md:20 src/features/workshop.md:86
+#: src/user-guide/configuration.md:20
 msgid "loop"
 msgstr "循环"
 
@@ -473,21 +651,21 @@ msgstr ""
 "# 显示器配置\n"
 "outputs"
 
-#: src/user-guide/configuration.md:26 src/user-guide/configuration.md:83
-#: src/user-guide/configuration.md:88 src/user-guide/multi-monitor.md:20
+#: src/user-guide/configuration.md:26 src/user-guide/configuration.md:107
+#: src/user-guide/configuration.md:112 src/user-guide/multi-monitor.md:20
 #: src/user-guide/multi-monitor.md:26 src/user-guide/multi-monitor.md:43
 #: src/user-guide/multi-monitor.md:44 src/user-guide/multi-monitor.md:51
 #: src/user-guide/multi-monitor.md:54
 msgid "name"
 msgstr "名称"
 
-#: src/user-guide/configuration.md:26 src/user-guide/configuration.md:83
+#: src/user-guide/configuration.md:26 src/user-guide/configuration.md:107
 #: src/user-guide/multi-monitor.md:20 src/user-guide/multi-monitor.md:43
 #: src/user-guide/multi-monitor.md:51
 msgid "DP-1"
 msgstr "DP-1"
 
-#: src/user-guide/configuration.md:27 src/user-guide/configuration.md:67
+#: src/user-guide/configuration.md:27 src/user-guide/configuration.md:91
 #: src/user-guide/multi-monitor.md:21 src/user-guide/multi-monitor.md:27
 #: src/user-guide/multi-monitor.md:52 src/user-guide/multi-monitor.md:55
 #: src/features/hdr.md:15
@@ -539,36 +717,102 @@ msgid "# seconds\n"
 msgstr "# 秒\n"
 
 #: src/user-guide/configuration.md:52 src/user-guide/video-sources.md:39
-#: src/features/workshop.md:31 src/features/workshop.md:81
 msgid "workshop"
 msgstr "创意工坊"
 
 #: src/user-guide/configuration.md:53 src/user-guide/video-sources.md:40
-#: src/features/workshop.md:32 src/features/workshop.md:82
 msgid "id"
 msgstr "id"
 
 #: src/user-guide/configuration.md:56
-msgid "Output Modes"
+#, fuzzy
+msgid "Layout Modes"
 msgstr "输出模式"
 
 #: src/user-guide/configuration.md:58
-msgid "**fit**: Scale to fit, maintain aspect ratio (default)"
-msgstr "**fit**：缩放以适合，保持纵横比(默认)"
-
-#: src/user-guide/configuration.md:59
-msgid "**fill**: Fill screen, crop if needed"
-msgstr "**填充**：填充屏幕，根据需要裁剪"
+msgid "Different scaling modes control how video fits the screen:"
+msgstr ""
 
 #: src/user-guide/configuration.md:60
-msgid "**stretch**: Stretch to fill, ignore aspect ratio"
-msgstr "**拉伸**：拉伸填充，忽略纵横比"
+#, fuzzy
+msgid "**Fill** (default): Scale to cover entire screen, crop edges if needed"
+msgstr "**填充**：填充屏幕，根据需要裁剪"
+
+#: src/user-guide/configuration.md:61 src/user-guide/configuration.md:66
+msgid "Maintains aspect ratio"
+msgstr ""
 
 #: src/user-guide/configuration.md:62
+msgid "No black bars, may crop video content"
+msgstr ""
+
+#: src/user-guide/configuration.md:63
+msgid "Uses MPV `panscan=1.0` for optimal filling"
+msgstr ""
+
+#: src/user-guide/configuration.md:65
+msgid "**Contain**: Scale to fit inside screen, letterbox if needed"
+msgstr ""
+
+#: src/user-guide/configuration.md:67
+msgid "May show black bars (letterbox/pillarbox)"
+msgstr ""
+
+#: src/user-guide/configuration.md:68
+msgid "Displays full video content"
+msgstr ""
+
+#: src/user-guide/configuration.md:70
+#, fuzzy
+msgid "**Stretch**: Stretch to fill screen, ignore aspect ratio"
+msgstr "**拉伸**：拉伸填充，忽略纵横比"
+
+#: src/user-guide/configuration.md:71
+msgid "Distorts video to match screen dimensions"
+msgstr ""
+
+#: src/user-guide/configuration.md:72
+msgid "No black bars, no cropping"
+msgstr ""
+
+#: src/user-guide/configuration.md:73
+msgid "May look unnatural"
+msgstr ""
+
+#: src/user-guide/configuration.md:75
+msgid "**Cover**: Alias for Fill mode"
+msgstr ""
+
+#: src/user-guide/configuration.md:77
+msgid "**Centre**: Display at original size, centered"
+msgstr ""
+
+#: src/user-guide/configuration.md:78
+msgid "No scaling applied"
+msgstr ""
+
+#: src/user-guide/configuration.md:79
+msgid "Shows black bars if video smaller than screen"
+msgstr ""
+
+#: src/user-guide/configuration.md:81
+#, fuzzy
+msgid "**Example:**"
+msgstr "例子："
+
+#: src/user-guide/configuration.md:83
+msgid "layout"
+msgstr ""
+
+#: src/user-guide/configuration.md:83
+msgid "Fill  # or: Contain, Stretch, Cover, Centre\n"
+msgstr ""
+
+#: src/user-guide/configuration.md:86
 msgid "Advanced Options"
 msgstr "高级选项"
 
-#: src/user-guide/configuration.md:65
+#: src/user-guide/configuration.md:89
 msgid ""
 "# HDR settings\n"
 "hdr"
@@ -576,11 +820,11 @@ msgstr ""
 "# HDR 设置\n"
 "hdr"
 
-#: src/user-guide/configuration.md:68 src/features/hdr.md:16
+#: src/user-guide/configuration.md:92 src/features/hdr.md:16
 msgid "target_nits"
 msgstr "目标亮度"
 
-#: src/user-guide/configuration.md:69
+#: src/user-guide/configuration.md:93
 msgid ""
 "# Performance\n"
 "performance"
@@ -588,19 +832,19 @@ msgstr ""
 "# 性能优化\n"
 "performance"
 
-#: src/user-guide/configuration.md:72
+#: src/user-guide/configuration.md:96
 msgid "frame_skip"
 msgstr "跳帧"
 
-#: src/user-guide/configuration.md:73
+#: src/user-guide/configuration.md:97
 msgid "decode_threads"
 msgstr "解码线程"
 
-#: src/user-guide/configuration.md:73
+#: src/user-guide/configuration.md:97
 msgid "auto"
 msgstr "自动"
 
-#: src/user-guide/configuration.md:74
+#: src/user-guide/configuration.md:98
 msgid ""
 "# Logging\n"
 "log_level"
@@ -608,40 +852,675 @@ msgstr ""
 "# 日志级别\n"
 "log_level"
 
-#: src/user-guide/configuration.md:76
+#: src/user-guide/configuration.md:100
 msgid "info  # error, warn, info, debug\n"
 msgstr "info # 错误、警告、信息、调试\n"
 
-#: src/user-guide/configuration.md:79
+#: src/user-guide/configuration.md:103
 msgid "Per-Output Configuration"
 msgstr "每个输出配置"
 
-#: src/user-guide/configuration.md:82 src/user-guide/multi-monitor.md:19
+#: src/user-guide/configuration.md:106 src/user-guide/multi-monitor.md:19
 #: src/user-guide/multi-monitor.md:41 src/user-guide/multi-monitor.md:50
 #: src/reference/config.md:12
 msgid "outputs"
 msgstr "输出"
 
-#: src/user-guide/configuration.md:86
+#: src/user-guide/configuration.md:110
 msgid "~/Videos/left.mp4"
 msgstr "~/视频/left.mp4"
 
-#: src/user-guide/configuration.md:88 src/user-guide/multi-monitor.md:26
+#: src/user-guide/configuration.md:112 src/user-guide/multi-monitor.md:26
 #: src/user-guide/multi-monitor.md:44 src/user-guide/multi-monitor.md:54
 msgid "HDMI-A-1"
 msgstr "HDMI-A-1 接口"
 
-#: src/user-guide/configuration.md:91
+#: src/user-guide/configuration.md:115
 msgid "~/Videos/right.mp4"
 msgstr "~/视频/right.mp4"
 
-#: src/user-guide/configuration.md:94
+#: src/user-guide/configuration.md:118
 msgid "Reload Config"
 msgstr "重新加载配置"
 
-#: src/user-guide/configuration.md:99
+#: src/user-guide/configuration.md:123
 msgid "See [Configuration Reference](../reference/config.md) for all options."
 msgstr "请参阅 [配置参考](../reference/config.md) 的所有选项。"
+
+#: src/user-guide/gui.md:3
+msgid ""
+"wayvid-gui provides an intuitive graphical interface for managing video "
+"wallpapers, redesigned with a Wallpaper Engine-inspired layout for "
+"streamlined workflow."
+msgstr ""
+
+#: src/user-guide/gui.md:5
+msgid "Starting the GUI"
+msgstr "启动 GUI"
+
+#: src/user-guide/gui.md:11
+msgid ""
+"The GUI automatically connects to the daemon when running. It functions as:"
+msgstr ""
+
+#: src/user-guide/gui.md:12
+msgid "🖼️ **Wallpaper Manager** - Browse and apply wallpapers"
+msgstr ""
+
+#: src/user-guide/gui.md:13
+#, fuzzy
+msgid "🎛️ **Control Panel** - Runtime playback control via IPC"
+msgstr "🔌 **IPC 控制**：通过 CLI/GUI 进行实时控制"
+
+#: src/user-guide/gui.md:14
+msgid "📊 **Status Monitor** - Real-time daemon status"
+msgstr ""
+
+#: src/user-guide/gui.md:15
+msgid "🔧 **Configuration Editor** - Visual config editing"
+msgstr ""
+
+#: src/user-guide/gui.md:17
+#, fuzzy
+msgid "Interface Overview"
+msgstr "概览"
+
+#: src/user-guide/gui.md:19
+msgid "The new interface follows a Wallpaper Engine-inspired design:"
+msgstr ""
+
+#: src/user-guide/gui.md:45
+#, fuzzy
+msgid "Key Design Elements"
+msgstr "关键设计决策"
+
+#: src/user-guide/gui.md:47
+msgid "**Bottom Monitor Selector**: Quick access to all connected displays"
+msgstr ""
+
+#: src/user-guide/gui.md:48
+msgid ""
+"**Unified Wallpaper Library**: All sources (local, workshop) in one grid"
+msgstr ""
+
+#: src/user-guide/gui.md:49
+msgid "**Click-to-Apply**: Single click to select, double-click to apply"
+msgstr ""
+
+#: src/user-guide/gui.md:50
+msgid "**Simplified Tabs**: Just \"Wallpapers\" and \"Settings\""
+msgstr ""
+
+#: src/user-guide/gui.md:52
+#, fuzzy
+msgid "Daemon Management"
+msgstr "内存管理"
+
+#: src/user-guide/gui.md:54
+msgid "Connection Status (Top Panel)"
+msgstr ""
+
+#: src/user-guide/gui.md:56 src/features/ipc.md:32
+msgid "Status"
+msgstr "地位"
+
+#: src/user-guide/gui.md:56
+msgid "Meaning"
+msgstr ""
+
+#: src/user-guide/gui.md:58
+msgid "🟢 **Connected**"
+msgstr ""
+
+#: src/user-guide/gui.md:58
+msgid "GUI is connected to daemon"
+msgstr ""
+
+#: src/user-guide/gui.md:59
+msgid "🟡 **Connecting...**"
+msgstr ""
+
+#: src/user-guide/gui.md:59
+msgid "Attempting connection"
+msgstr ""
+
+#: src/user-guide/gui.md:60
+msgid "⚪ **Disconnected**"
+msgstr ""
+
+#: src/user-guide/gui.md:60
+#, fuzzy
+msgid "Daemon not running"
+msgstr "`\"daemon not running\"`"
+
+#: src/user-guide/gui.md:61
+msgid "🔴 **Error**"
+msgstr ""
+
+#: src/user-guide/gui.md:61
+msgid "Connection failed"
+msgstr ""
+
+#: src/user-guide/gui.md:63
+#, fuzzy
+msgid "Control Buttons"
+msgstr "工控控制工具。"
+
+#: src/user-guide/gui.md:65
+#, fuzzy
+msgid "**When daemon is running:**"
+msgstr "`\"daemon not running\"`"
+
+#: src/user-guide/gui.md:66
+msgid "⏹ **Stop Daemon** - Stop wayvid service"
+msgstr ""
+
+#: src/user-guide/gui.md:67
+msgid "🔄 **Restart** - Restart daemon"
+msgstr ""
+
+#: src/user-guide/gui.md:69
+msgid "**When daemon is NOT running:**"
+msgstr ""
+
+#: src/user-guide/gui.md:70
+msgid "🚀 **Start Daemon** - Start wayvid via systemd"
+msgstr ""
+
+#: src/user-guide/gui.md:74
+msgid "🖼️ Wallpapers Tab (Unified Library)"
+msgstr ""
+
+#: src/user-guide/gui.md:76
+msgid "The main view combines all wallpaper sources:"
+msgstr ""
+
+#: src/user-guide/gui.md:78
+#, fuzzy
+msgid "Source Type"
+msgstr "源类型"
+
+#: src/user-guide/gui.md:78
+msgid "Icon"
+msgstr ""
+
+#: src/user-guide/gui.md:78 src/features/workshop.md:41 src/features/ipc.md:115
+#: src/dev/contributing.md:57
+msgid "Description"
+msgstr "描述"
+
+#: src/user-guide/gui.md:80
+msgid "Local File"
+msgstr ""
+
+#: src/user-guide/gui.md:80
+msgid "📁"
+msgstr ""
+
+#: src/user-guide/gui.md:80
+msgid "Video files from filesystem"
+msgstr ""
+
+#: src/user-guide/gui.md:81
+#, fuzzy
+msgid "Directory"
+msgstr "目录"
+
+#: src/user-guide/gui.md:81
+msgid "📂"
+msgstr ""
+
+#: src/user-guide/gui.md:81
+msgid "Folders (playlist mode)"
+msgstr ""
+
+#: src/user-guide/gui.md:82
+#, fuzzy
+msgid "URL"
+msgstr "AUR"
+
+#: src/user-guide/gui.md:82
+msgid "🌐"
+msgstr ""
+
+#: src/user-guide/gui.md:82
+msgid "HTTP/RTSP streams"
+msgstr ""
+
+#: src/user-guide/gui.md:83
+#, fuzzy
+msgid "Workshop"
+msgstr "创意工坊"
+
+#: src/user-guide/gui.md:83
+msgid "🎮"
+msgstr ""
+
+#: src/user-guide/gui.md:83
+#, fuzzy
+msgid "Wallpaper Engine items"
+msgstr "Wallpaper Engine 格式"
+
+#: src/user-guide/gui.md:85
+#, fuzzy
+msgid "**Interaction:**"
+msgstr "CLI 集成"
+
+#: src/user-guide/gui.md:86
+msgid "**Single Click**: Select wallpaper (shows info)"
+msgstr ""
+
+#: src/user-guide/gui.md:87
+msgid "**Double Click**: Apply to selected monitor"
+msgstr ""
+
+#: src/user-guide/gui.md:88
+msgid "**Drag & Drop**: Drop video files onto window"
+msgstr ""
+
+#: src/user-guide/gui.md:90
+#, fuzzy
+msgid "**Grid Features:**"
+msgstr "特征："
+
+#: src/user-guide/gui.md:91
+msgid "Thumbnail previews (when available)"
+msgstr ""
+
+#: src/user-guide/gui.md:92
+#, fuzzy
+msgid "Source type indicators"
+msgstr "源类型"
+
+#: src/user-guide/gui.md:93
+msgid "Selection highlight"
+msgstr ""
+
+#: src/user-guide/gui.md:94
+#, fuzzy
+msgid "Add button for new sources"
+msgstr "为新功能添加测试"
+
+#: src/user-guide/gui.md:96
+msgid "⚙️ Settings Tab"
+msgstr ""
+
+#: src/user-guide/gui.md:98
+msgid "Configure playback and daemon behavior:"
+msgstr ""
+
+#: src/user-guide/gui.md:100
+msgid "**Layout Mode:**"
+msgstr ""
+
+#: src/user-guide/gui.md:101
+#, fuzzy
+msgid "**Fill** (default): Cover screen, crop if needed"
+msgstr "**填充**：填充屏幕，根据需要裁剪"
+
+#: src/user-guide/gui.md:102
+msgid "**Contain**: Fit inside screen (may letterbox)"
+msgstr ""
+
+#: src/user-guide/gui.md:103
+msgid "**Stretch**: Fill exactly (may distort)"
+msgstr ""
+
+#: src/user-guide/gui.md:104
+msgid "**Cover**: Alias for Fill"
+msgstr ""
+
+#: src/user-guide/gui.md:105
+msgid "**Centre**: Original size, centered"
+msgstr ""
+
+#: src/user-guide/gui.md:107
+#, fuzzy
+msgid "**Playback:**"
+msgstr "**播放问题：**"
+
+#: src/user-guide/gui.md:108
+msgid "Loop: Enable/disable video looping"
+msgstr ""
+
+#: src/user-guide/gui.md:109
+msgid "Volume: 0-100% slider"
+msgstr ""
+
+#: src/user-guide/gui.md:110
+msgid "Mute: Toggle audio"
+msgstr ""
+
+#: src/user-guide/gui.md:112
+#, fuzzy
+msgid "**Power Management:**"
+msgstr "电源管理"
+
+#: src/user-guide/gui.md:113
+msgid "Battery-aware throttling"
+msgstr ""
+
+#: src/user-guide/gui.md:114
+#, fuzzy
+msgid "Workspace visibility detection (Niri)"
+msgstr "**工作区检测不起作用：**"
+
+#: src/user-guide/gui.md:116
+msgid "Bottom Monitor Bar"
+msgstr ""
+
+#: src/user-guide/gui.md:118
+msgid "The bottom panel shows all connected displays:"
+msgstr ""
+
+#: src/user-guide/gui.md:130
+msgid "**Click** a monitor to select it as target"
+msgstr ""
+
+#: src/user-guide/gui.md:131
+msgid "**Selected monitor** shows checkmark and highlight"
+msgstr ""
+
+#: src/user-guide/gui.md:132
+msgid "**Resolution** displayed under name"
+msgstr ""
+
+#: src/user-guide/gui.md:133
+msgid "**Active source** shown if playing"
+msgstr ""
+
+#: src/user-guide/gui.md:135
+#, fuzzy
+msgid "Quick Workflow"
+msgstr "Git 工作流"
+
+#: src/user-guide/gui.md:137
+msgid "Apply Wallpaper (3 Steps)"
+msgstr ""
+
+#: src/user-guide/gui.md:139
+msgid "**Select Monitor**: Click target in bottom bar"
+msgstr ""
+
+#: src/user-guide/gui.md:140
+msgid "**Browse Wallpapers**: Find desired wallpaper in grid"
+msgstr ""
+
+#: src/user-guide/gui.md:141
+msgid "**Apply**: Double-click wallpaper (or single-click + Enter)"
+msgstr ""
+
+#: src/user-guide/gui.md:143
+#, fuzzy
+msgid "Add New Wallpaper"
+msgstr "独立壁纸"
+
+#: src/user-guide/gui.md:145
+msgid "Click **\\[+ Add\\]** button in wallpaper grid"
+msgstr ""
+
+#: src/user-guide/gui.md:146
+msgid "Choose source type (File, Directory, URL, Workshop)"
+msgstr ""
+
+#: src/user-guide/gui.md:147
+msgid "Enter path or select from file browser"
+msgstr ""
+
+#: src/user-guide/gui.md:148
+msgid "Wallpaper appears in library"
+msgstr ""
+
+#: src/user-guide/gui.md:152
+msgid "Select first monitor in bottom bar"
+msgstr ""
+
+#: src/user-guide/gui.md:153
+msgid "Double-click desired wallpaper"
+msgstr ""
+
+#: src/user-guide/gui.md:154
+msgid "Select second monitor"
+msgstr ""
+
+#: src/user-guide/gui.md:155
+msgid "Double-click different wallpaper"
+msgstr ""
+
+#: src/user-guide/gui.md:156
+msgid "Each monitor plays independently"
+msgstr ""
+
+#: src/user-guide/gui.md:158
+#, fuzzy
+msgid "Language Support"
+msgstr "支持"
+
+#: src/user-guide/gui.md:160
+#, fuzzy
+msgid "wayvid-gui supports multiple languages:"
+msgstr "wayvid 支持多种视频源类型。"
+
+#: src/user-guide/gui.md:162
+msgid "🇺🇸 English (default)"
+msgstr ""
+
+#: src/user-guide/gui.md:163
+msgid "🇨🇳 简体中文"
+msgstr ""
+
+#: src/user-guide/gui.md:165
+msgid ""
+"**Auto-detection**: GUI detects system locale on startup. **Manual switch**: "
+"Use language selector (🌐) in top-right corner."
+msgstr ""
+
+#: src/user-guide/gui.md:168
+msgid "Keyboard Shortcuts"
+msgstr "键盘快捷键"
+
+#: src/user-guide/gui.md:170
+msgid "Key"
+msgstr ""
+
+#: src/user-guide/gui.md:170
+#, fuzzy
+msgid "Action"
+msgstr "选项"
+
+#: src/user-guide/gui.md:172
+msgid "`Enter`"
+msgstr ""
+
+#: src/user-guide/gui.md:172
+msgid "Apply selected wallpaper"
+msgstr ""
+
+#: src/user-guide/gui.md:173
+msgid "`Space`"
+msgstr ""
+
+#: src/user-guide/gui.md:173
+msgid "Toggle play/pause"
+msgstr ""
+
+#: src/user-guide/gui.md:174
+msgid "`Escape`"
+msgstr ""
+
+#: src/user-guide/gui.md:174
+#, fuzzy
+msgid "Deselect wallpaper"
+msgstr "独立壁纸"
+
+#: src/user-guide/gui.md:175
+msgid "`Ctrl+R`"
+msgstr ""
+
+#: src/user-guide/gui.md:175
+#, fuzzy
+msgid "Reload configuration"
+msgstr "重新加载配置。"
+
+#: src/user-guide/gui.md:176
+msgid "`Ctrl+Q`"
+msgstr ""
+
+#: src/user-guide/gui.md:176
+#, fuzzy
+msgid "Quit GUI"
+msgstr "使用 GUI"
+
+#: src/user-guide/gui.md:177
+msgid "`F5`"
+msgstr ""
+
+#: src/user-guide/gui.md:177
+#, fuzzy
+msgid "Refresh outputs"
+msgstr "输出"
+
+#: src/user-guide/gui.md:179 src/user-guide/multi-monitor.md:80
+#: src/features/hdr.md:67 src/features/workshop.md:110 src/features/niri.md:65
+#: src/features/ipc.md:174 src/dev/building.md:111 src/dev/workflow.md:180
+msgid "Troubleshooting"
+msgstr "故障 排除"
+
+#: src/user-guide/gui.md:181
+#, fuzzy
+msgid "\"Daemon not running\""
+msgstr "`\"daemon not running\"`"
+
+#: src/user-guide/gui.md:184
+msgid ""
+"# Option 1: Use GUI button\n"
+"# Click 🚀 Start Daemon\n"
+msgstr ""
+
+#: src/user-guide/gui.md:186
+msgid "# Option 2: Start via systemd\n"
+msgstr ""
+
+#: src/user-guide/gui.md:189
+msgid "# Option 3: Start manually\n"
+msgstr ""
+
+#: src/user-guide/gui.md:194
+msgid "No monitors shown"
+msgstr ""
+
+#: src/user-guide/gui.md:196
+msgid "Ensure you're on a Wayland session"
+msgstr ""
+
+#: src/user-guide/gui.md:197
+msgid "Check compositor supports wlr-layer-shell"
+msgstr ""
+
+#: src/user-guide/gui.md:198
+msgid "Click refresh or restart GUI"
+msgstr ""
+
+#: src/user-guide/gui.md:200
+#, fuzzy
+msgid "Wallpapers not appearing"
+msgstr "**壁纸不显示：**"
+
+#: src/user-guide/gui.md:202
+#, fuzzy
+msgid "Verify file paths are accessible"
+msgstr "验证文件是否存在"
+
+#: src/user-guide/gui.md:203
+#, fuzzy
+msgid "Supported formats: MP4, WebM, MKV, AVI, MOV"
+msgstr "支持的格式：MP4、MKV、WEBM、MOV、AVI"
+
+#: src/user-guide/gui.md:204
+#, fuzzy
+msgid "For Workshop: Ensure Steam is installed"
+msgstr "验证 Steam 是否已安装"
+
+#: src/user-guide/gui.md:206
+msgid "GUI font issues (Chinese)"
+msgstr ""
+
+#: src/user-guide/gui.md:209
+#, fuzzy
+msgid "# Install CJK fonts\n"
+msgstr "# 安装所有二进制文件\n"
+
+#: src/user-guide/gui.md:210 src/dev/workflow.md:41
+msgid "# Arch\n"
+msgstr "# 拱门\n"
+
+#: src/user-guide/gui.md:211
+#, fuzzy
+msgid "# Debian/Ubuntu\n"
+msgstr "# Ubuntu 的\n"
+
+#: src/user-guide/gui.md:214
+#, fuzzy
+msgid "Workshop items not found"
+msgstr "创意工坊项目地点："
+
+#: src/user-guide/gui.md:216
+msgid "Verify Steam is installed"
+msgstr "验证 Steam 是否已安装"
+
+#: src/user-guide/gui.md:217
+#, fuzzy
+msgid "Check Wallpaper Engine is in library"
+msgstr "Wallpaper Engine 格式"
+
+#: src/user-guide/gui.md:218
+msgid "Ensure items are downloaded"
+msgstr ""
+
+#: src/user-guide/gui.md:219
+msgid "Try rescanning: Click refresh button"
+msgstr ""
+
+#: src/user-guide/gui.md:223
+msgid "The GUI is built with:"
+msgstr ""
+
+#: src/user-guide/gui.md:224
+msgid "**egui/eframe**: Immediate mode GUI framework"
+msgstr ""
+
+#: src/user-guide/gui.md:225
+msgid "**rust-i18n**: Internationalization"
+msgstr ""
+
+#: src/user-guide/gui.md:226
+msgid "**IPC Client**: Unix socket communication"
+msgstr ""
+
+#: src/user-guide/gui.md:235 src/features/workshop.md:133
+#: src/features/ipc.md:200 src/reference/ipc-protocol.md:283
+msgid "See Also"
+msgstr "也可以看看"
+
+#: src/user-guide/gui.md:237
+#, fuzzy
+msgid "[Configuration Guide](configuration.md)"
+msgstr "[配置指南](./configuration.md) - 自定义设置"
+
+#: src/user-guide/gui.md:238
+#, fuzzy
+msgid "[CLI Control](../reference/cli.md)"
+msgstr "[配置参考](../reference/config.md）"
+
+#: src/user-guide/gui.md:239
+#, fuzzy
+msgid "[IPC Protocol](../features/ipc.md)"
+msgstr "[IPC 协议参考](../reference/ipc-protocol.md）"
+
+#: src/user-guide/gui.md:240
+#, fuzzy
+msgid "[Steam Workshop](../features/workshop.md)"
+msgstr "[创意工坊集成](../features/workshop.md）"
 
 #: src/user-guide/video-sources.md:3
 msgid "wayvid supports multiple video source types."
@@ -870,12 +1749,6 @@ msgstr "# 恢复所有输出\n"
 msgid "# Stop output\n"
 msgstr "# 停止输出\n"
 
-#: src/user-guide/multi-monitor.md:80 src/features/hdr.md:67
-#: src/features/workshop.md:89 src/features/niri.md:65 src/features/ipc.md:122
-#: src/dev/building.md:111 src/dev/workflow.md:180
-msgid "Troubleshooting"
-msgstr "故障 排除"
-
 #: src/user-guide/multi-monitor.md:82
 msgid "**Output not detected:**"
 msgstr "**未检测到输出：**"
@@ -1036,8 +1909,7 @@ msgstr "⚠️ 仅色调贴图"
 msgid "HLG"
 msgstr "HLG的"
 
-#: src/features/hdr.md:60 src/features/workshop.md:101 src/features/niri.md:58
-#: src/dev/contributing.md:105
+#: src/features/hdr.md:60 src/features/niri.md:58 src/dev/contributing.md:105
 msgid "Performance"
 msgstr "性能"
 
@@ -1089,7 +1961,7 @@ msgstr "在合成器配置中启用 HDR"
 msgid "Check `wayvid-ctl status`"
 msgstr "检查“wayvid-ctl 状态”"
 
-#: src/features/hdr.md:79
+#: src/features/hdr.md:79 src/reference/conflicts.md:105
 msgid "Technical Details"
 msgstr "技术细节"
 
@@ -1114,160 +1986,378 @@ msgid "Steam Workshop Integration"
 msgstr "Steam 创意工坊集成"
 
 #: src/features/workshop.md:3
-msgid "Import Wallpaper Engine projects from Steam Workshop."
-msgstr "从 Steam 创意工坊导入 Wallpaper Engine 项目。"
-
-#: src/features/workshop.md:7
-msgid "Steam installed"
-msgstr "安装蒸汽"
+msgid ""
+"wayvid supports importing video wallpapers from Wallpaper Engine's Steam "
+"Workshop, making it easy to use thousands of community-created wallpapers."
+msgstr ""
 
 #: src/features/workshop.md:8
-msgid "Wallpaper Engine owned (not required, but helps)"
-msgstr "拥有 Wallpaper Engine(不是必需的，但有帮助)"
+msgid "# Method 1: Use subscribed items from Steam\n"
+msgstr ""
 
 #: src/features/workshop.md:9
-msgid "Workshop items subscribed"
-msgstr "已申购的研讨会项目"
+msgid "# See subscribed items\n"
+msgstr ""
 
-#: src/features/workshop.md:11 src/reference/cli.md:40 src/reference/cli.md:108
-#: src/reference/ipc-protocol.md:30
+#: src/features/workshop.md:11
+msgid "# Method 2: Direct install by ID\n"
+msgstr ""
+
+#: src/features/workshop.md:16
+#, fuzzy
+msgid "Three Methods to Use Workshop"
+msgstr "方法一：Steam 创意工坊页面"
+
+#: src/features/workshop.md:18
+msgid "Method 1: Subscribe in Steam (Recommended)"
+msgstr ""
+
+#: src/features/workshop.md:20
+msgid ""
+"Browse [Workshop](https://steamcommunity.com/app/431960/workshop/) and "
+"subscribe to video wallpapers"
+msgstr ""
+
+#: src/features/workshop.md:21
+#, fuzzy
+msgid "List subscribed items: `wayvid workshop list`"
+msgstr "运行 'wayvid workshop list' 进行调试"
+
+#: src/features/workshop.md:22
+msgid "Import: `wayvid workshop import <id> -o config.yaml`"
+msgstr ""
+
+#: src/features/workshop.md:24
+msgid "Method 2: Direct Download"
+msgstr ""
+
+#: src/features/workshop.md:26
+msgid "Find item ID from Workshop URL (`?id=XXXXXXXXX`)"
+msgstr ""
+
+#: src/features/workshop.md:27
+msgid "Install directly: `wayvid workshop install <id> -o config.yaml`"
+msgstr ""
+
+#: src/features/workshop.md:29
+#, fuzzy
+msgid "Method 3: Cached Items"
+msgstr "方法二：wayvid CLI"
+
+#: src/features/workshop.md:31
+#, fuzzy
+msgid "Downloaded items are cached in `~/.cache/wayvid/workshop/` for reuse."
+msgstr "复制到 wayvid 缓存： '~/.cache/wayvid/workshop/<id>/'"
+
+#: src/features/workshop.md:34
+msgid "# List cached\n"
+msgstr ""
+
+#: src/features/workshop.md:36
+msgid "# Clear all\n"
+msgstr ""
+
+#: src/features/workshop.md:39 src/reference/cli.md:13 src/reference/cli.md:92
+#: src/reference/cli.md:160 src/reference/ipc-protocol.md:38
 msgid "Commands"
 msgstr "命令"
 
-#: src/features/workshop.md:13
-msgid "List Available Items"
-msgstr "列出可用项目"
+#: src/features/workshop.md:41 src/features/ipc.md:115
+msgid "Command"
+msgstr "命令"
 
-#: src/features/workshop.md:18
-msgid "Get Item Info"
-msgstr "获取商品信息"
+#: src/features/workshop.md:41
+#, fuzzy
+msgid "Example"
+msgstr "例子"
 
-#: src/features/workshop.md:23
-msgid "Import Item"
-msgstr "导入项目"
+#: src/features/workshop.md:43
+#, fuzzy
+msgid "`list`"
+msgstr "列表"
 
-#: src/features/workshop.md:28
-msgid "Generates config entry:"
-msgstr "生成配置条目："
+#: src/features/workshop.md:43
+#, fuzzy
+msgid "List Steam subscribed items"
+msgstr "列出可用项目："
 
-#: src/features/workshop.md:35
+#: src/features/workshop.md:43
+#, fuzzy
+msgid "`wayvid workshop list`"
+msgstr "Wayvid 研讨会"
+
+#: src/features/workshop.md:44
+msgid "`info <id>`"
+msgstr ""
+
+#: src/features/workshop.md:44
+#, fuzzy
+msgid "Show item details"
+msgstr "显示项目详细信息。"
+
+#: src/features/workshop.md:44
+#, fuzzy
+msgid "`wayvid workshop info 1234567890`"
+msgstr "Wayvid 研讨会"
+
+#: src/features/workshop.md:45
+msgid "`search <query>`"
+msgstr ""
+
+#: src/features/workshop.md:45
+msgid "Get search instructions"
+msgstr ""
+
+#: src/features/workshop.md:45
+#, fuzzy
+msgid "`wayvid workshop search anime`"
+msgstr "Wayvid 研讨会"
+
+#: src/features/workshop.md:46
+msgid "`download <id>`"
+msgstr ""
+
+#: src/features/workshop.md:46
+msgid "Download item"
+msgstr ""
+
+#: src/features/workshop.md:46
+#, fuzzy
+msgid "`wayvid workshop download <id>`"
+msgstr "Wayvid 研讨会"
+
+#: src/features/workshop.md:47
+#, fuzzy
+msgid "`install <id>`"
+msgstr "卸载"
+
+#: src/features/workshop.md:47
+msgid "Download + import"
+msgstr ""
+
+#: src/features/workshop.md:47
+#, fuzzy
+msgid "`wayvid workshop install <id> -o config.yaml`"
+msgstr "运行 'wayvid workshop list' 进行调试"
+
+#: src/features/workshop.md:48
+#, fuzzy
+msgid "`import <id>`"
+msgstr "进口"
+
+#: src/features/workshop.md:48
+msgid "Import local/cached item"
+msgstr ""
+
+#: src/features/workshop.md:48
+msgid "`wayvid workshop import <id> -o config.yaml`"
+msgstr ""
+
+#: src/features/workshop.md:49
+msgid "`cache`"
+msgstr ""
+
+#: src/features/workshop.md:49
+msgid "Manage downloads"
+msgstr ""
+
+#: src/features/workshop.md:49
+#, fuzzy
+msgid "`wayvid workshop cache --clear`"
+msgstr "Wayvid 研讨会"
+
+#: src/features/workshop.md:51
 msgid "Finding Workshop IDs"
 msgstr "查找研讨会 ID"
 
-#: src/features/workshop.md:37
-msgid "Method 1: Steam Workshop Page"
-msgstr "方法一：Steam 创意工坊页面"
-
-#: src/features/workshop.md:38
-msgid "URL format: `https://steamcommunity.com/sharedfiles/filedetails/?id=<ID>`"
-msgstr "URL 格式：`https://steamcommunity.com/sharedfiles/filedetails/?id=<ID>`"
-
-#: src/features/workshop.md:40
-msgid "Example: `id=1234567890`"
-msgstr "示例：“id=1234567890”"
-
-#: src/features/workshop.md:42
-msgid "Method 2: wayvid CLI"
-msgstr "方法二：wayvid CLI"
-
-#: src/features/workshop.md:47
-msgid "Output:"
-msgstr "输出："
+#: src/features/workshop.md:53
+#, fuzzy
+msgid "From Workshop URL"
+msgstr "查找创意工坊 ID"
 
 #: src/features/workshop.md:55
-msgid "Supported Features"
-msgstr "支持的功能"
+#, fuzzy
+msgid ""
+"```\n"
+"https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890\n"
+"                                                         ^^^^^^^^^^\n"
+"                                                         This is the ID\n"
+"```"
+msgstr ""
+"```\n"
+"https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890\n"
+"                                                          ^^^^^^^^^^\n"
+"                                                          创意工坊 ID\n"
+"```"
 
-#: src/features/workshop.md:57
-msgid "✅ Video wallpapers ✅ Static images ✅ Basic animations ⚠️ Interactive wallpapers (limited) ❌ Audio (muted by default) ❌ Web-based wallpapers"
-msgstr "✅ 视频壁纸 ✅ 静态图片 ✅ 基础动画 ⚠️ 交互式壁纸（有限支持） ❌ 音频（默认静音） ❌ 网页壁纸"
+#: src/features/workshop.md:61
+msgid "From Steam Client"
+msgstr ""
 
-#: src/features/workshop.md:64 src/reference/we-format.md:5
-msgid "Project Structure"
-msgstr "项目结构"
+#: src/features/workshop.md:63
+#, fuzzy
+msgid "Right-click wallpaper in Steam Workshop"
+msgstr "从 Steam 创意工坊导入 Wallpaper Engine 项目。"
 
-#: src/features/workshop.md:66
-msgid "Workshop items location:"
-msgstr "创意工坊项目地点："
+#: src/features/workshop.md:64
+msgid "\"Copy Page URL\""
+msgstr ""
 
-#: src/features/workshop.md:71
-msgid "wayvid automatically:"
-msgstr "wayvid 会自动："
+#: src/features/workshop.md:65
+msgid "Extract ID from URL"
+msgstr ""
+
+#: src/features/workshop.md:67
+msgid "Popular Collections"
+msgstr ""
+
+#: src/features/workshop.md:69
+msgid ""
+"[Trending Videos](https://steamcommunity.com/workshop/browse/?"
+"appid=431960&browsesort=trend&requiredtags%5B%5D=Video)"
+msgstr ""
+
+#: src/features/workshop.md:70
+msgid ""
+"[Most Subscribed](https://steamcommunity.com/workshop/browse/?"
+"appid=431960&browsesort=totaluniquesubscribers&requiredtags%5B%5D=Video)"
+msgstr ""
 
 #: src/features/workshop.md:72
-msgid "Finds Steam installation"
-msgstr "查找 Steam 安装"
-
-#: src/features/workshop.md:73
-msgid "Locates workshop items"
-msgstr "查找创意工坊物品"
+#, fuzzy
+msgid "Compatibility"
+msgstr "复杂性"
 
 #: src/features/workshop.md:74
-msgid "Parses `project.json`"
-msgstr "解析“project.json”"
+#, fuzzy
+msgid "✅ Supported"
+msgstr "支持"
 
 #: src/features/workshop.md:75
-msgid "Converts to native format"
-msgstr "转换为原生格式"
+#, fuzzy
+msgid "Video wallpapers (.mp4, .webm, .mkv)"
+msgstr "~/视频/wallpaper.mp4"
 
-#: src/features/workshop.md:84
-msgid ""
-"# Optional overrides\n"
-"  volume"
+#: src/features/workshop.md:76
+msgid "Image sequences"
 msgstr ""
-"# 可选覆盖\n"
-"  volume"
 
-#: src/features/workshop.md:91
-msgid "**Items not found:**"
-msgstr "**未找到项目：**"
+#: src/features/workshop.md:77
+msgid "Basic scene projects with video"
+msgstr ""
+
+#: src/features/workshop.md:79
+#, fuzzy
+msgid "❌ Not Supported"
+msgstr ""
+"// ❌ 不支持\n"
+"  \"file\""
+
+#: src/features/workshop.md:80
+#, fuzzy
+msgid "HTML wallpapers"
+msgstr "\"My Wallpaper\""
+
+#: src/features/workshop.md:81
+msgid "WebGL shaders"
+msgstr ""
+
+#: src/features/workshop.md:82
+#, fuzzy
+msgid "Audio-reactive features"
+msgstr "支持的功能"
+
+#: src/features/workshop.md:83
+#, fuzzy
+msgid "Interactive elements"
+msgstr "集成测试"
+
+#: src/features/workshop.md:85
+msgid "**Tip**: Look for \"Video\" tag in Workshop to ensure compatibility."
+msgstr ""
+
+#: src/features/workshop.md:87 src/reference/cli.md:69
+#: src/reference/we-format.md:151
+msgid "Examples"
+msgstr "例子"
+
+#: src/features/workshop.md:89
+#, fuzzy
+msgid "Single Monitor"
+msgstr "单个文件"
 
 #: src/features/workshop.md:92
-msgid "Verify Steam is installed"
-msgstr "验证 Steam 是否已安装"
-
-#: src/features/workshop.md:93
-msgid "Check subscriptions in Steam Workshop"
-msgstr "在 Steam 创意工坊中查看订阅情况"
+#, fuzzy
+msgid "# Install popular wallpaper\n"
+msgstr "# 安装所有二进制文件\n"
 
 #: src/features/workshop.md:94
-msgid "Run `wayvid workshop list` to debug"
-msgstr "运行 'wayvid workshop list' 进行调试"
-
-#: src/features/workshop.md:96
-msgid "**Playback issues:**"
-msgstr "**播放问题：**"
-
-#: src/features/workshop.md:97
-msgid "Some WE features unsupported"
-msgstr "部分 WE 功能不受支持"
-
-#: src/features/workshop.md:98
-msgid "Check logs: `wayvid --log-level debug`"
-msgstr "检查日志：'wayvid --log-level debug'"
+#, fuzzy
+msgid "# Start wayvid\n"
+msgstr "# 安装 wayvid\n"
 
 #: src/features/workshop.md:99
-msgid "Report issues on GitHub"
-msgstr "在 GitHub 上报告问题"
+#, fuzzy
+msgid "Multi-Monitor"
+msgstr "多显示器设置"
 
-#: src/features/workshop.md:103
-msgid "Workshop items are converted on-the-fly:"
-msgstr "创意工坊物品是即时转换的："
-
-#: src/features/workshop.md:104
-msgid "First load: ~1-2s conversion"
-msgstr "首次加载：~1-2s 转换"
+#: src/features/workshop.md:102
+#, fuzzy
+msgid "# Import for each monitor\n"
+msgstr "导入到配置："
 
 #: src/features/workshop.md:105
-msgid "Subsequent loads: instant"
-msgstr "后续负载：瞬间"
+msgid ""
+"# Manually merge with per_output in main config\n"
+"# See: Multi-Monitor guide\n"
+msgstr ""
 
-#: src/features/workshop.md:107
-msgid "Cache location: `~/.cache/wayvid/workshop/`"
-msgstr "缓存位置：'~/.cache/wayvid/workshop/'"
+#: src/features/workshop.md:112
+#, fuzzy
+msgid "\"Steam installation not found\""
+msgstr "查找 Steam 安装"
+
+#: src/features/workshop.md:114
+msgid "**Solution**: Use direct download instead:"
+msgstr ""
+
+#: src/features/workshop.md:119
+msgid "\"Direct download not available\""
+msgstr ""
+
+#: src/features/workshop.md:121
+msgid "**Solution**: Subscribe in Steam client, then use:"
+msgstr ""
+
+#: src/features/workshop.md:127
+msgid "\"Invalid project\" / \"No video file\""
+msgstr ""
+
+#: src/features/workshop.md:129
+msgid "**Cause**: Item is not a video wallpaper (HTML/WebGL)."
+msgstr ""
+
+#: src/features/workshop.md:131
+msgid "**Solution**: Only subscribe to items tagged as \"Video\"."
+msgstr ""
+
+#: src/features/workshop.md:135
+msgid "[Configuration Reference](../reference/config.md)"
+msgstr "[配置参考](../reference/config.md）"
+
+#: src/features/workshop.md:136
+msgid "[WE Format](../reference/we-format.md)"
+msgstr ""
+
+#: src/features/workshop.md:137
+#, fuzzy
+msgid "[Multi-Monitor Setup](../user-guide/multi-monitor.md)"
+msgstr "[多显示器](./multi-monitor.md) - 设置多个显示器"
 
 #: src/features/niri.md:3
-msgid "First-class support for [Niri](https://github.com/YaLTeR/niri) scrolling compositor."
+msgid ""
+"First-class support for [Niri](https://github.com/YaLTeR/niri) scrolling "
+"compositor."
 msgstr "对 [Niri](https://github.com/YaLTeR/niri) 滚动式合成器的一流支持。"
 
 #: src/features/niri.md:7
@@ -1303,7 +2393,9 @@ msgid "Automatic Optimizations"
 msgstr "自动优化"
 
 #: src/features/niri.md:24
-msgid "wayvid detects Niri via the `NIRI_SOCKET` environment variable and enables workspace-aware optimizations:"
+msgid ""
+"wayvid detects Niri via the `NIRI_SOCKET` environment variable and enables "
+"workspace-aware optimizations:"
 msgstr "wayvid 通过 `NIRI_SOCKET` 环境变量检测 Niri，并启用工作区感知优化："
 
 #: src/features/niri.md:26
@@ -1339,7 +2431,9 @@ msgid "**Smoother desktop experience** by freeing resources for active windows"
 msgstr "**通过释放活动窗口的资源来获得更流畅的桌面体验**"
 
 #: src/features/niri.md:38
-msgid "No special configuration required. wayvid automatically detects Niri and enables optimizations."
+msgid ""
+"No special configuration required. wayvid automatically detects Niri and "
+"enables optimizations."
 msgstr "无需特殊配置。wayvid 会自动检测 Niri 并启用优化。"
 
 #: src/features/niri.md:40
@@ -1467,319 +2561,510 @@ msgid "Noctalia Shell integration"
 msgstr "Noctalia Shell 集成"
 
 #: src/features/ipc.md:3
-msgid "Control wayvid in real-time via CLI or programmatically."
+#, fuzzy
+msgid "Control wayvid in real-time via CLI, GUI, or programmatically."
 msgstr "通过CLI或以编程方式实时控制wayvid。"
 
-#: src/features/ipc.md:5
+#: src/features/ipc.md:7
+msgid ""
+"The easiest way to control wayvid - now with a Wallpaper Engine-inspired "
+"interface:"
+msgstr ""
+
+#: src/features/ipc.md:13
+#, fuzzy
+msgid "**Features:**"
+msgstr "特征："
+
+#: src/features/ipc.md:14
+msgid "🖼️ **Unified wallpaper library** - All sources in one grid view"
+msgstr ""
+
+#: src/features/ipc.md:15
+msgid "🖥️ **Bottom monitor selector** - Quick access to all displays"
+msgstr ""
+
+#: src/features/ipc.md:16
+msgid "🎬 **Click-to-apply** - Single click to select, double-click to apply"
+msgstr ""
+
+#: src/features/ipc.md:17
+msgid "🎮 **Steam Workshop integration** - Browse and apply Workshop items"
+msgstr ""
+
+#: src/features/ipc.md:18
+msgid "⚙️ **Settings panel** - Layout, volume, and playback options"
+msgstr ""
+
+#: src/features/ipc.md:19
+msgid "🌍 **Multi-language support** (English, 中文)"
+msgstr ""
+
+#: src/features/ipc.md:21
+#, fuzzy
+msgid "**Quick Workflow:**"
+msgstr "Git 工作流"
+
+#: src/features/ipc.md:22
+msgid "Select target monitor in bottom bar"
+msgstr ""
+
+#: src/features/ipc.md:23
+msgid "Browse wallpapers in unified grid"
+msgstr ""
+
+#: src/features/ipc.md:24
+msgid "Double-click to apply"
+msgstr ""
+
+#: src/features/ipc.md:26
+msgid "See [GUI Guide](../user-guide/gui.md) for detailed documentation."
+msgstr ""
+
+#: src/features/ipc.md:28
 msgid "CLI Tool"
 msgstr "CLI 工具"
 
-#: src/features/ipc.md:7
-msgid "`wayvid-ctl` provides IPC commands:"
-msgstr "'wayvid-ctl' 提供 IPC 命令："
+#: src/features/ipc.md:30
+#, fuzzy
+msgid "`wayvid-ctl` provides command-line IPC control:"
+msgstr "'wayvid-ctl' - 命令行控制工具"
 
-#: src/features/ipc.md:9
-msgid "Status"
-msgstr "地位"
+#: src/features/ipc.md:34
+#, fuzzy
+msgid "# Get JSON status of all outputs\n"
+msgstr "# 恢复所有输出\n"
 
-#: src/features/ipc.md:14
+#: src/features/ipc.md:38
+msgid "Output:"
+msgstr "输出："
+
+#: src/features/ipc.md:41 src/features/ipc.md:107
+#: src/reference/ipc-protocol.md:53
+msgid "\"version\""
+msgstr "\"version\""
+
+#: src/features/ipc.md:41 src/features/ipc.md:107
+#: src/reference/ipc-protocol.md:53
+msgid "\"0.4.4-alpha.2\""
+msgstr ""
+
+#: src/features/ipc.md:42 src/features/ipc.md:108 src/features/ipc.md:145
+#: src/reference/ipc-protocol.md:54
+msgid "\"outputs\""
+msgstr "\"outputs\""
+
+#: src/features/ipc.md:44 src/reference/ipc-protocol.md:56
+msgid "\"name\""
+msgstr "\"name\""
+
+#: src/features/ipc.md:44 src/reference/ipc-protocol.md:56
+#: src/reference/ipc-protocol.md:81 src/reference/ipc-protocol.md:97
+#: src/reference/ipc-protocol.md:108 src/reference/ipc-protocol.md:120
+#: src/reference/ipc-protocol.md:135 src/reference/ipc-protocol.md:155
+#: src/reference/ipc-protocol.md:167 src/reference/ipc-protocol.md:179
+#: src/reference/ipc-protocol.md:190
+msgid "\"HDMI-A-1\""
+msgstr "\"HDMI-A-1\""
+
+#: src/features/ipc.md:45 src/reference/ipc-protocol.md:57
+msgid "\"width\""
+msgstr ""
+
+#: src/features/ipc.md:46 src/reference/ipc-protocol.md:58
+msgid "\"height\""
+msgstr ""
+
+#: src/features/ipc.md:47 src/reference/ipc-protocol.md:59
+msgid "\"playing\""
+msgstr "\"playing\""
+
+#: src/features/ipc.md:48 src/reference/ipc-protocol.md:60
+#, fuzzy
+msgid "\"paused\""
+msgstr "\"pause\""
+
+#: src/features/ipc.md:54
 msgid "Playback Control"
 msgstr "播放控制"
 
-#: src/features/ipc.md:29
-msgid "Output Management"
-msgstr "输出管理"
+#: src/features/ipc.md:61
+#, fuzzy
+msgid "Volume & Audio"
+msgstr "带音频的视频"
 
-#: src/features/ipc.md:38
+#: src/features/ipc.md:67
+msgid "Layout"
+msgstr ""
+
+#: src/features/ipc.md:69
+msgid "# Modes: fill, contain, stretch, cover, centre\n"
+msgstr ""
+
+#: src/features/ipc.md:73
+#, fuzzy
+msgid "Playback Rate"
+msgstr "播放控制"
+
+#: src/features/ipc.md:80
+#, fuzzy
+msgid "# Reload config from file\n"
+msgstr "重新加载配置文件"
+
+#: src/features/ipc.md:81 src/reference/cli.md:31
+#, fuzzy
+msgid "# Stop daemon\n"
+msgstr "# 停止输出\n"
+
+#: src/features/ipc.md:84
+#, fuzzy
+msgid "System Check"
+msgstr "# 检查\n"
+
+#: src/features/ipc.md:86 src/reference/cli.md:79
+#, fuzzy
+msgid "# Check system capabilities\n"
+msgstr "检查系统依赖关系"
+
+#: src/features/ipc.md:91
 msgid "Unix socket: `$XDG_RUNTIME_DIR/wayvid.sock`"
 msgstr "Unix 套接字：“$XDG_RUNTIME_DIR/wayvid.sock”"
 
-#: src/features/ipc.md:40 src/reference/ipc-protocol.md:11
+#: src/features/ipc.md:93 src/reference/ipc-protocol.md:11
 msgid "Message Format"
 msgstr "消息格式"
 
-#: src/features/ipc.md:42
-msgid "JSON-based protocol:"
+#: src/features/ipc.md:95
+#, fuzzy
+msgid "JSON-based request-response protocol:"
 msgstr "基于 JSON 的协议："
 
-#: src/features/ipc.md:44 src/reference/ipc-protocol.md:35
-#: src/reference/ipc-protocol.md:60 src/reference/ipc-protocol.md:73
-#: src/reference/ipc-protocol.md:86 src/reference/ipc-protocol.md:99
-#: src/reference/ipc-protocol.md:112 src/reference/ipc-protocol.md:120
-#: src/reference/ipc-protocol.md:133 src/reference/ipc-protocol.md:146
+#: src/features/ipc.md:97 src/reference/ipc-protocol.md:43
+#: src/reference/ipc-protocol.md:77 src/reference/ipc-protocol.md:93
+#: src/reference/ipc-protocol.md:104 src/reference/ipc-protocol.md:116
+#: src/reference/ipc-protocol.md:131 src/reference/ipc-protocol.md:143
+#: src/reference/ipc-protocol.md:151 src/reference/ipc-protocol.md:163
+#: src/reference/ipc-protocol.md:175 src/reference/ipc-protocol.md:186
+#: src/reference/ipc-protocol.md:200
 msgid "**Request:**"
 msgstr "**请求：**"
 
-#: src/features/ipc.md:47 src/features/ipc.md:87
-#: src/reference/ipc-protocol.md:16 src/reference/ipc-protocol.md:37
-#: src/reference/ipc-protocol.md:63 src/reference/ipc-protocol.md:76
-#: src/reference/ipc-protocol.md:89 src/reference/ipc-protocol.md:102
-#: src/reference/ipc-protocol.md:114 src/reference/ipc-protocol.md:123
-#: src/reference/ipc-protocol.md:136 src/reference/ipc-protocol.md:148
+#: src/features/ipc.md:99 src/features/ipc.md:144 src/features/ipc.md:149
+#: src/reference/ipc-protocol.md:16 src/reference/ipc-protocol.md:45
+#: src/reference/ipc-protocol.md:80 src/reference/ipc-protocol.md:87
+#: src/reference/ipc-protocol.md:96 src/reference/ipc-protocol.md:107
+#: src/reference/ipc-protocol.md:119 src/reference/ipc-protocol.md:134
+#: src/reference/ipc-protocol.md:145 src/reference/ipc-protocol.md:154
+#: src/reference/ipc-protocol.md:166 src/reference/ipc-protocol.md:178
+#: src/reference/ipc-protocol.md:189 src/reference/ipc-protocol.md:202
+#: src/reference/ipc-protocol.md:239 src/reference/ipc-protocol.md:243
 msgid "\"command\""
 msgstr "\"command\""
 
-#: src/features/ipc.md:47 src/reference/ipc-protocol.md:63
-msgid "\"play\""
-msgstr "\"play\""
+#: src/features/ipc.md:99 src/features/ipc.md:144
+#: src/reference/ipc-protocol.md:16 src/reference/ipc-protocol.md:45
+#: src/reference/ipc-protocol.md:239
+#, fuzzy
+msgid "\"get-status\""
+msgstr "\"status\""
 
-#: src/features/ipc.md:48 src/features/ipc.md:87
-#: src/reference/ipc-protocol.md:17 src/reference/ipc-protocol.md:37
-#: src/reference/ipc-protocol.md:64 src/reference/ipc-protocol.md:77
-#: src/reference/ipc-protocol.md:90 src/reference/ipc-protocol.md:103
-#: src/reference/ipc-protocol.md:114 src/reference/ipc-protocol.md:124
-#: src/reference/ipc-protocol.md:137 src/reference/ipc-protocol.md:148
-msgid "\"params\""
-msgstr "\"params\""
-
-#: src/features/ipc.md:49 src/reference/ipc-protocol.md:65
-#: src/reference/ipc-protocol.md:78 src/reference/ipc-protocol.md:91
-#: src/reference/ipc-protocol.md:104
-msgid "\"output\""
-msgstr "\"output\""
-
-#: src/features/ipc.md:49 src/reference/ipc-protocol.md:48
-#: src/reference/ipc-protocol.md:156
-msgid "\"DP-1\""
-msgstr "\"DP-1\""
-
-#: src/features/ipc.md:54 src/reference/ipc-protocol.md:40
-#: src/reference/ipc-protocol.md:151
+#: src/features/ipc.md:102 src/reference/ipc-protocol.md:48
 msgid "**Response:**"
 msgstr "**响应：**"
 
-#: src/features/ipc.md:57 src/reference/ipc-protocol.md:24
-#: src/reference/ipc-protocol.md:43 src/reference/ipc-protocol.md:154
-#: src/reference/ipc-protocol.md:166 src/reference/ipc-protocol.md:186
+#: src/features/ipc.md:105 src/reference/ipc-protocol.md:25
+#: src/reference/ipc-protocol.md:33 src/reference/ipc-protocol.md:51
+#: src/reference/ipc-protocol.md:210
+msgid "\"status\""
+msgstr "\"status\""
+
+#: src/features/ipc.md:105 src/reference/ipc-protocol.md:25
+#: src/reference/ipc-protocol.md:51
 msgid "\"success\""
 msgstr "\"success\""
 
-#: src/features/ipc.md:58 src/reference/ipc-protocol.md:25
-#: src/reference/ipc-protocol.md:44 src/reference/ipc-protocol.md:155
-#: src/reference/ipc-protocol.md:188
+#: src/features/ipc.md:106 src/features/ipc.md:145
+#: src/reference/ipc-protocol.md:26 src/reference/ipc-protocol.md:52
 msgid "\"data\""
 msgstr "\"data\""
 
-#: src/features/ipc.md:62
+#: src/features/ipc.md:113
 msgid "Available Commands"
 msgstr "可用命令"
 
-#: src/features/ipc.md:64
-msgid "Command"
-msgstr "命令"
-
-#: src/features/ipc.md:64
+#: src/features/ipc.md:115
 msgid "Parameters"
 msgstr "参数"
 
-#: src/features/ipc.md:64 src/dev/contributing.md:57
-msgid "Description"
-msgstr "描述"
-
-#: src/features/ipc.md:66
-msgid "`status`"
+#: src/features/ipc.md:117
+#, fuzzy
+msgid "`get-status`"
 msgstr "“状态”"
 
-#: src/features/ipc.md:66 src/features/ipc.md:71 src/features/ipc.md:74
+#: src/features/ipc.md:117 src/features/ipc.md:125 src/features/ipc.md:126
 msgid "\\-"
 msgstr "\\-"
 
-#: src/features/ipc.md:66
-msgid "Get current status"
-msgstr "获取当前状态"
+#: src/features/ipc.md:117
+#, fuzzy
+msgid "Get daemon status with all outputs"
+msgstr "获取守护进程状态。"
 
-#: src/features/ipc.md:67
-msgid "`play`"
-msgstr "“玩”"
-
-#: src/features/ipc.md:67 src/features/ipc.md:68 src/features/ipc.md:69
-#: src/features/ipc.md:70
-msgid "`output?`"
-msgstr "“输出？”"
-
-#: src/features/ipc.md:67
-msgid "Start playback"
-msgstr "开始播放"
-
-#: src/features/ipc.md:68
+#: src/features/ipc.md:118
 msgid "`pause`"
 msgstr "“暂停”"
 
-#: src/features/ipc.md:68
+#: src/features/ipc.md:118 src/features/ipc.md:119
+msgid "`output?`"
+msgstr "“输出？”"
+
+#: src/features/ipc.md:118
 msgid "Pause playback"
 msgstr "暂停播放"
 
-#: src/features/ipc.md:69
-msgid "`stop`"
-msgstr "“停止”"
-
-#: src/features/ipc.md:69
-msgid "Stop playback"
-msgstr "停止播放"
-
-#: src/features/ipc.md:70
+#: src/features/ipc.md:119
 msgid "`resume`"
 msgstr "“简历”"
 
-#: src/features/ipc.md:70
+#: src/features/ipc.md:119
 msgid "Resume playback"
 msgstr "恢复播放"
 
-#: src/features/ipc.md:71
-msgid "`reload_config`"
+#: src/features/ipc.md:120
+msgid "`seek`"
+msgstr ""
+
+#: src/features/ipc.md:120
+#, fuzzy
+msgid "`output`, `time`"
+msgstr "“输出？”"
+
+#: src/features/ipc.md:120
+msgid "Seek to time (seconds)"
+msgstr ""
+
+#: src/features/ipc.md:121
+#, fuzzy
+msgid "`set-volume`"
+msgstr "“set_volume”"
+
+#: src/features/ipc.md:121
+#, fuzzy
+msgid "`output`, `volume`"
+msgstr "“set_volume”"
+
+#: src/features/ipc.md:121
+#, fuzzy
+msgid "Set volume (0.0-1.0)"
+msgstr "设置音量 (0-100)"
+
+#: src/features/ipc.md:122
+msgid "`toggle-mute`"
+msgstr ""
+
+#: src/features/ipc.md:122
+#, fuzzy
+msgid "`output`"
+msgstr "“输出？”"
+
+#: src/features/ipc.md:122
+msgid "Toggle mute"
+msgstr ""
+
+#: src/features/ipc.md:123
+msgid "`set-layout`"
+msgstr ""
+
+#: src/features/ipc.md:123
+#, fuzzy
+msgid "`output`, `layout`"
+msgstr "输出布局跟踪"
+
+#: src/features/ipc.md:123
+#, fuzzy
+msgid "Set layout mode"
+msgstr "设置音量。"
+
+#: src/features/ipc.md:124
+#, fuzzy
+msgid "`set-playback-rate`"
+msgstr "暂停播放"
+
+#: src/features/ipc.md:124
+#, fuzzy
+msgid "`output`, `rate`"
+msgstr "“输出？”"
+
+#: src/features/ipc.md:124
+#, fuzzy
+msgid "Set playback speed"
+msgstr "停止播放"
+
+#: src/features/ipc.md:125
+#, fuzzy
+msgid "`reload-config`"
 msgstr "“reload_config”"
 
-#: src/features/ipc.md:71
+#: src/features/ipc.md:125
 msgid "Reload config file"
 msgstr "重新加载配置文件"
 
-#: src/features/ipc.md:72
-msgid "`set_volume`"
-msgstr "“set_volume”"
+#: src/features/ipc.md:126
+msgid "`quit`"
+msgstr ""
 
-#: src/features/ipc.md:72
-msgid "`volume: u8`"
-msgstr "'卷：U8'"
+#: src/features/ipc.md:126
+#, fuzzy
+msgid "Stop daemon"
+msgstr "主守护进程。"
 
-#: src/features/ipc.md:72
-msgid "Set volume (0-100)"
-msgstr "设置音量 (0-100)"
-
-#: src/features/ipc.md:73
-msgid "`set_source`"
-msgstr "“set_source”"
-
-#: src/features/ipc.md:73
-msgid "`path: string`"
-msgstr "'路径：字符串'"
-
-#: src/features/ipc.md:73
-msgid "Change video source"
-msgstr "更改视频源"
-
-#: src/features/ipc.md:74
-msgid "`list_outputs`"
-msgstr "“list_outputs”"
-
-#: src/features/ipc.md:74
-msgid "List all outputs"
-msgstr "列出所有输出"
-
-#: src/features/ipc.md:76
+#: src/features/ipc.md:128
 msgid "Programming Examples"
 msgstr "编程示例"
 
-#: src/features/ipc.md:78
+#: src/features/ipc.md:130 src/reference/ipc-protocol.md:223
 msgid "Python"
 msgstr "蟒"
 
-#: src/features/ipc.md:84
+#: src/features/ipc.md:137 src/reference/ipc-protocol.md:230
 msgid "'/run/user/1000/wayvid.sock'"
 msgstr "'/run/user/1000/wayvid.sock'"
 
-#: src/features/ipc.md:85
-msgid "# Send command\n"
-msgstr "# 发送命令\n"
+#: src/features/ipc.md:138 src/reference/ipc-protocol.md:232
+msgid "'\\n'"
+msgstr ""
 
-#: src/features/ipc.md:87 src/reference/ipc-protocol.md:76
+#: src/features/ipc.md:142 src/features/ipc.md:154
+#: src/reference/ipc-protocol.md:237
+#, fuzzy
+msgid "# Get status\n"
+msgstr "获取当前状态"
+
+#: src/features/ipc.md:146
+msgid "\""
+msgstr ""
+
+#: src/features/ipc.md:146
+#, fuzzy
+msgid "'name'"
+msgstr "名称"
+
+#: src/features/ipc.md:146
+msgid ": "
+msgstr ""
+
+#: src/features/ipc.md:146
+msgid "'width'"
+msgstr ""
+
+#: src/features/ipc.md:146
+msgid "x"
+msgstr ""
+
+#: src/features/ipc.md:146
+msgid "'height'"
+msgstr ""
+
+#: src/features/ipc.md:147
+msgid "# Pause all\n"
+msgstr ""
+
+#: src/features/ipc.md:149 src/reference/ipc-protocol.md:80
+#: src/reference/ipc-protocol.md:87 src/reference/ipc-protocol.md:243
 msgid "\"pause\""
 msgstr "\"pause\""
 
-#: src/features/ipc.md:89
-msgid "# Receive response\n"
-msgstr "# 接收响应\n"
-
-#: src/features/ipc.md:95
+#: src/features/ipc.md:152 src/reference/ipc-protocol.md:246
 msgid "Bash"
 msgstr "猛击"
 
-#: src/features/ipc.md:97
-msgid "'{\"command\":\"status\",\"params\":{}}'"
+#: src/features/ipc.md:155 src/reference/ipc-protocol.md:248
+#, fuzzy
+msgid "'{\"command\":\"get-status\"}'"
 msgstr "'{\"command\":\"status\",\"params\":{}}'"
 
-#: src/features/ipc.md:100
+#: src/features/ipc.md:156
+#, fuzzy
+msgid "# Pause\n"
+msgstr "暂停"
+
+#: src/features/ipc.md:158
+#, fuzzy
+msgid "'{\"command\":\"pause\"}'"
+msgstr "'{\"command\":\"status\",\"params\":{}}'"
+
+#: src/features/ipc.md:161 src/reference/ipc-protocol.md:251
 msgid "Rust"
 msgstr "Rust"
 
-#: src/features/ipc.md:108
-msgid "GUI Integration"
-msgstr "GUI 集成"
+#: src/features/ipc.md:170 src/reference/ipc-protocol.md:262
+msgid "\"{}\""
+msgstr ""
 
-#: src/features/ipc.md:110
-msgid "Desktop GUI available:"
-msgstr "桌面 GUI 可用："
-
-#: src/features/ipc.md:116
-msgid "Features:"
-msgstr "特征："
-
-#: src/features/ipc.md:117
-msgid "Output status monitoring"
-msgstr "输出状态监控"
-
-#: src/features/ipc.md:118
-msgid "Playback controls"
-msgstr "播放控件"
-
-#: src/features/ipc.md:119
-msgid "Configuration editing"
-msgstr "配置编辑"
-
-#: src/features/ipc.md:120
-msgid "Workshop browser"
-msgstr "创意工坊浏览器"
-
-#: src/features/ipc.md:124
+#: src/features/ipc.md:176
 msgid "**Socket not found:**"
 msgstr "**未找到插座：**"
 
-#: src/features/ipc.md:125
-msgid "Ensure wayvid is running"
-msgstr "确保 wayvid 正在运行"
+#: src/features/ipc.md:178
+#, fuzzy
+msgid "# Check if daemon is running\n"
+msgstr "# 检查 HDR 是否处于活动状态\n"
 
-#: src/features/ipc.md:126
-msgid "Check: `ls $XDG_RUNTIME_DIR/wayvid.sock`"
-msgstr "检查：“ls $XDG_RUNTIME_DIR/wayvid.sock”"
-
-#: src/features/ipc.md:128
+#: src/features/ipc.md:183
 msgid "**Permission denied:**"
 msgstr "**权限被拒绝：**"
 
-#: src/features/ipc.md:129
-msgid "Socket owned by wayvid user"
-msgstr "wayvid 用户拥有的套接字"
-
-#: src/features/ipc.md:130
-msgid "Run wayvid-ctl as same user"
+#: src/features/ipc.md:184
+#, fuzzy
+msgid "Ensure wayvid-ctl runs as the same user as wayvid daemon"
 msgstr "以同一用户身份运行 wayvid-ctl"
 
-#: src/features/ipc.md:132
-msgid "**No response:**"
+#: src/features/ipc.md:186
+#, fuzzy
+msgid "**No response / Timeout:**"
 msgstr "**没有回应：**"
 
-#: src/features/ipc.md:133
-msgid "Check wayvid logs"
+#: src/features/ipc.md:188
+#, fuzzy
+msgid "# Check daemon logs\n"
 msgstr "检查 wayvid 日志"
 
-#: src/features/ipc.md:134
-msgid "Verify JSON syntax"
-msgstr "验证 JSON 语法"
+#: src/features/ipc.md:190 src/reference/cli.md:34
+msgid "# Restart daemon\n"
+msgstr ""
 
-#: src/features/ipc.md:135
-msgid "Use `--log-level debug`"
-msgstr "使用“--log-level debug”"
+#: src/features/ipc.md:195
+#, fuzzy
+msgid "**GUI not showing outputs:**"
+msgstr "**壁纸不显示：**"
 
-#: src/features/ipc.md:137
-msgid "See Also"
-msgstr "也可以看看"
+#: src/features/ipc.md:196
+#, fuzzy
+msgid "Ensure daemon is running first"
+msgstr "确保 wayvid 正在运行"
 
-#: src/features/ipc.md:139
-msgid "[Configuration Reference](../reference/config.md)"
-msgstr "[配置参考](../reference/config.md）"
+#: src/features/ipc.md:197
+msgid "GUI auto-connects when daemon is detected"
+msgstr ""
 
-#: src/features/ipc.md:140
-msgid "[IPC Protocol Reference](../reference/ipc-protocol.md)"
+#: src/features/ipc.md:198
+msgid "Check status bar at bottom of GUI window"
+msgstr ""
+
+#: src/features/ipc.md:202
+#, fuzzy
+msgid ""
+"[IPC Protocol Reference](../reference/ipc-protocol.md) - Full protocol spec"
 msgstr "[IPC 协议参考](../reference/ipc-protocol.md）"
+
+#: src/features/ipc.md:203
+msgid "[CLI Commands](../reference/cli.md) - Command reference"
+msgstr ""
+
+#: src/features/ipc.md:204
+#, fuzzy
+msgid "[Configuration](../user-guide/configuration.md) - Config options"
+msgstr "[配置](./user-guide/configuration.md) - 自定义设置"
 
 #: src/dev/building.md:5
 msgid "System Dependencies"
@@ -1980,10 +3265,6 @@ msgstr "更快的连接器"
 #: src/dev/workflow.md:39
 msgid "**Install mold:**"
 msgstr "**安装模具：**"
-
-#: src/dev/workflow.md:41
-msgid "# Arch\n"
-msgstr "# 拱门\n"
 
 #: src/dev/workflow.md:43
 msgid "# Ubuntu\n"
@@ -2277,27 +3558,30 @@ msgid "Configuration (`src/config/`)"
 msgstr "配置 ('src/config/')"
 
 #: src/dev/architecture.md:35
-msgid "YAML parsing"
+#, fuzzy
+msgid "YAML parsing with serde"
 msgstr "YAML 解析"
 
 #: src/dev/architecture.md:36
-msgid "Type validation"
-msgstr "类型验证"
+msgid "Type validation with pattern matching"
+msgstr ""
 
 #: src/dev/architecture.md:37
-msgid "Hot-reload support"
+#, fuzzy
+msgid "Hot-reload support via file watcher"
 msgstr "热重载支持"
 
 #: src/dev/architecture.md:38
-msgid "Per-output config"
-msgstr "每个输出配置"
+msgid "Per-output config with glob pattern matching"
+msgstr ""
 
 #: src/dev/architecture.md:40
 msgid "Core (`src/core/`)"
 msgstr "核心 ('src/core/')"
 
 #: src/dev/architecture.md:41
-msgid "Main event loop"
+#, fuzzy
+msgid "Main event loop (non-blocking poll)"
 msgstr "主事件循环"
 
 #: src/dev/architecture.md:42
@@ -2309,297 +3593,600 @@ msgid "Output layout tracking"
 msgstr "输出布局跟踪"
 
 #: src/dev/architecture.md:44
-msgid "Power management"
-msgstr "电源管理"
+msgid "Power management (battery, workspace visibility)"
+msgstr ""
 
 #: src/dev/architecture.md:46
 msgid "Wayland Backend (`src/backend/wayland/`)"
 msgstr "Wayland 后端 ('src/backend/wayland/')"
 
 #: src/dev/architecture.md:47
-msgid "Layer-shell protocol"
-msgstr "层壳协议"
+#, fuzzy
+msgid "wlr-layer-shell protocol implementation"
+msgstr "使用“wlr-layer-shell”协议进行背景放置："
 
 #: src/dev/architecture.md:48
-msgid "Output management"
+#, fuzzy
+msgid "Output management with hotplug support"
 msgstr "输出管理"
 
 #: src/dev/architecture.md:49
-msgid "Surface creation"
-msgstr "表面创建"
+msgid "Surface creation with `exclusive_zone(-1)` for full coverage"
+msgstr ""
 
 #: src/dev/architecture.md:50
-msgid "Event handling"
-msgstr "事件处理"
+msgid "**Frame callback driven rendering** (vsync-aware)"
+msgstr ""
 
 #: src/dev/architecture.md:52
 msgid "Video (`src/video/`)"
 msgstr "视频 ('src/video/')"
 
 #: src/dev/architecture.md:53
-msgid "mpv integration"
+#, fuzzy
+msgid "mpv integration via libmpv"
 msgstr "MPV 集成"
 
 #: src/dev/architecture.md:54
-msgid "EGL rendering"
-msgstr "EGL 渲染"
+msgid "EGL rendering with shared decode context"
+msgstr ""
 
 #: src/dev/architecture.md:55
-msgid "Hardware decode"
-msgstr "硬件解码"
+#, fuzzy
+msgid "Hardware decode acceleration (VA-API/NVDEC)"
+msgstr "硬件加速"
 
 #: src/dev/architecture.md:56
-msgid "HDR pipeline"
-msgstr "HDR 管线"
+#, fuzzy
+msgid "HDR pipeline with tone mapping"
+msgstr "🌈 **HDR 支持**：带色调映射的完整 10 位 HDR 管线"
 
-#: src/dev/architecture.md:58
+#: src/dev/architecture.md:57
+msgid "Frame timing and pacing"
+msgstr ""
+
+#: src/dev/architecture.md:59
 msgid "IPC (`src/ctl/`)"
 msgstr "IPC ('src/ctl/')"
 
-#: src/dev/architecture.md:59
-msgid "Unix socket server"
-msgstr "Unix 套接字服务器"
-
 #: src/dev/architecture.md:60
-msgid "Protocol handling"
-msgstr "协议处理"
+msgid "Unix socket server with request-response pattern"
+msgstr ""
 
 #: src/dev/architecture.md:61
-msgid "Command dispatch"
-msgstr "命令调度"
+msgid "Protocol handling (JSON over newline-delimited stream)"
+msgstr ""
+
+#: src/dev/architecture.md:62
+msgid "Bidirectional communication for status queries"
+msgstr ""
 
 #: src/dev/architecture.md:63
+msgid "Command dispatch with response callbacks"
+msgstr ""
+
+#: src/dev/architecture.md:65
+msgid "GUI (`src/bin/wayvid-gui.rs`)"
+msgstr ""
+
+#: src/dev/architecture.md:66
+msgid "egui/eframe desktop application"
+msgstr ""
+
+#: src/dev/architecture.md:67
+#, fuzzy
+msgid "Wallpaper Engine-inspired interface design"
+msgstr "拥有 Wallpaper Engine(不是必需的，但有帮助)"
+
+#: src/dev/architecture.md:68
+msgid "Internationalization (i18n) with rust-i18n"
+msgstr ""
+
+#: src/dev/architecture.md:69
+msgid "System locale detection"
+msgstr ""
+
+#: src/dev/architecture.md:70
+msgid "Async IPC client in separate thread"
+msgstr ""
+
+#: src/dev/architecture.md:72
+#, fuzzy
+msgid "Frame Rendering Architecture"
+msgstr "未来架构"
+
+#: src/dev/architecture.md:74
+msgid ""
+"wayvid uses a **frame callback driven** rendering model for optimal "
+"performance:"
+msgstr ""
+
+#: src/dev/architecture.md:87
+msgid "Key Principles"
+msgstr "核心原则"
+
+#: src/dev/architecture.md:89
+msgid "**Callback-Driven**: Only render when compositor signals readiness"
+msgstr ""
+
+#: src/dev/architecture.md:90
+msgid ""
+"**No Polling**: Eliminated busy-wait loops, CPU idle when no frame needed"
+msgstr ""
+
+#: src/dev/architecture.md:91
+msgid "**VSync Aligned**: Frame timing matches compositor's refresh rate"
+msgstr ""
+
+#: src/dev/architecture.md:92
+msgid ""
+"**Per-Surface State**: Each output has independent frame callback tracking"
+msgstr ""
+
+#: src/dev/architecture.md:94
+#, fuzzy
+msgid "Frame States"
+msgstr "参数"
+
+#: src/dev/architecture.md:98
+msgid "// No callback pending, can request new frame\n"
+msgstr ""
+
+#: src/dev/architecture.md:99
+msgid "// Callback requested, waiting for compositor\n"
+msgstr ""
+
+#: src/dev/architecture.md:100
+msgid "// Callback received, ready to render\n"
+msgstr ""
+
+#: src/dev/architecture.md:104
+msgid "Render Flow"
+msgstr "渲染流程"
+
+#: src/dev/architecture.md:115
+#, fuzzy
+msgid "Performance Impact"
+msgstr "性能提示"
+
+#: src/dev/architecture.md:117
+msgid "Metric"
+msgstr ""
+
+#: src/dev/architecture.md:117
+#, fuzzy
+msgid "Before (Polling)"
+msgstr "推之前"
+
+#: src/dev/architecture.md:117
+msgid "After (Callback)"
+msgstr ""
+
+#: src/dev/architecture.md:119
+#, fuzzy
+msgid "CPU Usage"
+msgstr "相同的 GPU 使用率"
+
+#: src/dev/architecture.md:119
+msgid "60-80%"
+msgstr ""
+
+#: src/dev/architecture.md:119
+msgid "40-58%"
+msgstr ""
+
+#: src/dev/architecture.md:120
+#, fuzzy
+msgid "Frame Rate"
+msgstr "帧渲染"
+
+#: src/dev/architecture.md:120
+msgid "~880 fps (uncapped)"
+msgstr ""
+
+#: src/dev/architecture.md:120
+msgid "~30-36 fps (vsync)"
+msgstr ""
+
+#: src/dev/architecture.md:121
+msgid "Power Draw"
+msgstr ""
+
+#: src/dev/architecture.md:121
+msgid "High"
+msgstr ""
+
+#: src/dev/architecture.md:121
+msgid "Low"
+msgstr ""
+
+#: src/dev/architecture.md:123
 msgid "Data Flow"
 msgstr "数据流"
 
-#: src/dev/architecture.md:71
+#: src/dev/architecture.md:135
 msgid "Config parsed and validated"
 msgstr "配置解析和验证"
 
-#: src/dev/architecture.md:72
+#: src/dev/architecture.md:136
 msgid "Core initializes subsystems"
 msgstr "核心初始化子系统"
 
-#: src/dev/architecture.md:73
+#: src/dev/architecture.md:137
 msgid "Backend creates Wayland surfaces"
 msgstr "后端创建 Wayland 表面"
 
-#: src/dev/architecture.md:74
+#: src/dev/architecture.md:138
 msgid "Video renders to EGL surfaces"
 msgstr "视频渲染到 EGL 表面"
 
-#: src/dev/architecture.md:75
-msgid "IPC accepts runtime commands"
+#: src/dev/architecture.md:139
+#, fuzzy
+msgid "IPC accepts runtime commands with responses"
 msgstr "IPC 接受运行时命令"
 
-#: src/dev/architecture.md:77
+#: src/dev/architecture.md:141
+#, fuzzy
+msgid "IPC Architecture"
+msgstr "系统架构"
+
+#: src/dev/architecture.md:143
+msgid "The IPC system uses a **request-response** pattern:"
+msgstr ""
+
+#: src/dev/architecture.md:152
+#, fuzzy
+msgid "Request Flow"
+msgstr "请求"
+
+#: src/dev/architecture.md:153 src/reference/ipc-protocol.md:275
+msgid "Client connects to Unix socket"
+msgstr ""
+
+#: src/dev/architecture.md:154 src/reference/ipc-protocol.md:276
+msgid "Client sends JSON command (newline-terminated)"
+msgstr ""
+
+#: src/dev/architecture.md:155
+msgid "Server creates response channel per request"
+msgstr ""
+
+#: src/dev/architecture.md:156
+#, fuzzy
+msgid "Command dispatched to main thread"
+msgstr "命令调度"
+
+#: src/dev/architecture.md:157
+msgid "Handler generates response"
+msgstr ""
+
+#: src/dev/architecture.md:158
+msgid "Response sent back through channel"
+msgstr ""
+
+#: src/dev/architecture.md:159
+msgid "Server writes response to client"
+msgstr ""
+
+#: src/dev/architecture.md:161
+#, fuzzy
+msgid "Non-blocking Event Loop"
+msgstr "无阻塞 I/O"
+
+#: src/dev/architecture.md:164
+msgid "// 1. Dispatch pending Wayland events\n"
+msgstr ""
+
+#: src/dev/architecture.md:167
+msgid "// 2. Poll for events (blocking until frame callback or event)\n"
+msgstr ""
+
+#: src/dev/architecture.md:170
+msgid "// 3. Process IPC requests (non-blocking)\n"
+msgstr ""
+
+#: src/dev/architecture.md:176
+msgid "// 4. Handle config changes, power management, etc.\n"
+msgstr ""
+
+#: src/dev/architecture.md:180
+#, fuzzy
+msgid "GUI Architecture"
+msgstr "系统架构"
+
+#: src/dev/architecture.md:182
+msgid "The GUI follows a **Wallpaper Engine-inspired** design:"
+msgstr ""
+
+#: src/dev/architecture.md:202 src/dev/architecture.md:209
 msgid "Key Design Decisions"
 msgstr "关键设计决策"
 
-#: src/dev/architecture.md:79
-msgid "Layer-Shell"
-msgstr "层壳"
+#: src/dev/architecture.md:204
+msgid ""
+"**Bottom Monitor Bar**: Quick access to all displays (like Wallpaper Engine)"
+msgstr ""
 
-#: src/dev/architecture.md:80
-msgid "Uses `wlr-layer-shell` protocol for background placement:"
+#: src/dev/architecture.md:205
+msgid "**Unified Library**: All wallpaper sources in one grid"
+msgstr ""
+
+#: src/dev/architecture.md:206
+msgid "**Click-to-Apply**: Single click selects, double-click applies"
+msgstr ""
+
+#: src/dev/architecture.md:207
+msgid "**Simplified Tabs**: Removed complex multi-step workflows"
+msgstr ""
+
+#: src/dev/architecture.md:211
+msgid "Layer-Shell with Full Coverage"
+msgstr ""
+
+#: src/dev/architecture.md:212
+#, fuzzy
+msgid "Uses `wlr-layer-shell` protocol with `exclusive_zone(-1)`:"
 msgstr "使用“wlr-layer-shell”协议进行背景放置："
 
-#: src/dev/architecture.md:81
+#: src/dev/architecture.md:213
 msgid "Guaranteed bottom layer"
 msgstr "保证底层"
 
-#: src/dev/architecture.md:82
-msgid "No window management needed"
-msgstr "无需窗口管理"
+#: src/dev/architecture.md:214
+msgid "Ignores panel/bar exclusive zones"
+msgstr ""
 
-#: src/dev/architecture.md:83
-msgid "Works with all wlr compositors"
+#: src/dev/architecture.md:215
+#, fuzzy
+msgid "Works with all wlr compositors (Hyprland, Sway, Niri, etc.)"
 msgstr "适用于所有 wlr 合成器"
 
-#: src/dev/architecture.md:85
+#: src/dev/architecture.md:217
 msgid "mpv Integration"
 msgstr "mpv 集成"
 
-#: src/dev/architecture.md:86
+#: src/dev/architecture.md:218
 msgid "Uses libmpv for video:"
 msgstr "使用 libmpv 进行视频："
 
-#: src/dev/architecture.md:87
+#: src/dev/architecture.md:219
 msgid "Mature, stable"
 msgstr "成熟、稳定"
 
-#: src/dev/architecture.md:88
-msgid "Hardware acceleration"
+#: src/dev/architecture.md:220
+#, fuzzy
+msgid "Hardware acceleration (VAAPI, VDPAU, NVDEC)"
 msgstr "硬件加速"
 
-#: src/dev/architecture.md:89
-msgid "HDR support"
-msgstr "HDR 支持"
+#: src/dev/architecture.md:221
+#, fuzzy
+msgid "HDR support with tone mapping"
+msgstr "wayvid 提供完整的 HDR10 支持和色调映射。"
 
-#: src/dev/architecture.md:90
+#: src/dev/architecture.md:222
 msgid "Wide format support"
 msgstr "宽格式支持"
 
-#: src/dev/architecture.md:92
+#: src/dev/architecture.md:224
 msgid "EGL Rendering"
 msgstr "EGL 渲染"
 
-#: src/dev/architecture.md:93
+#: src/dev/architecture.md:225
 msgid "Direct EGL context sharing:"
 msgstr "直接 EGL 上下文共享："
 
-#: src/dev/architecture.md:94
+#: src/dev/architecture.md:226
 msgid "Zero-copy textures"
 msgstr "零拷贝纹理"
 
-#: src/dev/architecture.md:95
+#: src/dev/architecture.md:227
 msgid "GPU-accelerated"
 msgstr "GPU 加速"
 
-#: src/dev/architecture.md:96
+#: src/dev/architecture.md:228
 msgid "Wayland-native"
 msgstr "韦兰本地人"
 
-#: src/dev/architecture.md:98
-msgid "Async Architecture"
-msgstr "异步架构"
+#: src/dev/architecture.md:229
+msgid "Shared decode context for multi-monitor"
+msgstr ""
 
-#: src/dev/architecture.md:99
-msgid "Tokio-based async runtime:"
-msgstr "基于 Tokio 的异步运行时："
+#: src/dev/architecture.md:231
+#, fuzzy
+msgid "Frame Callback Rendering"
+msgstr "帧渲染"
 
-#: src/dev/architecture.md:100
-msgid "Non-blocking I/O"
-msgstr "无阻塞 I/O"
+#: src/dev/architecture.md:232
+#, fuzzy
+msgid "Compositor-driven frame timing:"
+msgstr "合成器和版本"
 
-#: src/dev/architecture.md:101
-msgid "Efficient resource usage"
-msgstr "高效利用资源"
+#: src/dev/architecture.md:233
+msgid "No busy polling"
+msgstr ""
 
-#: src/dev/architecture.md:102
-msgid "Clean concurrency"
-msgstr "干净的并发"
+#: src/dev/architecture.md:234
+msgid "VSync aligned"
+msgstr ""
 
-#: src/dev/architecture.md:104
+#: src/dev/architecture.md:235
+msgid "Minimal CPU when idle"
+msgstr ""
+
+#: src/dev/architecture.md:236
+msgid "Proper frame pacing"
+msgstr ""
+
+#: src/dev/architecture.md:238
+#, fuzzy
+msgid "Internationalization"
+msgstr "安装"
+
+#: src/dev/architecture.md:239
+msgid "GUI supports multiple languages:"
+msgstr ""
+
+#: src/dev/architecture.md:240
+msgid "rust-i18n with TOML locale files"
+msgstr ""
+
+#: src/dev/architecture.md:241
+msgid "System locale auto-detection"
+msgstr ""
+
+#: src/dev/architecture.md:242
+msgid "Runtime language switching"
+msgstr ""
+
+#: src/dev/architecture.md:243
+msgid "Fallback to English"
+msgstr ""
+
+#: src/dev/architecture.md:245
 msgid "Module Breakdown"
 msgstr "模块分解"
 
-#: src/dev/architecture.md:142
+#: src/dev/architecture.md:294
 msgid "Threading Model"
 msgstr "线程模型"
 
-#: src/dev/architecture.md:144
-msgid "**Main Thread**: Wayland event loop"
+#: src/dev/architecture.md:296
+#, fuzzy
+msgid "**Main Thread**: Wayland event loop + IPC dispatch"
 msgstr "**主线程**：Wayland 事件循环"
 
-#: src/dev/architecture.md:145
-msgid "**Video Thread**: mpv decoding (internal)"
+#: src/dev/architecture.md:297
+#, fuzzy
+msgid "**Video Thread**: mpv decoding (mpv-internal)"
 msgstr "**视频线程**：mpv解码(内部)"
 
-#: src/dev/architecture.md:146
-msgid "**IPC Thread**: Command handling"
+#: src/dev/architecture.md:298
+msgid "**IPC Listener Thread**: Accept connections, parse commands"
+msgstr ""
+
+#: src/dev/architecture.md:299
+#, fuzzy
+msgid "**GUI IPC Thread**: Async communication with daemon"
 msgstr "**IPC 线程**：命令处理"
 
-#: src/dev/architecture.md:147
-msgid "**Async Runtime**: I/O operations"
-msgstr "**异步运行时**：I/O作"
-
-#: src/dev/architecture.md:149
+#: src/dev/architecture.md:301
 msgid "Memory Management"
 msgstr "内存管理"
 
-#: src/dev/architecture.md:151
-msgid "Surfaces: Shared GPU memory"
+#: src/dev/architecture.md:303
+#, fuzzy
+msgid "Surfaces: Shared GPU memory via EGL"
 msgstr "表面：共享 GPU 内存"
 
-#: src/dev/architecture.md:152
-msgid "Video frames: mpv-managed"
+#: src/dev/architecture.md:304
+#, fuzzy
+msgid "Video frames: mpv-managed with reference counting"
 msgstr "视频帧：mpv 管理"
 
-#: src/dev/architecture.md:153
-msgid "Config: Arc-wrapped for sharing"
+#: src/dev/architecture.md:305
+#, fuzzy
+msgid "Config: Arc-wrapped for sharing across threads"
 msgstr "配置：Arc 包装以进行共享"
 
-#: src/dev/architecture.md:154
-msgid "IPC: Short-lived allocations"
+#: src/dev/architecture.md:306
+#, fuzzy
+msgid "IPC: Short-lived allocations, channel-based messaging"
 msgstr "IPC：短期分配"
 
-#: src/dev/architecture.md:156
+#: src/dev/architecture.md:308
 msgid "Performance Characteristics"
 msgstr "性能特点"
 
-#: src/dev/architecture.md:158
+#: src/dev/architecture.md:310
 msgid "Operation"
 msgstr "操作"
 
-#: src/dev/architecture.md:158
+#: src/dev/architecture.md:310
 msgid "Complexity"
 msgstr "复杂性"
 
-#: src/dev/architecture.md:158
+#: src/dev/architecture.md:310
 msgid "Notes"
 msgstr "笔记"
 
-#: src/dev/architecture.md:160
+#: src/dev/architecture.md:312
 msgid "Output add"
 msgstr "输出添加"
 
-#: src/dev/architecture.md:160 src/dev/architecture.md:162
-#: src/dev/architecture.md:163
+#: src/dev/architecture.md:312 src/dev/architecture.md:314
+#: src/dev/architecture.md:315
 msgid "O(1)"
 msgstr "O(1)"
 
-#: src/dev/architecture.md:161
+#: src/dev/architecture.md:312
+#, fuzzy
+msgid "Hotplug support"
+msgstr "热重载支持"
+
+#: src/dev/architecture.md:313
 msgid "Frame render"
 msgstr "帧渲染"
 
-#: src/dev/architecture.md:161
+#: src/dev/architecture.md:313 src/dev/architecture.md:316
 msgid "O(n outputs)"
 msgstr "O(n 个输出)"
 
-#: src/dev/architecture.md:161
-msgid "Parallelizable"
-msgstr "可并行化"
+#: src/dev/architecture.md:313
+msgid "Shared decode context"
+msgstr ""
 
-#: src/dev/architecture.md:162
+#: src/dev/architecture.md:314
 msgid "Config reload"
 msgstr "配置重新加载"
 
-#: src/dev/architecture.md:162
+#: src/dev/architecture.md:314
 msgid "Hot-reload"
 msgstr "热重载"
 
-#: src/dev/architecture.md:163
+#: src/dev/architecture.md:315
 msgid "IPC command"
 msgstr "IPC 命令"
 
-#: src/dev/architecture.md:163
-msgid "Async"
-msgstr "异步"
+#: src/dev/architecture.md:315
+#, fuzzy
+msgid "Non-blocking"
+msgstr "无阻塞 I/O"
 
-#: src/dev/architecture.md:165
+#: src/dev/architecture.md:316
+#, fuzzy
+msgid "Status query"
+msgstr "地位"
+
+#: src/dev/architecture.md:316
+#, fuzzy
+msgid "Gathers all output info"
+msgstr "列出所有输出"
+
+#: src/dev/architecture.md:318
 msgid "Future Architecture"
 msgstr "未来架构"
 
-#: src/dev/architecture.md:167
+#: src/dev/architecture.md:320
 msgid "Planned improvements:"
 msgstr "计划改进："
 
-#: src/dev/architecture.md:168
-msgid "Pluggable video backends"
+#: src/dev/architecture.md:321
+msgid "WebSocket IPC for remote control"
+msgstr ""
+
+#: src/dev/architecture.md:322
+#, fuzzy
+msgid "Plugin system for video backends"
 msgstr "可插拔视频后端"
 
-#: src/dev/architecture.md:169
-msgid "Multiple video engines"
-msgstr "多个视频引擎"
+#: src/dev/architecture.md:323
+msgid "Custom shader effects"
+msgstr ""
 
-#: src/dev/architecture.md:170
-msgid "Shader system"
-msgstr "着色器系统"
-
-#: src/dev/architecture.md:171
-msgid "Advanced compositing"
-msgstr "高级合成"
+#: src/dev/architecture.md:324
+#, fuzzy
+msgid "Scene/playlist management"
+msgstr "状态管理"
 
 #: src/dev/contributing.md:3
 msgid "Thank you for considering contributing to wayvid!"
@@ -2630,7 +4217,9 @@ msgid "Development Setup"
 msgstr "开发设置"
 
 #: src/dev/contributing.md:15
-msgid "See [Building from Source](./building.md) and [Development Workflow](./workflow.md)."
+msgid ""
+"See [Building from Source](./building.md) and [Development Workflow](./"
+"workflow.md)."
 msgstr "参见[从源码构建](./building.md)和[开发工作流](./workflow.md)。"
 
 #: src/dev/contributing.md:17
@@ -2654,8 +4243,11 @@ msgid "Add tests for new features"
 msgstr "为新功能添加测试"
 
 #: src/dev/contributing.md:36
-msgid "Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`"
-msgstr "类型：`feat`（新功能）、`fix`（修复）、`docs`（文档）、`style`（格式）、`refactor`（重构）、`perf`（性能）、`test`（测试）、`chore`（杂项）"
+msgid ""
+"Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`"
+msgstr ""
+"类型：`feat`（新功能）、`fix`（修复）、`docs`（文档）、`style`（格式）、"
+"`refactor`（重构）、`perf`（性能）、`test`（测试）、`chore`（杂项）"
 
 #: src/dev/contributing.md:38
 msgid "Examples:"
@@ -2851,7 +4443,8 @@ msgid "Follow-up: 1-2 days"
 msgstr "随访：1-2天"
 
 #: src/dev/contributing.md:116
-msgid "By contributing, you agree to license your code under MIT OR Apache-2.0."
+msgid ""
+"By contributing, you agree to license your code under MIT OR Apache-2.0."
 msgstr "贡献代码即表示您同意以 MIT 或 Apache-2.0 许可证授权您的代码。"
 
 #: src/dev/contributing.md:118
@@ -2899,8 +4492,12 @@ msgid "Complete reference of all configuration options."
 msgstr "所有配置选项的完整参考。"
 
 #: src/reference/config.md:5
-msgid "_Full reference coming soon. See [Configuration Guide](../user-guide/configuration.md) for common options._"
-msgstr "_完整参考即将推出。常用选项请参见[配置指南](../user-guide/configuration.md)。_"
+msgid ""
+"_Full reference coming soon. See [Configuration Guide](../user-guide/"
+"configuration.md) for common options._"
+msgstr ""
+"_完整参考即将推出。常用选项请参见[配置指南](../user-guide/configuration.md)。"
+"_"
 
 #: src/reference/config.md:7
 msgid "Schema"
@@ -2951,202 +4548,243 @@ msgid "LogLevel"
 msgstr "日志级别"
 
 #: src/reference/config.md:19
-msgid "For now, see [config.example.yaml](https://github.com/YangYuS8/wayvid/blob/main/configs/config.example.yaml) for all options."
-msgstr "目前请参见 [config.example.yaml](https://github.com/YangYuS8/wayvid/blob/main/configs/config.example.yaml) 了解所有选项。"
+msgid ""
+"For now, see [config.example.yaml](https://github.com/YangYuS8/wayvid/blob/"
+"main/configs/config.example.yaml) for all options."
+msgstr ""
+"目前请参见 [config.example.yaml](https://github.com/YangYuS8/wayvid/blob/"
+"main/configs/config.example.yaml) 了解所有选项。"
 
 #: src/reference/cli.md:3
 msgid "Complete reference for all CLI commands."
 msgstr "所有 CLI 命令的完整参考。"
 
 #: src/reference/cli.md:7
-msgid "Main daemon."
-msgstr "主守护进程。"
-
-#: src/reference/cli.md:13
-msgid "Options"
-msgstr "选项"
-
-#: src/reference/cli.md:14
-msgid "`--config <PATH>` - Config file path"
-msgstr "'--config <PATH>' - 配置文件路径"
+msgid "Main daemon and management tool."
+msgstr ""
 
 #: src/reference/cli.md:15
-msgid "`--generate-config` - Generate default config"
-msgstr "'--generate-config' - 生成默认配置"
+msgid "run"
+msgstr ""
 
 #: src/reference/cli.md:16
-msgid "`--log-level <LEVEL>` - Log level (error, warn, info, debug, trace)"
-msgstr "'--log-level <LEVEL>' - 日志级别(错误、警告、信息、调试、跟踪)"
+msgid "Run the wallpaper engine daemon."
+msgstr ""
 
-#: src/reference/cli.md:17
-msgid "`--version` - Print version"
-msgstr "'--version' - 打印版本"
-
-#: src/reference/cli.md:18 src/reference/cli.md:98
-msgid "`--help` - Show help"
-msgstr "'--help' - 显示帮助"
-
-#: src/reference/cli.md:20 src/reference/we-format.md:151
-msgid "Examples"
+#: src/reference/cli.md:19
+#, fuzzy
+msgid "# Examples\n"
 msgstr "例子"
 
-#: src/reference/cli.md:22
-msgid "# Run with custom config\n"
-msgstr "# 使用自定义配置运行\n"
-
-#: src/reference/cli.md:24
-msgid "# Generate config\n"
-msgstr "# 生成配置\n"
+#: src/reference/cli.md:26
+#, fuzzy
+msgid "daemon"
+msgstr "主守护进程。"
 
 #: src/reference/cli.md:27
-msgid "# Debug logging\n"
-msgstr "# 调试日志记录\n"
+msgid "Manage wayvid daemon (via systemd)."
+msgstr ""
 
-#: src/reference/cli.md:32
-msgid "wayvid-ctl"
-msgstr "wayvid-ctl"
+#: src/reference/cli.md:29
+msgid "# Start daemon\n"
+msgstr ""
 
-#: src/reference/cli.md:34
-msgid "IPC control tool."
-msgstr "工控控制工具。"
+#: src/reference/cli.md:47
+msgid ""
+"**Note:** These commands use systemd user services. Ensure `wayvid.service` "
+"is installed."
+msgstr ""
 
-#: src/reference/cli.md:42 src/reference/ipc-protocol.md:32
-msgid "status"
-msgstr "地位"
+#: src/reference/cli.md:49
+#, fuzzy
+msgid "check"
+msgstr "# 检查\n"
 
-#: src/reference/cli.md:43
-msgid "Show current status."
-msgstr "显示当前状态。"
+#: src/reference/cli.md:50
+#, fuzzy
+msgid "Check system capabilities and dependencies."
+msgstr "检查系统依赖关系"
 
-#: src/reference/cli.md:48 src/reference/ipc-protocol.md:57
-msgid "play"
-msgstr "玩"
-
-#: src/reference/cli.md:49 src/reference/ipc-protocol.md:58
-msgid "Start playback."
-msgstr "开始播放。"
-
-#: src/reference/cli.md:54 src/reference/ipc-protocol.md:70
-msgid "pause"
-msgstr "暂停"
-
-#: src/reference/cli.md:55 src/reference/ipc-protocol.md:71
-msgid "Pause playback."
-msgstr "暂停播放。"
-
-#: src/reference/cli.md:60 src/reference/ipc-protocol.md:83
-msgid "stop"
-msgstr "停"
-
-#: src/reference/cli.md:61 src/reference/ipc-protocol.md:84
-msgid "Stop playback."
-msgstr "停止播放。"
-
-#: src/reference/cli.md:66 src/reference/ipc-protocol.md:96
-msgid "resume"
-msgstr "恢复"
-
-#: src/reference/cli.md:67 src/reference/ipc-protocol.md:97
-msgid "Resume playback."
-msgstr "恢复播放。"
-
-#: src/reference/cli.md:72
-msgid "reload-config"
-msgstr "重新加载配置"
-
-#: src/reference/cli.md:73
-msgid "Reload configuration."
-msgstr "重新加载配置。"
-
-#: src/reference/cli.md:78
-msgid "set-volume"
-msgstr "设置音量"
-
-#: src/reference/cli.md:79
-msgid "Set volume (0-100)."
-msgstr "设置音量 (0-100)。"
-
-#: src/reference/cli.md:84
-msgid "set-source"
-msgstr "设置源代码"
-
-#: src/reference/cli.md:85 src/reference/ipc-protocol.md:131
-msgid "Change video source."
-msgstr "更改视频源。"
-
-#: src/reference/cli.md:90
-msgid "list-outputs"
-msgstr "列表输出"
-
-#: src/reference/cli.md:91 src/reference/ipc-protocol.md:144
-msgid "List all outputs."
-msgstr "列出所有输出。"
-
-#: src/reference/cli.md:96
-msgid "Global Options"
-msgstr "全局期权"
-
-#: src/reference/cli.md:97
-msgid "`--socket <PATH>` - IPC socket path"
-msgstr "'--socket <PATH>' - IPC 套接字路径"
-
-#: src/reference/cli.md:100
-msgid "wayvid workshop"
-msgstr "Wayvid 研讨会"
-
-#: src/reference/cli.md:102
-msgid "Workshop management (requires `--features workshop`)."
-msgstr "创意工坊管理（需要 '--features workshop'）。"
-
-#: src/reference/cli.md:110
-msgid "list"
-msgstr "列表"
-
-#: src/reference/cli.md:111
-msgid "List all workshop items."
-msgstr "列出所有研讨会项目。"
-
-#: src/reference/cli.md:116
-msgid "info"
-msgstr "信息"
-
-#: src/reference/cli.md:117
-msgid "Show item details."
-msgstr "显示项目详细信息。"
-
-#: src/reference/cli.md:122
+#: src/reference/cli.md:55 src/reference/cli.md:174
 msgid "import"
 msgstr "进口"
 
-#: src/reference/cli.md:123
+#: src/reference/cli.md:56
+#, fuzzy
+msgid "Import Wallpaper Engine project."
+msgstr "导入 Wallpaper Engine 项目。"
+
+#: src/reference/cli.md:59
+#, fuzzy
+msgid "# Example\n"
+msgstr "例子"
+
+#: src/reference/cli.md:64 src/reference/cli.md:148
+msgid "Global Options"
+msgstr "全局期权"
+
+#: src/reference/cli.md:65
+msgid "`--log-level <LEVEL>` - Log level (error, warn, info, debug, trace)"
+msgstr "'--log-level <LEVEL>' - 日志级别(错误、警告、信息、调试、跟踪)"
+
+#: src/reference/cli.md:66
+msgid "`--version` - Print version"
+msgstr "'--version' - 打印版本"
+
+#: src/reference/cli.md:67 src/reference/cli.md:150
+msgid "`--help` - Show help"
+msgstr "'--help' - 显示帮助"
+
+#: src/reference/cli.md:71
+msgid "# Start daemon with systemd\n"
+msgstr ""
+
+#: src/reference/cli.md:73
+#, fuzzy
+msgid "# Run directly with custom config\n"
+msgstr "# 使用自定义配置运行\n"
+
+#: src/reference/cli.md:76
+msgid "# Debug logging\n"
+msgstr "# 调试日志记录\n"
+
+#: src/reference/cli.md:84
+msgid "wayvid-ctl"
+msgstr "wayvid-ctl"
+
+#: src/reference/cli.md:86
+msgid "IPC control tool."
+msgstr "工控控制工具。"
+
+#: src/reference/cli.md:94
+msgid "status"
+msgstr "地位"
+
+#: src/reference/cli.md:95
+msgid "Show current status."
+msgstr "显示当前状态。"
+
+#: src/reference/cli.md:100
+msgid "play"
+msgstr "玩"
+
+#: src/reference/cli.md:101
+msgid "Start playback."
+msgstr "开始播放。"
+
+#: src/reference/cli.md:106 src/reference/ipc-protocol.md:74
+msgid "pause"
+msgstr "暂停"
+
+#: src/reference/cli.md:107
+msgid "Pause playback."
+msgstr "暂停播放。"
+
+#: src/reference/cli.md:112
+msgid "stop"
+msgstr "停"
+
+#: src/reference/cli.md:113
+msgid "Stop playback."
+msgstr "停止播放。"
+
+#: src/reference/cli.md:118 src/reference/ipc-protocol.md:90
+msgid "resume"
+msgstr "恢复"
+
+#: src/reference/cli.md:119 src/reference/ipc-protocol.md:91
+msgid "Resume playback."
+msgstr "恢复播放。"
+
+#: src/reference/cli.md:124 src/reference/ipc-protocol.md:140
+msgid "reload-config"
+msgstr "重新加载配置"
+
+#: src/reference/cli.md:125
+msgid "Reload configuration."
+msgstr "重新加载配置。"
+
+#: src/reference/cli.md:130 src/reference/ipc-protocol.md:160
+msgid "set-volume"
+msgstr "设置音量"
+
+#: src/reference/cli.md:131
+msgid "Set volume (0-100)."
+msgstr "设置音量 (0-100)。"
+
+#: src/reference/cli.md:136 src/reference/ipc-protocol.md:128
+msgid "set-source"
+msgstr "设置源代码"
+
+#: src/reference/cli.md:137
+msgid "Change video source."
+msgstr "更改视频源。"
+
+#: src/reference/cli.md:142
+msgid "list-outputs"
+msgstr "列表输出"
+
+#: src/reference/cli.md:143
+msgid "List all outputs."
+msgstr "列出所有输出。"
+
+#: src/reference/cli.md:149
+msgid "`--socket <PATH>` - IPC socket path"
+msgstr "'--socket <PATH>' - IPC 套接字路径"
+
+#: src/reference/cli.md:152
+msgid "wayvid workshop"
+msgstr "Wayvid 研讨会"
+
+#: src/reference/cli.md:154
+msgid "Workshop management (requires `--features workshop`)."
+msgstr "创意工坊管理（需要 '--features workshop'）。"
+
+#: src/reference/cli.md:162
+msgid "list"
+msgstr "列表"
+
+#: src/reference/cli.md:163
+msgid "List all workshop items."
+msgstr "列出所有研讨会项目。"
+
+#: src/reference/cli.md:168
+msgid "info"
+msgstr "信息"
+
+#: src/reference/cli.md:169
+msgid "Show item details."
+msgstr "显示项目详细信息。"
+
+#: src/reference/cli.md:175
 msgid "Import item to config."
 msgstr "将项目导入配置。"
 
-#: src/reference/cli.md:128
+#: src/reference/cli.md:180
 msgid "wayvid-gui"
 msgstr "wayvid-gui"
 
-#: src/reference/cli.md:130
+#: src/reference/cli.md:182
 msgid "Desktop GUI (requires `--features gui`)."
 msgstr "桌面 GUI(需要 '--features gui')。"
 
-#: src/reference/cli.md:136
+#: src/reference/cli.md:188
 msgid "No command-line options. Launch GUI directly."
 msgstr "没有命令行选项。直接启动 GUI。"
 
-#: src/reference/cli.md:138
+#: src/reference/cli.md:190
 msgid "Environment Variables"
 msgstr "环境变量"
 
-#: src/reference/cli.md:140
+#: src/reference/cli.md:192
 msgid "`RUST_LOG` - Log level (overrides `--log-level`)"
 msgstr "'RUST_LOG' - 日志级别(覆盖 '--log-level')"
 
-#: src/reference/cli.md:141
+#: src/reference/cli.md:193
 msgid "`XDG_RUNTIME_DIR` - IPC socket location"
 msgstr "'XDG_RUNTIME_DIR' - 工控机插座位置"
 
-#: src/reference/cli.md:142
+#: src/reference/cli.md:194
 msgid "`WAYLAND_DISPLAY` - Wayland display name"
 msgstr "'WAYLAND_DISPLAY' - Wayland 显示名称"
 
@@ -3159,10 +4797,11 @@ msgid "Transport"
 msgstr "运输"
 
 #: src/reference/ipc-protocol.md:7
+#, fuzzy
 msgid ""
 "**Protocol**: JSON over Unix socket  \n"
 "**Socket**: `$XDG_RUNTIME_DIR/wayvid.sock`  \n"
-"**Format**: Newline-delimited JSON"
+"**Format**: Newline-delimited JSON (request-response)"
 msgstr ""
 "**协议**：Unix socket 上的 JSON  \n"
 "**Socket**：`$XDG_RUNTIME_DIR/wayvid.sock`  \n"
@@ -3172,186 +4811,329 @@ msgstr ""
 msgid "Request"
 msgstr "请求"
 
-#: src/reference/ipc-protocol.md:16
-msgid "\"string\""
-msgstr "\"string\""
+#: src/reference/ipc-protocol.md:20
+msgid "Commands use **kebab-case** naming convention."
+msgstr ""
 
-#: src/reference/ipc-protocol.md:21
+#: src/reference/ipc-protocol.md:22
 msgid "Response"
 msgstr "响应"
 
-#: src/reference/ipc-protocol.md:26 src/reference/ipc-protocol.md:167
+#: src/reference/ipc-protocol.md:30
+msgid "Or for errors:"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:33 src/reference/ipc-protocol.md:210
 msgid "\"error\""
 msgstr "\"error\""
 
-#: src/reference/ipc-protocol.md:26
-msgid "\"string?\""
-msgstr "\"string?\""
+#: src/reference/ipc-protocol.md:34 src/reference/ipc-protocol.md:211
+#, fuzzy
+msgid "\"message\""
+msgstr "\"image\""
 
-#: src/reference/ipc-protocol.md:33
-msgid "Get daemon status."
+#: src/reference/ipc-protocol.md:34
+#, fuzzy
+msgid "\"Error description\""
+msgstr "\"description\""
+
+#: src/reference/ipc-protocol.md:40
+#, fuzzy
+msgid "get-status"
+msgstr "地位"
+
+#: src/reference/ipc-protocol.md:41
+#, fuzzy
+msgid "Get daemon status including all outputs."
 msgstr "获取守护进程状态。"
 
-#: src/reference/ipc-protocol.md:37
-msgid "\"status\""
-msgstr "\"status\""
+#: src/reference/ipc-protocol.md:61
+msgid "\"current_time\""
+msgstr ""
 
-#: src/reference/ipc-protocol.md:45
-msgid "\"running\""
-msgstr "\"running\""
+#: src/reference/ipc-protocol.md:62
+#, fuzzy
+msgid "\"duration\""
+msgstr "\"description\""
 
-#: src/reference/ipc-protocol.md:46 src/reference/ipc-protocol.md:156
-msgid "\"outputs\""
-msgstr "\"outputs\""
-
-#: src/reference/ipc-protocol.md:48
-msgid "\"name\""
-msgstr "\"name\""
-
-#: src/reference/ipc-protocol.md:49
-msgid "\"resolution\""
-msgstr "\"resolution\""
-
-#: src/reference/ipc-protocol.md:49
-msgid "\"2560x1440\""
-msgstr "\"2560x1440\""
-
-#: src/reference/ipc-protocol.md:50
-msgid "\"playing\""
-msgstr "\"playing\""
-
-#: src/reference/ipc-protocol.md:65 src/reference/ipc-protocol.md:78
-#: src/reference/ipc-protocol.md:91 src/reference/ipc-protocol.md:104
-msgid "\"DP-1\"  // optional\n"
-msgstr "\"DP-1\"  // 可选\n"
-
-#: src/reference/ipc-protocol.md:89
-msgid "\"stop\""
-msgstr "\"stop\""
-
-#: src/reference/ipc-protocol.md:102
-msgid "\"resume\""
-msgstr "\"resume\""
-
-#: src/reference/ipc-protocol.md:109
-msgid "reload_config"
-msgstr "reload_config"
-
-#: src/reference/ipc-protocol.md:110
-msgid "Reload configuration file."
-msgstr "重新加载配置文件。"
-
-#: src/reference/ipc-protocol.md:114
-msgid "\"reload_config\""
-msgstr "\"reload_config\""
-
-#: src/reference/ipc-protocol.md:117
-msgid "set_volume"
-msgstr "set_volume"
-
-#: src/reference/ipc-protocol.md:118
-msgid "Set volume."
-msgstr "设置音量。"
-
-#: src/reference/ipc-protocol.md:123
-msgid "\"set_volume\""
-msgstr "\"set_volume\""
-
-#: src/reference/ipc-protocol.md:125
-msgid "\"volume\""
-msgstr "\"volume\""
-
-#: src/reference/ipc-protocol.md:125
-msgid "// 0-100\n"
-msgstr "// 0-100\n"
-
-#: src/reference/ipc-protocol.md:130
-msgid "set_source"
-msgstr "set_source"
-
+#: src/reference/ipc-protocol.md:63 src/reference/ipc-protocol.md:121
 #: src/reference/ipc-protocol.md:136
-msgid "\"set_source\""
-msgstr "\"set_source\""
+#, fuzzy
+msgid "\"source\""
+msgstr "源"
 
-#: src/reference/ipc-protocol.md:138
-msgid "\"path\""
-msgstr "\"path\""
-
-#: src/reference/ipc-protocol.md:138
+#: src/reference/ipc-protocol.md:63 src/reference/ipc-protocol.md:136
 msgid "\"/path/to/video.mp4\""
 msgstr "\"/path/to/video.mp4\""
 
-#: src/reference/ipc-protocol.md:143
-msgid "list_outputs"
-msgstr "list_outputs"
+#: src/reference/ipc-protocol.md:64 src/reference/ipc-protocol.md:191
+msgid "\"layout\""
+msgstr ""
+
+#: src/reference/ipc-protocol.md:64
+msgid "\"Fill\""
+msgstr ""
+
+#: src/reference/ipc-protocol.md:65 src/reference/ipc-protocol.md:168
+msgid "\"volume\""
+msgstr "\"volume\""
+
+#: src/reference/ipc-protocol.md:66
+msgid "\"muted\""
+msgstr ""
+
+#: src/reference/ipc-protocol.md:67
+#, fuzzy
+msgid "\"playback_rate\""
+msgstr "回放"
+
+#: src/reference/ipc-protocol.md:75
+#, fuzzy
+msgid "Pause playback on specific or all outputs."
+msgstr "# 暂停特定输出\n"
+
+#: src/reference/ipc-protocol.md:81 src/reference/ipc-protocol.md:97
+#: src/reference/ipc-protocol.md:108 src/reference/ipc-protocol.md:120
+#: src/reference/ipc-protocol.md:135 src/reference/ipc-protocol.md:155
+#: src/reference/ipc-protocol.md:167 src/reference/ipc-protocol.md:179
+#: src/reference/ipc-protocol.md:190
+msgid "\"output\""
+msgstr "\"output\""
+
+#: src/reference/ipc-protocol.md:85
+#, fuzzy
+msgid "Or pause all:"
+msgstr "或使用货物："
+
+#: src/reference/ipc-protocol.md:96
+msgid "\"resume\""
+msgstr "\"resume\""
+
+#: src/reference/ipc-protocol.md:101
+msgid "seek"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:102
+msgid "Seek to specific time (seconds)."
+msgstr ""
+
+#: src/reference/ipc-protocol.md:107
+msgid "\"seek\""
+msgstr ""
+
+#: src/reference/ipc-protocol.md:109
+#, fuzzy
+msgid "\"time\""
+msgstr "\"anime\""
+
+#: src/reference/ipc-protocol.md:113
+#, fuzzy
+msgid "switch-source"
+msgstr "设置源代码"
+
+#: src/reference/ipc-protocol.md:114
+#, fuzzy
+msgid "Change video source for an output."
+msgstr "更改视频源。"
+
+#: src/reference/ipc-protocol.md:119
+#, fuzzy
+msgid "\"switch-source\""
+msgstr "\"set_source\""
+
+#: src/reference/ipc-protocol.md:122 src/reference/we-format.md:27
+#: src/reference/we-format.md:38 src/reference/we-format.md:76
+#: src/reference/we-format.md:143 src/reference/we-format.md:158
+#: src/reference/we-format.md:168 src/reference/we-format.md:179
+msgid "\"type\""
+msgstr "\"type\""
+
+#: src/reference/ipc-protocol.md:122
+#, fuzzy
+msgid "\"File\""
+msgstr "\"file\""
+
+#: src/reference/ipc-protocol.md:123
+msgid "\"path\""
+msgstr "\"path\""
+
+#: src/reference/ipc-protocol.md:123
+#, fuzzy
+msgid "\"/path/to/new-video.mp4\""
+msgstr "\"/path/to/video.mp4\""
+
+#: src/reference/ipc-protocol.md:129
+msgid "Set video source (simplified, path only)."
+msgstr ""
+
+#: src/reference/ipc-protocol.md:134
+#, fuzzy
+msgid "\"set-source\""
+msgstr "\"set_source\""
+
+#: src/reference/ipc-protocol.md:141
+#, fuzzy
+msgid "Reload configuration from file."
+msgstr "重新加载配置文件。"
+
+#: src/reference/ipc-protocol.md:145
+#, fuzzy
+msgid "\"reload-config\""
+msgstr "\"reload_config\""
 
 #: src/reference/ipc-protocol.md:148
-msgid "\"list_outputs\""
-msgstr "\"list_outputs\""
+#, fuzzy
+msgid "set-playback-rate"
+msgstr "暂停播放"
+
+#: src/reference/ipc-protocol.md:149
+#, fuzzy
+msgid "Set playback speed."
+msgstr "停止播放。"
+
+#: src/reference/ipc-protocol.md:154
+#, fuzzy
+msgid "\"set-playback-rate\""
+msgstr "暂停播放"
 
 #: src/reference/ipc-protocol.md:156
-msgid "\"HDMI-A-1\""
-msgstr "\"HDMI-A-1\""
+msgid "\"rate\""
+msgstr ""
 
-#: src/reference/ipc-protocol.md:161 src/reference/we-format.md:128
+#: src/reference/ipc-protocol.md:161
+#, fuzzy
+msgid "Set volume (0.0 - 1.0)."
+msgstr "设置音量 (0-100)。"
+
+#: src/reference/ipc-protocol.md:166
+#, fuzzy
+msgid "\"set-volume\""
+msgstr "\"set_volume\""
+
+#: src/reference/ipc-protocol.md:172
+msgid "toggle-mute"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:173
+msgid "Toggle audio mute."
+msgstr ""
+
+#: src/reference/ipc-protocol.md:178
+msgid "\"toggle-mute\""
+msgstr ""
+
+#: src/reference/ipc-protocol.md:183
+#, fuzzy
+msgid "set-layout"
+msgstr "设置音量"
+
+#: src/reference/ipc-protocol.md:184
+#, fuzzy
+msgid "Set layout mode."
+msgstr "设置音量。"
+
+#: src/reference/ipc-protocol.md:189
+msgid "\"set-layout\""
+msgstr ""
+
+#: src/reference/ipc-protocol.md:191
+#, fuzzy
+msgid "\"fill\""
+msgstr "\"file\""
+
+#: src/reference/ipc-protocol.md:195
+msgid "Available layouts: `fill`, `contain`, `stretch`, `cover`, `centre`"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:197
+msgid "quit"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:198
+msgid "Stop the daemon."
+msgstr ""
+
+#: src/reference/ipc-protocol.md:202
+msgid "\"quit\""
+msgstr ""
+
+#: src/reference/ipc-protocol.md:205 src/reference/we-format.md:128
 msgid "Error Handling"
 msgstr "错误处理"
 
-#: src/reference/ipc-protocol.md:163
+#: src/reference/ipc-protocol.md:207
 msgid "Error Response"
 msgstr "错误响应"
 
-#: src/reference/ipc-protocol.md:167
+#: src/reference/ipc-protocol.md:211
 msgid "\"Output 'DP-1' not found\""
 msgstr "\"Output 'DP-1' not found\""
 
-#: src/reference/ipc-protocol.md:171
+#: src/reference/ipc-protocol.md:215
 msgid "Common Errors"
 msgstr "常见错误"
 
-#: src/reference/ipc-protocol.md:172
-msgid "`\"daemon not running\"`"
-msgstr "`\"daemon not running\"`"
+#: src/reference/ipc-protocol.md:216
+msgid "`\"Timeout waiting for daemon response\"` - Daemon busy or unresponsive"
+msgstr ""
 
-#: src/reference/ipc-protocol.md:173
-msgid "`\"invalid command\"`"
-msgstr "`\"invalid command\"`"
+#: src/reference/ipc-protocol.md:217
+msgid "`\"Failed to connect to daemon\"` - Daemon not running"
+msgstr ""
 
-#: src/reference/ipc-protocol.md:174
-msgid "`\"output not found\"`"
-msgstr "`\"output not found\"`"
+#: src/reference/ipc-protocol.md:218
+msgid "`\"Failed to parse command\"` - Invalid JSON syntax"
+msgstr ""
 
-#: src/reference/ipc-protocol.md:175
-msgid "`\"invalid parameters\"`"
-msgstr "`\"invalid parameters\"`"
+#: src/reference/ipc-protocol.md:219
+msgid "`\"Output not found\"` - Specified output doesn't exist"
+msgstr ""
 
-#: src/reference/ipc-protocol.md:177
-msgid "Example Implementation"
+#: src/reference/ipc-protocol.md:221
+#, fuzzy
+msgid "Example Implementations"
 msgstr "示例实现"
 
-#: src/reference/ipc-protocol.md:179
-msgid "See [IPC Control](../features/ipc.md#programming-examples) for code examples."
+#: src/reference/ipc-protocol.md:241
+#, fuzzy
+msgid "# Pause playback\n"
+msgstr "暂停播放"
+
+#: src/reference/ipc-protocol.md:266
+#, fuzzy
+msgid "\"Error: {}\""
+msgstr "\"error\""
+
+#: src/reference/ipc-protocol.md:273
+msgid "The IPC system uses a request-response pattern:"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:277
+msgid "Daemon processes command and generates response"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:278
+msgid "Daemon sends JSON response (newline-terminated)"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:279
+msgid "Connection can be reused for multiple commands"
+msgstr ""
+
+#: src/reference/ipc-protocol.md:281
+msgid ""
+"The daemon uses non-blocking event polling to handle IPC requests alongside "
+"Wayland events, ensuring responsive command processing."
+msgstr ""
+
+#: src/reference/ipc-protocol.md:285
+#, fuzzy
+msgid "[IPC Control](../features/ipc.md) - User guide"
 msgstr "参见 [IPC 控制](../features/ipc.md#programming-examples) 的代码示例。"
 
-#: src/reference/ipc-protocol.md:181
-msgid "Versioning"
-msgstr "版本控制"
-
-#: src/reference/ipc-protocol.md:183
-msgid "Protocol version in response:"
-msgstr "响应的协议版本："
-
-#: src/reference/ipc-protocol.md:187
-msgid "\"version\""
-msgstr "\"version\""
-
-#: src/reference/ipc-protocol.md:187
-msgid "\"1.0\""
-msgstr "\"1.0\""
-
-#: src/reference/ipc-protocol.md:192
-msgid "Breaking changes will increment major version."
-msgstr "重大更改将递增主要版本。"
+#: src/reference/ipc-protocol.md:286
+msgid "[CLI Commands](./cli.md) - Command-line interface"
+msgstr ""
 
 #: src/reference/we-format.md:1
 msgid "Wallpaper Engine Format"
@@ -3360,6 +5142,10 @@ msgstr "Wallpaper Engine 格式"
 #: src/reference/we-format.md:3
 msgid "Specification for Wallpaper Engine project files."
 msgstr "Wallpaper Engine 项目文件的规范。"
+
+#: src/reference/we-format.md:5
+msgid "Project Structure"
+msgstr "项目结构"
 
 #: src/reference/we-format.md:18
 msgid "project.json"
@@ -3382,13 +5168,6 @@ msgstr "\"title\""
 #: src/reference/we-format.md:26
 msgid "\"My Wallpaper\""
 msgstr "\"My Wallpaper\""
-
-#: src/reference/we-format.md:27 src/reference/we-format.md:38
-#: src/reference/we-format.md:76 src/reference/we-format.md:143
-#: src/reference/we-format.md:158 src/reference/we-format.md:168
-#: src/reference/we-format.md:179
-msgid "\"type\""
-msgstr "\"type\""
 
 #: src/reference/we-format.md:27 src/reference/we-format.md:38
 #: src/reference/we-format.md:76 src/reference/we-format.md:158
@@ -3731,8 +5510,10 @@ msgid "\"index.html\""
 msgstr "\"index.html\""
 
 #: src/reference/we-format.md:184
-msgid "**Note**: Web support is experimental. Complex WebGL/Canvas may not work."
-msgstr "**注意**：网页支持仍为实验性功能。复杂的 WebGL/Canvas 可能无法正常工作。"
+msgid ""
+"**Note**: Web support is experimental. Complex WebGL/Canvas may not work."
+msgstr ""
+"**注意**：网页支持仍为实验性功能。复杂的 WebGL/Canvas 可能无法正常工作。"
 
 #: src/reference/we-format.md:186
 msgid "Reference Implementation"
@@ -3765,3 +5546,477 @@ msgstr "[创意工坊集成](../features/workshop.md）"
 #: src/reference/we-format.md:196
 msgid "[Configuration Reference](config.md)"
 msgstr "[配置参考](config.md)"
+
+#: src/reference/conflicts.md:3
+#, fuzzy
+msgid "Problem Description"
+msgstr "描述"
+
+#: src/reference/conflicts.md:5
+msgid ""
+"wayvid uses the Wayland Layer Shell protocol's `Background` layer to display "
+"wallpapers. If other wallpaper managers (such as swww, hyprpaper, swaybg, "
+"etc.) are running simultaneously on your system, they may cover wayvid's "
+"output, making the video wallpaper invisible."
+msgstr ""
+
+#: src/reference/conflicts.md:7
+msgid "Common Conflicting Wallpaper Managers"
+msgstr ""
+
+#: src/reference/conflicts.md:9
+msgid "swww"
+msgstr ""
+
+#: src/reference/conflicts.md:11
+msgid ""
+"**Symptoms**: Desktop still shows static wallpaper after starting wayvid"
+msgstr ""
+
+#: src/reference/conflicts.md:13 src/reference/conflicts.md:32
+#: src/reference/conflicts.md:48
+msgid "**Detection**:"
+msgstr ""
+
+#: src/reference/conflicts.md:18 src/reference/conflicts.md:37
+#: src/reference/conflicts.md:53
+#, fuzzy
+msgid "**Solution**:"
+msgstr "**编译缓慢：**"
+
+#: src/reference/conflicts.md:20
+msgid "# Temporary stop\n"
+msgstr ""
+
+#: src/reference/conflicts.md:22
+msgid ""
+"# Permanent disable: Remove swww-related commands from compositor config\n"
+"# Example for Niri: ~/.config/niri/config.kdl\n"
+"# Comment out or delete these lines:\n"
+"# spawn-sh-at-startup \"swww-daemon\"\n"
+"# spawn-sh-at-startup \"swww img /path/to/image.png\"\n"
+msgstr ""
+
+#: src/reference/conflicts.md:30
+msgid "hyprpaper (Hyprland)"
+msgstr ""
+
+#: src/reference/conflicts.md:39
+msgid "# Stop hyprpaper\n"
+msgstr ""
+
+#: src/reference/conflicts.md:41
+#, fuzzy
+msgid ""
+"# Remove from ~/.config/hypr/hyprland.conf:\n"
+"# exec-once = hyprpaper\n"
+msgstr "添加到 '~/.config/hypr/hyprland.conf'："
+
+#: src/reference/conflicts.md:46
+msgid "swaybg (Sway/SwayFX)"
+msgstr ""
+
+#: src/reference/conflicts.md:55
+msgid "# Stop swaybg\n"
+msgstr ""
+
+#: src/reference/conflicts.md:57
+msgid ""
+"# Remove from Sway config:\n"
+"# exec swaybg -i /path/to/image.png\n"
+msgstr ""
+
+#: src/reference/conflicts.md:62
+#, fuzzy
+msgid "Automatic Detection"
+msgstr "自动优化"
+
+#: src/reference/conflicts.md:64
+msgid ""
+"wayvid automatically detects these conflicting programs at startup and "
+"displays warnings in the logs:"
+msgstr ""
+
+#: src/reference/conflicts.md:73
+#, fuzzy
+msgid "Recommended Configuration Steps"
+msgstr "重新加载配置文件。"
+
+#: src/reference/conflicts.md:75
+msgid "**Stop existing wallpaper managers**:"
+msgstr ""
+
+#: src/reference/conflicts.md:80
+msgid "**Remove their autostart from compositor configuration**"
+msgstr ""
+
+#: src/reference/conflicts.md:82
+msgid "**Add wayvid to autostart**:"
+msgstr ""
+
+#: src/reference/conflicts.md:84
+msgid "# Niri example\n"
+msgstr ""
+
+#: src/reference/conflicts.md:85
+#, fuzzy
+msgid "\"wayvid\" \"run\""
+msgstr "wayvid 版本"
+
+#: src/reference/conflicts.md:87
+msgid "# Hyprland example\n"
+msgstr ""
+
+#: src/reference/conflicts.md:90
+msgid "# Sway example\n"
+msgstr ""
+
+#: src/reference/conflicts.md:94
+msgid "**Restart compositor or manually start wayvid**"
+msgstr ""
+
+#: src/reference/conflicts.md:96
+#, fuzzy
+msgid "Verification"
+msgstr "操作"
+
+#: src/reference/conflicts.md:98
+msgid "Check running processes after startup:"
+msgstr ""
+
+#: src/reference/conflicts.md:100
+msgid "\"(wayvid|swww|hyprpaper|swaybg)\""
+msgstr ""
+
+#: src/reference/conflicts.md:103
+msgid "You should only see `wayvid` running."
+msgstr ""
+
+#: src/reference/conflicts.md:107
+msgid ""
+"All these wallpaper managers use the Wayland Layer Shell protocol's "
+"`Background` layer. This layer is the bottom-most layer beneath all windows, "
+"and multiple programs cannot coexist on the same layer. The last program "
+"started typically covers previous ones."
+msgstr ""
+
+#: src/reference/conflicts.md:109
+msgid "Future versions may:"
+msgstr ""
+
+#: src/reference/conflicts.md:110
+msgid ""
+"Provide configuration options to choose different layers (e.g., `Bottom`)"
+msgstr ""
+
+#: src/reference/conflicts.md:111
+msgid "Automatically detect and attempt to terminate conflicting processes"
+msgstr ""
+
+#: src/reference/conflicts.md:112
+msgid "Deeper integration with compositors"
+msgstr ""
+
+#~ msgid ""
+#~ "```kdl\n"
+#~ "spawn-at-startup \"wayvid\"\n"
+#~ "```"
+#~ msgstr ""
+#~ "```kdl\n"
+#~ "spawn-at-startup \"wayvid\"\n"
+#~ "```"
+
+#~ msgid "**fit**: Scale to fit, maintain aspect ratio (default)"
+#~ msgstr "**fit**：缩放以适合，保持纵横比(默认)"
+
+#~ msgid "Steam installed"
+#~ msgstr "安装蒸汽"
+
+#~ msgid "Workshop items subscribed"
+#~ msgstr "已申购的研讨会项目"
+
+#~ msgid "List Available Items"
+#~ msgstr "列出可用项目"
+
+#~ msgid "Get Item Info"
+#~ msgstr "获取商品信息"
+
+#~ msgid "Import Item"
+#~ msgstr "导入项目"
+
+#~ msgid "Generates config entry:"
+#~ msgstr "生成配置条目："
+
+#~ msgid ""
+#~ "URL format: `https://steamcommunity.com/sharedfiles/filedetails/?id=<ID>`"
+#~ msgstr ""
+#~ "URL 格式：`https://steamcommunity.com/sharedfiles/filedetails/?id=<ID>`"
+
+#~ msgid "Example: `id=1234567890`"
+#~ msgstr "示例：“id=1234567890”"
+
+#~ msgid ""
+#~ "✅ Video wallpapers ✅ Static images ✅ Basic animations ⚠️ Interactive "
+#~ "wallpapers (limited) ❌ Audio (muted by default) ❌ Web-based wallpapers"
+#~ msgstr ""
+#~ "✅ 视频壁纸 ✅ 静态图片 ✅ 基础动画 ⚠️ 交互式壁纸（有限支持） ❌ 音频（默认"
+#~ "静音） ❌ 网页壁纸"
+
+#~ msgid "wayvid automatically:"
+#~ msgstr "wayvid 会自动："
+
+#~ msgid "Locates workshop items"
+#~ msgstr "查找创意工坊物品"
+
+#~ msgid "Parses `project.json`"
+#~ msgstr "解析“project.json”"
+
+#~ msgid "Converts to native format"
+#~ msgstr "转换为原生格式"
+
+#~ msgid ""
+#~ "# Optional overrides\n"
+#~ "  volume"
+#~ msgstr ""
+#~ "# 可选覆盖\n"
+#~ "  volume"
+
+#~ msgid "**Items not found:**"
+#~ msgstr "**未找到项目：**"
+
+#~ msgid "Check subscriptions in Steam Workshop"
+#~ msgstr "在 Steam 创意工坊中查看订阅情况"
+
+#~ msgid "Some WE features unsupported"
+#~ msgstr "部分 WE 功能不受支持"
+
+#~ msgid "Check logs: `wayvid --log-level debug`"
+#~ msgstr "检查日志：'wayvid --log-level debug'"
+
+#~ msgid "Report issues on GitHub"
+#~ msgstr "在 GitHub 上报告问题"
+
+#~ msgid "Workshop items are converted on-the-fly:"
+#~ msgstr "创意工坊物品是即时转换的："
+
+#~ msgid "First load: ~1-2s conversion"
+#~ msgstr "首次加载：~1-2s 转换"
+
+#~ msgid "Subsequent loads: instant"
+#~ msgstr "后续负载：瞬间"
+
+#~ msgid "Cache location: `~/.cache/wayvid/workshop/`"
+#~ msgstr "缓存位置：'~/.cache/wayvid/workshop/'"
+
+#~ msgid "`wayvid-ctl` provides IPC commands:"
+#~ msgstr "'wayvid-ctl' 提供 IPC 命令："
+
+#~ msgid "Output Management"
+#~ msgstr "输出管理"
+
+#~ msgid "\"play\""
+#~ msgstr "\"play\""
+
+#~ msgid "\"params\""
+#~ msgstr "\"params\""
+
+#~ msgid "\"DP-1\""
+#~ msgstr "\"DP-1\""
+
+#~ msgid "`play`"
+#~ msgstr "“玩”"
+
+#~ msgid "Start playback"
+#~ msgstr "开始播放"
+
+#~ msgid "`stop`"
+#~ msgstr "“停止”"
+
+#~ msgid "`volume: u8`"
+#~ msgstr "'卷：U8'"
+
+#~ msgid "`set_source`"
+#~ msgstr "“set_source”"
+
+#~ msgid "`path: string`"
+#~ msgstr "'路径：字符串'"
+
+#~ msgid "Change video source"
+#~ msgstr "更改视频源"
+
+#~ msgid "`list_outputs`"
+#~ msgstr "“list_outputs”"
+
+#~ msgid "# Send command\n"
+#~ msgstr "# 发送命令\n"
+
+#~ msgid "# Receive response\n"
+#~ msgstr "# 接收响应\n"
+
+#~ msgid "GUI Integration"
+#~ msgstr "GUI 集成"
+
+#~ msgid "Desktop GUI available:"
+#~ msgstr "桌面 GUI 可用："
+
+#~ msgid "Output status monitoring"
+#~ msgstr "输出状态监控"
+
+#~ msgid "Playback controls"
+#~ msgstr "播放控件"
+
+#~ msgid "Configuration editing"
+#~ msgstr "配置编辑"
+
+#~ msgid "Workshop browser"
+#~ msgstr "创意工坊浏览器"
+
+#~ msgid "Check: `ls $XDG_RUNTIME_DIR/wayvid.sock`"
+#~ msgstr "检查：“ls $XDG_RUNTIME_DIR/wayvid.sock”"
+
+#~ msgid "Socket owned by wayvid user"
+#~ msgstr "wayvid 用户拥有的套接字"
+
+#~ msgid "Verify JSON syntax"
+#~ msgstr "验证 JSON 语法"
+
+#~ msgid "Use `--log-level debug`"
+#~ msgstr "使用“--log-level debug”"
+
+#~ msgid "Type validation"
+#~ msgstr "类型验证"
+
+#~ msgid "Per-output config"
+#~ msgstr "每个输出配置"
+
+#~ msgid "Layer-shell protocol"
+#~ msgstr "层壳协议"
+
+#~ msgid "Surface creation"
+#~ msgstr "表面创建"
+
+#~ msgid "Event handling"
+#~ msgstr "事件处理"
+
+#~ msgid "EGL rendering"
+#~ msgstr "EGL 渲染"
+
+#~ msgid "Hardware decode"
+#~ msgstr "硬件解码"
+
+#~ msgid "HDR pipeline"
+#~ msgstr "HDR 管线"
+
+#~ msgid "Unix socket server"
+#~ msgstr "Unix 套接字服务器"
+
+#~ msgid "Protocol handling"
+#~ msgstr "协议处理"
+
+#~ msgid "Layer-Shell"
+#~ msgstr "层壳"
+
+#~ msgid "No window management needed"
+#~ msgstr "无需窗口管理"
+
+#~ msgid "HDR support"
+#~ msgstr "HDR 支持"
+
+#~ msgid "Async Architecture"
+#~ msgstr "异步架构"
+
+#~ msgid "Tokio-based async runtime:"
+#~ msgstr "基于 Tokio 的异步运行时："
+
+#~ msgid "Efficient resource usage"
+#~ msgstr "高效利用资源"
+
+#~ msgid "Clean concurrency"
+#~ msgstr "干净的并发"
+
+#~ msgid "**Async Runtime**: I/O operations"
+#~ msgstr "**异步运行时**：I/O作"
+
+#~ msgid "Parallelizable"
+#~ msgstr "可并行化"
+
+#~ msgid "Async"
+#~ msgstr "异步"
+
+#~ msgid "Multiple video engines"
+#~ msgstr "多个视频引擎"
+
+#~ msgid "Shader system"
+#~ msgstr "着色器系统"
+
+#~ msgid "Advanced compositing"
+#~ msgstr "高级合成"
+
+#~ msgid "`--config <PATH>` - Config file path"
+#~ msgstr "'--config <PATH>' - 配置文件路径"
+
+#~ msgid "`--generate-config` - Generate default config"
+#~ msgstr "'--generate-config' - 生成默认配置"
+
+#~ msgid "# Generate config\n"
+#~ msgstr "# 生成配置\n"
+
+#~ msgid "\"string\""
+#~ msgstr "\"string\""
+
+#~ msgid "\"string?\""
+#~ msgstr "\"string?\""
+
+#~ msgid "\"running\""
+#~ msgstr "\"running\""
+
+#~ msgid "\"resolution\""
+#~ msgstr "\"resolution\""
+
+#~ msgid "\"2560x1440\""
+#~ msgstr "\"2560x1440\""
+
+#~ msgid "\"DP-1\"  // optional\n"
+#~ msgstr "\"DP-1\"  // 可选\n"
+
+#~ msgid "\"stop\""
+#~ msgstr "\"stop\""
+
+#~ msgid "reload_config"
+#~ msgstr "reload_config"
+
+#~ msgid "set_volume"
+#~ msgstr "set_volume"
+
+#~ msgid "// 0-100\n"
+#~ msgstr "// 0-100\n"
+
+#~ msgid "set_source"
+#~ msgstr "set_source"
+
+#~ msgid "list_outputs"
+#~ msgstr "list_outputs"
+
+#~ msgid "\"list_outputs\""
+#~ msgstr "\"list_outputs\""
+
+#~ msgid "`\"invalid command\"`"
+#~ msgstr "`\"invalid command\"`"
+
+#~ msgid "`\"output not found\"`"
+#~ msgstr "`\"output not found\"`"
+
+#~ msgid "`\"invalid parameters\"`"
+#~ msgstr "`\"invalid parameters\"`"
+
+#~ msgid "Versioning"
+#~ msgstr "版本控制"
+
+#~ msgid "Protocol version in response:"
+#~ msgstr "响应的协议版本："
+
+#~ msgid "\"1.0\""
+#~ msgstr "\"1.0\""
+
+#~ msgid "Breaking changes will increment major version."
+#~ msgstr "重大更改将递增主要版本。"

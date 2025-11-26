@@ -33,27 +33,28 @@ wayvid's high-level architecture and design decisions.
 
 ### Configuration (`src/config/`)
 - YAML parsing with serde
-- Type validation
+- Type validation with pattern matching
 - Hot-reload support via file watcher
-- Per-output config with pattern matching
+- Per-output config with glob pattern matching
 
 ### Core (`src/core/`)
 - Main event loop (non-blocking poll)
 - State management
 - Output layout tracking
-- Power management (battery, hidden window)
+- Power management (battery, workspace visibility)
 
 ### Wayland Backend (`src/backend/wayland/`)
-- wlr-layer-shell protocol
-- Output management (hotplug support)
+- wlr-layer-shell protocol implementation
+- Output management with hotplug support
 - Surface creation with `exclusive_zone(-1)` for full coverage
-- Event handling with libc poll
+- **Frame callback driven rendering** (vsync-aware)
 
 ### Video (`src/video/`)
 - mpv integration via libmpv
 - EGL rendering with shared decode context
-- Hardware decode acceleration
+- Hardware decode acceleration (VA-API/NVDEC)
 - HDR pipeline with tone mapping
+- Frame timing and pacing
 
 ### IPC (`src/ctl/`)
 - Unix socket server with request-response pattern
@@ -63,9 +64,61 @@ wayvid's high-level architecture and design decisions.
 
 ### GUI (`src/bin/wayvid-gui.rs`)
 - egui/eframe desktop application
+- Wallpaper Engine-inspired interface design
 - Internationalization (i18n) with rust-i18n
 - System locale detection
 - Async IPC client in separate thread
+
+## Frame Rendering Architecture
+
+wayvid uses a **frame callback driven** rendering model for optimal performance:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frame Callback Chain                      │
+│                                                              │
+│  Compositor ──► Frame Callback ──► Render Frame ──► Commit  │
+│       ▲                                              │       │
+│       └──────────────────────────────────────────────┘       │
+│                     (New callback requested)                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Principles
+
+1. **Callback-Driven**: Only render when compositor signals readiness
+2. **No Polling**: Eliminated busy-wait loops, CPU idle when no frame needed
+3. **VSync Aligned**: Frame timing matches compositor's refresh rate
+4. **Per-Surface State**: Each output has independent frame callback tracking
+
+### Frame States
+
+```rust
+enum FrameState {
+    Idle,           // No callback pending, can request new frame
+    Pending,        // Callback requested, waiting for compositor
+    Ready,          // Callback received, ready to render
+}
+```
+
+### Render Flow
+
+```
+1. Surface created → Request initial frame callback
+2. Compositor ready → Frame callback received
+3. Render new frame → EGL swap buffers
+4. Commit surface → Request next frame callback
+5. Wait for callback → (no CPU usage)
+6. Repeat from step 2
+```
+
+### Performance Impact
+
+| Metric | Before (Polling) | After (Callback) |
+|--------|------------------|------------------|
+| CPU Usage | 60-80% | 40-58% |
+| Frame Rate | ~880 fps (uncapped) | ~30-36 fps (vsync) |
+| Power Draw | High | Low |
 
 ## Data Flow
 
@@ -111,8 +164,8 @@ while running {
     // 1. Dispatch pending Wayland events
     event_queue.dispatch_pending(&mut state)?;
     
-    // 2. Poll for new events (16ms timeout)
-    poll(&mut [wayland_fd], 16)?;
+    // 2. Poll for events (blocking until frame callback or event)
+    poll(&mut [wayland_fd, ...], timeout)?;
     
     // 3. Process IPC requests (non-blocking)
     while let Ok(request) = request_rx.try_recv() {
@@ -123,6 +176,35 @@ while running {
     // 4. Handle config changes, power management, etc.
 }
 ```
+
+## GUI Architecture
+
+The GUI follows a **Wallpaper Engine-inspired** design:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Navigation Tabs    [Wallpapers] [Settings]      [Lang: 🌐] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│                 Unified Wallpaper Grid                      │
+│         (Local files + Workshop items combined)             │
+│                                                             │
+│   ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ [+ Add]         │
+│   │     │ │     │ │     │ │     │ │     │                  │
+│   └─────┘ └─────┘ └─────┘ └─────┘ └─────┘                  │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  Monitor Selector Bar                                       │
+│  [DP-1 ✓] [HDMI-A-1] [eDP-1]                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+
+- **Bottom Monitor Bar**: Quick access to all displays (like Wallpaper Engine)
+- **Unified Library**: All wallpaper sources in one grid
+- **Click-to-Apply**: Single click selects, double-click applies
+- **Simplified Tabs**: Removed complex multi-step workflows
 
 ## Key Design Decisions
 
@@ -145,6 +227,13 @@ Direct EGL context sharing:
 - GPU-accelerated
 - Wayland-native
 - Shared decode context for multi-monitor
+
+### Frame Callback Rendering
+Compositor-driven frame timing:
+- No busy polling
+- VSync aligned
+- Minimal CPU when idle
+- Proper frame pacing
 
 ### Internationalization
 GUI supports multiple languages:
