@@ -1,5 +1,33 @@
 ## [unreleased]
 
+### 🚀 Features
+
+- *(gui)* 重构 GUI 为 Wallpaper Engine 风格的简化界面
+
+### 🐛 Bug Fixes
+
+- *(gui)* Reconnect IPC for each command
+- *(render)* 修复帧渲染循环架构，优化 CPU 使用率
+- *(gui)* 优化状态消息格式化，提升代码可读性
+- *(ci)* 修复 clippy dead_code 和 unnecessary_map_or 警告
+
+### 📚 Documentation
+
+- 更新文档以反映新的 GUI 和帧渲染架构
+
+### 🎨 Styling
+
+- 修复 types.rs 格式化问题
+## [0.4.4-alpha.2] - 2025-11-25
+
+### 🚀 Features
+
+- *(gui)* Add i18n support and fix full screen coverage
+
+### 🐛 Bug Fixes
+
+- *(ci)* Resolve clippy warnings for CI compliance
+
 ### 📚 Documentation
 
 - *(openspec)* Update optimize-release-workflow task progress

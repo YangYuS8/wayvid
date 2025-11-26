@@ -1,6 +1,6 @@
 [package]
 name = "wayvid"
-version = "0.4.4-alpha.2"
+version = "0.4.4-alpha.3"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
