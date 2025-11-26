@@ -155,6 +155,45 @@ impl Config {
         Ok(config)
     }
 
+    /// Save configuration to YAML file
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let path_ref = path.as_ref();
+
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = path_ref.parent() {
+            fs::create_dir_all(parent).with_context(|| {
+                format!("Failed to create config directory: {:?}", parent)
+            })?;
+        }
+
+        let content = serde_yaml::to_string(self).context("Failed to serialize config")?;
+        fs::write(path_ref, content).with_context(|| {
+            format!("Failed to write config file: {:?}", path_ref)
+        })?;
+
+        tracing::info!("Configuration saved to: {:?}", path_ref);
+        Ok(())
+    }
+
+    /// Update source for a specific output and save
+    pub fn set_output_source(&mut self, output_name: &str, source: crate::core::types::VideoSource) {
+        // Check if this output already has a config entry
+        if let Some(output_config) = self.per_output.get_mut(output_name) {
+            output_config.source = Some(source);
+        } else {
+            // Create a new entry for this output
+            self.per_output.insert(output_name.to_string(), OutputConfig {
+                priority: default_priority(),
+                source: Some(source),
+                layout: None,
+                start_time: None,
+                playback_rate: None,
+                mute: None,
+                volume: None,
+            });
+        }
+    }
+
     /// Validate and fix configuration values
     fn validate(&mut self) {
         // Validate tone mapping config

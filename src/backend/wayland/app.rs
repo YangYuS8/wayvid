@@ -41,6 +41,8 @@ pub struct AppState {
     pub request_rx: Option<Receiver<IpcRequest>>,
     pub niri_client: Option<NiriClient>,
     pub focused_workspace: Option<u64>,
+    /// Track if playback is currently paused due to power management
+    playback_paused_for_battery: bool,
 }
 
 impl AppState {
@@ -64,6 +66,7 @@ impl AppState {
             request_rx: None,
             niri_client: None,
             focused_workspace: None,
+            playback_paused_for_battery: false,
         }
     }
 
@@ -109,21 +112,28 @@ impl AppState {
     }
 
     /// Apply power management: check battery, pause/resume players
+    /// Only takes action when state changes to avoid spam
     fn apply_power_management(&mut self) {
         let power_config = &self.config.power;
 
         // Check if pause_on_battery is enabled and we're on battery
-        if power_config.pause_on_battery && self.power_manager.is_on_battery() {
-            // Pause all players
+        let should_pause = power_config.pause_on_battery && self.power_manager.is_on_battery();
+
+        // Only take action if state changed
+        if should_pause && !self.playback_paused_for_battery {
+            // Transition to paused state
+            self.playback_paused_for_battery = true;
+            info!("Pausing playback due to battery power");
             #[cfg(feature = "video-mpv")]
             for surface in self.surfaces.values_mut() {
                 if let Err(e) = surface.pause_playback() {
                     warn!("Failed to pause playback: {}", e);
                 }
             }
-            debug!("Paused playback due to battery power");
-        } else {
-            // Resume all players
+        } else if !should_pause && self.playback_paused_for_battery {
+            // Transition to playing state
+            self.playback_paused_for_battery = false;
+            info!("Resuming playback (AC power restored)");
             #[cfg(feature = "video-mpv")]
             for surface in self.surfaces.values_mut() {
                 if let Err(e) = surface.resume_playback() {
@@ -131,30 +141,37 @@ impl AppState {
                 }
             }
         }
+        // If state hasn't changed, do nothing
     }
 
     /// Check if FPS limiting should throttle rendering
+    /// Currently disabled - let Wayland vsync handle frame timing
     fn should_throttle_fps(&mut self) -> bool {
-        // Niri workspace optimization: reduce FPS when not in focus
+        // Disabled: FPS throttle breaks the frame callback chain
+        // TODO: Implement proper throttling that doesn't break callbacks
+        false
+
+        /*
+        // Niri workspace optimization: reduce FPS when wallpaper workspace is not in focus
+        // This only applies to Niri compositor
         if let Some(ref mut niri_client) = self.niri_client {
             if let Ok(Some(focused)) = niri_client.get_focused_workspace() {
-                if Some(focused) != self.focused_workspace {
-                    // Not in focused workspace - throttle heavily
-                    self.focused_workspace = Some(focused);
-                    debug!("Workspace changed to {}, throttling to 1 FPS", focused);
+                // Update focused workspace
+                let was_focused = self.focused_workspace;
+                self.focused_workspace = Some(focused);
 
-                    let elapsed = self.last_frame_time.elapsed();
-                    if elapsed < std::time::Duration::from_secs(1) {
-                        return true; // 1 FPS when not focused
-                    } else {
-                        self.last_frame_time = std::time::Instant::now();
-                        return false;
-                    }
+                // Log workspace changes
+                if was_focused != Some(focused) {
+                    debug!("Focused workspace changed to {}", focused);
                 }
+
+                // For now, don't throttle based on workspace
+                // TODO: Implement proper workspace-aware throttling when we have
+                // a way to know which workspace the wallpaper is on
             }
         }
 
-        // Normal FPS throttling
+        // Normal FPS throttling based on max_fps config
         let max_fps = self.config.power.max_fps;
 
         if max_fps == 0 {
@@ -170,6 +187,7 @@ impl AppState {
             self.last_frame_time = std::time::Instant::now();
             false // Allow render
         }
+        */
     }
 
     /// Handle IPC command (legacy method for internal use)
@@ -356,6 +374,8 @@ impl AppState {
     fn handle_switch_source_command(&mut self, output: String, source: VideoSource) {
         #[cfg(feature = "video-mpv")]
         {
+            let egl_ctx = self.egl_context.as_ref();
+
             for surface in self.surfaces.values_mut() {
                 if surface.output_info.name == output {
                     // Extract source path for switch_source (which expects string)
@@ -375,7 +395,7 @@ impl AppState {
                         VideoSource::WeProject { path } => path.clone(),
                     };
 
-                    if let Err(e) = surface.switch_source(&source_path) {
+                    if let Err(e) = surface.switch_source(&source_path, egl_ctx) {
                         warn!("Failed to switch source on {}: {}", output, e);
                     } else {
                         info!("Switched {} to source: {:?}", output, source);
@@ -387,8 +407,29 @@ impl AppState {
         }
     }
 
-    /// Handle set source command (simplified version)
+    /// Handle set source command (simplified version) - also saves to config
     fn handle_set_source_command(&mut self, output: Option<String>, source_path: String) {
+        use crate::core::types::VideoSource;
+
+        // Parse source path to VideoSource
+        let video_source =
+            if source_path.starts_with("http://") || source_path.starts_with("https://") {
+                VideoSource::Url {
+                    url: source_path.clone(),
+                }
+            } else if source_path.starts_with("rtsp://") {
+                VideoSource::Rtsp {
+                    url: source_path.clone(),
+                }
+            } else {
+                let path = shellexpand::tilde(&source_path).to_string();
+                if std::path::Path::new(&path).is_dir() {
+                    VideoSource::Directory { path }
+                } else {
+                    VideoSource::File { path }
+                }
+            };
+
         #[cfg(feature = "video-mpv")]
         {
             let targets: Vec<String> = if let Some(output_name) = output {
@@ -400,16 +441,33 @@ impl AppState {
                     .collect()
             };
 
-            for output_name in targets {
+            let egl_ctx = self.egl_context.as_ref();
+
+            for output_name in &targets {
                 for surface in self.surfaces.values_mut() {
-                    if surface.output_info.name == output_name {
-                        if let Err(e) = surface.switch_source(&source_path) {
+                    if &surface.output_info.name == output_name {
+                        if let Err(e) = surface.switch_source(&source_path, egl_ctx) {
                             warn!("Failed to set source on {}: {}", output_name, e);
                         } else {
                             info!("Set {} to source: {}", output_name, source_path);
                         }
                         break;
                     }
+                }
+            }
+
+            // Save to config for persistence
+            for output_name in targets {
+                self.config
+                    .set_output_source(&output_name, video_source.clone());
+            }
+
+            // Save config to file
+            if let Some(ref config_path) = self.config_path {
+                if let Err(e) = self.config.save_to_file(config_path) {
+                    warn!("Failed to save config: {}", e);
+                } else {
+                    info!("Configuration saved with new wallpaper setting");
                 }
             }
         }
@@ -519,7 +577,26 @@ impl AppState {
         // Load new config
         let new_config = Config::from_file(config_path)?;
 
-        // Apply to all surfaces
+        // Collect source changes that need to be applied
+        // (we need to do this separately due to borrow checker)
+        #[cfg(feature = "video-mpv")]
+        let source_changes: Vec<(String, String)> = self
+            .surfaces
+            .values()
+            .filter_map(|surface| {
+                let effective_config = new_config.for_output(&surface.output_info.name);
+                if surface.config.source != effective_config.source {
+                    Some((
+                        surface.output_info.name.clone(),
+                        effective_config.source.get_mpv_path(),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Apply to all surfaces (non-source changes)
         for (output_id, surface) in self.surfaces.iter_mut() {
             let output_info = &surface.output_info;
 
@@ -546,19 +623,30 @@ impl AppState {
                 if let Err(e) = surface.set_volume(effective_config.volume) {
                     warn!("    Failed to set volume: {}", e);
                 }
-
-                // Switch source if changed
-                if surface.config.source != effective_config.source {
-                    let new_source = effective_config.source.get_mpv_path();
-                    info!("    Switching source to: {}", new_source);
-                    if let Err(e) = surface.switch_source(&new_source) {
-                        warn!("    Failed to switch source: {}", e);
-                    }
-                }
             }
 
             // Update stored config
             surface.config = effective_config;
+        }
+
+        // Apply source changes separately
+        #[cfg(feature = "video-mpv")]
+        {
+            let egl_ctx = self.egl_context.as_ref();
+            for (output_name, new_source) in source_changes {
+                info!(
+                    "    Switching source for {} to: {}",
+                    output_name, new_source
+                );
+                for surface in self.surfaces.values_mut() {
+                    if surface.output_info.name == output_name {
+                        if let Err(e) = surface.switch_source(&new_source, egl_ctx) {
+                            warn!("    Failed to switch source: {}", e);
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         // Update stored config
@@ -776,6 +864,8 @@ impl Dispatch<wl_output::WlOutput, u32> for AppState {
 }
 
 // Frame callback handler for vsync
+// Note: In the simplified render loop, this callback is requested but not used
+// to drive rendering. It's kept for potential future vsync-aware optimizations.
 impl Dispatch<wl_callback::WlCallback, u32> for AppState {
     fn event(
         state: &mut Self,
@@ -788,7 +878,9 @@ impl Dispatch<wl_callback::WlCallback, u32> for AppState {
         use wl_callback::Event;
 
         if let Event::Done { callback_data: _ } = event {
-            // Frame callback triggered - mark that frame is ready to render
+            // Frame callback triggered - compositor displayed our frame
+            // In the simplified architecture, we don't use this to drive rendering,
+            // but it could be used for vsync-aware optimizations in the future
             if let Some(surface) = state.surfaces.get_mut(output_id) {
                 surface.on_frame_ready();
             }
@@ -1005,24 +1097,16 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
 
     info!("Created {} surfaces", state.surfaces.len());
 
-    // Request initial frame callbacks for all surfaces
-    info!("Requesting initial frame callbacks...");
-    let qh = event_queue.handle();
-    for surface in state.surfaces.values_mut() {
-        surface.request_frame(&qh);
-        // Mark frame pending so first render happens
-        surface.on_frame_ready();
-    }
-
     // Initial render (triggers lazy initialization)
+    // frame_pending is set to true in configure(), so first render will work
     info!("Performing initial render (triggers lazy initialization)...");
     let egl_ctx = state.egl_context.as_ref();
+    let qh = event_queue.handle();
     for surface in state.surfaces.values_mut() {
-        if let Err(e) = surface.render(egl_ctx) {
+        if let Err(e) = surface.render(egl_ctx, &qh) {
             warn!("Initial render error: {}", e);
         }
-        // Request next frame after initial render
-        surface.request_frame(&qh);
+        // Note: render() now calls request_frame() internally before commit
     }
 
     // Measure and report startup time
@@ -1040,6 +1124,10 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
     // Frame statistics reporting
     let mut last_stats_report = std::time::Instant::now();
     const STATS_REPORT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
+
+    // Periodic check intervals (not every frame)
+    let mut last_power_check = std::time::Instant::now();
+    const POWER_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
     use std::os::fd::AsFd;
     use std::os::fd::AsRawFd;
@@ -1061,15 +1149,16 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
 
         // Prepare to read from Wayland connection
         if let Some(guard) = event_queue.prepare_read() {
-            // Use libc poll with timeout to check for new events
+            // Use libc poll with moderate timeout
             let mut poll_fd = libc::pollfd {
                 fd: wayland_fd,
                 events: libc::POLLIN,
                 revents: 0,
             };
 
-            // Poll with 16ms timeout (roughly 60 FPS) to allow IPC processing
-            let ret = unsafe { libc::poll(&mut poll_fd, 1, 16) };
+            // Use 10ms timeout - balances responsiveness and CPU usage
+            // Frame callbacks from compositor arrive at ~30fps (every ~33ms)
+            let ret = unsafe { libc::poll(&mut poll_fd, 1, 10) };
 
             if ret > 0 && (poll_fd.revents & libc::POLLIN) != 0 {
                 // Events available, read them
@@ -1077,13 +1166,9 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
                     warn!("Failed to read Wayland events: {}", e);
                 }
             } else {
-                // Timeout or error - drop guard without reading (this cancels the read)
+                // Timeout or error - drop guard without reading
                 drop(guard);
             }
-        } else {
-            // Cannot prepare read - there might be pending events,
-            // just sleep briefly and continue to allow IPC processing
-            std::thread::sleep(std::time::Duration::from_millis(1));
         }
 
         // Dispatch any new events
@@ -1092,20 +1177,22 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
         }
 
         // Process IPC requests (non-blocking)
-        let requests: Vec<IpcRequest> = if let Some(ref rx) = state.request_rx {
-            let mut reqs = Vec::new();
-            while let Ok(request) = rx.try_recv() {
-                reqs.push(request);
-            }
-            reqs
-        } else {
-            Vec::new()
-        };
+        // First collect all pending requests to avoid borrow conflict
+        let pending_requests: Vec<_> = state
+            .request_rx
+            .as_ref()
+            .map(|rx| {
+                let mut reqs = Vec::new();
+                while let Ok(request) = rx.try_recv() {
+                    reqs.push(request);
+                }
+                reqs
+            })
+            .unwrap_or_default();
 
-        for request in requests {
-            info!("Processing IPC command: {:?}", request.command);
+        for request in pending_requests {
+            debug!("Processing IPC command: {:?}", request.command);
             let response = state.handle_command_with_response(request.command);
-            // Send response back to client
             if let Err(e) = request.response_tx.send(response) {
                 warn!("Failed to send IPC response: {}", e);
             }
@@ -1123,42 +1210,44 @@ pub fn run(config: Config, config_path: Option<PathBuf>) -> Result<()> {
             }
         }
 
-        // Apply power management (battery check, pause/resume)
-        state.apply_power_management();
-
-        // Check FPS throttling
-        if state.should_throttle_fps() {
-            continue; // Skip rendering this frame
+        // Apply power management periodically (not every frame)
+        if last_power_check.elapsed() >= POWER_CHECK_INTERVAL {
+            state.apply_power_management();
+            last_power_check = std::time::Instant::now();
         }
 
-        // Begin frame timing measurement
-        state.frame_timing.begin_frame();
-
-        // Check if we should skip this frame due to overload
-        if state.frame_timing.should_skip_frame() {
-            state.frame_timing.record_skip();
-            continue; // Skip this frame to reduce load
-        }
-
-        // Render surfaces that have pending frames (triggered by frame callbacks)
+        // Render all surfaces
+        // Unlike the previous approach that relied on frame callbacks to drive rendering,
+        // we now render on every loop iteration. This is simpler and more robust:
+        // - mpv's render() will only do work if there's a new frame
+        // - Wayland frame callbacks are used for vsync pacing
+        // - The event loop's poll() provides natural rate limiting
         let egl_ctx = state.egl_context.as_ref();
         let qh = event_queue.handle();
-        for surface in state.surfaces.values_mut() {
-            // Check if frame is ready before rendering
-            let should_render = surface.has_frame_pending();
 
-            if let Err(e) = surface.render(egl_ctx) {
+        for surface in state.surfaces.values_mut() {
+            // Only render if frame callback has triggered (vsync)
+            // frame_pending is set by on_frame_ready() when compositor sends frame callback
+            if !surface.has_frame_pending() {
+                continue;
+            }
+
+            // Render the surface
+            // render() will: clear frame_pending, render, request_frame, commit
+            state.frame_timing.begin_frame();
+
+            if let Err(e) = surface.render(egl_ctx, &qh) {
                 warn!("Render error: {}", e);
             }
 
-            // Request next frame if we just rendered
-            if should_render {
-                surface.request_frame(&qh);
-            }
+            state.frame_timing.end_frame();
         }
 
-        // End frame timing measurement
-        state.frame_timing.end_frame();
+        // Flush after rendering to ensure frame callbacks are sent immediately
+        // This is critical for blocking poll to receive the callback
+        if let Err(e) = event_queue.flush() {
+            warn!("Failed to flush after render: {}", e);
+        }
 
         // Periodically report frame statistics
         if last_stats_report.elapsed() >= STATS_REPORT_INTERVAL {

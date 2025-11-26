@@ -151,6 +151,8 @@ impl WaylandSurface {
 
         // Only commit on initial configure to avoid loops
         if is_first {
+            // Set frame_pending to allow initial render after configure
+            self.frame_pending = true;
             self.wl_surface.commit();
         }
     }
@@ -184,10 +186,18 @@ impl WaylandSurface {
         Ok(())
     }
 
-    pub fn render(&mut self, egl_context: Option<&EglContext>) -> Result<()> {
+    pub fn render(
+        &mut self,
+        egl_context: Option<&EglContext>,
+        qh: &QueueHandle<crate::backend::wayland::app::AppState>,
+    ) -> Result<()> {
         if !self.configured || !self.frame_pending {
             return Ok(());
         }
+
+        // Clear frame_pending - we're going to render this frame
+        // This ensures we wait for the next frame callback before rendering again
+        self.frame_pending = false;
 
         // Lazy initialization: Initialize resources on first render if not already done
         if !self.resources_initialized && self.is_active {
@@ -215,6 +225,15 @@ impl WaylandSurface {
                     }
                 }
 
+                // CRITICAL: Make EGL context current BEFORE initializing decoder/render context
+                // mpv render API requires a valid OpenGL context to be current
+                if let Some(ref egl_win) = self.egl_window {
+                    if let Err(e) = egl_ctx.make_current(egl_win) {
+                        error!("Failed to make context current during lazy init: {}", e);
+                        return Ok(());
+                    }
+                }
+
                 // Initialize decoder
                 #[cfg(feature = "video-mpv")]
                 if self.decoder_handle.is_none() {
@@ -238,8 +257,7 @@ impl WaylandSurface {
             }
         }
 
-        // Clear frame pending flag
-        self.frame_pending = false;
+        // frame_pending is cleared by the caller (app.rs run_event_loop)
 
         // Increment frame count
         self.frame_count += 1;
@@ -252,7 +270,10 @@ impl WaylandSurface {
             }
         }
 
-        // OpenGL rendering with clear screen test
+        // OpenGL rendering
+        // Track whether we actually rendered a frame
+        let mut frame_rendered = false;
+
         if let (Some(egl_ctx), Some(ref egl_win)) = (egl_context, &self.egl_window) {
             // Make context current
             if let Err(e) = egl_ctx.make_current(egl_win) {
@@ -270,7 +291,7 @@ impl WaylandSurface {
                 );
             }
 
-            // Clear to black background
+            // Always clear to black first to ensure clean background
             unsafe {
                 gl::ClearColor(0.0, 0.0, 0.0, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -279,7 +300,7 @@ impl WaylandSurface {
             // Render video frame with layout
             #[cfg(feature = "video-mpv")]
             {
-                if let Some(ref handle) = self.decoder_handle {
+                if let Some(ref mut handle) = self.decoder_handle {
                     let output_w = egl_win.width();
                     let output_h = egl_win.height();
 
@@ -329,8 +350,13 @@ impl WaylandSurface {
                     };
 
                     // Render video frame via shared decoder
-                    if let Err(e) = handle.render(render_w, render_h, 0) {
-                        warn!("Video render error: {}", e);
+                    match handle.render(render_w, render_h, 0) {
+                        Ok(rendered) => {
+                            frame_rendered = rendered;
+                        }
+                        Err(e) => {
+                            warn!("Video render error: {}", e);
+                        }
                     }
 
                     // Reset viewport to full output
@@ -340,12 +366,26 @@ impl WaylandSurface {
                 }
             }
 
-            // Swap buffers to display
-            if let Err(e) = egl_ctx.swap_buffers(egl_win) {
-                error!("Failed to swap buffers: {}", e);
+            // Only swap buffers if we actually rendered a new frame
+            // This saves GPU work when video fps < display refresh rate
+            if frame_rendered {
+                if let Err(e) = egl_ctx.swap_buffers(egl_win) {
+                    error!("Failed to swap buffers: {}", e);
+                }
+
+                #[cfg(feature = "video-mpv")]
+                if let Some(ref handle) = self.decoder_handle {
+                    handle.report_swap();
+                }
             }
         }
 
+        // Request frame callback BEFORE commit
+        // This is crucial: the callback is registered with wl_surface.frame()
+        // and will be triggered after the compositor displays this commit
+        self.request_frame(qh);
+
+        // Always commit to Wayland
         self.wl_surface.commit();
         Ok(())
     }
@@ -468,12 +508,49 @@ impl WaylandSurface {
     }
 
     /// Switch video source
-    /// TODO(M5): Need to implement source switching with decoder re-acquisition
+    /// Re-acquires decoder with new source
     #[cfg(feature = "video-mpv")]
-    #[allow(unused_variables)]
-    pub fn switch_source(&mut self, source: &str) -> Result<()> {
-        // Temporarily disabled - requires decoder handle replacement
-        warn!("switch_source not supported with shared decode context");
+    pub fn switch_source(&mut self, source: &str, egl_context: Option<&EglContext>) -> Result<()> {
+        use crate::core::types::VideoSource;
+
+        info!(
+            "🔄 Switching source for {} to: {}",
+            self.output_info.name, source
+        );
+
+        // Parse source string to VideoSource
+        let new_source = if source.starts_with("http://") || source.starts_with("https://") {
+            VideoSource::Url {
+                url: source.to_string(),
+            }
+        } else if source.starts_with("rtsp://") {
+            VideoSource::Rtsp {
+                url: source.to_string(),
+            }
+        } else {
+            // Assume it's a file path
+            let path = shellexpand::tilde(source).to_string();
+            if std::path::Path::new(&path).is_dir() {
+                VideoSource::Directory { path }
+            } else {
+                VideoSource::File { path }
+            }
+        };
+
+        // Update config with new source
+        self.config.source = new_source;
+
+        // Release old decoder handle (drop it)
+        self.decoder_handle = None;
+
+        // Re-acquire decoder with new config
+        self.init_decoder(egl_context)?;
+
+        info!(
+            "✅ Source switched for {} to: {}",
+            self.output_info.name, source
+        );
+
         Ok(())
     }
 

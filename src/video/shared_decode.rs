@@ -98,12 +98,22 @@ impl DecoderHandle {
     }
 
     /// Render a frame (only one consumer needs to call this)
-    pub fn render(&self, width: i32, height: i32, fbo: i32) -> Result<()> {
+    /// Returns Ok(true) if a new frame was actually rendered, Ok(false) if no new frame
+    pub fn render(&self, width: i32, height: i32, fbo: i32) -> Result<bool> {
         let mut manager = self.manager.write().unwrap();
         if let Some(decoder) = manager.decoders.get_mut(&self.key) {
             decoder.render(width, height, fbo)
         } else {
-            Ok(())
+            Ok(false)
+        }
+    }
+
+    /// Report that a frame has been swapped to the display
+    /// Must be called after swap_buffers to inform mpv about frame timing
+    pub fn report_swap(&self) {
+        let manager = self.manager.read().unwrap();
+        if let Some(decoder) = manager.decoders.get(&self.key) {
+            decoder.report_swap();
         }
     }
 
@@ -276,31 +286,40 @@ impl SharedDecoder {
     }
 
     /// Render frame (called by one consumer, updates shared buffer)
-    fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<()> {
+    /// Returns Ok(true) if a new frame was actually rendered, Ok(false) if no new frame
+    fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<bool> {
         // Render to FBO
-        {
+        let frame_rendered = {
             let mut player = self.player.lock().unwrap();
-            player.render(width, height, fbo)?;
-        }
+            player.render(width, height, fbo)?
+        };
 
-        // Update stats
-        self.stats.frames_decoded += 1;
+        // Update stats only if we actually rendered a new frame
+        if frame_rendered {
+            self.stats.frames_decoded += 1;
 
-        // Log memory stats periodically (every 300 frames ~= every 5 seconds at 60fps)
-        if self.stats.frames_decoded % 300 == 0 {
-            let mem_stats = MemoryStats::global();
-            debug!(
-                "📊 Memory after {} frames: current={}, peak={}",
-                self.stats.frames_decoded,
-                MemoryStats::format_bytes(mem_stats.current_bytes),
-                MemoryStats::format_bytes(mem_stats.peak_bytes),
-            );
+            // Log memory stats periodically (every 300 frames ~= every 5 seconds at 60fps)
+            if self.stats.frames_decoded % 300 == 0 {
+                let mem_stats = MemoryStats::global();
+                debug!(
+                    "📊 Memory after {} frames: current={}, peak={}",
+                    self.stats.frames_decoded,
+                    MemoryStats::format_bytes(mem_stats.current_bytes),
+                    MemoryStats::format_bytes(mem_stats.peak_bytes),
+                );
+            }
         }
 
         // TODO: Extract rendered frame to shared buffer
         // For now, just increment frame count
 
-        Ok(())
+        Ok(frame_rendered)
+    }
+
+    /// Report that a frame has been swapped to the display
+    fn report_swap(&self) {
+        let player = self.player.lock().unwrap();
+        player.report_swap();
     }
 
     /// Get shared frame buffer reference

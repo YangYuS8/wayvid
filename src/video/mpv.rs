@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use std::ffi::{c_char, c_void, CString};
 use std::ptr;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use crate::config::EffectiveConfig;
@@ -13,6 +15,9 @@ const MPV_RENDER_PARAM_API_TYPE: u32 = 1;
 const MPV_RENDER_PARAM_OPENGL_INIT_PARAMS: u32 = 2;
 const MPV_RENDER_PARAM_OPENGL_FBO: u32 = 3;
 const MPV_RENDER_PARAM_FLIP_Y: u32 = 4;
+
+// mpv_render_update_flag constants
+const MPV_RENDER_UPDATE_FRAME: u64 = 1;
 
 // OpenGL get_proc_address callback wrapper
 extern "C" fn get_proc_address_wrapper(ctx: *mut c_void, name: *const c_char) -> *mut c_void {
@@ -27,6 +32,18 @@ extern "C" fn get_proc_address_wrapper(ctx: *mut c_void, name: *const c_char) ->
     }
 }
 
+/// Callback for mpv render context update notification
+/// This is called by mpv when a new frame is available
+extern "C" fn render_update_callback(ctx: *mut c_void) {
+    if ctx.is_null() {
+        return;
+    }
+    unsafe {
+        let flag = &*(ctx as *const AtomicBool);
+        flag.store(true, Ordering::Release);
+    }
+}
+
 /// MPV-based video player using direct libmpv-sys FFI with OpenGL rendering
 pub struct MpvPlayer {
     handle: *mut libmpv_sys::mpv_handle,
@@ -34,6 +51,13 @@ pub struct MpvPlayer {
     output_info: OutputInfo,
     // Cache video dimensions to avoid repeated property access
     cached_dimensions: Option<(i32, i32)>,
+    // Flag set by mpv callback when new frame is available
+    // Must be Arc to ensure pointer stability for callback
+    frame_available: Arc<AtomicBool>,
+    // Source path to load after render context is initialized
+    pending_source: Option<String>,
+    // Whether source has been loaded
+    source_loaded: bool,
 }
 
 // Safety: mpv_handle can be safely sent between threads
@@ -62,14 +86,18 @@ impl MpvPlayer {
             }
         };
 
-        // Configure MPV
+        // Configure MPV - these must be set BEFORE mpv_initialize()
+        // Explicitly disable user config to avoid interference
         set_option("config", "no");
+        set_option("config-dir", "/dev/null"); // Extra safety: point config dir to nowhere
         set_option("terminal", "no");
-        set_option("msg-level", "all=warn");
+        set_option("msg-level", "all=warn"); // Only warnings and errors
 
         // Video output - use libmpv for render API
         set_option("vo", "libmpv");
         set_option("vid", "auto");
+        set_option("aid", "auto"); // Ensure audio track selection
+        set_option("pause", "no"); // Ensure video starts playing immediately
 
         // Configure scaling behavior based on layout mode
         match config.layout {
@@ -147,6 +175,12 @@ impl MpvPlayer {
             return Err(anyhow!("Failed to initialize MPV: error {}", ret));
         }
 
+        // Request log messages from mpv for debugging
+        let log_level = CString::new("info").unwrap();
+        unsafe {
+            libmpv_sys::mpv_request_log_messages(handle, log_level.as_ptr());
+        }
+
         info!("  ✓ MPV initialized successfully");
 
         // Memory optimization: Limit demuxer cache
@@ -163,7 +197,7 @@ impl MpvPlayer {
         }
 
         if config.source.is_image_sequence() {
-            info!("  �️  Configuring for image sequence");
+            info!("  🖼️  Configuring for image sequence");
             set_option("image-display-duration", "inf");
             // Get FPS for image sequences
             if let crate::core::types::VideoSource::ImageSequence { fps, .. } = &config.source {
@@ -172,33 +206,20 @@ impl MpvPlayer {
             }
         }
 
-        // Load video source
+        // Store source path for loading after render context is initialized
+        // CRITICAL: loadfile must be called AFTER render context is created
+        // for mpv render API to work correctly
         let source_path = config.source.get_mpv_path();
-        info!("  📁 Loading source: {}", source_path);
-
-        let cmd = CString::new("loadfile").unwrap();
-        let path_c = CString::new(source_path.as_str())?;
-        let mode = CString::new("replace").unwrap();
-
-        let mut args = [
-            cmd.as_ptr(),
-            path_c.as_ptr(),
-            mode.as_ptr(),
-            std::ptr::null(),
-        ];
-
-        let ret = unsafe { libmpv_sys::mpv_command(handle, args.as_mut_ptr()) };
-        if ret < 0 {
-            warn!("Failed to load source: error {}", ret);
-        } else {
-            info!("  ✓ Source loaded successfully");
-        }
+        info!("  📁 Source prepared: {}", source_path);
 
         Ok(Self {
             handle,
             render_context: None,
             output_info: output_info.clone(),
             cached_dimensions: None,
+            frame_available: Arc::new(AtomicBool::new(false)),
+            pending_source: Some(source_path),
+            source_loaded: false,
         })
     }
 
@@ -254,8 +275,45 @@ impl MpvPlayer {
             ));
         }
 
+        // Set update callback - CRITICAL for render API to function properly
+        // The callback notifies us when a new frame is available
+        // Note: We use Arc::as_ptr to get a stable pointer for the callback
+        unsafe {
+            libmpv_sys::mpv_render_context_set_update_callback(
+                render_context,
+                Some(render_update_callback),
+                Arc::as_ptr(&self.frame_available) as *mut c_void,
+            );
+        }
+        info!("  ✓ Render update callback registered");
+
         self.render_context = Some(render_context);
         info!("  ✓ Render context created successfully");
+
+        // NOW load the source file - this must happen AFTER render context is created
+        // for mpv render API to work correctly
+        if let Some(source_path) = self.pending_source.take() {
+            info!("  📁 Loading source: {}", source_path);
+
+            let cmd = CString::new("loadfile").unwrap();
+            let path_c = CString::new(source_path.as_str())?;
+            let mode = CString::new("replace").unwrap();
+
+            let mut args = [
+                cmd.as_ptr(),
+                path_c.as_ptr(),
+                mode.as_ptr(),
+                std::ptr::null(),
+            ];
+
+            let ret = unsafe { libmpv_sys::mpv_command(self.handle, args.as_mut_ptr()) };
+            if ret < 0 {
+                warn!("Failed to load source: error {}", ret);
+            } else {
+                info!("  ✓ Source loaded successfully");
+                self.source_loaded = true;
+            }
+        }
 
         Ok(())
     }
@@ -450,13 +508,34 @@ impl MpvPlayer {
     }
 
     /// Render a video frame to the current OpenGL context
-    pub fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<()> {
+    /// Returns true if a frame was actually rendered, false if no new frame was available
+    pub fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<bool> {
         let Some(render_ctx) = self.render_context else {
             debug!("No render context available");
-            return Ok(());
+            return Ok(false);
         };
 
-        debug!("🎬 Rendering frame: {}x{} to FBO {}", width, height, fbo);
+        // Process mpv events - CRITICAL for mpv to function!
+        // mpv needs us to drain its event queue for it to work properly
+        self.process_events();
+
+        // Check if mpv has a new frame ready
+        let update_flags = unsafe { libmpv_sys::mpv_render_context_update(render_ctx) };
+        let has_new_frame = (update_flags & MPV_RENDER_UPDATE_FRAME) != 0;
+
+        // Clear callback flag
+        let _ = self.frame_available.swap(false, Ordering::AcqRel);
+
+        // Skip rendering if no new frame - saves CPU/GPU
+        // The FBO retains its previous content from the last render
+        if !has_new_frame {
+            return Ok(false);
+        }
+
+        debug!(
+            "🎬 Rendering NEW frame: {}x{} to FBO {}",
+            width, height, fbo
+        );
 
         // FBO parameters
         let fbo_data = libmpv_sys::mpv_opengl_fbo {
@@ -488,11 +567,92 @@ impl MpvPlayer {
 
         if ret < 0 {
             warn!("mpv render error: {}", ret);
-        } else {
-            debug!("  ✓ Frame rendered successfully");
+            return Ok(false);
         }
 
-        Ok(())
+        // Always return true - we successfully rendered (even if it's the same frame)
+        Ok(true)
+    }
+
+    /// Report that a frame has been swapped to the display
+    /// This must be called after swap_buffers to inform mpv about frame timing
+    pub fn report_swap(&self) {
+        if let Some(render_ctx) = self.render_context {
+            unsafe {
+                libmpv_sys::mpv_render_context_report_swap(render_ctx);
+            }
+        }
+    }
+
+    /// Process mpv events - must be called regularly for mpv to function
+    /// This drains the event queue and logs important events
+    fn process_events(&mut self) {
+        loop {
+            let event = unsafe { libmpv_sys::mpv_wait_event(self.handle, 0.0) };
+            if event.is_null() {
+                break;
+            }
+
+            let event_id = unsafe { (*event).event_id };
+
+            // MPV_EVENT_NONE means no more events
+            if event_id == 0 {
+                break;
+            }
+
+            // Log interesting events
+            match event_id {
+                1 => {
+                    // MPV_EVENT_SHUTDOWN
+                    info!("📺 MPV event: shutdown");
+                }
+                2 => {
+                    // MPV_EVENT_LOG_MESSAGE
+                    let data = unsafe { (*event).data as *const libmpv_sys::mpv_event_log_message };
+                    if !data.is_null() {
+                        let level = unsafe { std::ffi::CStr::from_ptr((*data).level) }
+                            .to_str()
+                            .unwrap_or("?");
+                        let prefix = unsafe { std::ffi::CStr::from_ptr((*data).prefix) }
+                            .to_str()
+                            .unwrap_or("?");
+                        let text = unsafe { std::ffi::CStr::from_ptr((*data).text) }
+                            .to_str()
+                            .unwrap_or("?")
+                            .trim();
+                        if !text.is_empty() {
+                            debug!("📺 MPV [{}] {}: {}", level, prefix, text);
+                        }
+                    }
+                }
+                5 => {
+                    // MPV_EVENT_START_FILE
+                    info!("📺 MPV event: start file");
+                }
+                7 => {
+                    // MPV_EVENT_FILE_LOADED
+                    info!("📺 MPV event: file loaded - video should start playing");
+                    // Invalidate cached dimensions to refresh
+                    self.cached_dimensions = None;
+                }
+                8 => {
+                    // MPV_EVENT_END_FILE (was MPV_EVENT_IDLE in older versions)
+                    debug!("📺 MPV event: end file / idle");
+                }
+                16 => {
+                    // MPV_EVENT_PLAYBACK_RESTART
+                    info!("📺 MPV event: playback restart - video is now playing");
+                }
+                20 => {
+                    // MPV_EVENT_VIDEO_RECONFIG
+                    info!("📺 MPV event: video reconfig");
+                    self.cached_dimensions = None;
+                }
+                _ => {
+                    debug!("📺 MPV event: id={}", event_id);
+                }
+            }
+        }
     }
 
     /// Pause playback (for future power management)
