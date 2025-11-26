@@ -171,6 +171,7 @@ enum Tab {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct OutputInfo {
     name: String,
     width: u32,
@@ -181,6 +182,7 @@ struct OutputInfo {
 
 /// Unified wallpaper item (can be local file, directory, URL, or Workshop item)
 #[derive(Clone)]
+#[allow(dead_code)]
 struct WallpaperItem {
     id: String,          // Unique identifier
     name: String,        // Display name
@@ -720,7 +722,7 @@ impl WayvidApp {
                             let is_double_click = self.last_clicked_wallpaper == Some(*idx)
                                 && self
                                     .last_click_time
-                                    .map_or(false, |t| now.duration_since(t).as_millis() < 400);
+                                    .is_some_and(|t| now.duration_since(t).as_millis() < 400);
 
                             if is_double_click {
                                 // Double-click: apply wallpaper

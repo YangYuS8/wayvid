@@ -35,6 +35,7 @@ pub struct AppState {
     pub running: bool,
     pub egl_context: Option<EglContext>,
     pub power_manager: PowerManager,
+    #[allow(dead_code)]
     pub last_frame_time: std::time::Instant,
     pub frame_timing: FrameTiming,
     pub ipc_server: Option<IpcServer>,
@@ -146,6 +147,7 @@ impl AppState {
 
     /// Check if FPS limiting should throttle rendering
     /// Currently disabled - let Wayland vsync handle frame timing
+    #[allow(dead_code)]
     fn should_throttle_fps(&mut self) -> bool {
         // Disabled: FPS throttle breaks the frame callback chain
         // TODO: Implement proper throttling that doesn't break callbacks

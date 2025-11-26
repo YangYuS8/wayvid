@@ -4,6 +4,8 @@
 //! It monitors frame durations, detects overload conditions, and adapts the frame rate
 //! dynamically to maintain smooth playback without stuttering.
 
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use tracing::{debug, warn};
