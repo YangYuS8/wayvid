@@ -1,4 +1,4 @@
-## [unreleased]
+## [0.4.4-alpha.3] - 2025-11-26
 
 ### 🚀 Features
 
@@ -18,6 +18,10 @@
 ### 🎨 Styling
 
 - 修复 types.rs 格式化问题
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* 发布 v0.4.4-alpha.3
 ## [0.4.4-alpha.2] - 2025-11-25
 
 ### 🚀 Features

@@ -4715,7 +4715,7 @@ dependencies = [
 
 [[package]]
 name = "wayvid"
-version = "0.4.4-alpha.3"
+version = "0.4.4"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
