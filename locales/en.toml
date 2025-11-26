@@ -38,6 +38,53 @@ nav_outputs = "📺 Outputs"
 nav_sources = "🎬 Video Sources"
 nav_workshop = "🎮 Workshop"
 nav_settings = "⚙ Settings"
+nav_library = "🎬 Library"
+
+# Quick actions
+quick_actions = "Quick Actions"
+action_scan_workshop = "🔄 Scan Workshop"
+action_add_folder = "📁 Add Folder"
+action_add_folder_hint = "Enter video file path or drag & drop files"
+
+# Monitor selector
+monitor_selector = "📺 Select Monitor"
+monitor_selected = "Selected monitor: %{name}"
+monitor_click_hint = "Click to select this monitor"
+monitor_all = "All Monitors"
+monitor_all_hint = "Apply to all"
+monitor_all_selected = "All monitors selected"
+monitor_playing = "● Playing"
+monitor_inactive = "○ Inactive"
+
+# Wallpaper library
+library_title = "Wallpaper Library"
+library_search_hint = "Search wallpapers..."
+library_add_file = "📁 Add File"
+library_add_file_hint = "Enter video file path or drag & drop files"
+library_count = "%{count} wallpapers"
+library_empty = "Library is empty"
+library_empty_hint = "Click 'Scan Workshop' or drag & drop video files here"
+library_drag_hint = "💡 Tip: You can drag & drop video files directly"
+
+# Quick add
+quick_add_title = "Quick Add"
+quick_add_path = "Path:"
+btn_apply_now = "▶ Apply Now"
+
+# Wallpaper item
+wallpaper_apply = "▶ Apply"
+wallpaper_valid = "✓ Valid"
+wallpaper_unverified = "⚠ Unverified"
+wallpaper_double_click_hint = "Double-click to apply wallpaper"
+wallpaper_applied = "✓ Applied '%{name}' to %{target}"
+
+# Drag and drop
+drop_file_here = "📁 Drop file here"
+drop_file_hint = "Release to apply wallpaper"
+
+# Errors
+error_empty_path = "Please enter a file path"
+error_empty_url = "Please enter a URL"
 
 # Outputs tab
 outputs_title = "Output Management"

@@ -38,6 +38,53 @@ nav_outputs = "📺 显示输出"
 nav_sources = "🎬 视频源"
 nav_workshop = "🎮 创意工坊"
 nav_settings = "⚙ 设置"
+nav_library = "🎬 壁纸库"
+
+# 快捷操作
+quick_actions = "快捷操作"
+action_scan_workshop = "🔄 扫描创意工坊"
+action_add_folder = "📁 添加文件夹"
+action_add_folder_hint = "输入视频文件路径或拖放文件到窗口"
+
+# 显示器选择器
+monitor_selector = "📺 选择显示器"
+monitor_selected = "已选择显示器：%{name}"
+monitor_click_hint = "点击选择此显示器"
+monitor_all = "全部显示器"
+monitor_all_hint = "同时应用"
+monitor_all_selected = "已选择全部显示器"
+monitor_playing = "● 播放中"
+monitor_inactive = "○ 未激活"
+
+# 壁纸库
+library_title = "壁纸库"
+library_search_hint = "搜索壁纸..."
+library_add_file = "📁 添加文件"
+library_add_file_hint = "输入视频文件路径或拖放文件到窗口"
+library_count = "共 %{count} 个壁纸"
+library_empty = "壁纸库为空"
+library_empty_hint = "点击「扫描创意工坊」或拖放视频文件到此处"
+library_drag_hint = "💡 提示：可以直接拖放视频文件到窗口"
+
+# 快速添加
+quick_add_title = "快速添加"
+quick_add_path = "路径："
+btn_apply_now = "▶ 立即应用"
+
+# 壁纸条目
+wallpaper_apply = "▶ 应用"
+wallpaper_valid = "✓ 有效"
+wallpaper_unverified = "⚠ 未验证"
+wallpaper_double_click_hint = "双击即可应用壁纸"
+wallpaper_applied = "✓ 已将「%{name}」应用到 %{target}"
+
+# 拖放
+drop_file_here = "📁 拖放文件到此处"
+drop_file_hint = "松开以应用壁纸"
+
+# 错误
+error_empty_path = "请输入文件路径"
+error_empty_url = "请输入 URL 地址"
 
 # 显示输出标签页
 outputs_title = "显示输出管理"
