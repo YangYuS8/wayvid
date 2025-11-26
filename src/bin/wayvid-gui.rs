@@ -800,8 +800,12 @@ impl WayvidApp {
         });
 
         let target = output_name.unwrap_or_else(|| t!("monitor_all").to_string());
-        self.status_message =
-            t!("wallpaper_applied", name = source_path.clone(), target = target).to_string();
+        self.status_message = t!(
+            "wallpaper_applied",
+            name = source_path.clone(),
+            target = target
+        )
+        .to_string();
 
         // Add to library
         self.add_to_library(&source_path);
@@ -1428,8 +1432,7 @@ impl WayvidApp {
                 }
             },
             Err(e) => {
-                self.status_message =
-                    t!("msg_steam_not_found", error = e.to_string()).to_string();
+                self.status_message = t!("msg_steam_not_found", error = e.to_string()).to_string();
             }
         }
 
