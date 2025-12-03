@@ -10,7 +10,7 @@ Video wallpaper daemon for Wayland
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![Version](https://img.shields.io/badge/version-0.4.4-green.svg)](https://github.com/YangYuS8/wayvid/releases)
 
-[Documentation](https://www.yangyus8.top/wayvid/) • [Releases](https://github.com/YangYuS8/wayvid/releases)
+[Documentation](https://yangyus8.top/wayvid/) • [Releases](https://github.com/YangYuS8/wayvid/releases)
 
 </div>
 
