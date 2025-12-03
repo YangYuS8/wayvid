@@ -1,5 +1,8 @@
 // WE (Wallpaper Engine) module for importing video wallpapers
 
+// Allow unused re-exports as they are part of the public API
+#![allow(unused_imports)]
+
 pub mod converter;
 pub mod downloader;
 pub mod parser;

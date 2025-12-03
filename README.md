@@ -19,6 +19,7 @@ Video wallpaper daemon for Wayland
 wayvid plays video files as wallpapers on Wayland compositors using wlr-layer-shell protocol.
 
 **Features:**
+
 - Multi-monitor support with independent video per display
 - Hardware accelerated decoding (VA-API/NVDEC via mpv)
 - Steam Workshop import (video wallpapers only)
@@ -42,16 +43,19 @@ wayvid plays video files as wallpapers on Wayland compositors using wlr-layer-sh
 ## Install
 
 ### Arch Linux (AUR)
+
 ```bash
 yay -S wayvid
 ```
 
 ### Nix
+
 ```bash
 nix profile install github:YangYuS8/wayvid
 ```
 
 ### From source
+
 ```bash
 git clone https://github.com/YangYuS8/wayvid.git
 cd wayvid
@@ -131,18 +135,21 @@ wayvid workshop import <id>       # Generate config
 ## Troubleshooting
 
 **Black screen:**
+
 ```bash
 mpv ~/Videos/wallpaper.mp4  # Test if video plays
 wayvid check                # Check system capabilities
 ```
 
 **High CPU:**
+
 ```yaml
 # Enable hardware decode
 hwdec: true
 ```
 
 **Daemon issues:**
+
 ```bash
 wayvid daemon status
 wayvid daemon logs --follow

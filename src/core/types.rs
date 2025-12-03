@@ -306,11 +306,13 @@ pub enum RenderBackend {
 
 impl RenderBackend {
     /// Check if Vulkan backend is requested (explicit or auto)
+    #[allow(dead_code)]
     pub fn wants_vulkan(&self) -> bool {
         matches!(self, RenderBackend::Auto | RenderBackend::Vulkan)
     }
 
     /// Check if OpenGL backend is requested (explicit or auto)
+    #[allow(dead_code)]
     pub fn wants_opengl(&self) -> bool {
         matches!(self, RenderBackend::Auto | RenderBackend::OpenGL)
     }

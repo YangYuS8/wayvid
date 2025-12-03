@@ -7,6 +7,9 @@
 //!
 //! Reference: Almamu/linux-wallpaperengine
 
+// Allow dead code for public API items
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Result};
 use tracing::{debug, trace, warn};
 
@@ -177,12 +180,12 @@ impl Texture {
         pos += 9;
 
         // Read texture info
-        let format_val = read_u32(&data, &mut pos)?;
-        let flags_val = read_u32(&data, &mut pos)?;
-        let texture_width = read_u32(&data, &mut pos)?;
-        let texture_height = read_u32(&data, &mut pos)?;
-        let width = read_u32(&data, &mut pos)?;
-        let height = read_u32(&data, &mut pos)?;
+        let format_val = read_u32(data, &mut pos)?;
+        let flags_val = read_u32(data, &mut pos)?;
+        let texture_width = read_u32(data, &mut pos)?;
+        let texture_height = read_u32(data, &mut pos)?;
+        let width = read_u32(data, &mut pos)?;
+        let height = read_u32(data, &mut pos)?;
 
         let format = TextureFormat::from_u32(format_val);
         let flags = TextureFlags::from_u32(flags_val);
@@ -217,7 +220,7 @@ impl Texture {
         debug!("Container version: {:?}", container_version);
 
         // Read image count (frames for animated textures, usually 1)
-        let image_count = read_u32(&data, &mut pos)?;
+        let image_count = read_u32(data, &mut pos)?;
         debug!("Image/frame count: {}", image_count);
 
         // TEXB0004 has a different structure:
@@ -227,9 +230,9 @@ impl Texture {
         // - mip_count (actual number of mipmaps)
         // Then for each mip: width, height, compression, uncompressed_size, compressed_size, data
         let mip_count = if container_version == ContainerVersion::TEXB0004 {
-            let unknown1 = read_u32(&data, &mut pos)?;
-            let unknown2 = read_u32(&data, &mut pos)?;
-            let count = read_u32(&data, &mut pos)?;
+            let unknown1 = read_u32(data, &mut pos)?;
+            let unknown2 = read_u32(data, &mut pos)?;
+            let count = read_u32(data, &mut pos)?;
             debug!(
                 "TEXB0004: unknown1={}, unknown2={}, mip_count={}",
                 unknown1, unknown2, count
@@ -252,8 +255,8 @@ impl Texture {
         let mut mipmaps = Vec::new();
 
         for mip_level in 0..mip_count {
-            let mip_width = read_u32(&data, &mut pos)?;
-            let mip_height = read_u32(&data, &mut pos)?;
+            let mip_width = read_u32(data, &mut pos)?;
+            let mip_height = read_u32(data, &mut pos)?;
 
             // TEXB0001 uses a simpler format, newer versions have compression info
             let (is_compressed, uncompressed_size, compressed_size) = match container_version {
@@ -265,9 +268,9 @@ impl Texture {
                 ContainerVersion::TEXB0002
                 | ContainerVersion::TEXB0003
                 | ContainerVersion::TEXB0004 => {
-                    let compression_flag = read_u32(&data, &mut pos)?;
-                    let uncompressed = read_u32(&data, &mut pos)?;
-                    let compressed = read_u32(&data, &mut pos)?;
+                    let compression_flag = read_u32(data, &mut pos)?;
+                    let uncompressed = read_u32(data, &mut pos)?;
+                    let compressed = read_u32(data, &mut pos)?;
                     debug!(
                         "Mip {}: {}x{}, comp_flag={}, uncompressed={}, compressed={}",
                         mip_level,
@@ -383,8 +386,8 @@ fn calculate_data_size(format: TextureFormat, width: u32, height: u32) -> u32 {
         width * height * bpp
     } else if let Some(bytes_per_block) = format.bytes_per_block() {
         // Block compressed: round up to block boundaries
-        let blocks_x = (width + 3) / 4;
-        let blocks_y = (height + 3) / 4;
+        let blocks_x = width.div_ceil(4);
+        let blocks_y = height.div_ceil(4);
         blocks_x * blocks_y * bytes_per_block
     } else {
         width * height * 4 // Default to RGBA
@@ -431,9 +434,9 @@ fn convert_to_rgba(format: TextureFormat, width: u32, height: u32, data: &[u8]) 
         TextureFormat::RG1616f | TextureFormat::RGBa1010102 => pixel_count * 4,
         TextureFormat::RGBA16161616f => pixel_count * 8,
         TextureFormat::RGB161616f => pixel_count * 6,
-        TextureFormat::DXT1 => ((width + 3) / 4) as usize * ((height + 3) / 4) as usize * 8,
+        TextureFormat::DXT1 => width.div_ceil(4) as usize * height.div_ceil(4) as usize * 8,
         TextureFormat::DXT3 | TextureFormat::DXT5 | TextureFormat::BC7 => {
-            ((width + 3) / 4) as usize * ((height + 3) / 4) as usize * 16
+            width.div_ceil(4) as usize * height.div_ceil(4) as usize * 16
         }
         _ => pixel_count * 4,
     };
@@ -546,8 +549,8 @@ fn convert_to_rgba(format: TextureFormat, width: u32, height: u32, data: &[u8]) 
 
 // DXT1 decoding
 fn decode_dxt1(data: &[u8], width: u32, height: u32, output: &mut [u8]) -> Result<()> {
-    let blocks_x = (width + 3) / 4;
-    let blocks_y = (height + 3) / 4;
+    let blocks_x = width.div_ceil(4);
+    let blocks_y = height.div_ceil(4);
 
     for by in 0..blocks_y {
         for bx in 0..blocks_x {
@@ -634,8 +637,8 @@ fn decode_dxt1_block(block: &[u8], bx: u32, by: u32, width: u32, height: u32, ou
 }
 
 fn decode_dxt3(data: &[u8], width: u32, height: u32, output: &mut [u8]) -> Result<()> {
-    let blocks_x = (width + 3) / 4;
-    let blocks_y = (height + 3) / 4;
+    let blocks_x = width.div_ceil(4);
+    let blocks_y = height.div_ceil(4);
 
     for by in 0..blocks_y {
         for bx in 0..blocks_x {
@@ -725,8 +728,8 @@ fn decode_dxt3_block(block: &[u8], bx: u32, by: u32, width: u32, height: u32, ou
 }
 
 fn decode_dxt5(data: &[u8], width: u32, height: u32, output: &mut [u8]) -> Result<()> {
-    let blocks_x = (width + 3) / 4;
-    let blocks_y = (height + 3) / 4;
+    let blocks_x = width.div_ceil(4);
+    let blocks_y = height.div_ceil(4);
 
     for by in 0..blocks_y {
         for bx in 0..blocks_x {
@@ -755,21 +758,21 @@ fn decode_dxt5_block(block: &[u8], bx: u32, by: u32, width: u32, height: u32, ou
         [
             alpha0,
             alpha1,
-            ((6 * alpha0 as u16 + 1 * alpha1 as u16) / 7) as u8,
+            ((6 * alpha0 as u16 + alpha1 as u16) / 7) as u8,
             ((5 * alpha0 as u16 + 2 * alpha1 as u16) / 7) as u8,
             ((4 * alpha0 as u16 + 3 * alpha1 as u16) / 7) as u8,
             ((3 * alpha0 as u16 + 4 * alpha1 as u16) / 7) as u8,
             ((2 * alpha0 as u16 + 5 * alpha1 as u16) / 7) as u8,
-            ((1 * alpha0 as u16 + 6 * alpha1 as u16) / 7) as u8,
+            ((alpha0 as u16 + 6 * alpha1 as u16) / 7) as u8,
         ]
     } else {
         [
             alpha0,
             alpha1,
-            ((4 * alpha0 as u16 + 1 * alpha1 as u16) / 5) as u8,
+            ((4 * alpha0 as u16 + alpha1 as u16) / 5) as u8,
             ((3 * alpha0 as u16 + 2 * alpha1 as u16) / 5) as u8,
             ((2 * alpha0 as u16 + 3 * alpha1 as u16) / 5) as u8,
-            ((1 * alpha0 as u16 + 4 * alpha1 as u16) / 5) as u8,
+            ((alpha0 as u16 + 4 * alpha1 as u16) / 5) as u8,
             0,
             255,
         ]

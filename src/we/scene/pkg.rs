@@ -3,6 +3,9 @@
 //! Wallpaper Engine uses .pkg files to bundle scene assets.
 //! This module provides functionality to extract files from these packages.
 
+// Allow dead code for public API items
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::fs::File;

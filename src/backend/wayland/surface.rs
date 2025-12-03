@@ -12,7 +12,7 @@ use crate::video::egl::{EglContext, EglWindow};
 use crate::video::scene::ScenePlayer;
 
 #[cfg(feature = "backend-vulkan")]
-use crate::video::vulkan::{VulkanContext, VulkanWindow};
+use crate::video::vulkan::VulkanWindow;
 
 #[cfg(feature = "video-mpv")]
 use crate::video::shared_decode::{DecoderHandle, SharedDecodeManager};
@@ -44,6 +44,7 @@ pub struct WaylandSurface {
     pub config: EffectiveConfig,
 
     // Active rendering backend
+    #[allow(dead_code)]
     active_backend: ActiveBackend,
 
     // EGL/OpenGL rendering
@@ -52,6 +53,7 @@ pub struct WaylandSurface {
 
     // Vulkan rendering (when feature enabled)
     #[cfg(feature = "backend-vulkan")]
+    #[allow(dead_code)]
     vulkan_window: Option<VulkanWindow>,
 
     // Render mode (video or scene)

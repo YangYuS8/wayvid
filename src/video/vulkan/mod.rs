@@ -3,6 +3,10 @@
 //! This module provides Vulkan-based rendering as an alternative to OpenGL (EGL).
 //! It supports Wayland surfaces via VK_KHR_wayland_surface extension.
 
+// Allow dead code and unused re-exports as they are part of the public API
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 mod command;
 mod device;
 mod instance;

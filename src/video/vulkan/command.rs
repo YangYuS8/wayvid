@@ -1,4 +1,7 @@
 //! Vulkan command buffer management
+
+// Allow dead code for public API items
+#![allow(dead_code)]
 //!
 //! Handles command pool and buffer allocation for rendering commands.
 

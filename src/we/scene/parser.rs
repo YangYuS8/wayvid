@@ -2,6 +2,9 @@
 //!
 //! Parses project.json and scene.json files to extract scene structure.
 
+// Allow dead code for public API items
+#![allow(dead_code)]
+
 use super::pkg::SceneContainer;
 use super::types::*;
 use anyhow::{anyhow, Context, Result};
@@ -211,6 +214,7 @@ impl SceneParser {
     }
 
     /// Parse a scene object
+    #[allow(clippy::field_reassign_with_default)]
     fn parse_object(json: &Value, base_path: &Path) -> Result<SceneObject> {
         let mut obj = SceneObject::default();
 
@@ -277,7 +281,7 @@ impl SceneParser {
             alignment: json
                 .get("alignment")
                 .and_then(|v| v.as_str())
-                .map(ImageAlignment::from_str)
+                .map(ImageAlignment::parse)
                 .unwrap_or_default(),
             alpha: Self::parse_float_or_setting(json, "alpha", 1.0),
             color: Self::parse_vec3_or_setting_default(json, "color", Vec3::new(1.0, 1.0, 1.0)),
@@ -434,25 +438,25 @@ impl SceneParser {
     fn parse_vec3_field(json: &Value, field: &str) -> Vec3 {
         json.get(field)
             .and_then(|v| v.as_str())
-            .map(Vec3::from_str)
+            .map(Vec3::parse)
             .unwrap_or_default()
     }
 
     fn parse_vec2_field(json: &Value, field: &str) -> Vec2 {
         json.get(field)
             .and_then(|v| v.as_str())
-            .map(Vec2::from_str)
+            .map(Vec2::parse)
             .unwrap_or_default()
     }
 
     fn parse_vec3_or_setting(json: &Value, field: &str) -> Vec3 {
         if let Some(value) = json.get(field) {
             if let Some(s) = value.as_str() {
-                return Vec3::from_str(s);
+                return Vec3::parse(s);
             }
             // Handle user setting object
             if let Some(val) = value.get("value").and_then(|v| v.as_str()) {
-                return Vec3::from_str(val);
+                return Vec3::parse(val);
             }
         }
         Vec3::default()
@@ -461,10 +465,10 @@ impl SceneParser {
     fn parse_vec3_or_setting_default(json: &Value, field: &str, default: Vec3) -> Vec3 {
         if let Some(value) = json.get(field) {
             if let Some(s) = value.as_str() {
-                return Vec3::from_str(s);
+                return Vec3::parse(s);
             }
             if let Some(val) = value.get("value").and_then(|v| v.as_str()) {
-                return Vec3::from_str(val);
+                return Vec3::parse(val);
             }
         }
         default
@@ -501,7 +505,7 @@ mod tests {
 
     #[test]
     fn test_vec3_from_str() {
-        let v = Vec3::from_str("1.0 2.5 3.0");
+        let v = Vec3::parse("1.0 2.5 3.0");
         assert_eq!(v.x, 1.0);
         assert_eq!(v.y, 2.5);
         assert_eq!(v.z, 3.0);
@@ -509,7 +513,7 @@ mod tests {
 
     #[test]
     fn test_vec2_from_str() {
-        let v = Vec2::from_str("100 200");
+        let v = Vec2::parse("100 200");
         assert_eq!(v.x, 100.0);
         assert_eq!(v.y, 200.0);
     }
@@ -523,9 +527,9 @@ mod tests {
 
     #[test]
     fn test_image_alignment_from_str() {
-        assert_eq!(ImageAlignment::from_str("center"), ImageAlignment::Center);
-        assert_eq!(ImageAlignment::from_str("topleft"), ImageAlignment::TopLeft);
-        assert_eq!(ImageAlignment::from_str("unknown"), ImageAlignment::Center);
+        assert_eq!(ImageAlignment::parse("center"), ImageAlignment::Center);
+        assert_eq!(ImageAlignment::parse("topleft"), ImageAlignment::TopLeft);
+        assert_eq!(ImageAlignment::parse("unknown"), ImageAlignment::Center);
     }
 }
 

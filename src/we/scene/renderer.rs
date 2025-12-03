@@ -2,6 +2,9 @@
 //!
 //! Renders scene objects (images, layers) using OpenGL.
 
+// Allow dead code for public API items
+#![allow(dead_code)]
+
 use super::pkg::SceneContainer;
 use super::shader::{
     mat4_multiply, ortho_matrix, rotation_z_matrix, scale_matrix, translation_matrix, QuadMesh,
@@ -35,7 +38,8 @@ pub struct SceneRenderer {
 struct GlResources {
     /// Shader for textured layers
     layer_shader: ShaderProgram,
-    /// Shader for solid color layers
+    /// Shader for solid color layers (reserved for future use)
+    #[allow(dead_code)]
     solid_shader: ShaderProgram,
     /// Quad mesh for rendering
     quad: QuadMesh,

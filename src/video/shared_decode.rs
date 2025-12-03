@@ -629,6 +629,7 @@ mod tests {
                 compute_peak: true,
                 mode: "hybrid".to_string(),
             },
+            render_backend: Default::default(),
         }
     }
 

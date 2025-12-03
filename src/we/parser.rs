@@ -1,3 +1,6 @@
+// Allow dead code for public API items that may be used by external crates
+#![allow(dead_code)]
+
 use crate::we::types::WeProject;
 use anyhow::{anyhow, Context, Result};
 use std::fs;
@@ -15,7 +18,8 @@ pub enum WeProjectType {
 }
 
 impl WeProjectType {
-    pub fn from_str(s: &str) -> Self {
+    /// Parse project type from string
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "video" => Self::Video,
             "scene" => Self::Scene,
@@ -67,7 +71,7 @@ pub fn detect_we_project_type(path: &Path) -> Result<WeProjectType> {
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
 
-    Ok(WeProjectType::from_str(project_type))
+    Ok(WeProjectType::parse(project_type))
 }
 
 /// Parse a Wallpaper Engine project.json file
@@ -86,7 +90,7 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
 
     // Validate project type (video only for this function)
     if project.project_type != "video" {
-        let project_type = WeProjectType::from_str(&project.project_type);
+        let project_type = WeProjectType::parse(&project.project_type);
         if project_type == WeProjectType::Scene {
             return Err(anyhow!(
                 "❌ This is a Scene wallpaper\n\n\

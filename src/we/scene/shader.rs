@@ -2,6 +2,9 @@
 //!
 //! Provides shader compilation, linking, and uniform management.
 
+// Allow dead code for public API items
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Context, Result};
 use std::ffi::CString;
 use std::ptr;
@@ -371,6 +374,7 @@ pub fn mat4_multiply(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
 }
 
 /// Identity matrix
+#[allow(dead_code)]
 pub fn identity_matrix() -> [f32; 16] {
     [
         1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,

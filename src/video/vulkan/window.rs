@@ -90,7 +90,7 @@ impl VulkanWindow {
 
     /// Create framebuffers for swapchain images
     fn create_framebuffers(
-        device: &VulkanDevice,
+        _device: &VulkanDevice,
         surface: &VulkanSurface,
         pipeline: &RenderPipeline,
     ) -> Result<Vec<vk::Framebuffer>> {
@@ -109,7 +109,7 @@ impl VulkanWindow {
         for _ in 0..3 {
             // Assume triple buffering
             // Create a placeholder framebuffer that will be recreated on resize
-            let framebuffer_info = vk::FramebufferCreateInfo::default()
+            let _framebuffer_info = vk::FramebufferCreateInfo::default()
                 .render_pass(pipeline.render_pass())
                 .width(extent.width)
                 .height(extent.height)
@@ -230,7 +230,7 @@ impl VulkanWindow {
         self.frame_sync.reset_fence()?;
 
         // Acquire next image
-        let image_index = match self.surface.acquire_next_image() {
+        let _image_index = match self.surface.acquire_next_image() {
             Ok(idx) => idx,
             Err(e) => {
                 debug!("Failed to acquire image, may need resize: {}", e);

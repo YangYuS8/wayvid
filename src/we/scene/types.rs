@@ -2,6 +2,9 @@
 //!
 //! These types represent the structure of Wallpaper Engine scene wallpapers.
 
+// Allow dead code for public API items
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -82,7 +85,8 @@ impl Vec3 {
         Self { x, y, z }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    /// Parse Vec3 from space-separated string
+    pub fn parse(s: &str) -> Self {
         let parts: Vec<f32> = s
             .split_whitespace()
             .filter_map(|p| p.parse().ok())
@@ -107,7 +111,8 @@ impl Vec2 {
         Self { x, y }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    /// Parse Vec2 from space-separated string
+    pub fn parse(s: &str) -> Self {
         let parts: Vec<f32> = s
             .split_whitespace()
             .filter_map(|p| p.parse().ok())
@@ -239,7 +244,8 @@ pub enum ImageAlignment {
 }
 
 impl ImageAlignment {
-    pub fn from_str(s: &str) -> Self {
+    /// Parse alignment from string
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "center" => Self::Center,
             "topleft" => Self::TopLeft,

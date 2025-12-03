@@ -2,6 +2,9 @@
 //!
 //! This module integrates scene rendering with the wayvid video playback system.
 
+// Allow dead code for public API items
+#![allow(dead_code)]
+
 use crate::core::types::OutputInfo;
 use crate::video::egl::{EglContext, EglWindow};
 use crate::we::scene::{SceneContainer, SceneParser, SceneRenderer};
@@ -118,7 +121,7 @@ impl ScenePlayer {
 
     /// Set target FPS
     pub fn set_target_fps(&mut self, fps: u32) {
-        self.target_fps = fps.max(1).min(144);
+        self.target_fps = fps.clamp(1, 144);
     }
 
     /// Get scene resolution
