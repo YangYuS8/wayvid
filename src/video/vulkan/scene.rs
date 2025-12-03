@@ -67,12 +67,21 @@ impl VulkanSceneRenderer {
     }
 
     /// Load texture from RGBA data
-    pub fn load_texture(&mut self, object_id: u64, width: u32, height: u32, data: &[u8]) -> Result<()> {
+    pub fn load_texture(
+        &mut self,
+        object_id: u64,
+        width: u32,
+        height: u32,
+        data: &[u8],
+    ) -> Result<()> {
         let texture = VulkanTexture::from_rgba(self.device.clone(), width, height, data)
             .with_context(|| format!("Failed to create texture for object {}", object_id))?;
 
         self.textures.insert(object_id, texture);
-        debug!("Loaded Vulkan texture for object {}: {}x{}", object_id, width, height);
+        debug!(
+            "Loaded Vulkan texture for object {}: {}x{}",
+            object_id, width, height
+        );
 
         Ok(())
     }
@@ -117,8 +126,19 @@ impl VulkanSceneRenderer {
         // 3. Apply transforms and effects
 
         // Get visible objects sorted by z-order
-        let mut objects: Vec<_> = self.scene.scene.objects.iter().filter(|o| o.visible).collect();
-        objects.sort_by(|a, b| a.origin.z.partial_cmp(&b.origin.z).unwrap_or(std::cmp::Ordering::Equal));
+        let mut objects: Vec<_> = self
+            .scene
+            .scene
+            .objects
+            .iter()
+            .filter(|o| o.visible)
+            .collect();
+        objects.sort_by(|a, b| {
+            a.origin
+                .z
+                .partial_cmp(&b.origin.z)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Render layers (simplified - full implementation would use multiple draw calls)
         for obj in &objects {
@@ -140,11 +160,17 @@ impl VulkanSceneRenderer {
     #[allow(dead_code)]
     fn get_blend_factors(blend_mode: BlendMode) -> (vk::BlendFactor, vk::BlendFactor) {
         match blend_mode {
-            BlendMode::Normal => (vk::BlendFactor::SRC_ALPHA, vk::BlendFactor::ONE_MINUS_SRC_ALPHA),
+            BlendMode::Normal => (
+                vk::BlendFactor::SRC_ALPHA,
+                vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+            ),
             BlendMode::Additive => (vk::BlendFactor::SRC_ALPHA, vk::BlendFactor::ONE),
             BlendMode::Multiply => (vk::BlendFactor::DST_COLOR, vk::BlendFactor::ZERO),
             BlendMode::Screen => (vk::BlendFactor::ONE, vk::BlendFactor::ONE_MINUS_SRC_COLOR),
-            BlendMode::Overlay => (vk::BlendFactor::SRC_ALPHA, vk::BlendFactor::ONE_MINUS_SRC_ALPHA),
+            BlendMode::Overlay => (
+                vk::BlendFactor::SRC_ALPHA,
+                vk::BlendFactor::ONE_MINUS_SRC_ALPHA,
+            ),
         }
     }
 
@@ -180,7 +206,14 @@ impl VulkanSceneRenderer {
     }
 
     /// Create orthographic projection matrix
-    fn ortho_matrix(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> [[f32; 4]; 4] {
+    fn ortho_matrix(
+        left: f32,
+        right: f32,
+        bottom: f32,
+        top: f32,
+        near: f32,
+        far: f32,
+    ) -> [[f32; 4]; 4] {
         let w = right - left;
         let h = top - bottom;
         let d = far - near;
@@ -188,7 +221,12 @@ impl VulkanSceneRenderer {
             [2.0 / w, 0.0, 0.0, 0.0],
             [0.0, 2.0 / h, 0.0, 0.0],
             [0.0, 0.0, -2.0 / d, 0.0],
-            [-(right + left) / w, -(top + bottom) / h, -(far + near) / d, 1.0],
+            [
+                -(right + left) / w,
+                -(top + bottom) / h,
+                -(far + near) / d,
+                1.0,
+            ],
         ]
     }
 

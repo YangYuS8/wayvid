@@ -29,6 +29,16 @@ wayvid plays video files as wallpapers on Wayland compositors using wlr-layer-sh
 
 **Should work on:** Sway, River, and other wlr-layer-shell compositors
 
+## Demo
+
+<!-- TODO: Add demo video/GIF here
+<p align="center">
+  <img src="assets/demo.gif" alt="wayvid demo" width="800">
+</p>
+-->
+
+*Demo coming soon*
+
 ## Install
 
 ### Arch Linux (AUR)

@@ -223,7 +223,7 @@ impl ParsedWeProject {
 }
 
 /// Parse any supported Wallpaper Engine project (video or scene)
-/// 
+///
 /// This function automatically detects the project type and parses accordingly.
 pub fn parse_we_project_any(path: &Path) -> Result<ParsedWeProject> {
     let project_file = detect_we_project(path)?;
@@ -232,19 +232,22 @@ pub fn parse_we_project_any(path: &Path) -> Result<ParsedWeProject> {
     match project_type {
         WeProjectType::Video => {
             let (project, video_path) = parse_we_project(&project_file)?;
-            Ok(ParsedWeProject::Video { project, video_path })
+            Ok(ParsedWeProject::Video {
+                project,
+                video_path,
+            })
         }
         WeProjectType::Scene => {
             use crate::we::scene::SceneParser;
-            
+
             let project_dir = project_file
                 .parent()
                 .ok_or_else(|| anyhow!("Invalid project file path"))?;
-            
+
             info!("🎭 Parsing scene wallpaper...");
             let scene_project = SceneParser::load(project_dir)?;
             info!("✅ Scene loaded: {} objects", scene_project.objects.len());
-            
+
             Ok(ParsedWeProject::Scene {
                 project: scene_project,
                 project_dir: project_dir.to_path_buf(),

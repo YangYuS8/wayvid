@@ -33,8 +33,7 @@ impl FrameSync {
         let mut in_flight_fences = Vec::with_capacity(MAX_FRAMES_IN_FLIGHT);
 
         let semaphore_info = vk::SemaphoreCreateInfo::default();
-        let fence_info =
-            vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
+        let fence_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
 
         for _ in 0..MAX_FRAMES_IN_FLIGHT {
             let image_available =
@@ -82,8 +81,7 @@ impl FrameSync {
     /// Reset current frame's fence
     pub fn reset_fence(&self) -> Result<()> {
         let fence = self.in_flight_fences[self.current_frame];
-        unsafe { self.device.handle().reset_fences(&[fence]) }
-            .context("Failed to reset fence")?;
+        unsafe { self.device.handle().reset_fences(&[fence]) }.context("Failed to reset fence")?;
         Ok(())
     }
 

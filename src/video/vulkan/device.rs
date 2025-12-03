@@ -76,16 +76,15 @@ impl VulkanDevice {
         let device = Self::create_logical_device(&instance, physical_device, &queue_families)?;
 
         // Get queues
-        let graphics_queue = unsafe {
-            device.get_device_queue(queue_families.graphics.unwrap(), 0)
-        };
-        let present_queue = unsafe {
-            device.get_device_queue(queue_families.present.unwrap(), 0)
-        };
+        let graphics_queue =
+            unsafe { device.get_device_queue(queue_families.graphics.unwrap(), 0) };
+        let present_queue = unsafe { device.get_device_queue(queue_families.present.unwrap(), 0) };
 
         // Cache memory properties
         let memory_properties = unsafe {
-            instance.handle().get_physical_device_memory_properties(physical_device)
+            instance
+                .handle()
+                .get_physical_device_memory_properties(physical_device)
         };
 
         Ok(Self {
@@ -104,7 +103,11 @@ impl VulkanDevice {
     fn select_physical_device(
         instance: &VulkanInstance,
         devices: &[vk::PhysicalDevice],
-    ) -> Result<(vk::PhysicalDevice, QueueFamilyIndices, vk::PhysicalDeviceProperties)> {
+    ) -> Result<(
+        vk::PhysicalDevice,
+        QueueFamilyIndices,
+        vk::PhysicalDeviceProperties,
+    )> {
         let mut best_device = None;
         let mut best_score = 0;
 
@@ -179,8 +182,11 @@ impl VulkanDevice {
         instance: &VulkanInstance,
         device: vk::PhysicalDevice,
     ) -> QueueFamilyIndices {
-        let queue_families =
-            unsafe { instance.handle().get_physical_device_queue_family_properties(device) };
+        let queue_families = unsafe {
+            instance
+                .handle()
+                .get_physical_device_queue_family_properties(device)
+        };
 
         let mut indices = QueueFamilyIndices::default();
 
@@ -244,8 +250,12 @@ impl VulkanDevice {
             .enabled_extension_names(&extension_ptrs)
             .enabled_features(&features);
 
-        let device = unsafe { instance.handle().create_device(physical_device, &create_info, None) }
-            .context("Failed to create logical device")?;
+        let device = unsafe {
+            instance
+                .handle()
+                .create_device(physical_device, &create_info, None)
+        }
+        .context("Failed to create logical device")?;
 
         Ok(device)
     }

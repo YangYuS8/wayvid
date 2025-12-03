@@ -86,7 +86,7 @@ impl TextureFormat {
     /// Get bytes per block for compressed formats
     pub fn bytes_per_block(&self) -> Option<u32> {
         match self {
-            Self::DXT1 => Some(8),        // 8 bytes per 4x4 block
+            Self::DXT1 => Some(8),               // 8 bytes per 4x4 block
             Self::DXT3 | Self::DXT5 => Some(16), // 16 bytes per 4x4 block
             Self::BC7 => Some(16),
             _ => None,
@@ -193,8 +193,8 @@ impl Texture {
         );
 
         // Skip to TEXB (there might be padding/unknown data)
-        let texb_pos = find_magic(&data[pos..], b"TEXB")
-            .ok_or_else(|| anyhow!("TEXB section not found"))?;
+        let texb_pos =
+            find_magic(&data[pos..], b"TEXB").ok_or_else(|| anyhow!("TEXB section not found"))?;
         pos += texb_pos;
 
         // Parse container version
@@ -256,29 +256,39 @@ impl Texture {
             let mip_height = read_u32(&data, &mut pos)?;
 
             // TEXB0001 uses a simpler format, newer versions have compression info
-            let (is_compressed, uncompressed_size, compressed_size) =
-                match container_version {
-                    ContainerVersion::TEXB0001 => {
-                        // TEXB0001: just raw data, size calculated from format
-                        let size = calculate_data_size(format, mip_width, mip_height);
-                        (false, size, size)
-                    }
-                    ContainerVersion::TEXB0002 | ContainerVersion::TEXB0003 | ContainerVersion::TEXB0004 => {
-                        let compression_flag = read_u32(&data, &mut pos)?;
-                        let uncompressed = read_u32(&data, &mut pos)?;
-                        let compressed = read_u32(&data, &mut pos)?;
-                        debug!(
-                            "Mip {}: {}x{}, comp_flag={}, uncompressed={}, compressed={}",
-                            mip_level, mip_width, mip_height, compression_flag, uncompressed, compressed
-                        );
-                        (compression_flag == 1, uncompressed, compressed)
-                    }
-                };
+            let (is_compressed, uncompressed_size, compressed_size) = match container_version {
+                ContainerVersion::TEXB0001 => {
+                    // TEXB0001: just raw data, size calculated from format
+                    let size = calculate_data_size(format, mip_width, mip_height);
+                    (false, size, size)
+                }
+                ContainerVersion::TEXB0002
+                | ContainerVersion::TEXB0003
+                | ContainerVersion::TEXB0004 => {
+                    let compression_flag = read_u32(&data, &mut pos)?;
+                    let uncompressed = read_u32(&data, &mut pos)?;
+                    let compressed = read_u32(&data, &mut pos)?;
+                    debug!(
+                        "Mip {}: {}x{}, comp_flag={}, uncompressed={}, compressed={}",
+                        mip_level,
+                        mip_width,
+                        mip_height,
+                        compression_flag,
+                        uncompressed,
+                        compressed
+                    );
+                    (compression_flag == 1, uncompressed, compressed)
+                }
+            };
 
             trace!(
                 "Mip {}: {}x{}, compressed={}, sizes={}/{}",
-                mip_level, mip_width, mip_height, is_compressed,
-                compressed_size, uncompressed_size
+                mip_level,
+                mip_width,
+                mip_height,
+                is_compressed,
+                compressed_size,
+                uncompressed_size
             );
 
             // Handle -1 (0xFFFFFFFF) as uncompressed marker
@@ -308,7 +318,9 @@ impl Texture {
             if pos + data_size > data.len() {
                 warn!(
                     "Not enough data for mipmap {}: need {} bytes, have {}",
-                    mip_level, data_size, data.len() - pos
+                    mip_level,
+                    data_size,
+                    data.len() - pos
                 );
                 break;
             }
@@ -420,16 +432,21 @@ fn convert_to_rgba(format: TextureFormat, width: u32, height: u32, data: &[u8]) 
         TextureFormat::RGBA16161616f => pixel_count * 8,
         TextureFormat::RGB161616f => pixel_count * 6,
         TextureFormat::DXT1 => ((width + 3) / 4) as usize * ((height + 3) / 4) as usize * 8,
-        TextureFormat::DXT3 | TextureFormat::DXT5 | TextureFormat::BC7 => 
-            ((width + 3) / 4) as usize * ((height + 3) / 4) as usize * 16,
+        TextureFormat::DXT3 | TextureFormat::DXT5 | TextureFormat::BC7 => {
+            ((width + 3) / 4) as usize * ((height + 3) / 4) as usize * 16
+        }
         _ => pixel_count * 4,
     };
-    
+
     trace!(
         "Converting {}x{} {:?}: input {} bytes, expected {} bytes",
-        width, height, format, data.len(), expected_size
+        width,
+        height,
+        format,
+        data.len(),
+        expected_size
     );
-    
+
     let mut rgba = vec![0u8; pixel_count.saturating_mul(4)];
 
     match format {
@@ -439,10 +456,10 @@ fn convert_to_rgba(format: TextureFormat, width: u32, height: u32, data: &[u8]) 
                 let src = i * 4;
                 let dst = i * 4;
                 if src + 4 <= data.len() {
-                    rgba[dst] = data[src + 1];     // R
+                    rgba[dst] = data[src + 1]; // R
                     rgba[dst + 1] = data[src + 2]; // G
                     rgba[dst + 2] = data[src + 3]; // B
-                    rgba[dst + 3] = data[src];     // A
+                    rgba[dst + 3] = data[src]; // A
                 }
             }
         }
@@ -464,9 +481,9 @@ fn convert_to_rgba(format: TextureFormat, width: u32, height: u32, data: &[u8]) 
                 let dst = i * 4;
                 if src + 2 <= data.len() {
                     let pixel = u16::from_le_bytes([data[src], data[src + 1]]);
-                    rgba[dst] = ((pixel >> 11) as u8) << 3;     // R
+                    rgba[dst] = ((pixel >> 11) as u8) << 3; // R
                     rgba[dst + 1] = ((pixel >> 5) as u8 & 0x3F) << 2; // G
-                    rgba[dst + 2] = (pixel as u8 & 0x1F) << 3;  // B
+                    rgba[dst + 2] = (pixel as u8 & 0x1F) << 3; // B
                     rgba[dst + 3] = 255;
                 }
             }
@@ -487,7 +504,7 @@ fn convert_to_rgba(format: TextureFormat, width: u32, height: u32, data: &[u8]) 
                 let src = i * 2;
                 let dst = i * 4;
                 if src + 2 <= data.len() {
-                    rgba[dst] = data[src];     // R
+                    rgba[dst] = data[src]; // R
                     rgba[dst + 1] = data[src + 1]; // G
                     rgba[dst + 2] = 0;
                     rgba[dst + 3] = 255;
@@ -670,7 +687,12 @@ fn decode_dxt3_block(block: &[u8], bx: u32, by: u32, width: u32, height: u32, ou
         ],
     ];
 
-    let indices = u32::from_le_bytes([color_block[4], color_block[5], color_block[6], color_block[7]]);
+    let indices = u32::from_le_bytes([
+        color_block[4],
+        color_block[5],
+        color_block[6],
+        color_block[7],
+    ]);
 
     for py in 0..4u32 {
         for px in 0..4u32 {
@@ -786,7 +808,12 @@ fn decode_dxt5_block(block: &[u8], bx: u32, by: u32, width: u32, height: u32, ou
         ],
     ];
 
-    let color_indices = u32::from_le_bytes([color_block[4], color_block[5], color_block[6], color_block[7]]);
+    let color_indices = u32::from_le_bytes([
+        color_block[4],
+        color_block[5],
+        color_block[6],
+        color_block[7],
+    ]);
 
     for py in 0..4u32 {
         for px in 0..4u32 {
@@ -848,13 +875,15 @@ mod tests {
         // Use PKG reader to get a tex file
         use crate::we::scene::pkg::PkgReader;
         let pkg = PkgReader::open(&pkg_path).expect("Failed to open PKG");
-        
+
         // Find a .tex file
-        let tex_files: Vec<_> = pkg.list_files().iter()
+        let tex_files: Vec<_> = pkg
+            .list_files()
+            .iter()
             .filter(|f| f.ends_with(".tex"))
             .cloned()
             .collect();
-        
+
         if tex_files.is_empty() {
             println!("No .tex files found in PKG");
             return;
@@ -864,21 +893,19 @@ mod tests {
         for tex_file in tex_files.iter().take(3) {
             println!("Parsing: {}", tex_file);
             match pkg.read_file(tex_file) {
-                Ok(data) => {
-                    match Texture::parse(&data) {
-                        Ok(tex) => {
-                            println!("  Format: {:?}", tex.format);
-                            println!("  Size: {}x{}", tex.width, tex.height);
-                            println!("  Mipmaps: {}", tex.mipmaps.len());
-                            if let Some(mip) = tex.mipmaps.first() {
-                                println!("  Mip0 data size: {} bytes", mip.data.len());
-                            }
-                        }
-                        Err(e) => {
-                            println!("  Parse error: {}", e);
+                Ok(data) => match Texture::parse(&data) {
+                    Ok(tex) => {
+                        println!("  Format: {:?}", tex.format);
+                        println!("  Size: {}x{}", tex.width, tex.height);
+                        println!("  Mipmaps: {}", tex.mipmaps.len());
+                        if let Some(mip) = tex.mipmaps.first() {
+                            println!("  Mip0 data size: {} bytes", mip.data.len());
                         }
                     }
-                }
+                    Err(e) => {
+                        println!("  Parse error: {}", e);
+                    }
+                },
                 Err(e) => {
                     println!("  Read error: {}", e);
                 }

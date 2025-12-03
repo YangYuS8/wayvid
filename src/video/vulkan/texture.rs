@@ -57,7 +57,11 @@ impl VulkanTexture {
 
         // Allocate memory
         let mem_requirements = unsafe { device.handle().get_image_memory_requirements(image) };
-        let memory = Self::allocate_memory(&device, mem_requirements, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
+        let memory = Self::allocate_memory(
+            &device,
+            mem_requirements,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        )?;
 
         unsafe { device.handle().bind_image_memory(image, memory, 0) }
             .context("Failed to bind image memory")?;
@@ -92,7 +96,8 @@ impl VulkanTexture {
         requirements: vk::MemoryRequirements,
         properties: vk::MemoryPropertyFlags,
     ) -> Result<vk::DeviceMemory> {
-        let memory_type = Self::find_memory_type(device, requirements.memory_type_bits, properties)?;
+        let memory_type =
+            Self::find_memory_type(device, requirements.memory_type_bits, properties)?;
 
         let alloc_info = vk::MemoryAllocateInfo::default()
             .allocation_size(requirements.size)

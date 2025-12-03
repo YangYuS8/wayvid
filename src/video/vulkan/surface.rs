@@ -71,8 +71,9 @@ impl VulkanSurface {
             .display(std::ptr::null_mut()) // This would need the actual wl_display
             .surface(wl_surface as *mut _);
 
-        let surface = unsafe { wayland_surface_loader.create_wayland_surface(&surface_create_info, None) }
-            .context("Failed to create Wayland Vulkan surface")?;
+        let surface =
+            unsafe { wayland_surface_loader.create_wayland_surface(&surface_create_info, None) }
+                .context("Failed to create Wayland Vulkan surface")?;
 
         info!("Vulkan surface created: {}x{}", width, height);
 
@@ -140,7 +141,11 @@ impl VulkanSurface {
         let present_mode = present_modes
             .iter()
             .find(|&&m| m == vk::PresentModeKHR::MAILBOX)
-            .or_else(|| present_modes.iter().find(|&&m| m == vk::PresentModeKHR::FIFO))
+            .or_else(|| {
+                present_modes
+                    .iter()
+                    .find(|&&m| m == vk::PresentModeKHR::FIFO)
+            })
             .copied()
             .unwrap_or(vk::PresentModeKHR::FIFO);
 
@@ -161,19 +166,16 @@ impl VulkanSurface {
         };
 
         // Choose image count (prefer triple buffering)
-        let image_count = (capabilities.min_image_count + 1).min(
-            if capabilities.max_image_count > 0 {
+        let image_count =
+            (capabilities.min_image_count + 1).min(if capabilities.max_image_count > 0 {
                 capabilities.max_image_count
             } else {
                 u32::MAX
-            },
-        );
+            });
 
         // Create swapchain
-        let swapchain_loader = ash::khr::swapchain::Device::new(
-            self.instance.handle(),
-            self.device.handle(),
-        );
+        let swapchain_loader =
+            ash::khr::swapchain::Device::new(self.instance.handle(), self.device.handle());
 
         let queue_families = self.device.queue_families();
         let queue_family_indices = [
@@ -223,15 +225,13 @@ impl VulkanSurface {
         let semaphore_info = vk::SemaphoreCreateInfo::default();
         let fence_info = vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED);
 
-        let image_available = unsafe {
-            self.device.handle().create_semaphore(&semaphore_info, None)
-        }
-        .context("Failed to create image available semaphore")?;
+        let image_available =
+            unsafe { self.device.handle().create_semaphore(&semaphore_info, None) }
+                .context("Failed to create image available semaphore")?;
 
-        let render_finished = unsafe {
-            self.device.handle().create_semaphore(&semaphore_info, None)
-        }
-        .context("Failed to create render finished semaphore")?;
+        let render_finished =
+            unsafe { self.device.handle().create_semaphore(&semaphore_info, None) }
+                .context("Failed to create render finished semaphore")?;
 
         let in_flight = unsafe { self.device.handle().create_fence(&fence_info, None) }
             .context("Failed to create in-flight fence")?;
@@ -287,9 +287,15 @@ impl VulkanSurface {
     /// Clean up swapchain resources
     fn cleanup_swapchain(&self, swapchain_data: SwapchainData) {
         unsafe {
-            self.device.handle().destroy_fence(swapchain_data.in_flight, None);
-            self.device.handle().destroy_semaphore(swapchain_data.render_finished, None);
-            self.device.handle().destroy_semaphore(swapchain_data.image_available, None);
+            self.device
+                .handle()
+                .destroy_fence(swapchain_data.in_flight, None);
+            self.device
+                .handle()
+                .destroy_semaphore(swapchain_data.render_finished, None);
+            self.device
+                .handle()
+                .destroy_semaphore(swapchain_data.image_available, None);
 
             for &view in &swapchain_data.image_views {
                 self.device.handle().destroy_image_view(view, None);
@@ -387,7 +393,9 @@ impl VulkanSurface {
 
     /// Get current swapchain image view
     pub fn current_image_view(&self) -> Option<vk::ImageView> {
-        self.swapchain.as_ref().map(|s| s.image_views[s.current_image as usize])
+        self.swapchain
+            .as_ref()
+            .map(|s| s.image_views[s.current_image as usize])
     }
 
     /// Get swapchain format
@@ -402,9 +410,9 @@ impl VulkanSurface {
 
     /// Get synchronization semaphores for command submission
     pub fn sync_objects(&self) -> Option<(vk::Semaphore, vk::Semaphore, vk::Fence)> {
-        self.swapchain.as_ref().map(|s| {
-            (s.image_available, s.render_finished, s.in_flight)
-        })
+        self.swapchain
+            .as_ref()
+            .map(|s| (s.image_available, s.render_finished, s.in_flight))
     }
 }
 

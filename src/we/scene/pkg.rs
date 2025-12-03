@@ -70,7 +70,10 @@ impl PkgReader {
 
         for i in 0..entry_count {
             let entry = Self::read_entry(&mut file, &mut current_pos)?;
-            debug!("PKG entry {}: {} (offset={}, size={})", i, entry.name, entry.offset, entry.size);
+            debug!(
+                "PKG entry {}: {} (offset={}, size={})",
+                i, entry.name, entry.offset, entry.size
+            );
             entries.insert(entry.name.clone(), entry);
         }
 
@@ -87,7 +90,7 @@ impl PkgReader {
     /// Read a single entry from the PKG directory
     fn read_entry(file: &mut BufReader<File>, pos: &mut u64) -> Result<PkgEntry> {
         // Format: name_len (4 bytes) -> name (variable) -> offset (4 bytes) -> size (4 bytes)
-        
+
         // Read name length (4 bytes)
         let mut name_len_bytes = [0u8; 4];
         file.read_exact(&mut name_len_bytes)?;
@@ -296,18 +299,22 @@ mod tests {
         }
 
         let pkg = super::PkgReader::open(&pkg_path).expect("Failed to open PKG");
-        
+
         // Should have entries
         assert!(pkg.entry_count() > 0, "PKG should have entries");
-        
+
         // Should contain scene.json
         assert!(pkg.contains("scene.json"), "PKG should contain scene.json");
-        
+
         // Should be able to read scene.json
-        let content = pkg.read_file_string("scene.json").expect("Failed to read scene.json");
-        assert!(content.contains("objects") || content.contains("camera"), 
-                "scene.json should contain scene data");
-        
+        let content = pkg
+            .read_file_string("scene.json")
+            .expect("Failed to read scene.json");
+        assert!(
+            content.contains("objects") || content.contains("camera"),
+            "scene.json should contain scene data"
+        );
+
         println!("PKG contains {} files", pkg.entry_count());
         println!("scene.json is {} bytes", content.len());
     }
