@@ -24,8 +24,12 @@ pub enum IpcCommand {
     /// Seek to specific time (in seconds)
     Seek { output: String, time: f64 },
 
-    /// Switch video source for specific output
-    SwitchSource { output: String, source: VideoSource },
+    /// Switch video source for specific output (or default output if not specified)
+    SwitchSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output: Option<String>,
+        source: VideoSource,
+    },
 
     /// Set video source for specific output (simplified version accepting path string)
     SetSource {
@@ -112,7 +116,7 @@ mod tests {
     #[test]
     fn test_serialize_switch_source() {
         let cmd = IpcCommand::SwitchSource {
-            output: "HDMI-A-1".to_string(),
+            output: Some("HDMI-A-1".to_string()),
             source: VideoSource::File {
                 path: "/path/to/video.mp4".to_string(),
             },

@@ -96,11 +96,28 @@ wayvid-gui
 ### Control
 
 ```bash
+# Check daemon status and playback info
 wayvid-ctl status
-wayvid-ctl pause
-wayvid-ctl play
-wayvid-ctl set-source ~/Videos/new.mp4
+
+# Pause/resume playback
+wayvid-ctl pause                     # Pause all outputs
+wayvid-ctl resume                    # Resume all outputs
+wayvid-ctl pause -o DP-1             # Pause specific output
+
+# Switch video source
+wayvid-ctl switch ~/Videos/new.mp4   # Switch on first output (single monitor)
+wayvid-ctl switch -o DP-1 ~/Videos/new.mp4  # Switch on specific output
+
+# Adjust volume and playback
+wayvid-ctl volume -o DP-1 0.5        # Set volume (0.0-1.0)
+wayvid-ctl rate -o DP-1 1.5          # Set playback speed
+wayvid-ctl seek -o DP-1 30.0         # Seek to 30 seconds
+
+# Reload config without restart
+wayvid-ctl reload
 ```
+
+**Tip:** Use `wayvid-ctl status` to see available output names (e.g., DP-1, HDMI-A-1, eDP-1).
 
 ## Multi-monitor
 
@@ -134,6 +151,26 @@ wayvid workshop import <id>       # Generate config
 
 ## Troubleshooting
 
+**Daemon not responding / "Failed to connect to daemon":**
+
+```bash
+# Check if daemon is running
+wayvid daemon status
+
+# If not running, start it
+wayvid daemon start
+# Or run directly:
+wayvid run
+```
+
+**Config file permission issues:**
+
+```bash
+# Ensure config file is readable
+chmod 644 ~/.config/wayvid/config.yaml
+ls -la ~/.config/wayvid/
+```
+
 **Black screen:**
 
 ```bash
@@ -144,14 +181,13 @@ wayvid check                # Check system capabilities
 **High CPU:**
 
 ```yaml
-# Enable hardware decode
+# Enable hardware decode in config
 hwdec: true
 ```
 
-**Daemon issues:**
+**View daemon logs:**
 
 ```bash
-wayvid daemon status
 wayvid daemon logs --follow
 ```
 

@@ -25,7 +25,7 @@
         
         wayvid = rustPlatform.buildRustPackage rec {
           pname = "wayvid";
-          version = "0.3.0";
+          version = "0.4.4";
 
           src = ./.;
 
@@ -59,10 +59,7 @@
 
             # Install documentation
             install -Dm644 README.md $out/share/doc/wayvid/README.md
-            install -Dm644 docs/QUICKSTART.md $out/share/doc/wayvid/QUICKSTART.md
-            install -Dm644 docs/IPC.md $out/share/doc/wayvid/IPC.md
-            install -Dm644 docs/VIDEO_SOURCES.md $out/share/doc/wayvid/VIDEO_SOURCES.md
-            install -Dm644 docs/WE_FORMAT.md $out/share/doc/wayvid/WE_FORMAT.md
+            install -Dm644 CHANGELOG.md $out/share/doc/wayvid/CHANGELOG.md
           '';
 
           meta = with pkgs.lib; {

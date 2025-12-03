@@ -44,9 +44,9 @@ enum Commands {
 
     /// Switch video source
     Switch {
-        /// Output name
+        /// Output name (optional if only one output, use 'status' to see available outputs)
         #[arg(short, long)]
-        output: String,
+        output: Option<String>,
 
         /// New video source (file path or URL)
         source: String,

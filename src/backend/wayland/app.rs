@@ -373,40 +373,59 @@ impl AppState {
     }
 
     /// Handle switch source command
-    fn handle_switch_source_command(&mut self, output: String, source: VideoSource) {
+    fn handle_switch_source_command(&mut self, output: Option<String>, source: VideoSource) {
         #[cfg(feature = "video-mpv")]
         {
             let egl_ctx = self.egl_context.as_ref();
 
-            for surface in self.surfaces.values_mut() {
-                if surface.output_info.name == output {
-                    // Extract source path for switch_source (which expects string)
-                    let source_path = match &source {
-                        VideoSource::File { path } => path.clone(),
-                        VideoSource::Url { url } => url.clone(),
-                        VideoSource::Rtsp { url } => url.clone(),
-                        VideoSource::Directory { path } => path.clone(),
-                        VideoSource::Pipe { path } => {
-                            if path.is_empty() {
-                                "fd://0".to_string()
-                            } else {
-                                path.clone()
-                            }
-                        }
-                        VideoSource::ImageSequence { path, .. } => path.clone(),
-                        VideoSource::WeProject { path } => path.clone(),
-                        VideoSource::WeScene { path } => path.clone(),
-                    };
-
-                    if let Err(e) = surface.switch_source(&source_path, egl_ctx) {
-                        warn!("Failed to switch source on {}: {}", output, e);
+            // Extract source path for switch_source (which expects string)
+            let source_path = match &source {
+                VideoSource::File { path } => path.clone(),
+                VideoSource::Url { url } => url.clone(),
+                VideoSource::Rtsp { url } => url.clone(),
+                VideoSource::Directory { path } => path.clone(),
+                VideoSource::Pipe { path } => {
+                    if path.is_empty() {
+                        "fd://0".to_string()
                     } else {
-                        info!("Switched {} to source: {:?}", output, source);
+                        path.clone()
                     }
-                    return;
+                }
+                VideoSource::ImageSequence { path, .. } => path.clone(),
+                VideoSource::WeProject { path } => path.clone(),
+                VideoSource::WeScene { path } => path.clone(),
+            };
+
+            // Determine target outputs
+            let targets: Vec<String> = if let Some(output_name) = output {
+                vec![output_name]
+            } else {
+                // If no output specified, use the first available output
+                // This makes single-monitor setup more user-friendly
+                self.surfaces
+                    .values()
+                    .next()
+                    .map(|s| vec![s.output_info.name.clone()])
+                    .unwrap_or_default()
+            };
+
+            if targets.is_empty() {
+                warn!("No outputs available to switch source");
+                return;
+            }
+
+            for target_output in &targets {
+                for surface in self.surfaces.values_mut() {
+                    if &surface.output_info.name == target_output {
+                        if let Err(e) = surface.switch_source(&source_path, egl_ctx) {
+                            warn!("Failed to switch source on {}: {}", target_output, e);
+                        } else {
+                            info!("Switched {} to source: {:?}", target_output, source);
+                        }
+                        break;
+                    }
                 }
             }
-            warn!("Output not found: {}", output);
         }
     }
 

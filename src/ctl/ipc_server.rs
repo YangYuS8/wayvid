@@ -147,8 +147,17 @@ pub fn send_command(command: &IpcCommand) -> Result<IpcResponse> {
         PathBuf::from(format!("/tmp/wayvid-{}.sock", user))
     };
 
-    let mut stream = UnixStream::connect(&socket_path)
-        .with_context(|| format!("Failed to connect to daemon at {:?}", socket_path))?;
+    let mut stream = UnixStream::connect(&socket_path).with_context(|| {
+        let mut msg = format!("Failed to connect to daemon at {:?}\n", socket_path);
+        msg.push_str("\nPossible causes:\n");
+        msg.push_str("  1. wayvid daemon is not running\n");
+        msg.push_str("     → Start with: wayvid run  OR  wayvid daemon start\n");
+        msg.push_str("  2. Socket file permission issues\n");
+        msg.push_str("     → Check permissions on the socket file\n");
+        msg.push_str("  3. Config file permission issues\n");
+        msg.push_str("     → Ensure ~/.config/wayvid/config.yaml is readable\n");
+        msg
+    })?;
 
     // Send command
     let command_json = serde_json::to_string(command)?;
