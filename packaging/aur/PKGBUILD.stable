@@ -32,8 +32,9 @@ source=(
     "$url/raw/refs/heads/main/configs/config.example.yaml"
     "$url/raw/refs/heads/main/README.md"
     "$url/raw/refs/heads/main/LICENSE-MIT"
+    "$url/raw/refs/heads/main/logo.svg"
 )
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 options=('!strip')
 
 package() {
@@ -50,6 +51,9 @@ package() {
     
     # Install documentation
     install -Dm644 "$srcdir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+    
+    # Install logo/icon
+    install -Dm644 "$srcdir/logo.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/wayvid.svg"
     
     # Install license
     install -Dm644 "$srcdir/LICENSE-MIT" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"

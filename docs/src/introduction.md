@@ -1,5 +1,9 @@
 # wayvid
 
+<div align="center">
+<img src="logo.svg" alt="wayvid logo" width="120" height="120">
+</div>
+
 **A high-performance video wallpaper engine for Wayland compositors**
 
 wayvid brings video wallpapers to Wayland, supporting HDR, multi-monitor setups, and Steam Workshop integration.

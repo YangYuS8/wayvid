@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="logo.svg" alt="wayvid logo" width="120" height="120">
+
 # wayvid
 
 **Dynamic Video Wallpaper Engine for Wayland**
