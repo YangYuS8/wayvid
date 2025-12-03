@@ -29,9 +29,13 @@ pub enum VideoSource {
         fps: f64,
     },
 
-    /// Wallpaper Engine project (future: import)
+    /// Wallpaper Engine video project
     #[serde(rename = "WeProject")]
     WeProject { path: String },
+
+    /// Wallpaper Engine scene project (JSON-based with layers)
+    #[serde(rename = "WeScene")]
+    WeScene { path: String },
 }
 
 // Manual Eq implementation for VideoSource (treating f64 as bits)
@@ -69,6 +73,10 @@ impl std::hash::Hash for VideoSource {
             }
             VideoSource::WeProject { path } => {
                 6u8.hash(state);
+                path.hash(state);
+            }
+            VideoSource::WeScene { path } => {
+                7u8.hash(state);
                 path.hash(state);
             }
         }
@@ -109,6 +117,10 @@ impl VideoSource {
                 let expanded = shellexpand::tilde(path);
                 expanded.to_string()
             }
+            VideoSource::WeScene { path } => {
+                let expanded = shellexpand::tilde(path);
+                expanded.to_string()
+            }
         }
     }
 
@@ -130,6 +142,7 @@ impl VideoSource {
             }
             VideoSource::ImageSequence { path, .. } => path,
             VideoSource::WeProject { path } => path,
+            VideoSource::WeScene { path } => path,
         }
     }
 
@@ -146,6 +159,12 @@ impl VideoSource {
     #[inline]
     pub fn is_image_sequence(&self) -> bool {
         matches!(self, VideoSource::ImageSequence { .. })
+    }
+
+    /// Check if this is a scene wallpaper (needs scene renderer)
+    #[inline]
+    pub fn is_scene(&self) -> bool {
+        matches!(self, VideoSource::WeScene { .. })
     }
 }
 
@@ -266,5 +285,33 @@ impl From<bool> for HwdecMode {
         } else {
             HwdecMode::No
         }
+    }
+}
+
+/// Render backend selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RenderBackend {
+    /// Auto-detect best backend (prefer Vulkan if available)
+    #[default]
+    Auto,
+
+    /// Force OpenGL (EGL) backend
+    #[serde(rename = "opengl")]
+    OpenGL,
+
+    /// Force Vulkan backend
+    Vulkan,
+}
+
+impl RenderBackend {
+    /// Check if Vulkan backend is requested (explicit or auto)
+    pub fn wants_vulkan(&self) -> bool {
+        matches!(self, RenderBackend::Auto | RenderBackend::Vulkan)
+    }
+
+    /// Check if OpenGL backend is requested (explicit or auto)
+    pub fn wants_opengl(&self) -> bool {
+        matches!(self, RenderBackend::Auto | RenderBackend::OpenGL)
     }
 }

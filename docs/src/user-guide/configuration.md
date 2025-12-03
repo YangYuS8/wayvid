@@ -2,35 +2,21 @@
 
 Config file: `~/.config/wayvid/config.yaml`
 
-## Generate Default Config
-```bash
-wayvid --generate-config
-```
-
-## Basic Structure
+## Basic Example
 
 ```yaml
-# Video source
 source:
-  type: file  # file, directory, workshop
+  type: file
   path: ~/Videos/wallpaper.mp4
-
-# Playback settings
-playback:
-  loop: true
-  volume: 0  # 0-100, 0 = muted
-  paused: false
-
-# Display configuration
-outputs:
-  - name: DP-1
-    enabled: true
-    mode: fit  # fit, fill, stretch
+layout: fill
+volume: 0
+loop: true
+hwdec: true
 ```
 
 ## Source Types
 
-### Single File
+### File
 ```yaml
 source:
   type: file
@@ -43,10 +29,10 @@ source:
   type: directory
   path: ~/Videos/wallpapers/
   shuffle: true
-  interval: 3600  # seconds
+  interval: 3600  # Change every hour
 ```
 
-### Steam Workshop
+### Workshop
 ```yaml
 source:
   type: workshop
@@ -55,69 +41,67 @@ source:
 
 ## Layout Modes
 
-Different scaling modes control how video fits the screen:
+- **fill** - Cover screen, crop if needed (default)
+- **contain** - Fit inside, may letterbox
+- **stretch** - Fill exactly, may distort
+- **centre** - Original size, centered
 
-- **Fill** (default): Scale to cover entire screen, crop edges if needed
-  - Maintains aspect ratio
-  - No black bars, may crop video content
-  - Uses MPV `panscan=1.0` for optimal filling
-  
-- **Contain**: Scale to fit inside screen, letterbox if needed
-  - Maintains aspect ratio
-  - May show black bars (letterbox/pillarbox)
-  - Displays full video content
-  
-- **Stretch**: Stretch to fill screen, ignore aspect ratio
-  - Distorts video to match screen dimensions
-  - No black bars, no cropping
-  - May look unnatural
-  
-- **Cover**: Alias for Fill mode
-  
-- **Centre**: Display at original size, centered
-  - No scaling applied
-  - Shows black bars if video smaller than screen
-
-**Example:**
 ```yaml
-layout: Fill  # or: Contain, Stretch, Cover, Centre
+layout: fill
 ```
 
-## Advanced Options
+## Per-Output Config
+
+Different video per monitor:
 
 ```yaml
-# HDR settings
-hdr:
-  enabled: true
-  target_nits: 1000
+source:
+  type: file
+  path: ~/Videos/default.mp4
 
-# Performance
-performance:
-  frame_skip: false
-  decode_threads: auto
-
-# Logging
-log_level: info  # error, warn, info, debug
-```
-
-## Per-Output Configuration
-
-```yaml
-outputs:
-  - name: DP-1
+per_output:
+  DP-1:
     source:
       type: file
       path: ~/Videos/left.mp4
-  
-  - name: HDMI-A-1
+  HDMI-A-1:
     source:
       type: file
       path: ~/Videos/right.mp4
 ```
 
+## All Options
+
+```yaml
+# Video source
+source:
+  type: file|directory|workshop
+  path: string
+  id: number  # For workshop
+
+# Playback
+layout: fill|contain|stretch|centre
+volume: 0-100
+loop: true|false
+start_time: 0.0
+playback_rate: 1.0
+mute: false
+
+# Performance
+hwdec: true
+
+# HDR
+hdr_mode: auto|force|disable
+tone_mapping: auto
+
+# Power
+power:
+  battery_threshold: 20
+  pause_on_battery: false
+```
+
 ## Reload Config
+
 ```bash
 wayvid-ctl reload-config
 ```
-
-See [Configuration Reference](../reference/config.md) for all options.

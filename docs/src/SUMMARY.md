@@ -1,38 +1,25 @@
 # Summary
 
-
-
 [Introduction](./introduction.md)
-- [Chapter 1](./chapter_1.md)
-
 
 # User Guide
 
-- [Quick Start](./user-guide/quick-start.md)
 - [Installation](./user-guide/installation.md)
 - [Configuration](./user-guide/configuration.md)
-- [GUI Control Panel](./user-guide/gui.md)
-- [Video Sources](./user-guide/video-sources.md)
-- [Multi-Monitor Setup](./user-guide/multi-monitor.md)
+- [Multi-Monitor](./user-guide/multi-monitor.md)
+- [GUI](./user-guide/gui.md)
 
 # Features
 
-- [HDR Support](./features/hdr.md)
 - [Steam Workshop](./features/workshop.md)
-- [Niri Integration](./features/niri.md)
-- [IPC Control](./features/ipc.md)
-
-# Developer Guide
-
-- [Building from Source](./dev/building.md)
-- [Development Workflow](./dev/workflow.md)
-- [Architecture](./dev/architecture.md)
-- [Contributing](./dev/contributing.md)
+- [HDR](./features/hdr.md)
 
 # Reference
 
-- [Configuration Reference](./reference/config.md)
 - [CLI Commands](./reference/cli.md)
 - [IPC Protocol](./reference/ipc-protocol.md)
-- [WE Format](./reference/we-format.md)
-- [Wallpaper Manager Conflicts](./reference/conflicts.md)
+
+# Development
+
+- [Building](./dev/building.md)
+- [Contributing](./dev/contributing.md)

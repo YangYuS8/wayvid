@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-use crate::core::types::{LayoutMode, VideoSource};
+use crate::core::types::{LayoutMode, RenderBackend, VideoSource};
 
 /// Global configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -47,6 +47,10 @@ pub struct Config {
     /// Tone mapping configuration
     #[serde(default)]
     pub tone_mapping: crate::video::hdr::ToneMappingConfig,
+
+    /// Render backend selection (auto, opengl, vulkan)
+    #[serde(default)]
+    pub render_backend: RenderBackend,
 
     /// Per-output overrides (keyed by output name)
     #[serde(default)]
@@ -272,6 +276,7 @@ impl Config {
                 hwdec: base.hwdec,
                 hdr_mode: base.hdr_mode,
                 tone_mapping: base.tone_mapping.clone(),
+                render_backend: base.render_backend,
                 power: base.power,
             };
         }
@@ -292,6 +297,7 @@ impl Config {
             hwdec: base.hwdec,
             hdr_mode: base.hdr_mode,
             tone_mapping: base.tone_mapping.clone(),
+            render_backend: base.render_backend,
             power: base.power.clone(),
         }
     }
@@ -310,6 +316,7 @@ pub struct EffectiveConfig {
     pub hwdec: bool,
     pub hdr_mode: crate::video::hdr::HdrMode,
     pub tone_mapping: crate::video::hdr::ToneMappingConfig,
+    pub render_backend: RenderBackend,
     /// Power management config (for future Phase 6)
     #[allow(dead_code)]
     pub power: PowerConfig,

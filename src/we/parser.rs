@@ -4,6 +4,32 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
+/// Wallpaper Engine project type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WeProjectType {
+    Video,
+    Scene,
+    Web,
+    Application,
+    Unknown,
+}
+
+impl WeProjectType {
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "video" => Self::Video,
+            "scene" => Self::Scene,
+            "web" => Self::Web,
+            "application" => Self::Application,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn is_supported(&self) -> bool {
+        matches!(self, Self::Video | Self::Scene)
+    }
+}
+
 /// Detect if a directory contains a Wallpaper Engine project
 pub fn detect_we_project(path: &Path) -> Result<PathBuf> {
     let project_file = path.join("project.json");
@@ -27,6 +53,23 @@ pub fn detect_we_project(path: &Path) -> Result<PathBuf> {
     Ok(project_file)
 }
 
+/// Detect the type of a Wallpaper Engine project
+pub fn detect_we_project_type(path: &Path) -> Result<WeProjectType> {
+    let project_file = detect_we_project(path)?;
+    let content = fs::read_to_string(&project_file)
+        .with_context(|| format!("Failed to read {}", project_file.display()))?;
+
+    let json: serde_json::Value = serde_json::from_str(&content)
+        .with_context(|| format!("Failed to parse JSON from {}", project_file.display()))?;
+
+    let project_type = json
+        .get("type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    Ok(WeProjectType::from_str(project_type))
+}
+
 /// Parse a Wallpaper Engine project.json file
 pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
     info!(
@@ -41,17 +84,26 @@ pub fn parse_we_project(project_file: &Path) -> Result<(WeProject, PathBuf)> {
     let project: WeProject = serde_json::from_str(&content)
         .with_context(|| format!("Failed to parse JSON from {}", project_file.display()))?;
 
-    // Validate project type
+    // Validate project type (video only for this function)
     if project.project_type != "video" {
+        let project_type = WeProjectType::from_str(&project.project_type);
+        if project_type == WeProjectType::Scene {
+            return Err(anyhow!(
+                "❌ This is a Scene wallpaper\n\n\
+                 Type: 'scene'\n\n\
+                 Scene wallpapers require special handling.\n\
+                 Use parse_we_project_any() for automatic type detection.\n\n\
+                 Scene support is currently in development."
+            ));
+        }
         return Err(anyhow!(
             "❌ Unsupported Wallpaper Engine project type\n\n\
              Type: '{}'\n\n\
-             wayvid only supports 'video' wallpapers.\n\
+             wayvid supports 'video' and 'scene' wallpapers.\n\
              This project uses:\n\
              - Web-based (HTML/JS)\n\
-             - Scene-based (3D engine)\n\
              - Application-based\n\n\
-             Please select a different wallpaper with type='video'.",
+             Please select a different wallpaper with type='video' or 'scene'.",
             project.project_type
         ));
     }
@@ -135,6 +187,87 @@ fn resolve_video_path(project_dir: &Path, file: &str) -> Result<PathBuf> {
     }
 
     Ok(video_path)
+}
+
+/// Parsed Wallpaper Engine project (any supported type)
+#[derive(Debug)]
+pub enum ParsedWeProject {
+    /// Video wallpaper (mp4, webm, etc.)
+    Video {
+        project: WeProject,
+        video_path: PathBuf,
+    },
+    /// Scene wallpaper (scene.json with layers)
+    Scene {
+        project: crate::we::scene::SceneProject,
+        project_dir: PathBuf,
+    },
+}
+
+impl ParsedWeProject {
+    /// Get the project title
+    pub fn title(&self) -> Option<&str> {
+        match self {
+            ParsedWeProject::Video { project, .. } => project.title.as_deref(),
+            ParsedWeProject::Scene { project, .. } => Some(&project.title),
+        }
+    }
+
+    /// Get the project type
+    pub fn project_type(&self) -> WeProjectType {
+        match self {
+            ParsedWeProject::Video { .. } => WeProjectType::Video,
+            ParsedWeProject::Scene { .. } => WeProjectType::Scene,
+        }
+    }
+}
+
+/// Parse any supported Wallpaper Engine project (video or scene)
+/// 
+/// This function automatically detects the project type and parses accordingly.
+pub fn parse_we_project_any(path: &Path) -> Result<ParsedWeProject> {
+    let project_file = detect_we_project(path)?;
+    let project_type = detect_we_project_type(path)?;
+
+    match project_type {
+        WeProjectType::Video => {
+            let (project, video_path) = parse_we_project(&project_file)?;
+            Ok(ParsedWeProject::Video { project, video_path })
+        }
+        WeProjectType::Scene => {
+            use crate::we::scene::SceneParser;
+            
+            let project_dir = project_file
+                .parent()
+                .ok_or_else(|| anyhow!("Invalid project file path"))?;
+            
+            info!("🎭 Parsing scene wallpaper...");
+            let scene_project = SceneParser::load(project_dir)?;
+            info!("✅ Scene loaded: {} objects", scene_project.objects.len());
+            
+            Ok(ParsedWeProject::Scene {
+                project: scene_project,
+                project_dir: project_dir.to_path_buf(),
+            })
+        }
+        WeProjectType::Web => Err(anyhow!(
+            "❌ Web wallpapers are not supported\n\n\
+             Type: 'web'\n\n\
+             wayvid cannot render HTML/JavaScript wallpapers.\n\
+             Please select a 'video' or 'scene' wallpaper."
+        )),
+        WeProjectType::Application => Err(anyhow!(
+            "❌ Application wallpapers are not supported\n\n\
+             Type: 'application'\n\n\
+             wayvid cannot run executable wallpapers.\n\
+             Please select a 'video' or 'scene' wallpaper."
+        )),
+        WeProjectType::Unknown => Err(anyhow!(
+            "❌ Unknown wallpaper type\n\n\
+             The project.json has an unrecognized 'type' field.\n\
+             Please select a 'video' or 'scene' wallpaper."
+        )),
+    }
 }
 
 #[cfg(test)]

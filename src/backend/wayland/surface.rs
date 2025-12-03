@@ -7,11 +7,34 @@ use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_l
 
 use crate::config::EffectiveConfig;
 use crate::core::layout::calculate_layout;
-use crate::core::types::OutputInfo;
+use crate::core::types::{OutputInfo, RenderBackend};
 use crate::video::egl::{EglContext, EglWindow};
+use crate::video::scene::ScenePlayer;
+
+#[cfg(feature = "backend-vulkan")]
+use crate::video::vulkan::{VulkanContext, VulkanWindow};
 
 #[cfg(feature = "video-mpv")]
 use crate::video::shared_decode::{DecoderHandle, SharedDecodeManager};
+
+/// Active rendering backend for this surface
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ActiveBackend {
+    /// OpenGL via EGL
+    OpenGL,
+    /// Vulkan (when backend-vulkan feature is enabled)
+    #[cfg(feature = "backend-vulkan")]
+    Vulkan,
+}
+
+/// Source rendering mode
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum RenderMode {
+    /// Video rendering via MPV
+    Video,
+    /// Scene rendering (Wallpaper Engine scene type)
+    Scene,
+}
 
 pub struct WaylandSurface {
     pub wl_surface: wl_surface::WlSurface,
@@ -20,13 +43,26 @@ pub struct WaylandSurface {
     pub output_info: OutputInfo,
     pub config: EffectiveConfig,
 
+    // Active rendering backend
+    active_backend: ActiveBackend,
+
     // EGL/OpenGL rendering
     egl_window: Option<EglWindow>,
     gl_loaded: bool,
 
+    // Vulkan rendering (when feature enabled)
+    #[cfg(feature = "backend-vulkan")]
+    vulkan_window: Option<VulkanWindow>,
+
+    // Render mode (video or scene)
+    render_mode: RenderMode,
+
     // Video decoder (shared across outputs with same source)
     #[cfg(feature = "video-mpv")]
     decoder_handle: Option<DecoderHandle>,
+
+    // Scene player (for Wallpaper Engine scenes)
+    scene_player: Option<ScenePlayer>,
 
     // Frame synchronization
     frame_callback: Option<wl_callback::WlCallback>,
@@ -94,16 +130,37 @@ impl WaylandSurface {
             output_info.name, output_info.width, output_info.height
         );
 
+        // Determine render mode based on source type
+        let render_mode = if config.source.is_scene() {
+            RenderMode::Scene
+        } else {
+            RenderMode::Video
+        };
+
+        // Determine active backend based on config
+        // For now, always use OpenGL (Vulkan integration will be added later)
+        let active_backend = Self::select_backend(&config.render_backend);
+
+        info!(
+            "  Backend: {:?} (requested: {:?})",
+            active_backend, config.render_backend
+        );
+
         Ok(Self {
             wl_surface,
             layer_surface,
             output_id,
             output_info,
             config,
+            active_backend,
             egl_window: None,
             gl_loaded: false,
+            #[cfg(feature = "backend-vulkan")]
+            vulkan_window: None,
+            render_mode,
             #[cfg(feature = "video-mpv")]
             decoder_handle: None,
+            scene_player: None,
             frame_callback: None,
             frame_pending: false,
             cached_layout: None,
@@ -113,6 +170,34 @@ impl WaylandSurface {
             resources_initialized: false,
             is_active: true, // Assume active until proven otherwise
         })
+    }
+
+    /// Select the active rendering backend based on configuration
+    fn select_backend(requested: &RenderBackend) -> ActiveBackend {
+        match requested {
+            RenderBackend::OpenGL => ActiveBackend::OpenGL,
+            #[cfg(feature = "backend-vulkan")]
+            RenderBackend::Vulkan => ActiveBackend::Vulkan,
+            #[cfg(not(feature = "backend-vulkan"))]
+            RenderBackend::Vulkan => {
+                warn!("Vulkan backend requested but not compiled in, falling back to OpenGL");
+                ActiveBackend::OpenGL
+            }
+            RenderBackend::Auto => {
+                // Auto mode: prefer Vulkan if available and working, fallback to OpenGL
+                #[cfg(feature = "backend-vulkan")]
+                {
+                    // TODO: Implement Vulkan availability check
+                    // For now, default to OpenGL until Vulkan is fully integrated
+                    info!("Auto backend: using OpenGL (Vulkan integration pending)");
+                    ActiveBackend::OpenGL
+                }
+                #[cfg(not(feature = "backend-vulkan"))]
+                {
+                    ActiveBackend::OpenGL
+                }
+            }
+        }
     }
 
     pub fn configure(
@@ -186,6 +271,40 @@ impl WaylandSurface {
         Ok(())
     }
 
+    /// Initialize scene player for Wallpaper Engine scenes
+    fn init_scene(&mut self, egl_context: &EglContext) -> Result<()> {
+        use crate::core::types::VideoSource;
+
+        let scene_path = match &self.config.source {
+            VideoSource::WeScene { path } => {
+                let expanded = shellexpand::tilde(path);
+                std::path::PathBuf::from(expanded.to_string())
+            }
+            _ => {
+                return Err(anyhow::anyhow!("Source is not a scene"));
+            }
+        };
+
+        info!("  🎭 Loading scene from: {}", scene_path.display());
+
+        // Create scene player
+        let mut player = ScenePlayer::new(&scene_path, &self.output_info)?;
+
+        info!(
+            "  📦 Scene loaded: {}x{}, {} textures",
+            player.resolution().0,
+            player.resolution().1,
+            player.texture_count()
+        );
+
+        // Initialize OpenGL resources
+        player.init_gl(egl_context)?;
+        info!("  ✓ Scene OpenGL initialized");
+
+        self.scene_player = Some(player);
+        Ok(())
+    }
+
     pub fn render(
         &mut self,
         egl_context: Option<&EglContext>,
@@ -203,8 +322,8 @@ impl WaylandSurface {
         if !self.resources_initialized && self.is_active {
             if let Some(egl_ctx) = egl_context {
                 info!(
-                    "🚀 Lazy initialization for output {} (first render)",
-                    self.output_info.name
+                    "🚀 Lazy initialization for output {} (first render, mode: {:?})",
+                    self.output_info.name, self.render_mode
                 );
 
                 // Initialize EGL window
@@ -226,7 +345,7 @@ impl WaylandSurface {
                 }
 
                 // CRITICAL: Make EGL context current BEFORE initializing decoder/render context
-                // mpv render API requires a valid OpenGL context to be current
+                // Both mpv and scene renderer require a valid OpenGL context to be current
                 if let Some(ref egl_win) = self.egl_window {
                     if let Err(e) = egl_ctx.make_current(egl_win) {
                         error!("Failed to make context current during lazy init: {}", e);
@@ -234,14 +353,41 @@ impl WaylandSurface {
                     }
                 }
 
-                // Initialize decoder
-                #[cfg(feature = "video-mpv")]
-                if self.decoder_handle.is_none() {
-                    match self.init_decoder(Some(egl_ctx)) {
-                        Ok(()) => info!("  ✓ Decoder initialized lazily"),
-                        Err(e) => {
-                            error!("Failed to initialize decoder: {}", e);
-                            return Ok(());
+                // Load OpenGL functions early for scene rendering
+                if !self.gl_loaded {
+                    egl_ctx.load_gl_functions();
+                    self.gl_loaded = true;
+                    info!(
+                        "  ✓ OpenGL functions loaded for output {}",
+                        self.output_info.name
+                    );
+                }
+
+                // Initialize based on render mode
+                match self.render_mode {
+                    RenderMode::Scene => {
+                        // Initialize scene player
+                        if self.scene_player.is_none() {
+                            match self.init_scene(egl_ctx) {
+                                Ok(()) => info!("  ✓ Scene player initialized lazily"),
+                                Err(e) => {
+                                    error!("Failed to initialize scene player: {}", e);
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    }
+                    RenderMode::Video => {
+                        // Initialize video decoder
+                        #[cfg(feature = "video-mpv")]
+                        if self.decoder_handle.is_none() {
+                            match self.init_decoder(Some(egl_ctx)) {
+                                Ok(()) => info!("  ✓ Decoder initialized lazily"),
+                                Err(e) => {
+                                    error!("Failed to initialize decoder: {}", e);
+                                    return Ok(());
+                                }
+                            }
                         }
                     }
                 }
@@ -281,7 +427,7 @@ impl WaylandSurface {
                 return Ok(());
             }
 
-            // Load OpenGL functions on first render
+            // Load OpenGL functions on first render (may already be loaded during init)
             if !self.gl_loaded {
                 egl_ctx.load_gl_functions();
                 self.gl_loaded = true;
@@ -291,83 +437,107 @@ impl WaylandSurface {
                 );
             }
 
-            // Always clear to black first to ensure clean background
-            unsafe {
-                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-            }
-
-            // Render video frame with layout
-            #[cfg(feature = "video-mpv")]
-            {
-                if let Some(ref mut handle) = self.decoder_handle {
-                    let output_w = egl_win.width();
-                    let output_h = egl_win.height();
-
-                    // Get video dimensions and calculate/use cached layout
-                    let (render_w, render_h) = if let Some((vw, vh)) = handle.dimensions() {
-                        let cache_key = (vw, vh, output_w, output_h);
-
-                        // Check if we can use cached layout
-                        let viewport = if let Some((cached_key, cached_viewport)) =
-                            &self.cached_layout
-                        {
-                            if cached_key == &cache_key {
-                                *cached_viewport
-                            } else {
-                                // Cache miss - recalculate
-                                let layout = calculate_layout(
-                                    self.config.layout,
-                                    vw,
-                                    vh,
-                                    output_w,
-                                    output_h,
-                                );
-                                let viewport = layout.dst_rect;
-                                self.cached_layout = Some((cache_key, viewport));
-                                viewport
+            // Render based on mode
+            match self.render_mode {
+                RenderMode::Scene => {
+                    // Scene rendering
+                    if let Some(ref mut player) = self.scene_player {
+                        match player.render_frame(egl_ctx, egl_win) {
+                            Ok(rendered) => {
+                                frame_rendered = rendered;
                             }
-                        } else {
-                            // First time - calculate and cache
-                            let layout =
-                                calculate_layout(self.config.layout, vw, vh, output_w, output_h);
-                            let viewport = layout.dst_rect;
-                            self.cached_layout = Some((cache_key, viewport));
-                            viewport
-                        };
-
-                        // Set viewport to destination rectangle
-                        let (x, y, w, h) = viewport;
-                        unsafe {
-                            gl::Viewport(x, y, w, h);
-                        }
-
-                        (w, h)
-                    } else {
-                        // No video dimensions yet, use full output
-                        self.cached_layout = None;
-                        (output_w, output_h)
-                    };
-
-                    // Render video frame via shared decoder
-                    match handle.render(render_w, render_h, 0) {
-                        Ok(rendered) => {
-                            frame_rendered = rendered;
-                        }
-                        Err(e) => {
-                            warn!("Video render error: {}", e);
+                            Err(e) => {
+                                warn!("Scene render error: {}", e);
+                            }
                         }
                     }
-
-                    // Reset viewport to full output
+                }
+                RenderMode::Video => {
+                    // Always clear to black first to ensure clean background
                     unsafe {
-                        gl::Viewport(0, 0, output_w, output_h);
+                        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+                        gl::Clear(gl::COLOR_BUFFER_BIT);
+                    }
+
+                    // Render video frame with layout
+                    #[cfg(feature = "video-mpv")]
+                    {
+                        if let Some(ref mut handle) = self.decoder_handle {
+                            let output_w = egl_win.width();
+                            let output_h = egl_win.height();
+
+                            // Get video dimensions and calculate/use cached layout
+                            let (render_w, render_h) = if let Some((vw, vh)) = handle.dimensions() {
+                                let cache_key = (vw, vh, output_w, output_h);
+
+                                // Check if we can use cached layout
+                                let viewport = if let Some((cached_key, cached_viewport)) =
+                                    &self.cached_layout
+                                {
+                                    if cached_key == &cache_key {
+                                        *cached_viewport
+                                    } else {
+                                        // Cache miss - recalculate
+                                        let layout = calculate_layout(
+                                            self.config.layout,
+                                            vw,
+                                            vh,
+                                            output_w,
+                                            output_h,
+                                        );
+                                        let viewport = layout.dst_rect;
+                                        self.cached_layout = Some((cache_key, viewport));
+                                        viewport
+                                    }
+                                } else {
+                                    // First time - calculate and cache
+                                    let layout = calculate_layout(
+                                        self.config.layout,
+                                        vw,
+                                        vh,
+                                        output_w,
+                                        output_h,
+                                    );
+                                    let viewport = layout.dst_rect;
+                                    self.cached_layout = Some((cache_key, viewport));
+                                    viewport
+                                };
+
+                                // Set viewport to destination rectangle
+                                let (x, y, w, h) = viewport;
+                                unsafe {
+                                    gl::Viewport(x, y, w, h);
+                                }
+
+                                (w, h)
+                            } else {
+                                // No video dimensions yet, use full output
+                                self.cached_layout = None;
+                                (output_w, output_h)
+                            };
+
+                            // Render video frame via shared decoder
+                            match handle.render(render_w, render_h, 0) {
+                                Ok(rendered) => {
+                                    frame_rendered = rendered;
+                                }
+                                Err(e) => {
+                                    warn!("Video render error: {}", e);
+                                }
+                            }
+
+                            // Reset viewport to full output
+                            unsafe {
+                                gl::Viewport(0, 0, output_w, output_h);
+                            }
+                        }
                     }
                 }
             }
 
             // Only swap buffers if we actually rendered a new frame
             // This saves GPU work when video fps < display refresh rate
+            // Note: Scene always renders, so frame_rendered is always true for scenes
             if frame_rendered {
                 if let Err(e) = egl_ctx.swap_buffers(egl_win) {
                     error!("Failed to swap buffers: {}", e);
@@ -449,6 +619,13 @@ impl WaylandSurface {
                 info!("  ✓ Decoder handle released");
             }
         }
+
+        // Cleanup scene player
+        if let Some(ref mut player) = self.scene_player {
+            player.cleanup();
+            info!("  ✓ Scene player cleaned up");
+        }
+        self.scene_player = None;
 
         // Note: EGL window is kept for now as it's lightweight
         // and may be needed soon if output becomes active again

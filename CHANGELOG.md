@@ -1,3 +1,21 @@
+## [unreleased]
+
+### 🚀 Features
+
+- Add project logo to README, docs, and packaging
+
+### 💼 Other
+
+- Add proposal for Scene wallpaper support
+## [0.4.4] - 2025-12-03
+
+### 🐛 Bug Fixes
+
+- *(aur)* Remove non-existent LICENSE-APACHE from PKGBUILD.stable
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* 发布 v0.4.4 正式版
 ## [0.4.4-alpha.3] - 2025-11-26
 
 ### 🚀 Features

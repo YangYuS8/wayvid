@@ -72,6 +72,7 @@ pub fn generate_wayvid_config(project: &WeProject, video_path: PathBuf) -> Resul
         tone_mapping: Default::default(),
         per_output: HashMap::new(),
         power: Default::default(),
+        render_backend: Default::default(),
     };
 
     info!("✅ Config generated successfully");

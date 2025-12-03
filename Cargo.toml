@@ -22,6 +22,11 @@ khronos-egl = { version = "6.0", features = ["dynamic"] }
 gl = "0.14"
 wayland-egl = "0.32"
 
+# Vulkan (optional)
+ash = { version = "0.38", optional = true }
+ash-window = { version = "0.13", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
+
 # Video playback (libmpv)
 libmpv-sys = { version = "3.1", optional = true }
 
@@ -59,11 +64,12 @@ zip = "2.1"
 # GUI (optional)
 eframe = { version = "0.29", optional = true }
 egui = { version = "0.29", optional = true }
-image = { version = "0.25", optional = true, default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 
 # Internationalization (i18n)
 rust-i18n = { version = "3", optional = true }
 sys-locale = { version = "0.3", optional = true }
+lz4_flex = "0.11.3"
 
 [dev-dependencies]
 tempfile = "3.8"
@@ -77,12 +83,13 @@ video-gst = []  # Reserved for future gstreamer support
 
 # Platform backends
 backend-wayland = []
+backend-vulkan = ["dep:ash", "dep:ash-window", "dep:raw-window-handle"]
 
 # Configuration formats
 config-toml = ["dep:toml"]
 
 # GUI
-gui = ["dep:eframe", "dep:egui", "dep:image", "dep:rust-i18n", "dep:sys-locale"]
+gui = ["dep:eframe", "dep:egui", "dep:rust-i18n", "dep:sys-locale"]
 
 # Telemetry (future)
 telemetry = []

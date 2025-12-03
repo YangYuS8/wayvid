@@ -4,5 +4,8 @@ pub mod hdr;
 pub mod memory;
 #[cfg(feature = "video-mpv")]
 pub mod mpv;
+pub mod scene;
 #[cfg(feature = "video-mpv")]
 pub mod shared_decode;
+#[cfg(feature = "backend-vulkan")]
+pub mod vulkan;

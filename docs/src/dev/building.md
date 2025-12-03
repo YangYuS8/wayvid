@@ -1,123 +1,52 @@
-# Building from Source
+# Building
 
-## Prerequisites
+## Dependencies
 
-### System Dependencies
-
-**Arch Linux:**
+**Arch:**
 ```bash
-sudo pacman -S rust mpv wayland wayland-protocols libxkbcommon fontconfig
+sudo pacman -S rust mpv wayland wayland-protocols libxkbcommon
 ```
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt install cargo libmpv-dev libwayland-dev wayland-protocols \
-                 libxkbcommon-dev libfontconfig1-dev libegl1-mesa-dev
+sudo apt install cargo libmpv-dev libwayland-dev libxkbcommon-dev
 ```
 
 **Fedora:**
 ```bash
-sudo dnf install cargo mpv-libs-devel wayland-devel wayland-protocols-devel \
-                 libxkbcommon-devel fontconfig-devel mesa-libEGL-devel
-```
-
-## Clone Repository
-
-```bash
-git clone https://github.com/YangYuS8/wayvid
-cd wayvid
+sudo dnf install cargo mpv-libs-devel wayland-devel libxkbcommon-devel
 ```
 
 ## Build
 
-### Release Build
 ```bash
-cargo build --release
-```
+git clone https://github.com/YangYuS8/wayvid
+cd wayvid
 
-Binaries in `target/release/`:
-- `wayvid` - Main daemon
-- `wayvid-ctl` - CLI control tool
-
-### With GUI
-```bash
+# Release build with all features
 cargo build --release --all-features
+
+# Install
+sudo install -Dm755 target/release/{wayvid,wayvid-ctl,wayvid-gui} /usr/local/bin/
 ```
 
-Additional binary:
-- `wayvid-gui` - Desktop GUI
+## Features
 
-### Development Build
 ```bash
-cargo build
+cargo build --features gui       # GUI only
+cargo build --features workshop  # Workshop only
+cargo build --all-features       # Everything
 ```
 
-Faster compilation, debug symbols, in `target/debug/`.
-
-## Feature Flags
+## Test
 
 ```bash
-# Workshop support
-cargo build --features workshop
-
-# Niri integration
-cargo build --features niri
-
-# GUI
-cargo build --features gui
-
-# All features
-cargo build --all-features
-```
-
-## Install
-
-```bash
-sudo cp target/release/wayvid{,-ctl,-gui} /usr/local/bin/
-```
-
-Or use cargo:
-```bash
-cargo install --path . --all-features
-```
-
-## Run Tests
-
-```bash
-cargo test --all-features
+cargo test
+cargo clippy
 ```
 
 ## Verify
 
 ```bash
 wayvid --version
-wayvid-ctl --version
-wayvid-gui --version  # if built with --features gui
 ```
-
-## Clean Build
-
-```bash
-cargo clean
-```
-
-## Optimization
-
-For maximum performance:
-```bash
-RUSTFLAGS="-C target-cpu=native" cargo build --release
-```
-
-## Troubleshooting
-
-**Missing dependencies:**
-- Check error message for missing library
-- Install corresponding `-dev` or `-devel` package
-
-**Linker errors:**
-- Install `clang` or `gcc`
-- Ensure all system libraries present
-
-**Build takes too long:**
-- Use `cargo build` (debug) for development
-- Enable `mold` linker (see [Development Workflow](./workflow.md))

@@ -395,6 +395,7 @@ impl AppState {
                         }
                         VideoSource::ImageSequence { path, .. } => path.clone(),
                         VideoSource::WeProject { path } => path.clone(),
+                        VideoSource::WeScene { path } => path.clone(),
                     };
 
                     if let Err(e) = surface.switch_source(&source_path, egl_ctx) {
