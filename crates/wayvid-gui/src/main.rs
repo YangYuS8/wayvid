@@ -14,6 +14,7 @@ mod async_loader;
 mod ipc;
 mod messages;
 mod service;
+mod settings;
 mod state;
 mod theme;
 mod views;

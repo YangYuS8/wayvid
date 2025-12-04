@@ -51,74 +51,74 @@
 - [x] JSON 协议支持
 - [x] 3 个单元测试
 
-## Phase 2: 壁纸库模块深化 (Week 2)
+## Phase 2: 壁纸库模块深化 (Week 2) ✅ COMPLETED
 
 ### 2.1 数据库增强
-- [ ] 添加全文搜索索引
-- [ ] 实现标签系统
-- [ ] 添加收藏功能
+- [x] 添加全文搜索索引
+- [x] 实现标签系统
+- [x] 添加收藏功能
 
 ### 2.2 扫描器优化
-- [ ] 实现 rayon 并行扫描
-- [ ] 文件变更监控 (notify crate)
-- [ ] 增量扫描优化
+- [x] 实现 rayon 并行扫描
+- [x] 文件变更监控 (notify crate)
+- [x] 增量扫描优化
 
 ### 2.3 缩略图系统
-- [ ] WebP 输出格式
-- [ ] 缓存目录结构 (~/.cache/wayvid/thumbnails/)
-- [ ] 后台线程生成
-- [ ] GIF 动画预览
+- [x] WebP 输出格式
+- [x] 缓存目录结构 (~/.cache/wayvid/thumbnails/)
+- [x] 后台线程生成
+- [x] GIF 动画预览
 
 ### 2.4 Workshop 集成
-- [ ] 迁移 Steam Workshop 扫描逻辑
-- [ ] 自动检测 Steam 路径
-- [ ] 解析 project.json 元数据
+- [x] 迁移 Steam Workshop 扫描逻辑
+- [x] 自动检测 Steam 路径
+- [x] 解析 project.json 元数据
 
-## Phase 3: GUI 重构 (Week 3-4)
+## Phase 3: GUI 重构 (Week 3-4) ✅ COMPLETED
 
 ### 3.1 模块拆分
-- [ ] 创建 views/ 目录结构
-- [ ] 拆分 library view (壁纸网格)
-- [ ] 拆分 monitors view (显示器管理)
-- [ ] 拆分 settings view (设置页面)
+- [x] 创建 views/ 目录结构
+- [x] 拆分 library view (壁纸网格)
+- [x] 拆分 monitors view (显示器管理)
+- [x] 拆分 settings view (设置页面)
 
 ### 3.2 组件化
-- [ ] 创建 widgets/ 目录
-- [ ] WallpaperCard 组件 (带缩略图)
-- [ ] MonitorSelector 组件
-- [ ] ThumbnailImage 组件 (异步加载)
+- [x] 创建 widgets/ 目录
+- [x] WallpaperCard 组件 (带缩略图)
+- [x] MonitorSelector 组件
+- [x] ThumbnailImage 组件 (异步加载)
 
 ### 3.3 异步加载
-- [ ] 缩略图异步加载 (channel + texture)
-- [ ] 虚拟滚动 (只渲染可见区域)
-- [ ] 加载状态指示器
+- [x] 缩略图异步加载 (channel + texture)
+- [x] 虚拟滚动 (只渲染可见区域)
+- [x] 加载状态指示器
 
 ### 3.4 内置服务
-- [ ] 将 daemon 逻辑内置到 GUI
-- [ ] 窗口关闭时最小化到托盘
-- [ ] 后台壁纸渲染
+- [x] 将 daemon 逻辑内置到 GUI
+- [x] 窗口关闭时最小化到托盘
+- [x] 后台壁纸渲染
 
 ### 3.5 托盘支持
-- [ ] 添加系统托盘图标
-- [ ] 托盘菜单 (显示/暂停/退出)
-- [ ] 托盘通知
+- [x] 添加系统托盘图标
+- [x] 托盘菜单 (显示/暂停/退出)
+- [x] 托盘通知
 
-## Phase 4: 配置自动化 (Week 4)
+## Phase 4: 配置自动化 (Week 4) ✅ COMPLETED
 
 ### 4.1 AppSettings
-- [ ] 定义 settings.yaml 结构
-- [ ] 自动保存 (debounce)
-- [ ] 默认值处理
+- [x] 定义 settings.yaml 结构
+- [x] 自动保存 (debounce)
+- [x] 默认值处理
 
 ### 4.2 开机自启动
-- [ ] 检测 XDG autostart
-- [ ] 生成 .desktop 文件
-- [ ] GUI 开关控制
+- [x] 检测 XDG autostart
+- [x] 生成 .desktop 文件
+- [x] GUI 开关控制
 
 ### 4.3 电源管理
-- [ ] 全屏应用检测 (暂停壁纸)
-- [ ] 电池模式检测
-- [ ] FPS 限制选项
+- [x] 全屏应用检测 (暂停壁纸)
+- [x] 电池模式检测
+- [x] FPS 限制选项
 
 ## Phase 5: CLI 精简 (Week 5)
 
@@ -163,11 +163,11 @@
 
 | 里程碑 | 目标日期 | 状态 |
 |-------|---------|------|
-| Phase 1: 项目结构 | Week 1 | 进行中 |
-| Phase 2: 壁纸库 | Week 2 | 未开始 |
-| Phase 3: GUI 重构 | Week 4 | 未开始 |
-| Phase 4: 配置自动化 | Week 4 | 未开始 |
-| Phase 5: CLI 精简 | Week 5 | 未开始 |
+| Phase 1: 项目结构 | Week 1 | ✅ 已完成 |
+| Phase 2: 壁纸库 | Week 2 | ✅ 已完成 |
+| Phase 3: GUI 重构 | Week 4 | ✅ 已完成 |
+| Phase 4: 配置自动化 | Week 4 | ✅ 已完成 |
+| Phase 5: CLI 精简 | Week 5 | 进行中 |
 | Phase 6: 发布 | Week 6 | 未开始 |
 
 ## 注意事项
