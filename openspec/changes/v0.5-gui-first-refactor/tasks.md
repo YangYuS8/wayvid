@@ -147,17 +147,17 @@
 - [x] 全部 78 tests passing
 
 ### 6.2 文档更新
-- [ ] 更新 README.md
+- [x] 更新 README.md
 - [ ] 更新 docs/ mdbook
-- [ ] 更新安装说明
+- [x] 更新安装说明
 
 ### 6.3 打包
-- [ ] 更新 AUR PKGBUILD
-- [ ] 更新 Nix flake
+- [x] 更新 AUR PKGBUILD
+- [x] 更新 Nix flake
 - [ ] 验证 AppImage 构建
 
 ### 6.4 发布
-- [ ] 更新 CHANGELOG.md
+- [x] 更新 CHANGELOG.md
 - [ ] 创建 v0.5.0 release
 - [ ] 社区公告
 

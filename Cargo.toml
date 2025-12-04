@@ -5,7 +5,7 @@
 # - wayvid-core:    核心类型和配置
 # - wayvid-engine:  视频渲染引擎 (Wayland + MPV)
 # - wayvid-library: 壁纸库管理 (SQLite + 缩略图)
-# - wayvid:         GUI 应用 (主入口)
+# - wayvid-gui:     GUI 应用 (主入口，iced 框架)
 # - wayvid-ctl:     精简 CLI 工具
 
 [workspace]
@@ -14,9 +14,8 @@ members = [
     "crates/wayvid-core",
     "crates/wayvid-engine",
     "crates/wayvid-library",
-    "crates/wayvid",
-    "crates/wayvid-ctl",
     "crates/wayvid-gui",
+    "crates/wayvid-ctl",
 ]
 
 [workspace.package]

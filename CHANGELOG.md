@@ -1,8 +1,36 @@
 ## [unreleased]
 
+## [0.5.0-alpha.1] - 2025-06-15
+
+### 🚀 Features
+
+- **GUI-first architecture**: Complete rewrite with modular crate structure
+- **New crate system**: Split into wayvid-core, wayvid-engine, wayvid-library, wayvid-gui, wayvid-ctl
+- **iced GUI framework**: Modern, responsive GUI with wallpaper browser and thumbnails
+- **SQLite-backed library**: Wallpaper library with metadata, tags, and search
+- **Async wallpaper loader**: Background thumbnail generation and caching
+- **Monitor management**: Visual monitor selection with independent wallpaper per display
+- **Settings panel**: GUI-based configuration with autostart and power management
+- **Unified IPC protocol**: Shared protocol between wayvid-core and all tools
+
+### 🔧 Improvements
+
+- Simplified user workflow: Open GUI → Browse → Apply
+- Centralized configuration in wayvid-core
+- Proper error handling with thiserror across all crates
+- Comprehensive test coverage (78 tests across workspace)
+
 ### 📚 Documentation
 
-- Improve systemd service configuration for niri users
+- Updated README with GUI-first usage instructions
+- Simplified installation and usage documentation
+
+### ⚠️ Breaking Changes
+
+- Old wayvid daemon binary removed; use wayvid-gui or wayvid-ctl
+- Configuration now managed via GUI settings panel
+- Legacy config.yaml still supported for advanced users
+
 ## [0.4.5-alpha.1] - 2025-12-04
 
 ### 🚀 Features

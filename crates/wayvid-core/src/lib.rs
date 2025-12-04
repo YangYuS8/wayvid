@@ -29,4 +29,6 @@ pub use ipc::{
 pub use layout::{calculate_layout, LayoutTransform};
 pub use library::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 pub use settings::AppSettings;
-pub use types::{HwdecMode, LayoutMode, OutputHdrCapabilities, OutputInfo, RenderBackend, VideoSource};
+pub use types::{
+    HwdecMode, LayoutMode, OutputHdrCapabilities, OutputInfo, RenderBackend, VideoSource,
+};
