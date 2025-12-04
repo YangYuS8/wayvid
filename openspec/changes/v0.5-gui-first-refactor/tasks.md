@@ -3,19 +3,19 @@
 ## Phase 1: 项目结构重组 (Week 1)
 
 ### 1.1 Workspace 初始化
-- [ ] 创建 workspace Cargo.toml
-- [ ] 迁移 src/core → crates/wayvid-core
+- [x] 创建 workspace Cargo.toml
+- [x] 迁移 src/core → crates/wayvid-core
 - [ ] 迁移 src/video + src/backend → crates/wayvid-engine
-- [ ] 创建 crates/wayvid-library (新模块)
+- [x] 创建 crates/wayvid-library (新模块)
 - [ ] 迁移 src/bin/wayvid-gui.rs → crates/wayvid/
 
 ### 1.2 依赖整理
-- [ ] 整理各 crate 依赖关系
+- [x] 整理各 crate 依赖关系
 - [ ] 移除未使用的依赖
-- [ ] 统一版本号管理
+- [x] 统一版本号管理
 
 ### 1.3 构建验证
-- [ ] 确保所有 crate 独立编译
+- [x] 确保所有 crate 独立编译
 - [ ] 更新 CI 配置
 - [ ] 验证现有功能不受影响
 
@@ -132,7 +132,7 @@
 
 | 里程碑 | 目标日期 | 状态 |
 |-------|---------|------|
-| Phase 1: 项目结构 | Week 1 | 未开始 |
+| Phase 1: 项目结构 | Week 1 | 进行中 |
 | Phase 2: 壁纸库 | Week 2 | 未开始 |
 | Phase 3: GUI 重构 | Week 4 | 未开始 |
 | Phase 4: 配置自动化 | Week 4 | 未开始 |
