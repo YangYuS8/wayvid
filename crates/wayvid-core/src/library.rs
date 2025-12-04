@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Wallpaper item in the library
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +39,7 @@ pub struct WallpaperItem {
 
 impl WallpaperItem {
     /// Generate a unique ID from the source path
-    pub fn generate_id(path: &PathBuf) -> String {
+    pub fn generate_id(path: &Path) -> String {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(path.to_string_lossy().as_bytes());
