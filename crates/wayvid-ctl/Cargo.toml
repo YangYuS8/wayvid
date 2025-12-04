@@ -15,8 +15,12 @@ wayvid-core = { path = "../wayvid-core" }
 clap = { version = "4.5", features = ["derive"] }
 
 # IPC
+interprocess = "2.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# Async
+tokio = { version = "1.0", features = ["rt", "io-util", "net"] }
 
 # Error handling
 thiserror = "1.0"
@@ -25,6 +29,10 @@ anyhow = "1.0"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Utilities
+dirs = "5.0"
+colored = "2.1"
 
 [[bin]]
 name = "wayvid-ctl"
