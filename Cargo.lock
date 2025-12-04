@@ -5622,6 +5622,7 @@ name = "wayvid-library"
 version = "0.5.0-alpha.1"
 dependencies = [
  "anyhow",
+ "chrono",
  "dirs 5.0.1",
  "image",
  "notify",

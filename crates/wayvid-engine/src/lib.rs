@@ -30,6 +30,6 @@ pub use wayland::{LayerSurface, OutputManager};
 
 // Re-exports from wayvid-core
 pub use wayvid_core::{
-    calculate_layout, HdrMetadata, HdrMode, HwdecMode, LayoutMode,
-    LayoutTransform, OutputInfo, RenderBackend, ToneMappingConfig,
+    calculate_layout, HdrMetadata, HdrMode, HwdecMode, LayoutMode, LayoutTransform, OutputInfo,
+    RenderBackend, ToneMappingConfig,
 };

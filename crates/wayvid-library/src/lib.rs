@@ -1,13 +1,48 @@
 //! wayvid-library: Wallpaper library management for wayvid
 //!
 //! This crate provides wallpaper library functionality:
-//! - SQLite database for wallpaper indexing
+//! - SQLite database for wallpaper indexing and metadata
 //! - Folder scanning and change detection
 //! - Thumbnail generation and caching
-//! - Steam Workshop integration
+//! - Library statistics and queries
 //!
-//! This is a placeholder for Phase 1 - full implementation in Phase 2
+//! # Example
+//!
+//! ```no_run
+//! use wayvid_library::{LibraryDatabase, FolderScanner, ThumbnailGenerator};
+//! use std::path::Path;
+//!
+//! // Open or create the library database
+//! let db = LibraryDatabase::open(LibraryDatabase::default_path()).unwrap();
+//!
+//! // Scan a folder for wallpapers
+//! let scanner = FolderScanner::new();
+//! let wallpapers = scanner.scan_folder(Path::new("/home/user/wallpapers"), true).unwrap();
+//!
+//! // Add wallpapers to database
+//! for wallpaper in &wallpapers {
+//!     db.upsert_wallpaper(wallpaper).unwrap();
+//! }
+//!
+//! // Generate thumbnails
+//! let thumbgen = ThumbnailGenerator::new();
+//! for wallpaper in &wallpapers {
+//!     if let Ok(thumb) = thumbgen.generate(&wallpaper.source_path) {
+//!         db.store_thumbnail(&wallpaper.id, &thumb.data, thumb.width, thumb.height).unwrap();
+//!     }
+//! }
+//! ```
 
-pub fn placeholder() {
-    // TODO: Implement in Phase 2
-}
+pub mod database;
+pub mod scanner;
+pub mod thumbnail;
+
+// Re-exports
+pub use database::{
+    LibraryDatabase, LibraryFolder, LibraryStats, SortBy, ThumbnailData, WallpaperFilter,
+};
+pub use scanner::{FolderScanner, IncrementalScanner, ScanResult};
+pub use thumbnail::{get_video_duration, ThumbnailGenerator, ThumbnailResult};
+
+// Re-exports from wayvid-core
+pub use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
