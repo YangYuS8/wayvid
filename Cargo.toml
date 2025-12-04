@@ -16,6 +16,7 @@ members = [
     "crates/wayvid-library",
     "crates/wayvid",
     "crates/wayvid-ctl",
+    "crates/wayvid-gui",
 ]
 
 [workspace.package]
