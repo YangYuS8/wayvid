@@ -104,7 +104,7 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Apply { path, output, mode } => {
             let path = path.canonicalize().context("Invalid wallpaper path")?;
-            
+
             if !path.exists() {
                 anyhow::bail!("Wallpaper not found: {}", path.display());
             }
@@ -151,17 +151,15 @@ fn main() -> Result<()> {
             handle_response(response, cli.verbose)?;
         }
 
-        Commands::Ping => {
-            match client.ping() {
-                Ok(_) => {
-                    println!("{} Daemon is running", "✓".green());
-                }
-                Err(e) => {
-                    println!("{} Daemon not responding: {}", "✗".red(), e);
-                    std::process::exit(1);
-                }
+        Commands::Ping => match client.ping() {
+            Ok(_) => {
+                println!("{} Daemon is running", "✓".green());
             }
-        }
+            Err(e) => {
+                println!("{} Daemon not responding: {}", "✗".red(), e);
+                std::process::exit(1);
+            }
+        },
     }
 
     Ok(())
@@ -219,11 +217,7 @@ fn print_status(response: &Response) {
                 } else {
                     "Playing".green()
                 };
-                println!(
-                    "  {} [{}]",
-                    output.name.bold(),
-                    status
-                );
+                println!("  {} [{}]", output.name.bold(), status);
                 if let Some(ref wp) = output.wallpaper {
                     println!("    Wallpaper: {}", wp);
                 }

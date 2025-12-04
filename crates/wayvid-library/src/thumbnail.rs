@@ -1,46 +1,95 @@
 //! Thumbnail generation for wallpapers
 //!
-//! Generates preview thumbnails for video and image wallpapers.
+//! Features:
+//! - WebP output format (smaller, better quality)
+//! - Persistent cache directory (~/.cache/wayvid/thumbnails/)
+//! - Background generation with async API
+//! - GIF animation preview (first frame)
+//! - Video frame extraction with ffmpeg
 
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use image::{ImageFormat, GenericImageView};
-use tracing::{debug, warn};
+use image::{DynamicImage, GenericImageView, ImageFormat};
+use parking_lot::RwLock;
+use sha2::{Digest, Sha256};
+use tokio::sync::mpsc;
+use tracing::{debug, info, warn};
 
 /// Default thumbnail width
 pub const THUMBNAIL_WIDTH: u32 = 320;
-/// Default thumbnail height  
+/// Default thumbnail height
 pub const THUMBNAIL_HEIGHT: u32 = 180;
-/// JPEG quality for thumbnails
-pub const THUMBNAIL_QUALITY: u8 = 85;
+/// WebP quality (0-100, higher = better)
+pub const WEBP_QUALITY: u8 = 80;
 
-/// Thumbnail generator
+/// Output format for thumbnails
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ThumbnailFormat {
+    #[default]
+    WebP,
+    Png,
+    Jpeg,
+}
+
+impl ThumbnailFormat {
+    pub fn extension(&self) -> &str {
+        match self {
+            Self::WebP => "webp",
+            Self::Png => "png",
+            Self::Jpeg => "jpg",
+        }
+    }
+
+    fn image_format(&self) -> ImageFormat {
+        match self {
+            Self::WebP => ImageFormat::WebP,
+            Self::Png => ImageFormat::Png,
+            Self::Jpeg => ImageFormat::Jpeg,
+        }
+    }
+}
+
+/// Thumbnail generator with caching support
 pub struct ThumbnailGenerator {
     /// Target width
     pub width: u32,
     /// Target height
     pub height: u32,
+    /// Output format
+    pub format: ThumbnailFormat,
+    /// Cache directory
+    cache_dir: PathBuf,
     /// Whether ffmpeg is available
     ffmpeg_available: bool,
 }
 
 impl ThumbnailGenerator {
+    /// Create a new thumbnail generator with default settings
     pub fn new() -> Self {
         let ffmpeg_available = check_ffmpeg();
         if !ffmpeg_available {
             warn!("⚠️ ffmpeg not found - video thumbnails will not be generated");
         }
 
+        let cache_dir = Self::default_cache_dir();
+        if let Err(e) = std::fs::create_dir_all(&cache_dir) {
+            warn!("Failed to create thumbnail cache directory: {}", e);
+        }
+
         Self {
             width: THUMBNAIL_WIDTH,
             height: THUMBNAIL_HEIGHT,
+            format: ThumbnailFormat::WebP,
+            cache_dir,
             ffmpeg_available,
         }
     }
 
+    /// Create generator with custom size
     pub fn with_size(width: u32, height: u32) -> Self {
         let mut gen = Self::new();
         gen.width = width;
@@ -48,58 +97,150 @@ impl ThumbnailGenerator {
         gen
     }
 
+    /// Create generator with custom settings
+    pub fn with_options(width: u32, height: u32, format: ThumbnailFormat, cache_dir: PathBuf) -> Self {
+        let ffmpeg_available = check_ffmpeg();
+        let _ = std::fs::create_dir_all(&cache_dir);
+
+        Self {
+            width,
+            height,
+            format,
+            cache_dir,
+            ffmpeg_available,
+        }
+    }
+
+    /// Get default cache directory
+    pub fn default_cache_dir() -> PathBuf {
+        dirs::cache_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("wayvid")
+            .join("thumbnails")
+    }
+
+    /// Get cache path for a source file
+    pub fn cache_path(&self, source_path: &Path) -> PathBuf {
+        let hash = hash_path(source_path);
+        self.cache_dir.join(format!("{}.{}", hash, self.format.extension()))
+    }
+
+    /// Check if thumbnail exists in cache
+    pub fn is_cached(&self, source_path: &Path) -> bool {
+        self.cache_path(source_path).exists()
+    }
+
+    /// Get cached thumbnail if exists
+    pub fn get_cached(&self, source_path: &Path) -> Option<ThumbnailResult> {
+        let cache_path = self.cache_path(source_path);
+        if !cache_path.exists() {
+            return None;
+        }
+
+        let data = std::fs::read(&cache_path).ok()?;
+        let img = image::load_from_memory(&data).ok()?;
+        let (width, height) = img.dimensions();
+
+        Some(ThumbnailResult {
+            data,
+            width,
+            height,
+            original_width: 0, // Unknown from cache
+            original_height: 0,
+            format: self.format.extension().to_string(),
+            cached: true,
+        })
+    }
+
     /// Generate thumbnail for a wallpaper file
     pub fn generate(&self, path: &Path) -> Result<ThumbnailResult> {
-        let extension = path.extension()
+        // Check cache first
+        if let Some(cached) = self.get_cached(path) {
+            debug!("Using cached thumbnail for: {}", path.display());
+            return Ok(cached);
+        }
+
+        let extension = path
+            .extension()
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase())
             .unwrap_or_default();
 
-        match extension.as_str() {
+        let result = match extension.as_str() {
             // Video files
             "mp4" | "mkv" | "webm" | "avi" | "mov" | "m4v" | "wmv" | "flv" => {
-                self.generate_video_thumbnail(path)
+                self.generate_video_thumbnail(path)?
             }
-            // Animated GIF - treat as video
-            "gif" => {
-                // Try to get first frame using image crate
-                self.generate_image_thumbnail(path)
-            }
+            // Animated GIF - extract first frame
+            "gif" => self.generate_gif_thumbnail(path)?,
             // Image files
             "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" => {
-                self.generate_image_thumbnail(path)
+                self.generate_image_thumbnail(path)?
             }
             _ => {
                 anyhow::bail!("Unsupported file type: {}", extension)
             }
+        };
+
+        // Save to cache
+        let cache_path = self.cache_path(path);
+        if let Err(e) = std::fs::write(&cache_path, &result.data) {
+            warn!("Failed to cache thumbnail: {}", e);
+        } else {
+            debug!("Cached thumbnail at: {}", cache_path.display());
         }
+
+        Ok(result)
     }
 
     /// Generate thumbnail for image file
     fn generate_image_thumbnail(&self, path: &Path) -> Result<ThumbnailResult> {
         debug!("Generating image thumbnail for: {}", path.display());
 
-        let img = image::open(path)
-            .context("Failed to open image")?;
-
+        let img = image::open(path).context("Failed to open image")?;
         let (orig_width, orig_height) = img.dimensions();
 
         // Resize maintaining aspect ratio
         let thumbnail = img.thumbnail(self.width, self.height);
         let (thumb_width, thumb_height) = thumbnail.dimensions();
 
-        // Encode to PNG
-        let mut buffer = Vec::new();
-        thumbnail.write_to(&mut Cursor::new(&mut buffer), ImageFormat::Png)
-            .context("Failed to encode thumbnail")?;
+        // Encode to output format
+        let data = encode_image(&thumbnail, self.format)?;
 
         Ok(ThumbnailResult {
-            data: buffer,
+            data,
             width: thumb_width,
             height: thumb_height,
             original_width: orig_width,
             original_height: orig_height,
-            format: "png".to_string(),
+            format: self.format.extension().to_string(),
+            cached: false,
+        })
+    }
+
+    /// Generate thumbnail for GIF (first frame)
+    fn generate_gif_thumbnail(&self, path: &Path) -> Result<ThumbnailResult> {
+        debug!("Generating GIF thumbnail for: {}", path.display());
+
+        // Open GIF and get first frame
+        let img = image::open(path).context("Failed to open GIF")?;
+        let (orig_width, orig_height) = img.dimensions();
+
+        // Resize maintaining aspect ratio
+        let thumbnail = img.thumbnail(self.width, self.height);
+        let (thumb_width, thumb_height) = thumbnail.dimensions();
+
+        // Encode to output format
+        let data = encode_image(&thumbnail, self.format)?;
+
+        Ok(ThumbnailResult {
+            data,
+            width: thumb_width,
+            height: thumb_height,
+            original_width: orig_width,
+            original_height: orig_height,
+            format: self.format.extension().to_string(),
+            cached: false,
         })
     }
 
@@ -112,62 +253,57 @@ impl ThumbnailGenerator {
         debug!("Generating video thumbnail for: {}", path.display());
 
         // Create temp file for output
-        let temp_path = std::env::temp_dir()
-            .join(format!("wayvid_thumb_{}.png", std::process::id()));
+        let temp_path = std::env::temp_dir().join(format!(
+            "wayvid_thumb_{}_{}.png",
+            std::process::id(),
+            rand_suffix()
+        ));
 
-        // Run ffmpeg to extract frame at 10% duration
-        // -ss 1 seeks to 1 second (good for most videos)
-        // -vframes 1 extracts single frame
-        // -vf scale maintains aspect ratio
-        let output = Command::new("ffmpeg")
-            .args([
-                "-y",  // Overwrite output
-                "-ss", "1",  // Seek to 1 second
-                "-i", path.to_str().unwrap_or_default(),
-                "-vframes", "1",
-                "-vf", &format!("scale={}:{}:force_original_aspect_ratio=decrease", self.width, self.height),
-                "-f", "image2",
-                temp_path.to_str().unwrap_or_default(),
-            ])
-            .output()
-            .context("Failed to run ffmpeg")?;
+        // Run ffmpeg to extract frame at 1 second (or 10% for longer videos)
+        let duration = get_video_duration(path).unwrap_or(10.0);
+        let seek_time = if duration > 30.0 {
+            (duration * 0.1).min(10.0) // 10% but max 10 seconds
+        } else if duration > 3.0 {
+            1.0
+        } else {
+            0.0
+        };
 
-        if !output.status.success() {
-            // Try at 0 seconds for very short videos
-            let output = Command::new("ffmpeg")
-                .args([
-                    "-y",
-                    "-ss", "0",
-                    "-i", path.to_str().unwrap_or_default(),
-                    "-vframes", "1",
-                    "-vf", &format!("scale={}:{}:force_original_aspect_ratio=decrease", self.width, self.height),
-                    "-f", "image2",
-                    temp_path.to_str().unwrap_or_default(),
-                ])
-                .output()
-                .context("Failed to run ffmpeg (retry)")?;
+        let success = run_ffmpeg_extract(
+            path,
+            &temp_path,
+            seek_time,
+            self.width,
+            self.height,
+        );
 
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                anyhow::bail!("ffmpeg failed: {}", stderr);
+        if !success {
+            // Retry at 0 seconds
+            let success = run_ffmpeg_extract(path, &temp_path, 0.0, self.width, self.height);
+            if !success {
+                anyhow::bail!("Failed to extract video frame with ffmpeg");
             }
         }
 
         // Read the generated thumbnail
-        let data = std::fs::read(&temp_path)
-            .context("Failed to read thumbnail")?;
+        let png_data = std::fs::read(&temp_path).context("Failed to read generated thumbnail")?;
 
         // Clean up temp file
         let _ = std::fs::remove_file(&temp_path);
 
         // Get dimensions from the generated image
-        let img = image::load_from_memory(&data)
-            .context("Failed to load generated thumbnail")?;
+        let img = image::load_from_memory(&png_data).context("Failed to load generated thumbnail")?;
         let (width, height) = img.dimensions();
 
-        // Get original video dimensions using ffprobe
-        let (orig_width, orig_height) = get_video_dimensions(path)
-            .unwrap_or((0, 0));
+        // Convert to output format if needed
+        let data = if self.format == ThumbnailFormat::Png {
+            png_data
+        } else {
+            encode_image(&img, self.format)?
+        };
+
+        // Get original video dimensions
+        let (orig_width, orig_height) = get_video_dimensions(path).unwrap_or((0, 0));
 
         Ok(ThumbnailResult {
             data,
@@ -175,13 +311,51 @@ impl ThumbnailGenerator {
             height,
             original_width: orig_width,
             original_height: orig_height,
-            format: "png".to_string(),
+            format: self.format.extension().to_string(),
+            cached: false,
         })
     }
 
     /// Check if video thumbnail generation is available
     pub fn can_generate_video_thumbnails(&self) -> bool {
         self.ffmpeg_available
+    }
+
+    /// Clear thumbnail cache
+    pub fn clear_cache(&self) -> Result<usize> {
+        let mut count = 0;
+        if self.cache_dir.exists() {
+            for entry in std::fs::read_dir(&self.cache_dir)? {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if std::fs::remove_file(&path).is_ok() {
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+        info!("Cleared {} cached thumbnails", count);
+        Ok(count)
+    }
+
+    /// Get cache statistics
+    pub fn cache_stats(&self) -> CacheStats {
+        let mut stats = CacheStats::default();
+
+        if let Ok(entries) = std::fs::read_dir(&self.cache_dir) {
+            for entry in entries.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_file() {
+                        stats.count += 1;
+                        stats.total_bytes += metadata.len();
+                    }
+                }
+            }
+        }
+
+        stats
     }
 }
 
@@ -194,18 +368,169 @@ impl Default for ThumbnailGenerator {
 /// Result of thumbnail generation
 #[derive(Debug, Clone)]
 pub struct ThumbnailResult {
-    /// PNG image data
+    /// Image data
     pub data: Vec<u8>,
     /// Thumbnail width
     pub width: u32,
-    /// Thumbnail height  
+    /// Thumbnail height
     pub height: u32,
     /// Original media width
     pub original_width: u32,
     /// Original media height
     pub original_height: u32,
-    /// Image format (always "png" currently)
+    /// Image format
     pub format: String,
+    /// Whether loaded from cache
+    pub cached: bool,
+}
+
+/// Cache statistics
+#[derive(Debug, Clone, Default)]
+pub struct CacheStats {
+    pub count: usize,
+    pub total_bytes: u64,
+}
+
+impl CacheStats {
+    pub fn total_mb(&self) -> f64 {
+        self.total_bytes as f64 / (1024.0 * 1024.0)
+    }
+}
+
+/// Request for background thumbnail generation
+#[derive(Debug)]
+pub struct ThumbnailRequest {
+    pub source_path: PathBuf,
+    pub wallpaper_id: String,
+    pub priority: ThumbnailPriority,
+}
+
+/// Priority for thumbnail generation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ThumbnailPriority {
+    Low = 0,
+    Normal = 1,
+    High = 2,
+}
+
+/// Result sent back after background generation
+#[derive(Debug)]
+pub struct ThumbnailResponse {
+    pub wallpaper_id: String,
+    pub result: Result<ThumbnailResult, String>,
+}
+
+/// Background thumbnail generation service
+pub struct ThumbnailService {
+    generator: Arc<ThumbnailGenerator>,
+    request_tx: mpsc::Sender<ThumbnailRequest>,
+    response_rx: mpsc::Receiver<ThumbnailResponse>,
+    pending_count: Arc<RwLock<usize>>,
+}
+
+impl ThumbnailService {
+    /// Create a new thumbnail service with specified worker count
+    pub fn new(worker_count: usize) -> Self {
+        let (request_tx, request_rx) = mpsc::channel::<ThumbnailRequest>(1000);
+        let (response_tx, response_rx) = mpsc::channel::<ThumbnailResponse>(1000);
+
+        let generator = Arc::new(ThumbnailGenerator::new());
+        let pending_count = Arc::new(RwLock::new(0));
+
+        // Spawn worker tasks
+        let request_rx = Arc::new(tokio::sync::Mutex::new(request_rx));
+        for _ in 0..worker_count {
+            let gen = generator.clone();
+            let rx = request_rx.clone();
+            let tx = response_tx.clone();
+            let pending = pending_count.clone();
+
+            tokio::spawn(async move {
+                loop {
+                    let request = {
+                        let mut guard = rx.lock().await;
+                        guard.recv().await
+                    };
+
+                    match request {
+                        Some(req) => {
+                            let result = gen.generate(&req.source_path);
+                            let response = ThumbnailResponse {
+                                wallpaper_id: req.wallpaper_id,
+                                result: result.map_err(|e| e.to_string()),
+                            };
+                            let _ = tx.send(response).await;
+                            *pending.write() -= 1;
+                        }
+                        None => break,
+                    }
+                }
+            });
+        }
+
+        Self {
+            generator,
+            request_tx,
+            response_rx,
+            pending_count,
+        }
+    }
+
+    /// Submit a thumbnail request
+    pub async fn request(&self, request: ThumbnailRequest) -> Result<()> {
+        *self.pending_count.write() += 1;
+        self.request_tx
+            .send(request)
+            .await
+            .map_err(|_| anyhow::anyhow!("Thumbnail service channel closed"))
+    }
+
+    /// Try to receive a completed thumbnail
+    pub fn try_recv(&mut self) -> Option<ThumbnailResponse> {
+        self.response_rx.try_recv().ok()
+    }
+
+    /// Receive next completed thumbnail (async)
+    pub async fn recv(&mut self) -> Option<ThumbnailResponse> {
+        self.response_rx.recv().await
+    }
+
+    /// Get number of pending requests
+    pub fn pending_count(&self) -> usize {
+        *self.pending_count.read()
+    }
+
+    /// Get reference to generator
+    pub fn generator(&self) -> &ThumbnailGenerator {
+        &self.generator
+    }
+}
+
+// ========== Helper Functions ==========
+
+/// Encode image to specified format
+fn encode_image(img: &DynamicImage, format: ThumbnailFormat) -> Result<Vec<u8>> {
+    let mut buffer = Vec::new();
+    img.write_to(&mut Cursor::new(&mut buffer), format.image_format())
+        .context("Failed to encode thumbnail")?;
+    Ok(buffer)
+}
+
+/// Hash a path for cache filename
+fn hash_path(path: &Path) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(path.to_string_lossy().as_bytes());
+    let result = hasher.finalize();
+    hex::encode(&result[..16]) // First 16 bytes = 32 hex chars
+}
+
+/// Generate random suffix for temp files
+fn rand_suffix() -> u32 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    (now.as_nanos() % u32::MAX as u128) as u32
 }
 
 /// Check if ffmpeg is available
@@ -217,14 +542,49 @@ fn check_ffmpeg() -> bool {
         .unwrap_or(false)
 }
 
+/// Run ffmpeg to extract a frame
+fn run_ffmpeg_extract(
+    input: &Path,
+    output: &Path,
+    seek_time: f64,
+    width: u32,
+    height: u32,
+) -> bool {
+    Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-ss",
+            &seek_time.to_string(),
+            "-i",
+            input.to_str().unwrap_or_default(),
+            "-vframes",
+            "1",
+            "-vf",
+            &format!(
+                "scale={}:{}:force_original_aspect_ratio=decrease",
+                width, height
+            ),
+            "-f",
+            "image2",
+            output.to_str().unwrap_or_default(),
+        ])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 /// Get video dimensions using ffprobe
-fn get_video_dimensions(path: &Path) -> Option<(u32, u32)> {
+pub fn get_video_dimensions(path: &Path) -> Option<(u32, u32)> {
     let output = Command::new("ffprobe")
         .args([
-            "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=width,height",
-            "-of", "csv=p=0:s=x",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "csv=p=0:s=x",
             path.to_str()?,
         ])
         .output()
@@ -236,7 +596,7 @@ fn get_video_dimensions(path: &Path) -> Option<(u32, u32)> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parts: Vec<&str> = stdout.trim().split('x').collect();
-    
+
     if parts.len() == 2 {
         let width = parts[0].parse().ok()?;
         let height = parts[1].parse().ok()?;
@@ -250,9 +610,12 @@ fn get_video_dimensions(path: &Path) -> Option<(u32, u32)> {
 pub fn get_video_duration(path: &Path) -> Option<f64> {
     let output = Command::new("ffprobe")
         .args([
-            "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
             path.to_str()?,
         ])
         .output()
@@ -270,13 +633,13 @@ pub fn get_video_duration(path: &Path) -> Option<f64> {
 mod tests {
     use super::*;
     use tempfile::TempDir;
-    use image::DynamicImage;
 
     #[test]
     fn test_thumbnail_generator_creation() {
         let gen = ThumbnailGenerator::new();
         assert_eq!(gen.width, THUMBNAIL_WIDTH);
         assert_eq!(gen.height, THUMBNAIL_HEIGHT);
+        assert_eq!(gen.format, ThumbnailFormat::WebP);
     }
 
     #[test]
@@ -290,12 +653,17 @@ mod tests {
     fn test_image_thumbnail() {
         let temp_dir = TempDir::new().unwrap();
         let image_path = temp_dir.path().join("test.png");
-        
+
         // Create a simple test image
         let img = DynamicImage::new_rgb8(100, 100);
         img.save(&image_path).unwrap();
 
-        let gen = ThumbnailGenerator::new();
+        let gen = ThumbnailGenerator::with_options(
+            THUMBNAIL_WIDTH,
+            THUMBNAIL_HEIGHT,
+            ThumbnailFormat::Png, // Use PNG for test compatibility
+            temp_dir.path().join("cache"),
+        );
         let result = gen.generate(&image_path).unwrap();
 
         assert!(!result.data.is_empty());
@@ -303,5 +671,69 @@ mod tests {
         assert!(result.height <= THUMBNAIL_HEIGHT);
         assert_eq!(result.original_width, 100);
         assert_eq!(result.original_height, 100);
+    }
+
+    #[test]
+    fn test_thumbnail_caching() {
+        let temp_dir = TempDir::new().unwrap();
+        let image_path = temp_dir.path().join("test.png");
+        let cache_dir = temp_dir.path().join("cache");
+
+        // Create a simple test image
+        let img = DynamicImage::new_rgb8(100, 100);
+        img.save(&image_path).unwrap();
+
+        let gen = ThumbnailGenerator::with_options(
+            THUMBNAIL_WIDTH,
+            THUMBNAIL_HEIGHT,
+            ThumbnailFormat::Png,
+            cache_dir,
+        );
+
+        // First generation should not be cached
+        let result1 = gen.generate(&image_path).unwrap();
+        assert!(!result1.cached);
+
+        // Second generation should be cached
+        let result2 = gen.generate(&image_path).unwrap();
+        assert!(result2.cached);
+    }
+
+    #[test]
+    fn test_cache_stats() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_dir = temp_dir.path().join("cache");
+
+        let gen = ThumbnailGenerator::with_options(
+            THUMBNAIL_WIDTH,
+            THUMBNAIL_HEIGHT,
+            ThumbnailFormat::Png,
+            cache_dir,
+        );
+
+        // Initial stats should be empty
+        let stats = gen.cache_stats();
+        assert_eq!(stats.count, 0);
+        assert_eq!(stats.total_bytes, 0);
+    }
+
+    #[test]
+    fn test_thumbnail_format() {
+        assert_eq!(ThumbnailFormat::WebP.extension(), "webp");
+        assert_eq!(ThumbnailFormat::Png.extension(), "png");
+        assert_eq!(ThumbnailFormat::Jpeg.extension(), "jpg");
+    }
+
+    #[test]
+    fn test_hash_path() {
+        let path1 = Path::new("/home/user/wallpaper.mp4");
+        let path2 = Path::new("/home/user/wallpaper.mp4");
+        let path3 = Path::new("/home/user/other.mp4");
+
+        // Same paths should produce same hash
+        assert_eq!(hash_path(path1), hash_path(path2));
+
+        // Different paths should produce different hash
+        assert_ne!(hash_path(path1), hash_path(path3));
     }
 }

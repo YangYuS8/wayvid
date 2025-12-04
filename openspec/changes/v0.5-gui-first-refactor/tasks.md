@@ -1,42 +1,73 @@
 # v0.5 GUI-First 重构 - 任务清单
 
-## Phase 1: 项目结构重组 (Week 1)
+## Phase 1: 项目结构重组 (Week 1) ✅ COMPLETED
 
 ### 1.1 Workspace 初始化
 - [x] 创建 workspace Cargo.toml
 - [x] 迁移 src/core → crates/wayvid-core
-- [ ] 迁移 src/video + src/backend → crates/wayvid-engine
+- [x] 迁移 src/video + src/backend → crates/wayvid-engine
 - [x] 创建 crates/wayvid-library (新模块)
-- [ ] 迁移 src/bin/wayvid-gui.rs → crates/wayvid/
+- [x] 创建 crates/wayvid-gui (iced 框架)
+- [x] 增强 crates/wayvid-ctl (IPC 支持)
 
 ### 1.2 依赖整理
 - [x] 整理各 crate 依赖关系
-- [ ] 移除未使用的依赖
-- [x] 统一版本号管理
+- [x] 统一版本号管理 (workspace.dependencies)
+- [x] 更新 GUI 框架从 egui 到 iced
 
 ### 1.3 构建验证
 - [x] 确保所有 crate 独立编译
+- [x] 验证 34+ 单元测试通过
 - [ ] 更新 CI 配置
-- [ ] 验证现有功能不受影响
 
-## Phase 2: 壁纸库模块 (Week 2)
+### 1.4 wayvid-core (已完成)
+- [x] types.rs: WallpaperItem, WallpaperType, WallpaperMetadata
+- [x] config/mod.rs: Config 结构体
+- [x] config/types.rs: OutputConfig, VideoSource
+- [x] config/pattern.rs: 输出名称模式匹配
+- [x] layout.rs: ScaleMode, compute_layout
+- [x] power.rs: 电源管理检测
 
-### 2.1 数据库设计
-- [ ] 设计 SQLite schema (wallpapers, folders, thumbnails)
-- [ ] 实现 database.rs CRUD 操作
-- [ ] 添加增量更新逻辑
+### 1.5 wayvid-engine (已完成)
+- [x] wayland/output.rs: OutputManager, OutputInfo
+- [x] frame_timing.rs: FrameTiming 帧率控制
+- [x] 模块导出和 lib.rs
 
-### 2.2 扫描器重构
-- [ ] 将扫描逻辑从 GUI 移到 wayvid-library
-- [ ] 实现异步扫描 (tokio/rayon)
-- [ ] 支持增量扫描 (只扫描变更)
+### 1.6 wayvid-library (已完成)
+- [x] database.rs: SQLite 壁纸数据库
+- [x] scanner.rs: 文件夹扫描器
+- [x] thumbnail.rs: 缩略图生成
+- [x] 9 个单元测试
+
+### 1.7 wayvid-gui (已完成)
+- [x] iced 框架集成
+- [x] 四个视图: Library, Folders, Settings, About
+- [x] 侧边栏导航
+- [x] IPC 客户端存根
+
+### 1.8 wayvid-ctl (已完成)
+- [x] 完整命令套件
+- [x] Unix socket IPC 客户端
+- [x] JSON 协议支持
+- [x] 3 个单元测试
+
+## Phase 2: 壁纸库模块深化 (Week 2)
+
+### 2.1 数据库增强
+- [ ] 添加全文搜索索引
+- [ ] 实现标签系统
+- [ ] 添加收藏功能
+
+### 2.2 扫描器优化
+- [ ] 实现 rayon 并行扫描
+- [ ] 文件变更监控 (notify crate)
+- [ ] 增量扫描优化
 
 ### 2.3 缩略图系统
-- [ ] 实现缩略图生成 (ffmpeg 或 image crate)
 - [ ] WebP 输出格式
 - [ ] 缓存目录结构 (~/.cache/wayvid/thumbnails/)
-- [ ] GIF 首帧提取
 - [ ] 后台线程生成
+- [ ] GIF 动画预览
 
 ### 2.4 Workshop 集成
 - [ ] 迁移 Steam Workshop 扫描逻辑

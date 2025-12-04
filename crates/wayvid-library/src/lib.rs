@@ -36,13 +36,24 @@
 pub mod database;
 pub mod scanner;
 pub mod thumbnail;
+pub mod workshop;
 
 // Re-exports
 pub use database::{
-    LibraryDatabase, LibraryFolder, LibraryStats, SortBy, ThumbnailData, WallpaperFilter,
+    Collection, LibraryDatabase, LibraryFolder, LibraryStats, SearchOptions, SortBy, Tag,
+    ThumbnailData, WallpaperFilter,
 };
-pub use scanner::{FolderScanner, IncrementalScanner, ScanResult};
-pub use thumbnail::{get_video_duration, ThumbnailGenerator, ThumbnailResult};
+pub use scanner::{AsyncFileWatcher, FileEvent, FileWatcher, FolderScanner, IncrementalScanner, ScanResult};
+pub use thumbnail::{
+    get_video_dimensions, get_video_duration, CacheStats, ThumbnailFormat, ThumbnailGenerator,
+    ThumbnailPriority, ThumbnailRequest, ThumbnailResponse, ThumbnailResult, ThumbnailService,
+};
 
 // Re-exports from wayvid-core
 pub use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+
+// Workshop exports
+pub use workshop::{
+    get_project_type, is_we_project, SteamLibrary, WeProject, WorkshopScanner,
+    WALLPAPER_ENGINE_APP_ID,
+};
