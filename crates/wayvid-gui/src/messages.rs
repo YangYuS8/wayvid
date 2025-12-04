@@ -74,4 +74,16 @@ pub enum Message {
     // Thumbnail loading
     /// Thumbnail loaded for a wallpaper
     ThumbnailLoaded(String, Vec<u8>),
+
+    // Monitor operations
+    /// Refresh monitor list
+    RefreshMonitors,
+    /// Monitor list updated
+    MonitorsUpdated(Vec<crate::state::MonitorInfo>),
+    /// Select a monitor for wallpaper application
+    SelectMonitor(String),
+    /// Apply wallpaper to a specific monitor
+    ApplyToMonitor(String),
+    /// Clear wallpaper from a specific monitor
+    ClearMonitor(String),
 }

@@ -6,6 +6,7 @@ pub mod library;
 pub mod folders;
 pub mod settings;
 pub mod about;
+pub mod monitors;
 
 /// Application views
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -15,6 +16,8 @@ pub enum View {
     Library,
     /// Folder management
     Folders,
+    /// Monitor management
+    Monitors,
     /// Application settings
     Settings,
     /// About information
@@ -27,6 +30,7 @@ impl View {
         match self {
             Self::Library => "Library",
             Self::Folders => "Folders",
+            Self::Monitors => "Monitors",
             Self::Settings => "Settings",
             Self::About => "About",
         }

@@ -10,8 +10,10 @@
 //! - Steam Workshop integration
 
 mod app;
+mod async_loader;
 mod ipc;
 mod messages;
+mod service;
 mod state;
 mod theme;
 mod views;

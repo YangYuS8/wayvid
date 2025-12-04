@@ -50,6 +50,9 @@ pub struct AppState {
     
     /// Application settings
     pub settings: Settings,
+    
+    /// Connected monitors
+    pub monitors: Vec<MonitorInfo>,
 }
 
 impl AppState {
@@ -68,6 +71,7 @@ impl AppState {
             daemon_connected: false,
             thumbnails: HashMap::new(),
             settings: Settings::default(),
+            monitors: Vec::new(),
         };
 
         // Load library on startup
@@ -160,6 +164,27 @@ impl WallpaperFilter {
     }
 }
 
+/// Monitor information
+#[derive(Debug, Clone, Default)]
+pub struct MonitorInfo {
+    /// Monitor name/identifier (e.g. "eDP-1")
+    pub name: String,
+    /// Monitor width in pixels
+    pub width: u32,
+    /// Monitor height in pixels
+    pub height: u32,
+    /// X position
+    pub x: i32,
+    /// Y position
+    pub y: i32,
+    /// Scale factor
+    pub scale: f64,
+    /// Whether this is the primary monitor
+    pub primary: bool,
+    /// Currently applied wallpaper path
+    pub current_wallpaper: Option<std::path::PathBuf>,
+}
+
 /// Application settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -192,3 +217,6 @@ impl Default for Settings {
         }
     }
 }
+
+/// Type alias for state used in views
+pub type WayvidState = AppState;

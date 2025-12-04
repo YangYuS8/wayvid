@@ -10,6 +10,7 @@ use crate::messages::Message;
 use crate::state::AppState;
 use crate::theme::WayvidTheme;
 use crate::views::{self, View};
+use crate::views::monitors::MonitorView;
 
 /// Main application struct
 pub struct App {
@@ -17,6 +18,8 @@ pub struct App {
     state: AppState,
     /// Current theme
     theme: WayvidTheme,
+    /// Monitor view state
+    monitor_view: MonitorView,
 }
 
 impl App {
@@ -28,6 +31,7 @@ impl App {
             Self {
                 state,
                 theme: WayvidTheme::Dark,
+                monitor_view: MonitorView::new(),
             },
             task,
         )
@@ -192,6 +196,37 @@ impl App {
                 self.state.thumbnails.insert(id, data);
                 Task::none()
             }
+
+            // Monitor operations
+            Message::RefreshMonitors => {
+                Task::perform(async { refresh_monitors().await }, Message::MonitorsUpdated)
+            }
+            Message::MonitorsUpdated(monitors) => {
+                self.state.monitors = monitors;
+                Task::none()
+            }
+            Message::SelectMonitor(name) => {
+                self.monitor_view.select_monitor(name);
+                Task::none()
+            }
+            Message::ApplyToMonitor(output) => {
+                if let Some(ref id) = self.state.selected_wallpaper {
+                    let id = id.clone();
+                    Task::perform(
+                        async move { apply_wallpaper_to_monitor(&id, &output).await },
+                        Message::WallpaperApplied,
+                    )
+                } else {
+                    self.state.error = Some("No wallpaper selected".into());
+                    Task::none()
+                }
+            }
+            Message::ClearMonitor(output) => {
+                Task::perform(
+                    async move { clear_monitor_wallpaper(&output).await },
+                    Message::WallpaperApplied,
+                )
+            }
         }
     }
 
@@ -200,6 +235,14 @@ impl App {
         let content: Element<Message> = match self.state.current_view {
             View::Library => views::library::view(&self.state),
             View::Folders => views::folders::view(&self.state),
+            View::Monitors => views::monitors::view(
+                &self.state,
+                &self.monitor_view,
+                Message::SelectMonitor,
+                Message::ApplyToMonitor,
+                Message::ClearMonitor,
+                Message::RefreshMonitors,
+            ),
             View::Settings => views::settings::view(&self.state),
             View::About => views::about::view(&self.state),
         };
@@ -248,6 +291,7 @@ impl App {
             Space::with_height(20),
             nav_button("Library", View::Library, self.state.current_view),
             nav_button("Folders", View::Folders, self.state.current_view),
+            nav_button("Monitors", View::Monitors, self.state.current_view),
             nav_button("Settings", View::Settings, self.state.current_view),
             nav_button("About", View::About, self.state.current_view),
         ]
@@ -351,5 +395,34 @@ async fn scan_folder(path: &std::path::Path) -> Result<Vec<wayvid_core::Wallpape
 async fn save_settings(settings: &crate::state::Settings) -> Result<(), String> {
     // TODO: Save to config file
     tracing::info!("Saving settings: {:?}", settings);
+    Ok(())
+}
+
+async fn refresh_monitors() -> Vec<crate::state::MonitorInfo> {
+    // TODO: Query actual monitors via IPC
+    tracing::info!("Refreshing monitor list");
+    vec![
+        crate::state::MonitorInfo {
+            name: "eDP-1".to_string(),
+            width: 1920,
+            height: 1080,
+            x: 0,
+            y: 0,
+            scale: 1.0,
+            primary: true,
+            current_wallpaper: None,
+        },
+    ]
+}
+
+async fn apply_wallpaper_to_monitor(id: &str, output: &str) -> Result<(), String> {
+    // TODO: Send IPC command to daemon
+    tracing::info!("Applying wallpaper {} to monitor {}", id, output);
+    Ok(())
+}
+
+async fn clear_monitor_wallpaper(output: &str) -> Result<(), String> {
+    // TODO: Send IPC command to daemon
+    tracing::info!("Clearing wallpaper from monitor {}", output);
     Ok(())
 }

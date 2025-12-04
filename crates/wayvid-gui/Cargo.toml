@@ -22,7 +22,7 @@ wayvid-library = { path = "../wayvid-library" }
 iced = { version = "0.13", features = ["tokio", "image", "lazy", "advanced"] }
 
 # Async runtime
-tokio = { version = "1.0", features = ["rt-multi-thread", "sync", "fs"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "sync", "fs", "macros", "time"] }
 
 # Error handling
 anyhow = "1.0"
