@@ -83,14 +83,36 @@ EOF
 ### 2. Run
 
 ```bash
-# Option 1: systemd (recommended)
-systemctl --user enable --now wayvid.service
-
-# Option 2: Direct
+# Option 1: Direct (simplest)
 wayvid run
 
-# Option 3: GUI
+# Option 2: GUI
 wayvid-gui
+
+# Option 3: systemd (for auto-start, see below)
+systemctl --user start wayvid
+```
+
+### Niri Autostart (Recommended for Niri users)
+
+Following [niri's systemd setup guide](https://yalter.github.io/niri/Example-systemd-Setup.html):
+
+```bash
+# Install service file (skip if installed via package manager)
+mkdir -p ~/.config/systemd/user
+cp systemd/wayvid.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+
+# Add wayvid to niri startup
+systemctl --user add-wants niri.service wayvid.service
+```
+
+This creates a link in `~/.config/systemd/user/niri.service.wants/`. wayvid will automatically start with niri and stop when niri exits.
+
+**Alternative:** If you prefer not using systemd, add to your `~/.config/niri/config.kdl`:
+
+```kdl
+spawn-at-startup "wayvid" "run"
 ```
 
 ### Control
@@ -157,10 +179,26 @@ wayvid workshop import <id>       # Generate config
 # Check if daemon is running
 wayvid daemon status
 
+# If using systemd
+systemctl --user status wayvid
+
 # If not running, start it
-wayvid daemon start
+systemctl --user start wayvid
 # Or run directly:
 wayvid run
+```
+
+**Niri: wayvid not starting automatically:**
+
+```bash
+# Check if add-wants is set up correctly
+ls ~/.config/systemd/user/niri.service.wants/wayvid.service
+
+# If missing, run:
+systemctl --user add-wants niri.service wayvid.service
+
+# Check logs for errors
+journalctl --user -u wayvid -f
 ```
 
 **Config file permission issues:**

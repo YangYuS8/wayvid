@@ -1,89 +1,85 @@
 // ============================================================================
 // wayvid autostart configuration for niri
 // ============================================================================
-// Add this snippet to your niri config.kdl file
-// Location: ~/.config/niri/config.kdl
-//
 // Choose ONE of the methods below based on your preference
+//
+// RECOMMENDED: Use Method 1 (systemd add-wants) for proper session integration
 
 
 // ----------------------------------------------------------------------------
-// Method 1: Direct spawn (推荐 - 简单直接)
+// Method 1: systemd add-wants (RECOMMENDED for niri users)
 // ----------------------------------------------------------------------------
-spawn-at-startup "wayvid" "run"
+// This is the recommended way according to niri documentation.
+// Run this command ONCE in your terminal to set up wayvid with niri:
+//
+//   systemctl --user add-wants niri.service wayvid.service
+//
+// This creates a link in ~/.config/systemd/user/niri.service.wants/
+// wayvid will automatically start with niri and stop when niri exits.
+//
+// Benefits:
+// - Proper session lifecycle management
+// - Easy to manage with systemctl commands
+// - Clean start/stop with niri
+// - View logs with: journalctl --user -u wayvid
+//
+// To remove: rm ~/.config/systemd/user/niri.service.wants/wayvid.service
 
 
 // ----------------------------------------------------------------------------
-// Method 2: Via systemd (推荐 - 更好的进程管理)
+// Method 2: spawn-at-startup (Simple, no systemd)
 // ----------------------------------------------------------------------------
-// 优点：可以使用 systemctl 命令管理服务（start/stop/restart/status）
-// 配置 systemd 服务后使用此方法
+// Add this to your niri config.kdl if you prefer not using systemd:
+//
+// spawn-at-startup "wayvid" "run"
+
+
+// ----------------------------------------------------------------------------
+// Method 3: spawn-at-startup with systemctl (NOT recommended)
+// ----------------------------------------------------------------------------
+// This method works but is considered unconventional.
+// Use Method 1 instead for better integration.
 //
 // spawn-at-startup "systemctl" "--user" "start" "wayvid.service"
 
 
 // ----------------------------------------------------------------------------
-// Method 3: With custom config file (自定义配置)
+// Method 4: With custom config file (Advanced)
 // ----------------------------------------------------------------------------
-// spawn-at-startup "wayvid" "run" "--config" "/home/user/.config/wayvid/custom.yaml"
-
-
-// ----------------------------------------------------------------------------
-// Method 4: With debug logging (调试模式)
-// ----------------------------------------------------------------------------
-// 用于排查问题，日志会输出到 journalctl
-// spawn-at-startup "wayvid" "run" "--log-level" "debug"
+// spawn-at-startup "wayvid" "run" "--config" "/path/to/custom.yaml"
 
 
 // ============================================================================
-// 安装说明
+// Quick Setup Guide
 // ============================================================================
-// 1. 确保 wayvid 在你的 PATH 中
-//    - AUR 包安装到: /usr/bin/wayvid
-//    - 手动编译安装: ~/.local/bin/wayvid (需要添加到 PATH)
+// 1. Install wayvid (AUR: yay -S wayvid, or build from source)
 //
-// 2. 如果使用 systemd 方法，需要先启用服务：
-//    systemctl --user enable wayvid.service
+// 2. Copy systemd service file (if not installed via package):
+//    mkdir -p ~/.config/systemd/user
+//    cp /path/to/wayvid/systemd/wayvid.service ~/.config/systemd/user/
+//    systemctl --user daemon-reload
 //
-// 3. 配置文件位置: ~/.config/wayvid/config.yaml
-//    如果不存在，wayvid 会使用默认配置
+// 3. Enable wayvid to start with niri:
+//    systemctl --user add-wants niri.service wayvid.service
+//
+// 4. Create config file:
+//    mkdir -p ~/.config/wayvid
+//    cat > ~/.config/wayvid/config.yaml << 'EOF'
+//    source:
+//      type: file
+//      path: ~/Videos/wallpaper.mp4
+//    layout: fill
+//    volume: 0
+//    EOF
+//
+// 5. Restart niri or run: systemctl --user start wayvid
 
 
 // ============================================================================
-// Niri + wayvid 性能优化建议
+// Useful Commands
 // ============================================================================
-
-// ============================================================================
-// Recommended niri + wayvid configuration for best performance
-// ============================================================================
-
-// In your niri config.kdl, consider these settings:
-
-// 1. Enable hardware cursor (better performance)
-// prefer-no-csd
-
-// 2. Optimize animations for smooth wallpaper rendering
-// animations {
-//     window-resize {
-//         duration-ms 150
-//     }
-//     workspace-switch {
-//         duration-ms 200
-//     }
-// }
-
-// 3. Configure outputs (example for multi-monitor)
-// output "eDP-1" {
-//     mode "1920x1080@60"
-//     position x=0 y=0
-//     scale 1.0
-// }
-// output "HDMI-A-1" {
-//     mode "2560x1440@144"
-//     position x=1920 y=0
-//     scale 1.0
-// }
-
-// wayvid automatically detects Niri and enables workspace-aware optimizations:
-// - Inactive workspaces: 1 FPS (saves 30-50% CPU)
-// - Active workspace: Full FPS (configured in wayvid config.yaml)
+// Check status:        systemctl --user status wayvid
+// View logs:           journalctl --user -u wayvid -f
+// Restart:             systemctl --user restart wayvid
+// Stop:                systemctl --user stop wayvid
+// Remove from niri:    rm ~/.config/systemd/user/niri.service.wants/wayvid.service

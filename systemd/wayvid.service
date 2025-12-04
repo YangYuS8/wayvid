@@ -1,36 +1,36 @@
 [Unit]
 Description=wayvid - Wayland Video Wallpaper Engine
 Documentation=https://github.com/YangYuS8/wayvid
-After=graphical-session.target
-# 依赖 Wayland 会话
-Wants=wayland-session.target
-After=wayland-session.target
+
+# Proper systemd session integration (following niri docs recommendations)
+# See: https://yalter.github.io/niri/Example-systemd-Setup.html
 PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
 
 [Service]
 Type=simple
-# 优先使用系统安装路径，回退到用户本地路径
-ExecStart=/usr/bin/env bash -c 'exec "$(command -v wayvid || echo %h/.local/bin/wayvid)" run'
+ExecStart=/usr/bin/wayvid run
 Restart=on-failure
 RestartSec=3
 StandardOutput=journal
 StandardError=journal
 
-# 环境变量
+# Environment variables
 Environment="RUST_LOG=wayvid=info"
 
-# 资源限制
+# Resource limits
 MemoryMax=2G
 CPUQuota=80%
 
-# 安全加固
+# Security hardening
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
-# 允许读写配置和缓存目录
 ReadWritePaths=%h/.config/wayvid %h/.cache/wayvid %C/wayvid
-# 允许访问运行时目录（用于 IPC socket）
+# Allow access to runtime directory (for IPC socket)
 ReadWritePaths=%t
 
 [Install]
-WantedBy=graphical-session.target
+# Do NOT use WantedBy here - use systemctl --user add-wants instead
+# See README.md for proper setup instructions
