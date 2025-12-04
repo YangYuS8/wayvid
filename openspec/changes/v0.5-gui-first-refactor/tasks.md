@@ -120,21 +120,21 @@
 - [x] 电池模式检测
 - [x] FPS 限制选项
 
-## Phase 5: CLI 精简 (Week 5)
+## Phase 5: CLI 精简 (Week 5) ✅ COMPLETED
 
 ### 5.1 wayvid-ctl 重写
-- [ ] 保留基础命令: apply, pause, resume, status
-- [ ] 移除复杂命令: run, daemon, import, workshop
-- [ ] JSON 输出格式
+- [x] 保留基础命令: apply, pause, resume, status
+- [x] 移除复杂命令: run, daemon, import, workshop
+- [x] JSON 输出格式
 
 ### 5.2 IPC 更新
-- [ ] 简化 IPC 协议
-- [ ] 添加 GetLibrary 命令 (可选)
+- [x] 简化 IPC 协议
+- [x] 添加 GetLibrary 命令 (可选)
 
 ### 5.3 旧代码清理
-- [ ] 移除 main.rs 中的复杂逻辑
-- [ ] 移除未使用的 CLI 子命令
-- [ ] 更新帮助文档
+- [x] 共享 IPC 协议到 wayvid-core
+- [x] 移除未使用的 CLI 子命令
+- [x] 更新帮助文档
 
 ## Phase 6: 测试与打包 (Week 5-6)
 
@@ -167,8 +167,8 @@
 | Phase 2: 壁纸库 | Week 2 | ✅ 已完成 |
 | Phase 3: GUI 重构 | Week 4 | ✅ 已完成 |
 | Phase 4: 配置自动化 | Week 4 | ✅ 已完成 |
-| Phase 5: CLI 精简 | Week 5 | 进行中 |
-| Phase 6: 发布 | Week 6 | 未开始 |
+| Phase 5: CLI 精简 | Week 5 | ✅ 已完成 |
+| Phase 6: 发布 | Week 6 | 进行中 |
 
 ## 注意事项
 
