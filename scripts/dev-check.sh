@@ -3,7 +3,7 @@
 
 set -e
 
-echo "=== wayvid Development Environment Check ==="
+echo "=== wayvid Development Environment Check (v0.5) ==="
 echo
 
 # Check Rust
@@ -71,17 +71,26 @@ check_cmd "wayland-info" || check_cmd "weston-info"
 # Build check
 echo
 echo "[Build Check]"
-if cargo check --quiet 2>/dev/null; then
-    echo "  ✓ Project compiles successfully"
+if cargo check --workspace --quiet 2>/dev/null; then
+    echo "  ✓ Workspace compiles successfully"
 else
-    echo "  ✗ Project has compilation errors"
-    echo "    Run 'cargo check' for details"
+    echo "  ✗ Workspace has compilation errors"
+    echo "    Run 'cargo check --workspace' for details"
 fi
+
+# Workspace info
+echo
+echo "[Workspace Crates]"
+echo "  - wayvid-core     (core types and config)"
+echo "  - wayvid-engine   (Wayland + MPV rendering)"
+echo "  - wayvid-library  (SQLite wallpaper library)"
+echo "  - wayvid-gui      (iced GUI - main entry)"
+echo "  - wayvid-ctl      (CLI control tool)"
 
 echo
 echo "=== Check Complete ==="
 echo
 echo "To build and run:"
 echo "  cargo build --release"
-echo "  ./target/release/wayvid check"
-echo "  ./target/release/wayvid run --config configs/config.example.yaml"
+echo "  ./target/release/wayvid-gui"
+echo "  ./target/release/wayvid-ctl status"

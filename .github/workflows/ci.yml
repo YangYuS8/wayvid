@@ -51,9 +51,9 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  # 代码质量检查：格式、Clippy
+  # 代码质量检查：格式、Clippy、测试
   quality:
-    name: Code Quality (fmt + clippy)
+    name: Code Quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -79,11 +79,8 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
       
-      - name: Run clippy (all features)
-        run: cargo clippy --all-features --all-targets -- -D warnings
+      - name: Run clippy (workspace)
+        run: cargo clippy --workspace --all-targets -- -D warnings
       
-      - name: Run clippy (default features)
-        run: cargo clippy --all-targets -- -D warnings
-      
-      - name: Run clippy (no default features)
-        run: cargo clippy --no-default-features --features video-mpv,backend-wayland -- -D warnings
+      - name: Run tests (workspace)
+        run: cargo test --workspace

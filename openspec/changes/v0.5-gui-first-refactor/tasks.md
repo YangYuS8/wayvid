@@ -18,7 +18,7 @@
 ### 1.3 构建验证
 - [x] 确保所有 crate 独立编译
 - [x] 验证 34+ 单元测试通过
-- [ ] 更新 CI 配置
+- [x] 更新 CI 配置
 
 ### 1.4 wayvid-core (已完成)
 - [x] types.rs: WallpaperItem, WallpaperType, WallpaperMetadata
@@ -148,17 +148,19 @@
 
 ### 6.2 文档更新
 - [x] 更新 README.md
-- [ ] 更新 docs/ mdbook
+- [x] 更新 docs/ mdbook
 - [x] 更新安装说明
 
 ### 6.3 打包
 - [x] 更新 AUR PKGBUILD
 - [x] 更新 Nix flake
-- [ ] 验证 AppImage 构建
+- [x] 验证 AppImage 构建
 
 ### 6.4 发布
 - [x] 更新 CHANGELOG.md
-- [ ] 创建 v0.5.0 release
+- [x] 清理旧代码 (src/ 目录)
+- [ ] 合并到主分支
+- [ ] 创建 v0.5.0 release tag
 - [ ] 社区公告
 
 ## 里程碑
@@ -170,7 +172,7 @@
 | Phase 3: GUI 重构 | Week 4 | ✅ 已完成 |
 | Phase 4: 配置自动化 | Week 4 | ✅ 已完成 |
 | Phase 5: CLI 精简 | Week 5 | ✅ 已完成 |
-| Phase 6: 发布 | Week 6 | ✅ 测试完成 |
+| Phase 6: 发布 | Week 6 | ✅ 准备合并 |
 
 ## 注意事项
 
