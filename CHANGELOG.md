@@ -3,10 +3,21 @@
 ### 🚀 Features
 
 - Add project logo to README, docs, and packaging
+- Add Vulkan backend infrastructure and scene support
+
+### 🐛 Bug Fixes
+
+- Resolve all clippy warnings and add demo section to README
+- Correct documentation link formatting in README
+- Address Reddit user feedback - improve CLI UX and documentation
 
 ### 💼 Other
 
 - Add proposal for Scene wallpaper support
+
+### 🎨 Styling
+
+- Apply rustfmt and add demo section to README
 ## [0.4.4] - 2025-12-03
 
 ### 🐛 Bug Fixes
