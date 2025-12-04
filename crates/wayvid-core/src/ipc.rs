@@ -89,14 +89,10 @@ pub struct LibraryFilter {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum IpcResponse {
     /// Success with optional message
-    Ok {
-        message: Option<String>,
-    },
+    Ok { message: Option<String> },
 
     /// Error response
-    Error {
-        error: String,
-    },
+    Error { error: String },
 
     /// Pong response to ping
     Pong,
@@ -109,9 +105,7 @@ pub enum IpcResponse {
     },
 
     /// Outputs list response
-    Outputs {
-        outputs: Vec<OutputInfo>,
-    },
+    Outputs { outputs: Vec<OutputInfo> },
 
     /// Library list response
     Library {

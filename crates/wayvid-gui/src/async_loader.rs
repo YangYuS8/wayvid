@@ -113,7 +113,10 @@ where
                 async move {
                     if idx >= requests.len() {
                         tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
-                        return Some((on_event(LoaderEvent::BatchComplete(idx)), (requests, cache_dir, idx)));
+                        return Some((
+                            on_event(LoaderEvent::BatchComplete(idx)),
+                            (requests, cache_dir, idx),
+                        ));
                     }
 
                     let request = &requests[idx];
@@ -131,7 +134,10 @@ where
 }
 
 /// Load a single thumbnail
-async fn load_thumbnail(request: &ThumbnailRequest, cache_dir: &PathBuf) -> Result<Vec<u8>, String> {
+async fn load_thumbnail(
+    request: &ThumbnailRequest,
+    cache_dir: &PathBuf,
+) -> Result<Vec<u8>, String> {
     let cache_path = get_cache_path(cache_dir, &request.id);
     if cache_path.exists() {
         return tokio::fs::read(&cache_path)

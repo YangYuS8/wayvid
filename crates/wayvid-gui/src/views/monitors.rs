@@ -100,9 +100,7 @@ pub fn view<'a, M: 'a + Clone>(
     .spacing(10)
     .padding(20);
 
-    container(content)
-        .width(Length::Fill)
-        .into()
+    container(content).width(Length::Fill).into()
 }
 
 fn monitor_details_panel<'a, M: 'a + Clone>(

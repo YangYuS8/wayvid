@@ -27,8 +27,13 @@ pub enum ServiceCommand {
     Stop,
     Pause,
     Resume,
-    ApplyWallpaper { output: String, wallpaper_path: PathBuf },
-    ClearWallpaper { output: String },
+    ApplyWallpaper {
+        output: String,
+        wallpaper_path: PathBuf,
+    },
+    ClearWallpaper {
+        output: String,
+    },
     SetVolume(f32),
 }
 
@@ -81,7 +86,9 @@ impl BackgroundService {
                 let mut state = state_clone.write().await;
                 *state = ServiceState::Running;
             }
-            let _ = evt_tx.send(ServiceEvent::StateChanged(ServiceState::Running)).await;
+            let _ = evt_tx
+                .send(ServiceEvent::StateChanged(ServiceState::Running))
+                .await;
 
             while let Some(cmd) = cmd_rx.recv().await {
                 match cmd {
@@ -90,20 +97,29 @@ impl BackgroundService {
                         tracing::info!("Stopping background service");
                         let mut state = state_clone.write().await;
                         *state = ServiceState::Stopped;
-                        let _ = evt_tx.send(ServiceEvent::StateChanged(ServiceState::Stopped)).await;
+                        let _ = evt_tx
+                            .send(ServiceEvent::StateChanged(ServiceState::Stopped))
+                            .await;
                         break;
                     }
                     ServiceCommand::Pause => {
                         let mut state = state_clone.write().await;
                         *state = ServiceState::Paused;
-                        let _ = evt_tx.send(ServiceEvent::StateChanged(ServiceState::Paused)).await;
+                        let _ = evt_tx
+                            .send(ServiceEvent::StateChanged(ServiceState::Paused))
+                            .await;
                     }
                     ServiceCommand::Resume => {
                         let mut state = state_clone.write().await;
                         *state = ServiceState::Running;
-                        let _ = evt_tx.send(ServiceEvent::StateChanged(ServiceState::Running)).await;
+                        let _ = evt_tx
+                            .send(ServiceEvent::StateChanged(ServiceState::Running))
+                            .await;
                     }
-                    ServiceCommand::ApplyWallpaper { output, wallpaper_path } => {
+                    ServiceCommand::ApplyWallpaper {
+                        output,
+                        wallpaper_path,
+                    } => {
                         tracing::info!("Applying wallpaper to {}: {:?}", output, wallpaper_path);
                         let _ = evt_tx.send(ServiceEvent::WallpaperApplied { output }).await;
                     }
@@ -139,7 +155,9 @@ impl BackgroundService {
 
     pub async fn send_command(&self, cmd: ServiceCommand) -> Result<(), String> {
         if let Some(tx) = &self.command_tx {
-            tx.send(cmd).await.map_err(|e| format!("Failed to send command: {}", e))
+            tx.send(cmd)
+                .await
+                .map_err(|e| format!("Failed to send command: {}", e))
         } else {
             Err("Service not running".into())
         }

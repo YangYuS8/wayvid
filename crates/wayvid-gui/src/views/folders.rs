@@ -33,7 +33,10 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
         .spacing(5)
         .align_x(iced::Alignment::Center);
 
-        container(empty_view).padding(40).center_x(Length::Fill).into()
+        container(empty_view)
+            .padding(40)
+            .center_x(Length::Fill)
+            .into()
     } else {
         let folder_list: Vec<Element<Message>> = state
             .folders
@@ -41,9 +44,13 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             .map(|folder| folder_row(folder))
             .collect();
 
-        scrollable(container(column(folder_list).spacing(10)).width(Length::Fill).padding(10))
-            .width(Length::Fill)
-            .into()
+        scrollable(
+            container(column(folder_list).spacing(10))
+                .width(Length::Fill)
+                .padding(10),
+        )
+        .width(Length::Fill)
+        .into()
     };
 
     column![header, content]

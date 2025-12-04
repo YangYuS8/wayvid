@@ -23,7 +23,8 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             setting_row(
                 &t!("settings.autostart"),
                 &t!("settings.autostart_desc"),
-                checkbox("", state.app_settings.autostart.enabled).on_toggle(Message::ToggleAutostart),
+                checkbox("", state.app_settings.autostart.enabled)
+                    .on_toggle(Message::ToggleAutostart),
             ),
             setting_row(
                 &t!("settings.minimize_to_tray"),
@@ -44,9 +45,11 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
                 &t!("settings.volume"),
                 &t!("settings.volume_desc"),
                 row![
-                    slider(0.0..=100.0, state.app_settings.playback.volume * 100.0, |v| {
-                        Message::VolumeChanged(v / 100.0)
-                    })
+                    slider(
+                        0.0..=100.0,
+                        state.app_settings.playback.volume * 100.0,
+                        |v| { Message::VolumeChanged(v / 100.0) }
+                    )
                     .width(Length::Fixed(200.0)),
                     text(format!("{}%", volume_pct)),
                 ]

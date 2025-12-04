@@ -12,10 +12,7 @@ use anyhow::{anyhow, Result};
 use tracing::{debug, info, warn};
 
 use wayvid_core::{
-    hdr::{
-        HdrMetadata, HdrMode, ToneMappingConfig,
-        parse_colorspace, parse_transfer_function,
-    },
+    hdr::{parse_colorspace, parse_transfer_function, HdrMetadata, HdrMode, ToneMappingConfig},
     HwdecMode, LayoutMode, OutputInfo,
 };
 
@@ -125,11 +122,8 @@ impl MpvPlayer {
             let name_c = CString::new(name).unwrap();
             let value_c = CString::new(value).unwrap();
             unsafe {
-                let ret = libmpv_sys::mpv_set_option_string(
-                    handle,
-                    name_c.as_ptr(),
-                    value_c.as_ptr(),
-                );
+                let ret =
+                    libmpv_sys::mpv_set_option_string(handle, name_c.as_ptr(), value_c.as_ptr());
                 if ret < 0 {
                     warn!("Failed to set option {}={}: error {}", name, value, ret);
                 }
@@ -284,7 +278,10 @@ impl MpvPlayer {
         };
 
         if ret < 0 {
-            return Err(anyhow!("Failed to create mpv render context: error {}", ret));
+            return Err(anyhow!(
+                "Failed to create mpv render context: error {}",
+                ret
+            ));
         }
 
         unsafe {
@@ -332,7 +329,11 @@ impl MpvPlayer {
     }
 
     /// Configure HDR handling
-    pub fn configure_hdr(&mut self, hdr_mode: HdrMode, tone_mapping: &ToneMappingConfig) -> Result<()> {
+    pub fn configure_hdr(
+        &mut self,
+        hdr_mode: HdrMode,
+        tone_mapping: &ToneMappingConfig,
+    ) -> Result<()> {
         info!("🎨 Configuring HDR handling...");
 
         match hdr_mode {
@@ -354,7 +355,10 @@ impl MpvPlayer {
             Some(metadata) => {
                 info!("  📊 Video HDR metadata detected");
                 if metadata.is_hdr() {
-                    info!("  ✨ HDR content detected: {}", metadata.format_description());
+                    info!(
+                        "  ✨ HDR content detected: {}",
+                        metadata.format_description()
+                    );
                     self.configure_tone_mapping(tone_mapping)?;
                 } else {
                     info!("  📺 SDR content detected");
@@ -405,7 +409,10 @@ impl MpvPlayer {
         }
 
         if optimized_config.algorithm.uses_param() {
-            set_option("tone-mapping-param", &format!("{:.2}", optimized_config.param));
+            set_option(
+                "tone-mapping-param",
+                &format!("{:.2}", optimized_config.param),
+            );
         }
 
         set_option("target-trc", "srgb");
@@ -434,7 +441,10 @@ impl MpvPlayer {
             return Ok(false);
         }
 
-        debug!("🎬 Rendering NEW frame: {}x{} to FBO {}", width, height, fbo);
+        debug!(
+            "🎬 Rendering NEW frame: {}x{} to FBO {}",
+            width, height, fbo
+        );
 
         let fbo_data = libmpv_sys::mpv_opengl_fbo {
             fbo,
@@ -460,9 +470,8 @@ impl MpvPlayer {
             },
         ];
 
-        let ret = unsafe {
-            libmpv_sys::mpv_render_context_render(render_ctx, params.as_ptr() as *mut _)
-        };
+        let ret =
+            unsafe { libmpv_sys::mpv_render_context_render(render_ctx, params.as_ptr() as *mut _) };
 
         if ret < 0 {
             warn!("mpv render error: {}", ret);

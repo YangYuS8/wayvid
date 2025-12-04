@@ -98,7 +98,12 @@ impl ThumbnailGenerator {
     }
 
     /// Create generator with custom settings
-    pub fn with_options(width: u32, height: u32, format: ThumbnailFormat, cache_dir: PathBuf) -> Self {
+    pub fn with_options(
+        width: u32,
+        height: u32,
+        format: ThumbnailFormat,
+        cache_dir: PathBuf,
+    ) -> Self {
         let ffmpeg_available = check_ffmpeg();
         let _ = std::fs::create_dir_all(&cache_dir);
 
@@ -122,7 +127,8 @@ impl ThumbnailGenerator {
     /// Get cache path for a source file
     pub fn cache_path(&self, source_path: &Path) -> PathBuf {
         let hash = hash_path(source_path);
-        self.cache_dir.join(format!("{}.{}", hash, self.format.extension()))
+        self.cache_dir
+            .join(format!("{}.{}", hash, self.format.extension()))
     }
 
     /// Check if thumbnail exists in cache
@@ -269,13 +275,7 @@ impl ThumbnailGenerator {
             0.0
         };
 
-        let success = run_ffmpeg_extract(
-            path,
-            &temp_path,
-            seek_time,
-            self.width,
-            self.height,
-        );
+        let success = run_ffmpeg_extract(path, &temp_path, seek_time, self.width, self.height);
 
         if !success {
             // Retry at 0 seconds
@@ -292,7 +292,8 @@ impl ThumbnailGenerator {
         let _ = std::fs::remove_file(&temp_path);
 
         // Get dimensions from the generated image
-        let img = image::load_from_memory(&png_data).context("Failed to load generated thumbnail")?;
+        let img =
+            image::load_from_memory(&png_data).context("Failed to load generated thumbnail")?;
         let (width, height) = img.dimensions();
 
         // Convert to output format if needed

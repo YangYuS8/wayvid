@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use tracing::{debug, info};
 
-use wayvid_core::{WallpaperItem, WallpaperMetadata, WallpaperType, SourceType};
+use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 /// Wallpaper library database
 pub struct LibraryDatabase {
@@ -28,18 +28,16 @@ impl LibraryDatabase {
     /// Open or create database at the given path
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        
+
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .context("Failed to create database directory")?;
+            std::fs::create_dir_all(parent).context("Failed to create database directory")?;
         }
 
         info!("📦 Opening library database: {}", path.display());
-        
-        let conn = Connection::open(path)
-            .context("Failed to open database")?;
-        
+
+        let conn = Connection::open(path).context("Failed to open database")?;
+
         // Enable WAL mode for better concurrent access
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
             .context("Failed to set database pragmas")?;
@@ -50,7 +48,7 @@ impl LibraryDatabase {
         };
 
         db.initialize_schema()?;
-        
+
         Ok(db)
     }
 
@@ -64,7 +62,7 @@ impl LibraryDatabase {
 
     fn initialize_schema(&self) -> Result<()> {
         let conn = self.conn.write().unwrap();
-        
+
         conn.execute_batch(r#"
             -- Wallpaper items table
             CREATE TABLE IF NOT EXISTS wallpapers (
@@ -203,10 +201,10 @@ impl LibraryDatabase {
     /// Insert or update a wallpaper
     pub fn upsert_wallpaper(&self, item: &WallpaperItem) -> Result<()> {
         let conn = self.conn.write().unwrap();
-        
+
         let tags_json = serde_json::to_string(&item.metadata.tags).unwrap_or_default();
         let (res_w, res_h) = item.metadata.resolution.unwrap_or((0, 0));
-        
+
         conn.execute(
             r#"
             INSERT INTO wallpapers (
@@ -234,7 +232,9 @@ impl LibraryDatabase {
                 item.source_path.to_string_lossy(),
                 item.source_type.as_str(),
                 item.wallpaper_type.as_str(),
-                item.thumbnail_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+                item.thumbnail_path
+                    .as_ref()
+                    .map(|p| p.to_string_lossy().to_string()),
                 item.metadata.title,
                 item.metadata.author,
                 item.metadata.description,
@@ -248,14 +248,14 @@ impl LibraryDatabase {
                 item.last_used.map(|d| d.to_rfc3339()),
             ],
         )?;
-        
+
         Ok(())
     }
 
     /// Get wallpaper by ID
     pub fn get_wallpaper(&self, id: &str) -> Result<Option<WallpaperItem>> {
         let conn = self.conn.read().unwrap();
-        
+
         conn.query_row(
             "SELECT * FROM wallpapers WHERE id = ?1",
             params![id],
@@ -268,7 +268,7 @@ impl LibraryDatabase {
     /// Get wallpaper by path
     pub fn get_wallpaper_by_path(&self, path: &Path) -> Result<Option<WallpaperItem>> {
         let conn = self.conn.read().unwrap();
-        
+
         conn.query_row(
             "SELECT * FROM wallpapers WHERE source_path = ?1",
             params![path.to_string_lossy()],
@@ -281,17 +281,17 @@ impl LibraryDatabase {
     /// List all wallpapers
     pub fn list_wallpapers(&self, filter: &WallpaperFilter) -> Result<Vec<WallpaperItem>> {
         let conn = self.conn.read().unwrap();
-        
+
         let mut sql = String::from("SELECT * FROM wallpapers WHERE 1=1");
-        
+
         if filter.favorites_only {
             sql.push_str(" AND favorite = 1");
         }
-        
+
         if let Some(ref type_filter) = filter.wallpaper_type {
             sql.push_str(&format!(" AND wallpaper_type = '{}'", type_filter.as_str()));
         }
-        
+
         if let Some(ref source_filter) = filter.source_type {
             sql.push_str(&format!(" AND source_type = '{}'", source_filter.as_str()));
         }
@@ -302,7 +302,7 @@ impl LibraryDatabase {
             SortBy::LastUsed => " ORDER BY last_used DESC NULLS LAST",
             SortBy::UseCount => " ORDER BY use_count DESC",
             SortBy::Rating => " ORDER BY rating DESC, name ASC",
-            SortBy::Relevance => " ORDER BY name ASC",  // Default for non-FTS queries
+            SortBy::Relevance => " ORDER BY name ASC", // Default for non-FTS queries
         });
 
         if let Some(limit) = filter.limit {
@@ -314,7 +314,7 @@ impl LibraryDatabase {
             .query_map([], |row| self.row_to_wallpaper(row))?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(wallpapers)
     }
 
@@ -332,13 +332,13 @@ impl LibraryDatabase {
             "UPDATE wallpapers SET favorite = NOT favorite WHERE id = ?1",
             params![id],
         )?;
-        
+
         let new_state: bool = conn.query_row(
             "SELECT favorite FROM wallpapers WHERE id = ?1",
             params![id],
             |row| row.get(0),
         )?;
-        
+
         Ok(new_state)
     }
 
@@ -366,11 +366,13 @@ impl LibraryDatabase {
     /// Get wallpaper rating
     pub fn get_rating(&self, id: &str) -> Result<u8> {
         let conn = self.conn.read().unwrap();
-        let rating: i32 = conn.query_row(
-            "SELECT COALESCE(rating, 0) FROM wallpapers WHERE id = ?1",
-            params![id],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let rating: i32 = conn
+            .query_row(
+                "SELECT COALESCE(rating, 0) FROM wallpapers WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
         Ok(rating as u8)
     }
 
@@ -379,11 +381,11 @@ impl LibraryDatabase {
     /// Search wallpapers using full-text search
     pub fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<WallpaperItem>> {
         let conn = self.conn.read().unwrap();
-        
+
         // Sanitize query for FTS5
         let sanitized = query.replace('"', "\"\"");
         let fts_query = format!("\"{}\"*", sanitized);
-        
+
         let sql = format!(
             r#"
             SELECT w.* FROM wallpapers w
@@ -394,22 +396,22 @@ impl LibraryDatabase {
             "#,
             limit.map(|l| format!("LIMIT {}", l)).unwrap_or_default()
         );
-        
+
         let mut stmt = conn.prepare(&sql)?;
         let wallpapers = stmt
             .query_map(params![fts_query], |row| self.row_to_wallpaper(row))?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(wallpapers)
     }
 
     /// Search wallpapers with advanced options
     pub fn search_advanced(&self, options: &SearchOptions) -> Result<Vec<WallpaperItem>> {
         let conn = self.conn.read().unwrap();
-        
+
         let mut conditions = vec!["1=1".to_string()];
-        
+
         // Full-text search condition
         if let Some(ref query) = options.query {
             let sanitized = query.replace('"', "\"\"");
@@ -418,30 +420,32 @@ impl LibraryDatabase {
                 sanitized
             ));
         }
-        
+
         // Type filter
         if let Some(ref wtype) = options.wallpaper_type {
             conditions.push(format!("w.wallpaper_type = '{}'", wtype.as_str()));
         }
-        
+
         // Source filter
         if let Some(ref stype) = options.source_type {
             conditions.push(format!("w.source_type = '{}'", stype.as_str()));
         }
-        
+
         // Favorites filter
         if options.favorites_only {
             conditions.push("w.favorite = 1".to_string());
         }
-        
+
         // Rating filter
         if let Some(min_rating) = options.min_rating {
             conditions.push(format!("w.rating >= {}", min_rating));
         }
-        
+
         // Tag filter (requires join)
         let tag_join = if !options.tags.is_empty() {
-            let tag_names: Vec<String> = options.tags.iter()
+            let tag_names: Vec<String> = options
+                .tags
+                .iter()
                 .map(|t| format!("'{}'", t.replace('\'', "''")))
                 .collect();
             conditions.push(format!(
@@ -452,7 +456,7 @@ impl LibraryDatabase {
         } else {
             ""
         };
-        
+
         let order_by = match options.sort_by {
             SortBy::Name => "w.name ASC",
             SortBy::DateAdded => "w.added_at DESC",
@@ -461,21 +465,24 @@ impl LibraryDatabase {
             SortBy::Rating => "w.rating DESC, w.name ASC",
             SortBy::Relevance => "1", // FTS handles relevance
         };
-        
+
         let sql = format!(
             "SELECT w.* FROM wallpapers w {} WHERE {} ORDER BY {} {}",
             tag_join,
             conditions.join(" AND "),
             order_by,
-            options.limit.map(|l| format!("LIMIT {}", l)).unwrap_or_default()
+            options
+                .limit
+                .map(|l| format!("LIMIT {}", l))
+                .unwrap_or_default()
         );
-        
+
         let mut stmt = conn.prepare(&sql)?;
         let wallpapers = stmt
             .query_map([], |row| self.row_to_wallpaper(row))?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(wallpapers)
     }
 
@@ -488,13 +495,13 @@ impl LibraryDatabase {
             "INSERT INTO tags (name, color) VALUES (?1, ?2) ON CONFLICT(name) DO UPDATE SET color = excluded.color",
             params![name, color.unwrap_or("#666666")],
         )?;
-        
+
         let tag_id: i64 = conn.query_row(
             "SELECT id FROM tags WHERE name = ?1",
             params![name],
             |row| row.get(0),
         )?;
-        
+
         Ok(tag_id)
     }
 
@@ -508,9 +515,9 @@ impl LibraryDatabase {
             LEFT JOIN wallpaper_tags wt ON t.id = wt.tag_id
             GROUP BY t.id
             ORDER BY count DESC, t.name ASC
-            "#
+            "#,
         )?;
-        
+
         let tags = stmt
             .query_map([], |row| {
                 Ok(Tag {
@@ -522,31 +529,31 @@ impl LibraryDatabase {
             })?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(tags)
     }
 
     /// Add tag to wallpaper
     pub fn add_tag_to_wallpaper(&self, wallpaper_id: &str, tag_name: &str) -> Result<()> {
         let conn = self.conn.write().unwrap();
-        
+
         // Ensure tag exists
         conn.execute(
             "INSERT OR IGNORE INTO tags (name) VALUES (?1)",
             params![tag_name],
         )?;
-        
+
         let tag_id: i64 = conn.query_row(
             "SELECT id FROM tags WHERE name = ?1",
             params![tag_name],
             |row| row.get(0),
         )?;
-        
+
         conn.execute(
             "INSERT OR IGNORE INTO wallpaper_tags (wallpaper_id, tag_id) VALUES (?1, ?2)",
             params![wallpaper_id, tag_id],
         )?;
-        
+
         Ok(())
     }
 
@@ -574,9 +581,9 @@ impl LibraryDatabase {
             JOIN wallpaper_tags wt ON t.id = wt.tag_id
             WHERE wt.wallpaper_id = ?1
             ORDER BY t.name
-            "#
+            "#,
         )?;
-        
+
         let tags = stmt
             .query_map(params![wallpaper_id], |row| {
                 Ok(Tag {
@@ -588,17 +595,14 @@ impl LibraryDatabase {
             })?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(tags)
     }
 
     /// Delete a tag (removes from all wallpapers)
     pub fn delete_tag(&self, tag_name: &str) -> Result<bool> {
         let conn = self.conn.write().unwrap();
-        let rows = conn.execute(
-            "DELETE FROM tags WHERE name = ?1",
-            params![tag_name],
-        )?;
+        let rows = conn.execute("DELETE FROM tags WHERE name = ?1", params![tag_name])?;
         Ok(rows > 0)
     }
 
@@ -635,9 +639,9 @@ impl LibraryDatabase {
             LEFT JOIN collection_wallpapers cw ON c.id = cw.collection_id
             GROUP BY c.id
             ORDER BY c.name
-            "#
+            "#,
         )?;
-        
+
         let collections = stmt
             .query_map([], |row| {
                 Ok(Collection {
@@ -651,21 +655,21 @@ impl LibraryDatabase {
             })?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(collections)
     }
 
     /// Add wallpaper to collection
     pub fn add_to_collection(&self, collection_id: i64, wallpaper_id: &str) -> Result<()> {
         let conn = self.conn.write().unwrap();
-        
+
         // Get next position
         let position: i32 = conn.query_row(
             "SELECT COALESCE(MAX(position), -1) + 1 FROM collection_wallpapers WHERE collection_id = ?1",
             params![collection_id],
             |row| row.get(0),
         )?;
-        
+
         conn.execute(
             "INSERT OR IGNORE INTO collection_wallpapers (collection_id, wallpaper_id, position) VALUES (?1, ?2, ?3)",
             params![collection_id, wallpaper_id, position],
@@ -692,14 +696,14 @@ impl LibraryDatabase {
             JOIN collection_wallpapers cw ON w.id = cw.wallpaper_id
             WHERE cw.collection_id = ?1
             ORDER BY cw.position
-            "#
+            "#,
         )?;
-        
+
         let wallpapers = stmt
             .query_map(params![collection_id], |row| self.row_to_wallpaper(row))?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(wallpapers)
     }
 
@@ -728,10 +732,9 @@ impl LibraryDatabase {
     /// List all library folders
     pub fn list_folders(&self) -> Result<Vec<LibraryFolder>> {
         let conn = self.conn.read().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT path, enabled, scan_recursive, last_scanned_at FROM folders"
-        )?;
-        
+        let mut stmt =
+            conn.prepare("SELECT path, enabled, scan_recursive, last_scanned_at FROM folders")?;
+
         let folders = stmt
             .query_map([], |row| {
                 Ok(LibraryFolder {
@@ -743,7 +746,7 @@ impl LibraryDatabase {
             })?
             .filter_map(|r| r.ok())
             .collect();
-        
+
         Ok(folders)
     }
 
@@ -760,7 +763,13 @@ impl LibraryDatabase {
     // ========== Thumbnails ==========
 
     /// Store thumbnail data
-    pub fn store_thumbnail(&self, wallpaper_id: &str, data: &[u8], width: u32, height: u32) -> Result<()> {
+    pub fn store_thumbnail(
+        &self,
+        wallpaper_id: &str,
+        data: &[u8],
+        width: u32,
+        height: u32,
+    ) -> Result<()> {
         let conn = self.conn.write().unwrap();
         conn.execute(
             "INSERT OR REPLACE INTO thumbnails (wallpaper_id, data, width, height) VALUES (?1, ?2, ?3, ?4)",
@@ -792,34 +801,37 @@ impl LibraryDatabase {
     /// Get library statistics
     pub fn get_stats(&self) -> Result<LibraryStats> {
         let conn = self.conn.read().unwrap();
-        
-        let total: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM wallpapers", [], |row| row.get(0)
-        )?;
-        
+
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM wallpapers", [], |row| row.get(0))?;
+
         let favorites: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM wallpapers WHERE favorite = 1", [], |row| row.get(0)
+            "SELECT COUNT(*) FROM wallpapers WHERE favorite = 1",
+            [],
+            |row| row.get(0),
         )?;
-        
+
         let videos: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM wallpapers WHERE wallpaper_type = 'video'", [], |row| row.get(0)
+            "SELECT COUNT(*) FROM wallpapers WHERE wallpaper_type = 'video'",
+            [],
+            |row| row.get(0),
         )?;
-        
+
         let images: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM wallpapers WHERE wallpaper_type = 'image'", [], |row| row.get(0)
+            "SELECT COUNT(*) FROM wallpapers WHERE wallpaper_type = 'image'",
+            [],
+            |row| row.get(0),
         )?;
-        
+
         let total_size: i64 = conn.query_row(
-            "SELECT COALESCE(SUM(file_size), 0) FROM wallpapers", [], |row| row.get(0)
+            "SELECT COALESCE(SUM(file_size), 0) FROM wallpapers",
+            [],
+            |row| row.get(0),
         )?;
 
-        let tags_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM tags", [], |row| row.get(0)
-        )?;
+        let tags_count: i64 = conn.query_row("SELECT COUNT(*) FROM tags", [], |row| row.get(0))?;
 
-        let collections_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM collections", [], |row| row.get(0)
-        )?;
+        let collections_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM collections", [], |row| row.get(0))?;
 
         Ok(LibraryStats {
             total_wallpapers: total as usize,
@@ -841,7 +853,7 @@ impl LibraryDatabase {
         let source_type_str: String = row.get("source_type")?;
         let wallpaper_type_str: String = row.get("wallpaper_type")?;
         let thumbnail_path: Option<String> = row.get("thumbnail_path")?;
-        
+
         let title: Option<String> = row.get("title")?;
         let author: Option<String> = row.get("author")?;
         let description: Option<String> = row.get("description")?;
@@ -1083,14 +1095,19 @@ mod tests {
     fn test_library_folders() {
         let (db, _temp) = create_test_db();
 
-        db.add_folder(Path::new("/home/user/wallpapers"), true).unwrap();
-        db.add_folder(Path::new("/home/user/videos"), false).unwrap();
+        db.add_folder(Path::new("/home/user/wallpapers"), true)
+            .unwrap();
+        db.add_folder(Path::new("/home/user/videos"), false)
+            .unwrap();
 
         let folders = db.list_folders().unwrap();
         assert_eq!(folders.len(), 2);
-        assert!(folders.iter().any(|f| f.path.to_string_lossy().contains("wallpapers")));
+        assert!(folders
+            .iter()
+            .any(|f| f.path.to_string_lossy().contains("wallpapers")));
 
-        db.remove_folder(Path::new("/home/user/wallpapers")).unwrap();
+        db.remove_folder(Path::new("/home/user/wallpapers"))
+            .unwrap();
         let folders = db.list_folders().unwrap();
         assert_eq!(folders.len(), 1);
     }
@@ -1163,7 +1180,9 @@ mod tests {
         db.upsert_wallpaper(&item2).unwrap();
 
         // Create collection
-        let collection_id = db.create_collection("My Favorites", Some("Best wallpapers")).unwrap();
+        let collection_id = db
+            .create_collection("My Favorites", Some("Best wallpapers"))
+            .unwrap();
         assert!(collection_id > 0);
 
         // Add wallpapers to collection

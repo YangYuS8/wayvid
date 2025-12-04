@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use wayland_client::protocol::wl_output::WlOutput;
-use wayvid_core::{OutputInfo, OutputHdrCapabilities};
+use wayvid_core::{OutputHdrCapabilities, OutputInfo};
 
 /// Output manager for tracking Wayland outputs
 pub struct OutputManager {
@@ -54,24 +54,14 @@ impl OutputManager {
     }
 
     /// Update output geometry
-    pub fn update_geometry(
-        &mut self,
-        name: &str,
-        x: i32,
-        y: i32,
-    ) {
+    pub fn update_geometry(&mut self, name: &str, x: i32, y: i32) {
         if let Some(state) = self.outputs.get_mut(name) {
             state.info.position = (x, y);
         }
     }
 
     /// Update output mode
-    pub fn update_mode(
-        &mut self,
-        name: &str,
-        width: i32,
-        height: i32,
-    ) {
+    pub fn update_mode(&mut self, name: &str, width: i32, height: i32) {
         if let Some(state) = self.outputs.get_mut(name) {
             state.info.width = width;
             state.info.height = height;

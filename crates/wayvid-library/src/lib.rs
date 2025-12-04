@@ -43,7 +43,9 @@ pub use database::{
     Collection, LibraryDatabase, LibraryFolder, LibraryStats, SearchOptions, SortBy, Tag,
     ThumbnailData, WallpaperFilter,
 };
-pub use scanner::{AsyncFileWatcher, FileEvent, FileWatcher, FolderScanner, IncrementalScanner, ScanResult};
+pub use scanner::{
+    AsyncFileWatcher, FileEvent, FileWatcher, FolderScanner, IncrementalScanner, ScanResult,
+};
 pub use thumbnail::{
     get_video_dimensions, get_video_duration, CacheStats, ThumbnailFormat, ThumbnailGenerator,
     ThumbnailPriority, ThumbnailRequest, ThumbnailResponse, ThumbnailResult, ThumbnailService,
