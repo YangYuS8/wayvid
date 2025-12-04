@@ -55,6 +55,69 @@ impl WorkshopItem {
             .as_ref()
             .map(|f| self.path.join(f))
     }
+
+    /// Get preview image path (gif or jpg)
+    #[allow(dead_code)]
+    pub fn preview_path(&self) -> Option<PathBuf> {
+        // First check project.json preview field
+        if let Some(ref project) = self.project {
+            if let Some(ref preview) = project.preview {
+                let preview_path = self.path.join(preview);
+                if preview_path.exists() {
+                    return Some(preview_path);
+                }
+            }
+        }
+
+        // Fallback: check for common preview file names
+        let preview_names = ["preview.gif", "preview.jpg", "preview.png", "thumb.jpg"];
+        for name in &preview_names {
+            let path = self.path.join(name);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    /// Get wallpaper type (video, scene, web, etc.)
+    #[allow(dead_code)]
+    pub fn wallpaper_type(&self) -> WallpaperEngineType {
+        self.project
+            .as_ref()
+            .map(|p| match p.project_type.to_lowercase().as_str() {
+                "video" => WallpaperEngineType::Video,
+                "scene" => WallpaperEngineType::Scene,
+                "web" => WallpaperEngineType::Web,
+                "application" => WallpaperEngineType::Application,
+                _ => WallpaperEngineType::Unknown,
+            })
+            .unwrap_or(WallpaperEngineType::Unknown)
+    }
+
+    /// Check if this is a scene wallpaper
+    #[allow(dead_code)]
+    pub fn is_scene(&self) -> bool {
+        matches!(self.wallpaper_type(), WallpaperEngineType::Scene)
+    }
+
+    /// Check if this is a video wallpaper
+    #[allow(dead_code)]
+    pub fn is_video(&self) -> bool {
+        matches!(self.wallpaper_type(), WallpaperEngineType::Video)
+    }
+}
+
+/// Wallpaper Engine wallpaper types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum WallpaperEngineType {
+    Video,
+    Scene,
+    Web,
+    Application,
+    Unknown,
 }
 
 /// Workshop scanner

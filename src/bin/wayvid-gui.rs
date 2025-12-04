@@ -8,6 +8,7 @@
 
 use eframe::egui;
 use rust_i18n::t;
+use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use wayvid::ctl::ipc_client::IpcClient;
@@ -146,6 +147,15 @@ struct WayvidApp {
     config_loop: bool,
     config_hwdec: bool,
 
+    // Render backend settings
+    config_render_backend: GuiRenderBackend,
+    vulkan_available: bool,
+    vulkan_info: Option<String>,
+
+    // Custom wallpaper folders
+    wallpaper_folders: Vec<String>,
+    new_folder_path: String, // Input field for new folder path
+
     // Config file editing
     config_path: String,
     config_content: String,
@@ -162,6 +172,29 @@ struct WayvidApp {
 
     // Dropped files handling
     dropped_files: Vec<egui::DroppedFile>,
+
+    // Preview image cache (static images and GIF animations)
+    preview_textures: std::collections::HashMap<String, Option<egui::TextureHandle>>,
+    gif_animations: std::collections::HashMap<String, GifAnimation>,
+}
+
+/// GIF animation data for preview
+struct GifAnimation {
+    frames: Vec<egui::TextureHandle>,
+    frame_delays: Vec<std::time::Duration>,
+    current_frame: usize,
+    last_update: std::time::Instant,
+}
+
+impl Clone for GifAnimation {
+    fn clone(&self) -> Self {
+        Self {
+            frames: self.frames.clone(),
+            frame_delays: self.frame_delays.clone(),
+            current_frame: self.current_frame,
+            last_update: self.last_update,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -188,6 +221,8 @@ struct WallpaperItem {
     name: String,        // Display name
     source_path: String, // Full path or URL
     source_type: WallpaperSource,
+    wallpaper_type: WallpaperType, // Video or Scene
+    preview_path: Option<String>,  // Path to preview image (gif/jpg)
     is_valid: bool,
 }
 
@@ -197,6 +232,97 @@ enum WallpaperSource {
     Directory,
     Url,
     Workshop { workshop_id: u64 },
+}
+
+/// Type of wallpaper content
+#[derive(Clone, Debug, PartialEq, Default)]
+enum WallpaperType {
+    #[default]
+    Video,
+    Scene,
+}
+
+/// Render backend selection for GUI
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum GuiRenderBackend {
+    #[default]
+    Auto,
+    #[serde(rename = "opengl")]
+    OpenGL,
+    Vulkan,
+}
+
+impl GuiRenderBackend {
+    fn display_name(&self) -> &'static str {
+        match self {
+            GuiRenderBackend::Auto => "Auto",
+            GuiRenderBackend::OpenGL => "OpenGL",
+            GuiRenderBackend::Vulkan => "Vulkan",
+        }
+    }
+}
+
+/// Persistent GUI configuration
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct GuiConfig {
+    /// Selected render backend
+    #[serde(default)]
+    render_backend: GuiRenderBackend,
+
+    /// Custom wallpaper folder paths
+    #[serde(default)]
+    wallpaper_folders: Vec<String>,
+
+    /// User's preferred language
+    #[serde(default)]
+    language: Option<String>,
+}
+
+impl GuiConfig {
+    /// Get the GUI config file path
+    fn config_path() -> std::path::PathBuf {
+        if let Ok(xdg_config) = std::env::var("XDG_CONFIG_HOME") {
+            std::path::PathBuf::from(xdg_config).join("wayvid/gui.yaml")
+        } else if let Ok(home) = std::env::var("HOME") {
+            std::path::PathBuf::from(home).join(".config/wayvid/gui.yaml")
+        } else {
+            std::path::PathBuf::from("gui.yaml")
+        }
+    }
+
+    /// Load config from file, or return default if file doesn't exist
+    fn load() -> Self {
+        let path = Self::config_path();
+        if path.exists() {
+            match std::fs::read_to_string(&path) {
+                Ok(content) => match serde_yaml::from_str(&content) {
+                    Ok(config) => return config,
+                    Err(e) => eprintln!("Failed to parse GUI config: {}", e),
+                },
+                Err(e) => eprintln!("Failed to read GUI config: {}", e),
+            }
+        }
+        Self::default()
+    }
+
+    /// Save config to file
+    fn save(&self) -> Result<(), String> {
+        let path = Self::config_path();
+
+        // Create parent directory if needed
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create config directory: {}", e))?;
+        }
+
+        let content = serde_yaml::to_string(self)
+            .map_err(|e| format!("Failed to serialize config: {}", e))?;
+
+        std::fs::write(&path, content).map_err(|e| format!("Failed to write config: {}", e))?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -210,7 +336,38 @@ enum ConnectionStatus {
 
 impl Default for WayvidApp {
     fn default() -> Self {
-        let current_language = rust_i18n::locale().to_string();
+        // Load persistent GUI config
+        let gui_config = GuiConfig::load();
+
+        // Use saved language or detect from system
+        let current_language = gui_config
+            .language
+            .clone()
+            .unwrap_or_else(|| rust_i18n::locale().to_string());
+
+        // Apply saved language
+        rust_i18n::set_locale(&current_language);
+
+        // Check Vulkan availability at startup
+        #[cfg(feature = "backend-vulkan")]
+        let (vulkan_available, vulkan_info) = {
+            let info = wayvid::video::vulkan::check_vulkan_availability();
+            let available = info.available;
+            let info_str = if available {
+                Some(format!(
+                    "{} ({})",
+                    info.gpu_name.unwrap_or_else(|| "Unknown GPU".to_string()),
+                    info.api_version.unwrap_or_else(|| "?".to_string())
+                ))
+            } else {
+                info.error
+            };
+            (available, info_str)
+        };
+
+        #[cfg(not(feature = "backend-vulkan"))]
+        let (vulkan_available, vulkan_info) = (false, Some("Vulkan not compiled in".to_string()));
+
         Self {
             ipc_tx: None,
             ipc_rx: None,
@@ -229,6 +386,11 @@ impl Default for WayvidApp {
             config_mute: true,
             config_loop: true,
             config_hwdec: true,
+            config_render_backend: gui_config.render_backend,
+            vulkan_available,
+            vulkan_info,
+            wallpaper_folders: gui_config.wallpaper_folders,
+            new_folder_path: String::new(),
             config_path: String::new(),
             config_content: String::new(),
             config_edited: false,
@@ -238,6 +400,8 @@ impl Default for WayvidApp {
             connection_status: ConnectionStatus::Disconnected,
             workshop_scan_running: false,
             dropped_files: Vec::new(),
+            preview_textures: std::collections::HashMap::new(),
+            gif_animations: std::collections::HashMap::new(),
         }
     }
 }
@@ -611,10 +775,19 @@ impl WayvidApp {
     }
 
     /// Show wallpaper grid with click-to-select, double-click-to-apply
+    #[allow(clippy::type_complexity)]
     fn show_wallpaper_grid(&mut self, ui: &mut egui::Ui) {
         // Filter wallpapers by search - collect indices and data we need
         let search = self.library_search.to_lowercase();
-        let filtered: Vec<(usize, String, String, WallpaperSource, bool)> = self
+        let filtered: Vec<(
+            usize,
+            String,
+            String,
+            WallpaperSource,
+            WallpaperType,
+            Option<String>,
+            bool,
+        )> = self
             .wallpapers
             .iter()
             .enumerate()
@@ -629,6 +802,8 @@ impl WayvidApp {
                     w.name.clone(),
                     w.source_path.clone(),
                     w.source_type.clone(),
+                    w.wallpaper_type.clone(),
+                    w.preview_path.clone(),
                     w.is_valid,
                 )
             })
@@ -648,7 +823,16 @@ impl WayvidApp {
                 .show(ui, |ui| {
                     let mut column = 0;
 
-                    for (idx, name, source_path, source_type, is_valid) in &filtered {
+                    for (
+                        idx,
+                        name,
+                        source_path,
+                        source_type,
+                        wallpaper_type,
+                        preview_path,
+                        is_valid,
+                    ) in &filtered
+                    {
                         let is_selected = self.selected_wallpaper == Some(*idx);
 
                         let response = egui::Frame::none()
@@ -669,18 +853,52 @@ impl WayvidApp {
                                 ui.set_max_width(240.0);
 
                                 ui.vertical(|ui| {
-                                    // Icon based on source type
-                                    let icon = match source_type {
-                                        WallpaperSource::LocalFile => "📁",
-                                        WallpaperSource::Directory => "📂",
-                                        WallpaperSource::Url => "🌐",
-                                        WallpaperSource::Workshop { .. } => "🎮",
-                                    };
+                                    // Preview image area (if available)
+                                    if let Some(ref preview) = preview_path {
+                                        self.show_preview_image(ui, preview);
+                                    } else {
+                                        // Default placeholder
+                                        ui.add_sized(
+                                            [224.0, 126.0],
+                                            egui::Label::new(
+                                                egui::RichText::new("🖼️")
+                                                    .size(48.0)
+                                                    .color(egui::Color32::GRAY),
+                                            ),
+                                        );
+                                    }
+                                    ui.add_space(8.0);
 
+                                    // Icon and type badges
                                     ui.horizontal(|ui| {
+                                        // Source type icon
+                                        let icon = match source_type {
+                                            WallpaperSource::LocalFile => "📁",
+                                            WallpaperSource::Directory => "📂",
+                                            WallpaperSource::Url => "🌐",
+                                            WallpaperSource::Workshop { .. } => "🎮",
+                                        };
                                         ui.label(icon);
-                                        ui.label(egui::RichText::new(name).strong());
+
+                                        // Wallpaper type badge
+                                        match wallpaper_type {
+                                            WallpaperType::Video => {
+                                                ui.colored_label(
+                                                    egui::Color32::from_rgb(33, 150, 243),
+                                                    "▶ Video",
+                                                );
+                                            }
+                                            WallpaperType::Scene => {
+                                                ui.colored_label(
+                                                    egui::Color32::from_rgb(156, 39, 176),
+                                                    "🎬 Scene",
+                                                );
+                                            }
+                                        }
                                     });
+
+                                    // Title
+                                    ui.label(egui::RichText::new(name).strong());
 
                                     // Validity indicator
                                     if *is_valid {
@@ -757,11 +975,187 @@ impl WayvidApp {
         }
     }
 
+    /// Show preview image for a wallpaper (supports static images and GIF animations)
+    fn show_preview_image(&mut self, ui: &mut egui::Ui, preview_path: &str) {
+        let preview_size = egui::vec2(224.0, 126.0); // 16:9 aspect ratio
+        let is_gif = preview_path.to_lowercase().ends_with(".gif");
+
+        if is_gif {
+            // Handle GIF animation
+            self.show_gif_preview(ui, preview_path, preview_size);
+        } else {
+            // Handle static image
+            self.show_static_preview(ui, preview_path, preview_size);
+        }
+    }
+
+    /// Show static image preview
+    fn show_static_preview(
+        &mut self,
+        ui: &mut egui::Ui,
+        preview_path: &str,
+        preview_size: egui::Vec2,
+    ) {
+        // Check if texture is already cached
+        if let Some(texture_opt) = self.preview_textures.get(preview_path) {
+            if let Some(texture) = texture_opt {
+                ui.add(egui::Image::from_texture(texture).fit_to_exact_size(preview_size));
+                return;
+            } else {
+                // Loading failed previously, show placeholder
+                Self::show_placeholder(ui, preview_size);
+                return;
+            }
+        }
+
+        // Try to load the image
+        let texture = match image::open(preview_path) {
+            Ok(img) => {
+                let img = img.to_rgba8();
+                let size = [img.width() as usize, img.height() as usize];
+                let pixels = img.into_raw();
+
+                let color_image = egui::ColorImage::from_rgba_unmultiplied(size, &pixels);
+                let texture =
+                    ui.ctx()
+                        .load_texture(preview_path, color_image, egui::TextureOptions::LINEAR);
+                Some(texture)
+            }
+            Err(_) => None,
+        };
+
+        // Cache the result
+        self.preview_textures
+            .insert(preview_path.to_string(), texture.clone());
+
+        // Display
+        if let Some(ref tex) = texture {
+            ui.add(egui::Image::from_texture(tex).fit_to_exact_size(preview_size));
+        } else {
+            Self::show_placeholder(ui, preview_size);
+        }
+    }
+
+    /// Show GIF animation preview
+    fn show_gif_preview(
+        &mut self,
+        ui: &mut egui::Ui,
+        preview_path: &str,
+        preview_size: egui::Vec2,
+    ) {
+        // Check if GIF is already loaded
+        if let Some(anim) = self.gif_animations.get_mut(preview_path) {
+            // Check if we need to advance to the next frame
+            let now = std::time::Instant::now();
+            if let Some(delay) = anim.frame_delays.get(anim.current_frame) {
+                if now.duration_since(anim.last_update) >= *delay {
+                    anim.current_frame = (anim.current_frame + 1) % anim.frames.len();
+                    anim.last_update = now;
+                }
+            }
+
+            // Display current frame
+            if let Some(frame) = anim.frames.get(anim.current_frame) {
+                ui.add(egui::Image::from_texture(frame).fit_to_exact_size(preview_size));
+                // Request repaint for animation
+                if let Some(delay) = anim.frame_delays.get(anim.current_frame) {
+                    ui.ctx().request_repaint_after(*delay);
+                }
+            } else {
+                Self::show_placeholder(ui, preview_size);
+            }
+            return;
+        }
+
+        // Try to load GIF frames
+        let anim = self.load_gif_animation(ui.ctx(), preview_path);
+
+        if let Some(ref a) = anim {
+            if let Some(frame) = a.frames.first() {
+                ui.add(egui::Image::from_texture(frame).fit_to_exact_size(preview_size));
+                // Request repaint for animation
+                if !a.frame_delays.is_empty() {
+                    ui.ctx().request_repaint_after(a.frame_delays[0]);
+                }
+            } else {
+                Self::show_placeholder(ui, preview_size);
+            }
+        } else {
+            Self::show_placeholder(ui, preview_size);
+        }
+
+        // Cache the animation (even if None to avoid retry)
+        if let Some(a) = anim {
+            self.gif_animations.insert(preview_path.to_string(), a);
+        }
+    }
+
+    /// Load GIF animation frames
+    fn load_gif_animation(&self, ctx: &egui::Context, path: &str) -> Option<GifAnimation> {
+        use image::codecs::gif::GifDecoder;
+        use image::AnimationDecoder;
+        use std::fs::File;
+        use std::io::BufReader;
+
+        let file = File::open(path).ok()?;
+        let reader = BufReader::new(file);
+        let decoder = GifDecoder::new(reader).ok()?;
+        let frames_iter = decoder.into_frames();
+
+        let mut frames = Vec::new();
+        let mut frame_delays = Vec::new();
+
+        for frame in frames_iter.flatten() {
+            let delay = frame.delay();
+            // Convert delay to Duration (delay is in units of 1/100 second)
+            let (numer, denom) = delay.numer_denom_ms();
+            let delay_ms = (numer as f64) / (denom as f64);
+            // Minimum delay of 20ms to prevent too fast animation
+            let delay_duration = std::time::Duration::from_millis(delay_ms.max(20.0) as u64);
+
+            let img = frame.into_buffer();
+            let size = [img.width() as usize, img.height() as usize];
+            let pixels = img.into_raw();
+
+            let color_image = egui::ColorImage::from_rgba_unmultiplied(size, &pixels);
+            let texture_name = format!("{}_frame_{}", path, frames.len());
+            let texture =
+                ctx.load_texture(&texture_name, color_image, egui::TextureOptions::LINEAR);
+
+            frames.push(texture);
+            frame_delays.push(delay_duration);
+        }
+
+        if frames.is_empty() {
+            return None;
+        }
+
+        Some(GifAnimation {
+            frames,
+            frame_delays,
+            current_frame: 0,
+            last_update: std::time::Instant::now(),
+        })
+    }
+
+    /// Show placeholder for missing preview
+    fn show_placeholder(ui: &mut egui::Ui, preview_size: egui::Vec2) {
+        ui.add_sized(
+            preview_size,
+            egui::Label::new(
+                egui::RichText::new("🖼️")
+                    .size(48.0)
+                    .color(egui::Color32::GRAY),
+            ),
+        );
+    }
+
     /// Apply wallpaper to selected monitor(s)
     fn apply_wallpaper(&mut self, wallpaper_idx: usize) {
         if let Some(wallpaper) = self.wallpapers.get(wallpaper_idx) {
             let source_path = wallpaper.source_path.clone();
             let wallpaper_name = wallpaper.name.clone();
+            let wallpaper_type = wallpaper.wallpaper_type.clone();
 
             // Determine target output(s)
             let output_name = if let Some(idx) = self.selected_output {
@@ -770,10 +1164,26 @@ impl WayvidApp {
                 None // Apply to all
             };
 
-            self.send_command(IpcCommand::SetSource {
-                output: output_name.clone(),
-                source: source_path,
-            });
+            // Use appropriate source type based on wallpaper type
+            match wallpaper_type {
+                WallpaperType::Scene => {
+                    // For scene wallpapers, use SwitchSource with WeScene type
+                    use wayvid::core::types::VideoSource;
+                    self.send_command(IpcCommand::SwitchSource {
+                        output: output_name.clone(),
+                        source: VideoSource::WeScene {
+                            path: source_path.clone(),
+                        },
+                    });
+                }
+                WallpaperType::Video => {
+                    // For video wallpapers, use SetSource with path string
+                    self.send_command(IpcCommand::SetSource {
+                        output: output_name.clone(),
+                        source: source_path,
+                    });
+                }
+            }
 
             let target = output_name.unwrap_or_else(|| t!("monitor_all").to_string());
             self.status_message =
@@ -862,6 +1272,8 @@ impl WayvidApp {
             name,
             source_path: path.to_string(),
             source_type,
+            wallpaper_type: WallpaperType::Video,
+            preview_path: None,
             is_valid: true,
         });
     }
@@ -942,6 +1354,7 @@ impl WayvidApp {
 
                     ui.horizontal(|ui| {
                         ui.label(t!("settings_language_select"));
+                        let old_language = self.current_language.clone();
                         egui::ComboBox::from_id_salt("language_select")
                             .selected_text(&self.current_language)
                             .show_ui(ui, |ui| {
@@ -966,6 +1379,10 @@ impl WayvidApp {
                                     rust_i18n::set_locale("zh-CN");
                                 }
                             });
+                        // Save config when language changes
+                        if self.current_language != old_language {
+                            self.save_gui_config();
+                        }
                     });
                 });
 
@@ -1026,6 +1443,151 @@ impl WayvidApp {
                                 egui::Slider::new(&mut self.config_volume, 0.0..=1.0)
                                     .text(format!("{}%", volume_pct)),
                             );
+                        }
+                    });
+                });
+
+            ui.add_space(12.0);
+
+            // Render Backend Settings
+            egui::Frame::none()
+                .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.heading(t!("settings_renderer_title"));
+                    ui.add_space(4.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label(t!("settings_renderer_backend"));
+                        let old_backend = self.config_render_backend.clone();
+                        egui::ComboBox::from_id_salt("render_backend")
+                            .selected_text(self.config_render_backend.display_name())
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.config_render_backend,
+                                    GuiRenderBackend::Auto,
+                                    "Auto",
+                                );
+                                ui.selectable_value(
+                                    &mut self.config_render_backend,
+                                    GuiRenderBackend::OpenGL,
+                                    "OpenGL",
+                                );
+                                let vulkan_label = if self.vulkan_available {
+                                    "Vulkan"
+                                } else {
+                                    "Vulkan (unavailable)"
+                                };
+                                ui.add_enabled(
+                                    self.vulkan_available,
+                                    egui::SelectableLabel::new(
+                                        self.config_render_backend == GuiRenderBackend::Vulkan,
+                                        vulkan_label,
+                                    ),
+                                )
+                                .clicked()
+                                .then(|| {
+                                    if self.vulkan_available {
+                                        self.config_render_backend = GuiRenderBackend::Vulkan;
+                                    }
+                                });
+                            });
+                        // Save config when backend changes
+                        if self.config_render_backend != old_backend {
+                            self.save_gui_config();
+                        }
+                    });
+
+                    // Vulkan status info
+                    if let Some(ref info) = self.vulkan_info {
+                        ui.add_space(4.0);
+                        if self.vulkan_available {
+                            ui.colored_label(
+                                egui::Color32::from_rgb(76, 175, 80),
+                                format!("✓ Vulkan: {}", info),
+                            );
+                        } else {
+                            ui.colored_label(
+                                egui::Color32::from_rgb(255, 193, 7),
+                                format!("⚠ {}", info),
+                            );
+                        }
+                    }
+
+                    ui.add_space(4.0);
+                    ui.label(
+                        egui::RichText::new(t!("settings_renderer_restart_hint"))
+                            .small()
+                            .color(egui::Color32::GRAY),
+                    );
+                });
+
+            ui.add_space(12.0);
+
+            // Wallpaper Folders Management
+            egui::Frame::none()
+                .fill(ui.style().visuals.widgets.noninteractive.bg_fill)
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.heading(t!("settings_folders_title"));
+                    ui.label(t!("settings_folders_hint"));
+                    ui.add_space(8.0);
+
+                    // List existing folders
+                    let mut folder_to_remove: Option<usize> = None;
+                    for (idx, folder) in self.wallpaper_folders.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.label("📂");
+                            ui.label(folder);
+                            if ui.small_button("✕").clicked() {
+                                folder_to_remove = Some(idx);
+                            }
+                        });
+                    }
+                    if let Some(idx) = folder_to_remove {
+                        let removed_folder = self.wallpaper_folders.remove(idx);
+                        // Remove wallpapers from this folder
+                        self.wallpapers
+                            .retain(|w| !w.source_path.starts_with(&removed_folder));
+                        self.status_message = t!("msg_folder_removed").to_string();
+                        // Save config after folder removal
+                        self.save_gui_config();
+                    }
+
+                    ui.add_space(8.0);
+
+                    // Folder path input and add button
+                    ui.horizontal(|ui| {
+                        ui.label(t!("settings_folders_path"));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.new_folder_path)
+                                .desired_width(300.0)
+                                .hint_text("~/Videos/Wallpapers"),
+                        );
+                        if ui.button(t!("settings_folders_add")).clicked()
+                            && !self.new_folder_path.is_empty()
+                        {
+                            let expanded_path =
+                                shellexpand::tilde(&self.new_folder_path).to_string();
+                            if std::path::Path::new(&expanded_path).is_dir() {
+                                if !self.wallpaper_folders.contains(&expanded_path) {
+                                    self.wallpaper_folders.push(expanded_path.clone());
+                                    self.scan_folder(&expanded_path);
+                                    // Save config after folder added
+                                    self.save_gui_config();
+                                }
+                                self.new_folder_path.clear();
+                            } else {
+                                self.status_message = t!("msg_folder_not_found").to_string();
+                            }
+                        }
+                    });
+
+                    ui.horizontal(|ui| {
+                        if ui.button(t!("settings_folders_scan")).clicked() {
+                            self.scan_all_folders();
                         }
                     });
                 });
@@ -1168,6 +1730,21 @@ impl WayvidApp {
                 self.status_message =
                     t!("msg_daemon_restart_error", error = e.to_string()).to_string();
             }
+        }
+    }
+
+    // ============ GUI Config Persistence ============
+
+    /// Save GUI settings (render backend, folders, language) to gui.yaml
+    fn save_gui_config(&self) {
+        let config = GuiConfig {
+            render_backend: self.config_render_backend.clone(),
+            wallpaper_folders: self.wallpaper_folders.clone(),
+            language: Some(self.current_language.clone()),
+        };
+
+        if let Err(e) = config.save() {
+            eprintln!("Failed to save GUI config: {}", e);
         }
     }
 
@@ -1371,11 +1948,79 @@ impl WayvidApp {
         }
     }
 
+    // ============ Wallpaper Folder Scanning ============
+
+    /// Scan a folder for video files and add them to the library
+    fn scan_folder(&mut self, folder_path: &str) {
+        use std::path::Path;
+
+        let path = Path::new(folder_path);
+        if !path.exists() || !path.is_dir() {
+            self.status_message = t!("msg_folder_not_found").to_string();
+            return;
+        }
+
+        let video_extensions = ["mp4", "mkv", "webm", "mov", "avi", "m4v", "wmv"];
+        let mut count = 0;
+
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if entry_path.is_file() {
+                    if let Some(ext) = entry_path.extension() {
+                        let ext_str = ext.to_string_lossy().to_lowercase();
+                        if video_extensions.contains(&ext_str.as_str()) {
+                            let path_str = entry_path.to_string_lossy().to_string();
+
+                            // Skip if already in library
+                            if self.wallpapers.iter().any(|w| w.source_path == path_str) {
+                                continue;
+                            }
+
+                            let name = entry_path
+                                .file_stem()
+                                .map(|s| s.to_string_lossy().to_string())
+                                .unwrap_or_else(|| "Unknown".to_string());
+
+                            self.wallpapers.push(WallpaperItem {
+                                id: format!("local-{}", path_str.replace('/', "-")),
+                                name,
+                                source_path: path_str,
+                                source_type: WallpaperSource::LocalFile,
+                                wallpaper_type: WallpaperType::Video,
+                                preview_path: None,
+                                is_valid: true,
+                            });
+                            count += 1;
+                        }
+                    }
+                } else if entry_path.is_dir() {
+                    // Recursively scan subdirectories
+                    self.scan_folder(&entry_path.to_string_lossy());
+                }
+            }
+        }
+
+        if count > 0 {
+            self.status_message = t!("msg_folder_scanned", count = count).to_string();
+        }
+    }
+
+    /// Scan all configured wallpaper folders
+    fn scan_all_folders(&mut self) {
+        let folders: Vec<String> = self.wallpaper_folders.clone();
+        for folder in folders {
+            self.scan_folder(&folder);
+        }
+        self.status_message =
+            t!("msg_folders_scanned", count = self.wallpaper_folders.len()).to_string();
+    }
+
     // ============ Workshop Integration ============
 
     fn scan_workshop(&mut self) {
         use wayvid::we::steam::SteamLibrary;
-        use wayvid::we::workshop::{WorkshopScanner, WALLPAPER_ENGINE_APP_ID};
+        use wayvid::we::workshop::{WallpaperEngineType, WorkshopScanner, WALLPAPER_ENGINE_APP_ID};
 
         self.workshop_scan_running = true;
         self.status_message = t!("msg_scanning_workshop").to_string();
@@ -1384,42 +2029,63 @@ impl WayvidApp {
             Ok(library) => match library.find_workshop_items(WALLPAPER_ENGINE_APP_ID) {
                 Ok(paths) => match WorkshopScanner::scan(&paths) {
                     Ok(scanner) => {
+                        let mut video_count = 0;
+                        let mut scene_count = 0;
+
                         for item in scanner.items() {
                             if item.is_valid() {
-                                if let Some(video_path) = item.video_path() {
-                                    let video_path_str = video_path.to_string_lossy().to_string();
-
-                                    // Skip if already in library
-                                    if self
-                                        .wallpapers
-                                        .iter()
-                                        .any(|w| w.source_path == video_path_str)
-                                    {
-                                        continue;
+                                // Determine wallpaper type
+                                let (source_path, wallpaper_type) = match item.wallpaper_type() {
+                                    WallpaperEngineType::Video => {
+                                        if let Some(video_path) = item.video_path() {
+                                            video_count += 1;
+                                            (
+                                                video_path.to_string_lossy().to_string(),
+                                                WallpaperType::Video,
+                                            )
+                                        } else {
+                                            continue;
+                                        }
                                     }
+                                    WallpaperEngineType::Scene => {
+                                        // For scene wallpapers, use the project directory
+                                        scene_count += 1;
+                                        (
+                                            item.path.to_string_lossy().to_string(),
+                                            WallpaperType::Scene,
+                                        )
+                                    }
+                                    _ => continue, // Skip web and application types for now
+                                };
 
-                                    self.wallpapers.push(WallpaperItem {
-                                        id: format!("workshop-{}", item.id),
-                                        name: item.title(),
-                                        source_path: video_path_str,
-                                        source_type: WallpaperSource::Workshop {
-                                            workshop_id: item.id,
-                                        },
-                                        is_valid: true,
-                                    });
+                                // Skip if already in library
+                                if self.wallpapers.iter().any(|w| w.source_path == source_path) {
+                                    continue;
                                 }
+
+                                // Get preview image path
+                                let preview_path =
+                                    item.preview_path().map(|p| p.to_string_lossy().to_string());
+
+                                self.wallpapers.push(WallpaperItem {
+                                    id: format!("workshop-{}", item.id),
+                                    name: item.title(),
+                                    source_path,
+                                    source_type: WallpaperSource::Workshop {
+                                        workshop_id: item.id,
+                                    },
+                                    wallpaper_type,
+                                    preview_path,
+                                    is_valid: true,
+                                });
                             }
                         }
 
-                        let valid_count = self
-                            .wallpapers
-                            .iter()
-                            .filter(|w| matches!(w.source_type, WallpaperSource::Workshop { .. }))
-                            .count();
                         self.status_message = t!(
-                            "msg_workshop_found",
+                            "msg_workshop_found_detailed",
                             total = scanner.items().len(),
-                            valid = valid_count
+                            videos = video_count,
+                            scenes = scene_count
                         )
                         .to_string();
                     }

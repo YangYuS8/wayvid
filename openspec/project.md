@@ -1,16 +1,21 @@
 # Project Context
 
 ## Purpose
-wayvid is a production-ready dynamic video wallpaper engine designed specifically for Wayland compositors. It provides hardware-accelerated video playback as desktop backgrounds with multi-monitor support, HDR capability, power efficiency, and Steam Workshop integration for Wallpaper Engine imports.
+wayvid is a lightweight, high-performance dynamic video wallpaper application for Wayland, designed as a native Linux alternative to Wallpaper Engine. It follows a **GUI-first** design philosophy where users can simply open the app, browse their wallpaper library, and apply wallpapers with a double-click.
 
 **Core Goals:**
-- Native Wayland support via wlr-layer-shell protocol
-- True multi-monitor with independent video sources per display
-- Hardware acceleration (VA-API/NVDEC) with minimal CPU usage
-- HDR pipeline with automatic tone-mapping for SDR displays
-- Steam Workshop integration for Wallpaper Engine content
-- User-friendly management (GUI, CLI, systemd service)
-- Power efficiency with intelligent throttling
+- **GUI-First**: Primary interaction through graphical interface, not command line
+- **Wallpaper Engine Compatibility**: Import and play Steam Workshop content
+- **Lightweight & High-Performance**: Minimal resource usage with hardware acceleration
+- **Native Wayland**: Built specifically for modern Linux desktops
+- **Zero Configuration**: Works out of the box, settings managed through GUI
+- **Multi-Monitor**: Independent wallpapers per display
+
+**Design Principles:**
+- Users should never need to write config files
+- Close window = minimize to tray (wallpaper keeps playing)
+- Thumbnails load asynchronously, never block UI
+- CLI is optional, for scripting/automation only
 
 ## Tech Stack
 

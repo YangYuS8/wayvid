@@ -214,6 +214,7 @@ msg_config_path_error = "✗ 无法确定配置路径"
 msg_config_reloaded = "，已通知守护进程重新加载"
 msg_scanning_workshop = "正在扫描创意工坊项目..."
 msg_workshop_found = "✓ 找到 %{total} 个创意工坊项目（%{valid} 个有效）"
+msg_workshop_found_detailed = "✓ 找到 %{total} 个创意工坊项目：%{videos} 个视频，%{scenes} 个场景"
 msg_workshop_error = "扫描器错误：%{error}"
 msg_workshop_scan_error = "创意工坊扫描错误：%{error}"
 msg_steam_not_found = "未找到 Steam：%{error}"
@@ -226,3 +227,22 @@ msg_configuring = "正在配置输出：%{output}"
 msg_config_applied = "配置已应用到 %{output}"
 msg_export_not_implemented = "配置导出功能尚未实现"
 msg_preview = "预览：%{title}"
+
+# 文件夹管理
+msg_folder_removed = "✓ 文件夹已从库中移除"
+msg_folder_not_found = "✗ 文件夹未找到或无效"
+msg_folder_scanned = "✓ 已扫描文件夹：添加了 %{count} 个视频"
+msg_folders_scanned = "✓ 已扫描 %{count} 个文件夹"
+msg_folder_prompt = "请在输入框中输入文件夹路径"
+
+# 渲染器设置
+settings_renderer_title = "🎨 渲染后端"
+settings_renderer_backend = "后端："
+settings_renderer_restart_hint = "💡 更改需要重启守护进程才能生效"
+
+# 文件夹设置
+settings_folders_title = "📁 壁纸文件夹"
+settings_folders_hint = "添加文件夹以自动扫描视频壁纸"
+settings_folders_path = "路径："
+settings_folders_add = "📁 添加文件夹"
+settings_folders_scan = "🔄 扫描全部"

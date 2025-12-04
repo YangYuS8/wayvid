@@ -214,6 +214,7 @@ msg_config_path_error = "✗ Cannot determine config path"
 msg_config_reloaded = " and daemon notified to reload"
 msg_scanning_workshop = "Scanning Workshop items..."
 msg_workshop_found = "✓ Found %{total} Workshop items (%{valid} valid)"
+msg_workshop_found_detailed = "✓ Found %{total} Workshop items: %{videos} videos, %{scenes} scenes"
 msg_workshop_error = "Scanner error: %{error}"
 msg_workshop_scan_error = "Workshop scan error: %{error}"
 msg_steam_not_found = "Steam not found: %{error}"
@@ -226,3 +227,22 @@ msg_configuring = "Configuring output: %{output}"
 msg_config_applied = "Config applied to %{output}"
 msg_export_not_implemented = "Config export not implemented yet"
 msg_preview = "Preview: %{title}"
+
+# Folder management
+msg_folder_removed = "✓ Folder removed from library"
+msg_folder_not_found = "✗ Folder not found or invalid"
+msg_folder_scanned = "✓ Scanned folder: %{count} videos added"
+msg_folders_scanned = "✓ Scanned %{count} folders"
+msg_folder_prompt = "Enter folder path in the input field"
+
+# Renderer settings
+settings_renderer_title = "🎨 Render Backend"
+settings_renderer_backend = "Backend:"
+settings_renderer_restart_hint = "💡 Changes require daemon restart to take effect"
+
+# Folder settings
+settings_folders_title = "📁 Wallpaper Folders"
+settings_folders_hint = "Add folders to automatically scan for video wallpapers"
+settings_folders_path = "Path:"
+settings_folders_add = "📁 Add Folder"
+settings_folders_scan = "🔄 Scan All"

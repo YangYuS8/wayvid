@@ -29,8 +29,152 @@ pub use texture::VulkanTexture;
 pub use window::VulkanWindow;
 
 use anyhow::Result;
+use ash::vk;
+use std::ffi::CStr;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{debug, info, warn};
+
+/// Information about Vulkan availability
+#[derive(Debug, Clone, Default)]
+pub struct VulkanInfo {
+    /// Whether Vulkan is available on this system
+    pub available: bool,
+    /// Vulkan API version (if available)
+    pub api_version: Option<String>,
+    /// GPU name (if available)
+    pub gpu_name: Option<String>,
+    /// Driver version (if available)
+    pub driver_version: Option<String>,
+    /// Whether required Wayland extensions are supported
+    pub wayland_supported: bool,
+    /// Error message if Vulkan is not available
+    pub error: Option<String>,
+}
+
+/// Check if Vulkan is available and get system information
+///
+/// This function performs a lightweight check without creating a full context.
+/// It can be called from the GUI to determine if Vulkan is a valid option.
+pub fn check_vulkan_availability() -> VulkanInfo {
+    let mut info = VulkanInfo::default();
+
+    // Try to load Vulkan library
+    let entry = match unsafe { ash::Entry::load() } {
+        Ok(e) => e,
+        Err(e) => {
+            info.error = Some(format!("Failed to load Vulkan library: {}", e));
+            return info;
+        }
+    };
+
+    // Check API version
+    let api_version = match unsafe { entry.try_enumerate_instance_version() } {
+        Ok(Some(version)) => version,
+        Ok(None) => vk::API_VERSION_1_0,
+        Err(e) => {
+            info.error = Some(format!("Failed to query Vulkan version: {:?}", e));
+            return info;
+        }
+    };
+
+    info.api_version = Some(format!(
+        "{}.{}.{}",
+        vk::api_version_major(api_version),
+        vk::api_version_minor(api_version),
+        vk::api_version_patch(api_version)
+    ));
+
+    // Check required extensions for Wayland
+    let extensions = match unsafe { entry.enumerate_instance_extension_properties(None) } {
+        Ok(exts) => exts,
+        Err(e) => {
+            info.error = Some(format!("Failed to enumerate extensions: {:?}", e));
+            return info;
+        }
+    };
+
+    let has_surface = extensions.iter().any(|ext| {
+        let name = unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) };
+        name == ash::khr::surface::NAME
+    });
+
+    let has_wayland_surface = extensions.iter().any(|ext| {
+        let name = unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) };
+        name == ash::khr::wayland_surface::NAME
+    });
+
+    info.wayland_supported = has_surface && has_wayland_surface;
+
+    if !info.wayland_supported {
+        info.error = Some(format!(
+            "Missing required Vulkan extensions: VK_KHR_surface={}, VK_KHR_wayland_surface={}",
+            has_surface, has_wayland_surface
+        ));
+        return info;
+    }
+
+    // Try to create a minimal instance to query GPU info
+    let app_name = std::ffi::CString::new("wayvid-check").unwrap();
+    let app_info = vk::ApplicationInfo::default()
+        .application_name(&app_name)
+        .api_version(vk::API_VERSION_1_0);
+
+    let extensions_ptrs: Vec<*const i8> = vec![
+        ash::khr::surface::NAME.as_ptr(),
+        ash::khr::wayland_surface::NAME.as_ptr(),
+    ];
+
+    let create_info = vk::InstanceCreateInfo::default()
+        .application_info(&app_info)
+        .enabled_extension_names(&extensions_ptrs);
+
+    let instance = match unsafe { entry.create_instance(&create_info, None) } {
+        Ok(inst) => inst,
+        Err(e) => {
+            info.error = Some(format!("Failed to create Vulkan instance: {:?}", e));
+            return info;
+        }
+    };
+
+    // Enumerate physical devices
+    let physical_devices = match unsafe { instance.enumerate_physical_devices() } {
+        Ok(devs) => devs,
+        Err(e) => {
+            unsafe { instance.destroy_instance(None) };
+            info.error = Some(format!("Failed to enumerate GPUs: {:?}", e));
+            return info;
+        }
+    };
+
+    if physical_devices.is_empty() {
+        unsafe { instance.destroy_instance(None) };
+        info.error = Some("No Vulkan-capable GPU found".to_string());
+        return info;
+    }
+
+    // Get info from first GPU
+    let props = unsafe { instance.get_physical_device_properties(physical_devices[0]) };
+
+    info.gpu_name = Some(
+        unsafe { CStr::from_ptr(props.device_name.as_ptr()) }
+            .to_string_lossy()
+            .to_string(),
+    );
+
+    let driver_version = props.driver_version;
+    info.driver_version = Some(format!(
+        "{}.{}.{}",
+        vk::api_version_major(driver_version),
+        vk::api_version_minor(driver_version),
+        vk::api_version_patch(driver_version)
+    ));
+
+    // Cleanup
+    unsafe { instance.destroy_instance(None) };
+
+    info.available = true;
+    info
+}
 
 /// Vulkan rendering context (analogous to EglContext)
 pub struct VulkanContext {
