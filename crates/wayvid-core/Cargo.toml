@@ -1,0 +1,28 @@
+[package]
+name = "wayvid-core"
+version = "0.5.0-alpha.1"
+edition = "2021"
+rust-version = "1.75"
+authors = ["wayvid contributors"]
+license = "MIT OR Apache-2.0"
+description = "Core types and configuration for wayvid"
+repository = "https://github.com/YangYuS8/wayvid"
+
+[dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+dirs = "5.0"
+sys-locale = "0.3"
+
+[dev-dependencies]
+tempfile = "3.8"

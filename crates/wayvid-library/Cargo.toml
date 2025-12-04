@@ -1,0 +1,51 @@
+[package]
+name = "wayvid-library"
+version = "0.5.0-alpha.1"
+edition = "2021"
+rust-version = "1.75"
+authors = ["wayvid contributors"]
+license = "MIT OR Apache-2.0"
+description = "Wallpaper library management for wayvid (SQLite + thumbnails)"
+repository = "https://github.com/YangYuS8/wayvid"
+
+[dependencies]
+wayvid-core = { path = "../wayvid-core" }
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Image processing
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+
+# Async
+tokio = { version = "1.0", features = ["sync", "rt-multi-thread"] }
+
+# File watching
+notify = "7.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Utilities
+dirs = "5.0"
+sha2 = "0.10"
+walkdir = "2.4"
+
+# Steam Workshop
+reqwest = { version = "0.12", features = ["blocking", "json"], optional = true }
+zip = { version = "2.1", optional = true }
+
+[features]
+default = ["workshop"]
+workshop = ["dep:reqwest", "dep:zip"]
+
+[dev-dependencies]
+tempfile = "3.8"

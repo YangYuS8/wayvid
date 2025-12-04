@@ -1,0 +1,31 @@
+[package]
+name = "wayvid-ctl"
+version = "0.5.0-alpha.1"
+edition = "2021"
+rust-version = "1.75"
+authors = ["wayvid contributors"]
+license = "MIT OR Apache-2.0"
+description = "Command-line control tool for wayvid"
+repository = "https://github.com/YangYuS8/wayvid"
+
+[dependencies]
+wayvid-core = { path = "../wayvid-core" }
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# IPC
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[[bin]]
+name = "wayvid-ctl"
+path = "src/main.rs"
