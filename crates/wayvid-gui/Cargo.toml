@@ -1,0 +1,55 @@
+[package]
+name = "wayvid-gui"
+version = "0.5.0-alpha.1"
+edition = "2021"
+rust-version = "1.75"
+authors = ["wayvid contributors"]
+license = "MIT OR Apache-2.0"
+description = "GUI application for wayvid wallpaper manager"
+repository = "https://github.com/YangYuS8/wayvid"
+default-run = "wayvid-gui"
+
+[[bin]]
+name = "wayvid-gui"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+wayvid-core = { path = "../wayvid-core" }
+wayvid-library = { path = "../wayvid-library" }
+
+# GUI framework
+iced = { version = "0.13", features = ["tokio", "image", "lazy", "advanced"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["rt-multi-thread", "sync", "fs", "macros", "time"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Utilities
+dirs = "5.0"
+open = "5.0"
+
+# Internationalization
+rust-i18n = "3"
+sys-locale = "0.3"
+
+# IPC communication
+interprocess = { version = "2.2", features = ["tokio"] }
+
+[features]
+default = []
+
+[dev-dependencies]
+tempfile = "3.8"

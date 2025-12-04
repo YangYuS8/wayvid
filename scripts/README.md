@@ -1,71 +1,65 @@
 # Development Scripts
 
-Useful development and testing scripts.
+Useful development and testing scripts for wayvid v0.5 workspace.
 
 ## Available Scripts
 
 ### Development Checks
-- `dev-check.sh` - Fast development checks (format, clippy)
-- `pre-push-check.sh` - Pre-commit validation (tests, build)
-- `quick-check.sh` - Minimal check (clippy only)
-
-### Testing & Debugging
-- `test-layout-modes.sh` - Test video scaling modes (Fill/Contain/Stretch/Centre)
-- `test-swww-conflict.sh` - Test wallpaper manager conflict detection
-- `test-workshop.sh` - Test Steam Workshop integration
-- `test-workshop-mock.sh` - Mock Workshop data for testing
+- `dev-check.sh` - Check development environment setup
+- `quick-check.sh` - Fast workspace checks (format, clippy)
+- `pre-push-check.sh` - Full pre-commit validation (tests, build)
 
 ## Usage
 
-### Development Checks
+### Development Environment Check
 ```bash
-# Quick clippy check
-./scripts/quick-check.sh
-
-# Full development check (format + clippy)
+# Check that all dependencies and tools are available
 ./scripts/dev-check.sh
+```
 
-# Pre-push validation (all checks + tests + build)
+### Quick Development Check
+```bash
+# Fast clippy and format check
+./scripts/quick-check.sh
+```
+
+### Pre-push Validation
+```bash
+# Full validation before pushing (all checks + tests)
 ./scripts/pre-push-check.sh
-```
 
-### Testing Layout Modes
-```bash
-# Test all layout modes interactively
-./scripts/test-layout-modes.sh
-
-# Test with specific video
-./scripts/test-layout-modes.sh ~/Videos/wallpaper.mp4
-```
-
-This script helps verify video scaling behavior:
-- **Fill**: Fills screen, crops edges (recommended for wallpapers)
-- **Contain**: Shows full video, may have black bars
-- **Stretch**: Fills screen, may distort video
-- **Centre**: Original size, centered
-
-### Testing Conflicts
-```bash
-# Test wallpaper manager conflict detection
-./scripts/test-swww-conflict.sh
-```
-
-### Testing Workshop Integration
-```bash
-# Test with real Steam data
-./scripts/test-workshop.sh
-
-# Test with mock data (no Steam required)
-./scripts/test-workshop-mock.sh
+# Skip tests for faster feedback
+SKIP_TESTS=1 ./scripts/pre-push-check.sh
 ```
 
 ## Testing
 
-The project uses Rust's built-in test framework. Run tests with:
+The project uses Rust's built-in test framework across the workspace:
 
 ```bash
-cargo test
-cargo test --all-features
+# Run all workspace tests
+cargo test --workspace
+
+# Run tests for a specific crate
+cargo test -p wayvid-core
+cargo test -p wayvid-library
+cargo test -p wayvid-gui
+cargo test -p wayvid-ctl
+cargo test -p wayvid-engine
 ```
 
-Tests are located inline with the source code using `#[test]` attributes.
+## Building
+
+```bash
+# Debug build
+cargo build --workspace
+
+# Release build
+cargo build --release --workspace
+
+# Run GUI
+./target/release/wayvid-gui
+
+# Run CLI
+./target/release/wayvid-ctl status
+```

@@ -1,102 +1,59 @@
-[package]
-name = "wayvid"
-version = "0.4.5-alpha.2"
+# Wayvid Workspace
+# =================
+# 
+# v0.5+ 采用 GUI-first 架构，多 crate 工作区结构：
+# - wayvid-core:    核心类型和配置
+# - wayvid-engine:  视频渲染引擎 (Wayland + MPV)
+# - wayvid-library: 壁纸库管理 (SQLite + 缩略图)
+# - wayvid-gui:     GUI 应用 (主入口，iced 框架)
+# - wayvid-ctl:     精简 CLI 工具
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/wayvid-core",
+    "crates/wayvid-engine",
+    "crates/wayvid-library",
+    "crates/wayvid-gui",
+    "crates/wayvid-ctl",
+]
+
+[workspace.package]
+version = "0.5.0-alpha.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
 license = "MIT OR Apache-2.0"
-description = "Dynamic video wallpaper engine for Wayland compositors"
 repository = "https://github.com/YangYuS8/wayvid"
-keywords = ["wayland", "wallpaper", "video", "mpv", "hyprland"]
-categories = ["multimedia::video", "gui"]
 
-[dependencies]
-# Wayland client
-wayland-client = "0.31"
-wayland-protocols = { version = "0.32", features = ["client", "unstable"] }
-wayland-protocols-wlr = { version = "0.3", features = ["client"] }
-smithay-client-toolkit = { version = "0.19", default-features = false, features = ["calloop"] }
-
-# EGL/OpenGL
-khronos-egl = { version = "6.0", features = ["dynamic"] }
-gl = "0.14"
-wayland-egl = "0.32"
-
-# Vulkan (optional)
-ash = { version = "0.38", optional = true }
-ash-window = { version = "0.13", optional = true }
-raw-window-handle = { version = "0.6", optional = true }
-
-# Video playback (libmpv)
-libmpv-sys = { version = "3.1", optional = true }
-
-# Configuration
+# 共享依赖版本 (workspace.dependencies)
+[workspace.dependencies]
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
-toml = { version = "0.8", optional = true }
-
-# CLI
-clap = { version = "4.5", features = ["derive", "env"] }
+serde_json = "1.0"
 
 # Error handling
 thiserror = "1.0"
 anyhow = "1.0"
 
-# Logging and tracing
+# Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
-# Event loop
-calloop = "0.13"
+# CLI
+clap = { version = "4.5", features = ["derive"] }
 
 # Utilities
-bitflags = "2.4"
-shellexpand = "3.1"
-serde_json = "1.0.145"
-notify = "7.0"
 dirs = "5.0"
-libc = "0.2"
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
 
-# HTTP client for Workshop downloads
-reqwest = { version = "0.12", features = ["blocking", "json"] }
-zip = "2.1"
+# Async
+tokio = { version = "1.0", features = ["sync", "rt-multi-thread"] }
 
-# GUI (optional)
-eframe = { version = "0.29", optional = true }
-egui = { version = "0.29", optional = true }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
-
-# Internationalization (i18n)
-rust-i18n = { version = "3", optional = true }
-sys-locale = { version = "0.3", optional = true }
-lz4_flex = "0.11.3"
-
-[dev-dependencies]
+# Testing
 tempfile = "3.8"
-
-[features]
-default = ["video-mpv", "backend-wayland"]
-
-# Video backends
-video-mpv = ["dep:libmpv-sys"]
-video-gst = []  # Reserved for future gstreamer support
-
-# Platform backends
-backend-wayland = []
-backend-vulkan = ["dep:ash", "dep:ash-window", "dep:raw-window-handle"]
-
-# Configuration formats
-config-toml = ["dep:toml"]
-
-# GUI
-gui = ["dep:eframe", "dep:egui", "dep:rust-i18n", "dep:sys-locale"]
-
-# Telemetry (future)
-telemetry = []
-
-# IPC/Tray (future)
-ipc = []
-tray = []
 
 # Optimized release profile (based on Rust Performance Book)
 [profile.release]
@@ -117,40 +74,6 @@ codegen-units = 1
 [profile.dev]
 opt-level = 1
 
-[lib]
-name = "wayvid"
-path = "src/lib.rs"
-
-[[bin]]
-name = "wayvid"
-path = "src/main.rs"
-
-[[bin]]
-name = "wayvid-ctl"
-path = "src/bin/wayvid-ctl.rs"
-
-[[bin]]
-name = "wayvid-gui"
-path = "src/bin/wayvid-gui.rs"
-required-features = ["gui"]
-
-[package.metadata.deb]
-maintainer = "wayvid contributors <wayvid@example.com>"
-copyright = "2024-2025, wayvid contributors <wayvid@example.com>"
-license-file = ["LICENSE-MIT", "4"]
-extended-description = """\
-wayvid is a dynamic video wallpaper engine for Wayland compositors.
-It supports multi-monitor setups, HDR video playback, hardware decoding,
-and Steam Workshop integration for importing Wallpaper Engine projects."""
-depends = "$auto, libwayland-client0, libmpv2 | libmpv1, libgcc-s1, libc6"
-section = "video"
-priority = "optional"
-assets = [
-    ["target/release/wayvid", "usr/bin/", "755"],
-    ["target/release/wayvid-ctl", "usr/bin/", "755"],
-    ["target/release/wayvid-gui", "usr/bin/", "755"],
-    ["systemd/wayvid.service", "usr/lib/systemd/user/", "644"],
-    ["configs/config.example.yaml", "usr/share/wayvid/", "644"],
-    ["README.md", "usr/share/doc/wayvid/", "644"],
-    ["LICENSE-MIT", "usr/share/doc/wayvid/", "644"],
-]
+# 注意: 旧的 [lib], [[bin]], [package.metadata.deb] 配置已移除
+# 各个 crate 现在有自己的 Cargo.toml 配置
+# 打包配置将在 crates/wayvid/Cargo.toml 中定义

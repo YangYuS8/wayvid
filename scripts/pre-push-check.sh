@@ -35,7 +35,7 @@ print_warning() {
 START_TIME=$(date +%s)
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Wayvid Pre-Push Quality Checks       ║${NC}"
+echo -e "${BLUE}║  Wayvid Pre-Push Quality Checks (v0.5) ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
 
 # 1. Format check
@@ -48,41 +48,33 @@ else
     exit 1
 fi
 
-# 2. Clippy (strict mode like CI)
-print_section "Running Clippy (strict mode)..."
-if RUSTFLAGS="-D warnings" cargo clippy --all-features --all-targets -- -D warnings 2>&1 | grep -q "Finished"; then
+# 2. Clippy (workspace mode)
+print_section "Running Clippy (workspace)..."
+if RUSTFLAGS="-D warnings" cargo clippy --workspace --all-targets 2>&1 | grep -q "Finished"; then
     print_success "Clippy checks passed"
 else
     print_error "Clippy found issues"
-    echo "Run: cargo clippy --all-features --all-targets -- -D warnings"
+    echo "Run: cargo clippy --workspace --all-targets -- -D warnings"
     exit 1
 fi
 
-# 3. Cargo check (different feature combinations)
-print_section "Checking compilation (default features)..."
-if cargo check --quiet 2>&1 | tail -1 | grep -q "Finished"; then
-    print_success "Default features compile"
+# 3. Cargo check (workspace)
+print_section "Checking compilation (workspace)..."
+if cargo check --workspace --quiet 2>&1 | tail -1 | grep -q "Finished"; then
+    print_success "Workspace compiles"
 else
-    print_error "Default features failed to compile"
+    print_error "Workspace failed to compile"
     exit 1
 fi
 
-print_section "Checking compilation (all features)..."
-if cargo check --all-features --quiet 2>&1 | tail -1 | grep -q "Finished"; then
-    print_success "All features compile"
-else
-    print_error "All features failed to compile"
-    exit 1
-fi
-
-# 4. Tests (optional - can be skipped for quick checks)
+# 4. Tests (workspace)
 if [ "${SKIP_TESTS:-0}" = "0" ]; then
-    print_section "Running tests..."
-    if cargo test --all-features --quiet 2>&1 | tail -1 | grep -q "test result"; then
+    print_section "Running tests (workspace)..."
+    if cargo test --workspace --quiet 2>&1 | tail -1 | grep -q "test result"; then
         print_success "Tests passed"
     else
         print_error "Tests failed"
-        echo "Run: cargo test --all-features"
+        echo "Run: cargo test --workspace"
         exit 1
     fi
 else

@@ -104,10 +104,10 @@ jobs:
         run: cargo fmt --all -- --check
       
       - name: Run clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
       
       - name: Run tests
-        run: cargo test --all-features
+        run: cargo test --workspace
 
   # 构建所有二进制文件
   build:
@@ -151,7 +151,7 @@ jobs:
         run: |
           echo "Building with optimized profile..."
           echo "RUSTFLAGS: $RUSTFLAGS"
-          cargo build --release --all-features --target ${{ matrix.target }}
+          cargo build --release --workspace --target ${{ matrix.target }}
           
           # Display binary sizes
           echo "Binary sizes:"
@@ -160,15 +160,14 @@ jobs:
       
       - name: Strip binaries
         run: |
-          strip target/${{ matrix.target }}/release/wayvid
-          strip target/${{ matrix.target }}/release/wayvid-ctl
           strip target/${{ matrix.target }}/release/wayvid-gui
+          strip target/${{ matrix.target }}/release/wayvid-ctl
       
       - name: Create tarball
         run: |
           cd target/${{ matrix.target }}/release
           tar czf ../../../wayvid-${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz \
-            wayvid wayvid-ctl wayvid-gui
+            wayvid-gui wayvid-ctl
           cd ../../..
           sha256sum wayvid-${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz > \
             wayvid-${{ needs.validate.outputs.version }}-${{ matrix.target }}.tar.gz.sha256

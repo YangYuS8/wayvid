@@ -25,7 +25,7 @@
         
         wayvid = rustPlatform.buildRustPackage rec {
           pname = "wayvid";
-          version = "0.4.5-alpha.2";
+          version = "0.5.0-alpha.1";
 
           src = ./.;
 
@@ -68,7 +68,7 @@
             license = with licenses; [ mit asl20 ];
             maintainers = [ ];
             platforms = platforms.linux;
-            mainProgram = "wayvid";
+            mainProgram = "wayvid-gui";
           };
         };
       in
@@ -81,9 +81,11 @@
         apps = {
           default = flake-utils.lib.mkApp {
             drv = wayvid;
+            name = "wayvid-gui";
           };
-          wayvid = flake-utils.lib.mkApp {
+          wayvid-gui = flake-utils.lib.mkApp {
             drv = wayvid;
+            name = "wayvid-gui";
           };
           wayvid-ctl = flake-utils.lib.mkApp {
             drv = wayvid;

@@ -1,55 +1,60 @@
 # CLI Commands
 
-## wayvid
+## wayvid-gui
 
-Main daemon.
+Main GUI application (recommended).
 
 ```bash
-wayvid run                    # Run daemon
-wayvid run --config <path>    # Custom config
-wayvid daemon start           # Start via systemd
-wayvid daemon stop            # Stop daemon
-wayvid daemon status          # Check status
-wayvid daemon logs --follow   # View logs
-wayvid check                  # Check system
+wayvid-gui                    # Open GUI
+wayvid-gui --minimized        # Start minimized to tray
+wayvid-gui --version          # Show version
 ```
 
 ## wayvid-ctl
 
-Runtime control (requires daemon running).
+CLI control tool for scripting and automation.
+
+### Basic Commands
 
 ```bash
-wayvid-ctl status             # Show status
-wayvid-ctl play               # Play
-wayvid-ctl pause              # Pause
-wayvid-ctl resume             # Resume
-wayvid-ctl set-source <path>  # Change video
-wayvid-ctl set-volume <0-100> # Set volume
-wayvid-ctl reload-config      # Reload config
-wayvid-ctl list-outputs       # List monitors
+wayvid-ctl status             # Show current status
+wayvid-ctl status --json      # JSON output for scripts
+wayvid-ctl outputs            # List available monitors
 ```
 
-Per-output control:
+### Wallpaper Control
+
 ```bash
-wayvid-ctl pause --output DP-1
-wayvid-ctl set-source ~/vid.mp4 --output DP-1
+wayvid-ctl apply <path>       # Apply wallpaper
+wayvid-ctl apply <path> --output DP-1  # Apply to specific monitor
+wayvid-ctl pause              # Pause playback
+wayvid-ctl resume             # Resume playback
+wayvid-ctl stop               # Stop and clear wallpaper
 ```
 
-## wayvid workshop
-
-Steam Workshop management.
+### Examples
 
 ```bash
-wayvid workshop list          # List subscribed
-wayvid workshop info <id>     # Show details
-wayvid workshop import <id>   # Import to config
-wayvid workshop download <id> # Download item
+# Apply wallpaper to all monitors
+wayvid-ctl apply ~/Videos/wallpaper.mp4
+
+# Apply different wallpapers per monitor
+wayvid-ctl apply ~/Videos/left.mp4 --output DP-1
+wayvid-ctl apply ~/Videos/right.mp4 --output HDMI-A-1
+
+# Check status in scripts
+if wayvid-ctl status --json | jq -e '.playing'; then
+  echo "Wallpaper is playing"
+fi
 ```
 
-## wayvid-gui
+## Legacy Commands
 
-Desktop GUI (no arguments).
+> **Note:** The standalone `wayvid` daemon binary has been removed in v0.5.
+> Use `wayvid-gui` for the full experience, or `wayvid-ctl` for CLI control.
+
+For Steam Workshop, use the GUI's Library tab or apply workshop videos directly:
 
 ```bash
-wayvid-gui
+wayvid-ctl apply ~/.steam/steam/steamapps/workshop/content/431960/<id>/video.mp4
 ```
