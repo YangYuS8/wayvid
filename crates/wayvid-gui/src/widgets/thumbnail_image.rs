@@ -8,18 +8,13 @@ use iced::widget::{container, text};
 use iced::{Element, Length};
 
 /// Thumbnail loading state
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ThumbnailState {
+    #[default]
     NotLoaded,
     Loading,
     Loaded(Vec<u8>),
     Failed(String),
-}
-
-impl Default for ThumbnailState {
-    fn default() -> Self {
-        Self::NotLoaded
-    }
 }
 
 /// Configuration for thumbnail display

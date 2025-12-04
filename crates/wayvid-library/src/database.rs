@@ -18,6 +18,7 @@ use tracing::{debug, info};
 use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 /// Wallpaper library database
+#[allow(clippy::arc_with_non_send_sync)] // Intentional: Connection is used in single-threaded context
 pub struct LibraryDatabase {
     conn: Arc<RwLock<Connection>>,
     #[allow(dead_code)] // Reserved for future use (backup, migration)
@@ -26,6 +27,7 @@ pub struct LibraryDatabase {
 
 impl LibraryDatabase {
     /// Open or create database at the given path
+    #[allow(clippy::arc_with_non_send_sync)] // Intentional: Connection used in single-threaded context with RwLock
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
 

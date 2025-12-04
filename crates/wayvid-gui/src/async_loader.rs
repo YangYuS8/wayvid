@@ -3,8 +3,10 @@
 //! This module provides asynchronous loading of thumbnails and library data,
 //! including disk caching and memory management for efficient wallpaper browsing.
 
+#![allow(dead_code)] // Many items reserved for future async thumbnail implementation
+
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use iced::Subscription;
@@ -134,10 +136,7 @@ where
 }
 
 /// Load a single thumbnail
-async fn load_thumbnail(
-    request: &ThumbnailRequest,
-    cache_dir: &PathBuf,
-) -> Result<Vec<u8>, String> {
+async fn load_thumbnail(request: &ThumbnailRequest, cache_dir: &Path) -> Result<Vec<u8>, String> {
     let cache_path = get_cache_path(cache_dir, &request.id);
     if cache_path.exists() {
         return tokio::fs::read(&cache_path)
@@ -163,7 +162,7 @@ async fn load_thumbnail(
 }
 
 /// Get cache path for a wallpaper ID
-fn get_cache_path(cache_dir: &PathBuf, id: &str) -> PathBuf {
+fn get_cache_path(cache_dir: &Path, id: &str) -> PathBuf {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     id.hash(&mut hasher);
@@ -199,8 +198,8 @@ where
 }
 
 /// Load library from database
-async fn load_library(db_path: &PathBuf) -> Result<Vec<WallpaperItem>, String> {
-    let path = db_path.clone();
+async fn load_library(db_path: &Path) -> Result<Vec<WallpaperItem>, String> {
+    let path = db_path.to_path_buf();
 
     tokio::task::spawn_blocking(move || {
         let db = wayvid_library::LibraryDatabase::open(&path)
@@ -242,7 +241,7 @@ impl VirtualScroll {
     }
 
     pub fn total_height(&self) -> f32 {
-        let total_rows = (self.total_items + self.items_per_row - 1) / self.items_per_row;
+        let total_rows = self.total_items.div_ceil(self.items_per_row);
         total_rows as f32 * self.row_height
     }
 
@@ -252,7 +251,7 @@ impl VirtualScroll {
 
         let start_row = first_visible_row.saturating_sub(self.buffer_rows);
         let end_row = (first_visible_row + visible_rows + self.buffer_rows)
-            .min((self.total_items + self.items_per_row - 1) / self.items_per_row);
+            .min(self.total_items.div_ceil(self.items_per_row));
 
         let start_index = start_row * self.items_per_row;
         let end_index = (end_row * self.items_per_row).min(self.total_items);

@@ -5,6 +5,8 @@
 //! - Querying daemon status and monitor information
 //! - Controlling playback (pause/resume/stop)
 
+#![allow(dead_code)] // Many items reserved for future IPC implementation
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,9 +26,10 @@ use wayvid_core::ipc::{
 use crate::messages::Message;
 
 /// Connection state for IPC
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ConnectionState {
     /// Not connected to daemon
+    #[default]
     Disconnected,
     /// Attempting to connect
     Connecting,
@@ -34,12 +37,6 @@ pub enum ConnectionState {
     Connected,
     /// Connection error occurred
     Error,
-}
-
-impl Default for ConnectionState {
-    fn default() -> Self {
-        Self::Disconnected
-    }
 }
 
 /// Daemon status information (GUI-friendly version)

@@ -345,7 +345,7 @@ impl App {
             }
             Message::StopDaemon => {
                 Task::perform(async { ipc::stop_daemon_process().await }, |result| {
-                    Message::DaemonStatusUpdated(!result.is_ok())
+                    Message::DaemonStatusUpdated(result.is_err())
                 })
             }
             Message::DaemonStatusUpdated(connected) => {

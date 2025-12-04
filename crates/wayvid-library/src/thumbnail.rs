@@ -326,14 +326,10 @@ impl ThumbnailGenerator {
     pub fn clear_cache(&self) -> Result<usize> {
         let mut count = 0;
         if self.cache_dir.exists() {
-            for entry in std::fs::read_dir(&self.cache_dir)? {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.is_file() {
-                        if std::fs::remove_file(&path).is_ok() {
-                            count += 1;
-                        }
-                    }
+            for entry in std::fs::read_dir(&self.cache_dir)?.flatten() {
+                let path = entry.path();
+                if path.is_file() && std::fs::remove_file(&path).is_ok() {
+                    count += 1;
                 }
             }
         }

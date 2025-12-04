@@ -2,6 +2,8 @@
 //!
 //! Contains the global state shared across views.
 
+#![allow(dead_code)] // Some methods reserved for future async thumbnail implementation
+
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -16,9 +18,10 @@ use crate::settings::{AppSettings, AutostartManager};
 use crate::views::View;
 
 /// Thumbnail loading state for a wallpaper
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ThumbnailState {
     /// Thumbnail not yet requested
+    #[default]
     NotLoaded,
     /// Thumbnail loading in progress
     Loading,

@@ -4,6 +4,8 @@
 //! Provides persistent storage for GUI preferences, playback settings,
 //! autostart configuration, and power management options.
 
+#![allow(dead_code)] // Many items reserved for future settings implementation
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,7 +21,7 @@ const SETTINGS_FILE: &str = "settings.yaml";
 const AUTO_SAVE_DEBOUNCE_MS: u64 = 500;
 
 /// Application settings
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct AppSettings {
     /// GUI settings
@@ -32,18 +34,6 @@ pub struct AppSettings {
     pub power: PowerSettings,
     /// Library settings
     pub library: LibrarySettings,
-}
-
-impl Default for AppSettings {
-    fn default() -> Self {
-        Self {
-            gui: GuiSettings::default(),
-            playback: PlaybackSettings::default(),
-            autostart: AutostartSettings::default(),
-            power: PowerSettings::default(),
-            library: LibrarySettings::default(),
-        }
-    }
 }
 
 /// GUI-related settings

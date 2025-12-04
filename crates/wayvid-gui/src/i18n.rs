@@ -62,7 +62,7 @@ impl Language {
 
     /// Convert to serializable string
     #[allow(dead_code)] // Reserved for settings persistence
-    pub fn to_code(&self) -> &'static str {
+    pub fn to_code(self) -> &'static str {
         match self {
             Language::System => "system",
             Language::English => "en",

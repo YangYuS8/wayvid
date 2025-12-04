@@ -32,13 +32,10 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
 /// Header with search bar and filter buttons
 fn view_header(state: &AppState) -> Element<'_, Message> {
     // Search input
-    let search = text_input(
-        &t!("library.search_placeholder").to_string(),
-        &state.search_query,
-    )
-    .on_input(Message::SearchChanged)
-    .padding(10)
-    .width(Length::Fixed(300.0));
+    let search = text_input(&t!("library.search_placeholder"), &state.search_query)
+        .on_input(Message::SearchChanged)
+        .padding(10)
+        .width(Length::Fixed(300.0));
 
     // Source filter buttons (Workshop / Local / All)
     let source_buttons: Vec<Element<Message>> = SourceFilter::all()

@@ -92,6 +92,7 @@ impl IpcClient {
     }
 
     /// Create client with custom socket path
+    #[allow(dead_code)]
     pub fn with_socket(path: PathBuf) -> Self {
         Self {
             socket_path: path,

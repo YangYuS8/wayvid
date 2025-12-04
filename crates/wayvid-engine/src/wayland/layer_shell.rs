@@ -73,7 +73,8 @@ pub struct LayerSurface {
     width: u32,
     /// Configured height
     height: u32,
-    /// Surface configuration
+    /// Surface configuration (reserved for future use)
+    #[allow(dead_code)]
     config: LayerSurfaceConfig,
 }
 
@@ -87,7 +88,7 @@ impl LayerSurface {
         _qh: &QueueHandle<()>,
         _layer_shell: &ZwlrLayerShellV1,
         _output: Option<&WlOutput>,
-        config: LayerSurfaceConfig,
+        _config: LayerSurfaceConfig,
     ) -> anyhow::Result<Self> {
         // TODO: Implement proper surface creation
         // This requires:
