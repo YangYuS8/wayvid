@@ -9,7 +9,7 @@ wayvid-library      ← 依赖 core，添加 SQLite/image
     ↑
 wayvid-engine       ← 依赖 core，Wayland/MPV/OpenGL
     ↑
-wayvid (GUI)        ← 依赖 core/library/engine，egui
+wayvid (GUI)        ← 依赖 core/library/engine，iced (wgpu)
     
 wayvid-ctl (CLI)    ← 依赖 core，极简
 ```
@@ -224,8 +224,9 @@ impl ThumbnailGenerator {
 
 ## 4. wayvid (GUI)
 
-### 4.1 App 状态
+### 4.1 App 状态 (iced Elm 架构)
 ```rust
+/// Application state
 pub struct WayvidApp {
     // 核心服务
     library: Arc<WallpaperLibrary>,
@@ -238,15 +239,39 @@ pub struct WayvidApp {
     selected_wallpaper: Option<String>,
     search_query: String,
     
-    // 缩略图缓存 (egui textures)
+    // 缩略图缓存 (iced handles)
     thumbnails: HashMap<String, ThumbnailState>,
-    thumbnail_rx: Receiver<(String, TextureHandle)>,
     
-    // 壁纸列表 (带虚拟滚动)
+    // 壁纸列表
     wallpapers: Vec<WallpaperItem>,
-    scroll_offset: f32,
 }
 
+/// iced Message 类型
+#[derive(Debug, Clone)]
+pub enum Message {
+    // 导航
+    SwitchView(View),
+    
+    // 壁纸库
+    SearchChanged(String),
+    WallpaperSelected(String),
+    WallpaperApply(String),
+    WallpaperApplyToMonitor(String, String),
+    
+    // 缩略图
+    ThumbnailLoaded(String, Result<Handle, String>),
+    
+    // 设置
+    SettingsChanged(SettingsChange),
+    AddFolder,
+    RemoveFolder(PathBuf),
+    
+    // 后台任务
+    LibraryScanComplete(Vec<WallpaperItem>),
+    EngineEvent(EngineEvent),
+}
+
+#[derive(Debug, Clone)]
 enum View {
     Library,
     Settings,
@@ -254,108 +279,143 @@ enum View {
 
 enum ThumbnailState {
     Loading,
-    Loaded(TextureHandle),
+    Loaded(iced::widget::image::Handle),
     Failed,
 }
 ```
 
-### 4.2 Views 结构
+### 4.2 Views 结构 (iced 声明式)
 ```rust
 // views/library.rs
-pub fn show_library(app: &mut WayvidApp, ui: &mut Ui) {
-    // 搜索栏
-    ui.horizontal(|ui| {
-        ui.text_edit_singleline(&mut app.search_query);
-        // 筛选按钮
-    });
-    
-    // 壁纸网格 (虚拟滚动)
-    egui::ScrollArea::vertical().show_rows(
-        ui,
-        ROW_HEIGHT,
-        app.wallpapers.len() / COLS,
-        |ui, row_range| {
-            for row in row_range {
-                ui.horizontal(|ui| {
-                    for col in 0..COLS {
-                        let idx = row * COLS + col;
-                        if let Some(wallpaper) = app.wallpapers.get(idx) {
-                            show_wallpaper_card(app, ui, wallpaper);
-                        }
-                    }
-                });
-            }
-        }
-    );
+use iced::widget::{column, row, text_input, scrollable, container};
+use iced::{Element, Length};
+
+impl WayvidApp {
+    pub fn view_library(&self) -> Element<Message> {
+        let search_bar = text_input("Search wallpapers...", &self.search_query)
+            .on_input(Message::SearchChanged)
+            .padding(10)
+            .width(Length::Fill);
+        
+        // 壁纸网格 (lazy 加载)
+        let grid = self.wallpapers
+            .chunks(4)  // 4 列
+            .map(|row_items| {
+                row(row_items.iter().map(|wp| self.wallpaper_card(wp)))
+                    .spacing(16)
+                    .into()
+            })
+            .collect::<Vec<_>>();
+        
+        let content = scrollable(
+            column(grid).spacing(16).padding(20)
+        ).height(Length::Fill);
+        
+        column![search_bar, content]
+            .spacing(10)
+            .into()
+    }
 }
 
 // views/settings.rs
-pub fn show_settings(app: &mut WayvidApp, ui: &mut Ui) {
-    // 基本设置
-    ui.checkbox(&mut app.settings.autostart, "开机自启动");
-    ui.checkbox(&mut app.settings.minimize_to_tray, "关闭时最小化到托盘");
-    
-    // 性能设置
-    egui::ComboBox::from_label("渲染后端")
-        .selected_text(app.settings.render_backend.display_name())
-        .show_ui(ui, |ui| { ... });
-    
-    // 文件夹管理
-    ui.heading("壁纸文件夹");
-    for folder in &app.settings.wallpaper_folders {
-        ui.horizontal(|ui| {
-            ui.label(folder.display().to_string());
-            if ui.button("移除").clicked() { ... }
-        });
+impl WayvidApp {
+    pub fn view_settings(&self) -> Element<Message> {
+        let autostart = checkbox(
+            "开机自启动",
+            self.settings.autostart,
+            |v| Message::SettingsChanged(SettingsChange::Autostart(v))
+        );
+        
+        let minimize = checkbox(
+            "关闭时最小化到托盘",
+            self.settings.minimize_to_tray,
+            |v| Message::SettingsChanged(SettingsChange::MinimizeToTray(v))
+        );
+        
+        let folders_list = column(
+            self.settings.wallpaper_folders.iter().map(|folder| {
+                row![
+                    text(folder.display().to_string()),
+                    button("移除").on_press(Message::RemoveFolder(folder.clone()))
+                ].spacing(10).into()
+            })
+        );
+        
+        let add_folder_btn = button("添加文件夹")
+            .on_press(Message::AddFolder);
+        
+        column![
+            text("基本设置").size(24),
+            autostart,
+            minimize,
+            text("壁纸文件夹").size(24),
+            folders_list,
+            add_folder_btn,
+        ]
+        .spacing(15)
+        .padding(20)
+        .into()
     }
-    if ui.button("添加文件夹").clicked() { ... }
 }
 ```
 
-### 4.3 Widgets
+### 4.3 Widgets (iced 组件)
 ```rust
 // widgets/wallpaper_card.rs
-pub fn show_wallpaper_card(app: &mut WayvidApp, ui: &mut Ui, wallpaper: &WallpaperItem) {
-    let response = ui.allocate_response(CARD_SIZE, Sense::click());
-    
-    // 背景
-    ui.painter().rect_filled(response.rect, 4.0, Color32::DARK_GRAY);
-    
-    // 缩略图
-    match app.thumbnails.get(&wallpaper.id) {
-        Some(ThumbnailState::Loaded(tex)) => {
-            ui.put(thumb_rect, Image::from_texture(tex));
-        }
-        Some(ThumbnailState::Loading) => {
-            ui.put(thumb_rect, Spinner::new());
-        }
-        None => {
-            // 请求加载
-            app.request_thumbnail(&wallpaper.id);
-            ui.put(thumb_rect, Label::new("🖼️"));
-        }
+use iced::widget::{button, column, container, image, text};
+use iced::{Element, Length, Theme};
+
+impl WayvidApp {
+    pub fn wallpaper_card(&self, wallpaper: &WallpaperItem) -> Element<Message> {
+        let thumbnail: Element<Message> = match self.thumbnails.get(&wallpaper.id) {
+            Some(ThumbnailState::Loaded(handle)) => {
+                image(handle.clone())
+                    .width(Length::Fixed(200.0))
+                    .height(Length::Fixed(112.0))
+                    .into()
+            }
+            Some(ThumbnailState::Loading) => {
+                container(text("加载中..."))
+                    .width(Length::Fixed(200.0))
+                    .height(Length::Fixed(112.0))
+                    .center_x()
+                    .center_y()
+                    .into()
+            }
+            _ => {
+                container(text("🖼️"))
+                    .width(Length::Fixed(200.0))
+                    .height(Length::Fixed(112.0))
+                    .center_x()
+                    .center_y()
+                    .into()
+            }
+        };
+        
+        let type_badge = match wallpaper.wallpaper_type {
+            WallpaperType::Scene => text("🎬 Scene").size(12),
+            WallpaperType::Video => text("🎥 Video").size(12),
+            WallpaperType::Gif => text("🌟 GIF").size(12),
+            WallpaperType::Image => text("🖼️ Image").size(12),
+        };
+        
+        let card_content = column![
+            thumbnail,
+            text(&wallpaper.name).size(14),
+            type_badge,
+        ]
+        .spacing(4)
+        .width(Length::Fixed(200.0));
+        
+        button(card_content)
+            .on_press(Message::WallpaperSelected(wallpaper.id.clone()))
+            .padding(8)
+            .style(theme::Button::Secondary)
+            .into()
     }
-    
-    // 名称
-    ui.put(name_rect, Label::new(&wallpaper.name).truncate(true));
-    
-    // 类型标签
-    if wallpaper.wallpaper_type == WallpaperType::Scene {
-        ui.put(badge_rect, Label::new("🎬 Scene").small());
-    }
-    
-    // 交互
-    if response.double_clicked() {
-        app.apply_wallpaper(&wallpaper.id);
-    }
-    
-    response.context_menu(|ui| {
-        if ui.button("应用到当前显示器").clicked() { ... }
-        if ui.button("应用到所有显示器").clicked() { ... }
-        ui.separator();
-        if ui.button("从库中移除").clicked() { ... }
-    });
 }
+
+// 双击应用和右键菜单通过 iced 的 mouse_area 和 overlay 实现
 ```
 
 ## 5. wayvid-ctl (精简 CLI)

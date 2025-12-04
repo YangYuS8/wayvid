@@ -21,10 +21,10 @@ wayvid is a lightweight, high-performance dynamic video wallpaper application fo
 
 ### Core Technologies
 - **Language**: Rust 1.75+ (Edition 2021)
-- **Graphics**: OpenGL ES 3.0, EGL, VA-API/NVDEC
+- **Graphics**: OpenGL ES 3.0, EGL, VA-API/NVDEC, wgpu
 - **Wayland**: wlr-layer-shell, smithay-client-toolkit
 - **Video**: libmpv (hardware decode backend)
-- **GUI**: egui + eframe (native Wayland)
+- **GUI**: iced (Elm-style declarative UI, GPU-accelerated via wgpu)
 - **Build**: Cargo with workspace structure
 
 ### Key Dependencies
@@ -36,7 +36,7 @@ wayvid is a lightweight, high-performance dynamic video wallpaper application fo
 - `clap` 4.5 - CLI argument parsing
 - `tracing` + `tracing-subscriber` - Structured logging
 - `calloop` 0.13 - Event loop
-- `eframe` 0.29 - GUI framework
+- `iced` 0.13 - Declarative GUI framework (wgpu backend)
 
 ### Supported Platforms
 - **Primary**: Arch Linux, NixOS
@@ -147,6 +147,8 @@ cargo test -- --nocapture     # Show println! output
 
 #### Commit Conventions (Conventional Commits)
 Format: `<type>(<scope>): <subject>`
+
+**Language Rule: All commit messages MUST be written in English.**
 
 **Types:**
 - `feat`: New feature
