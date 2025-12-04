@@ -13,13 +13,14 @@ use std::sync::{Arc, RwLock};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use wayvid_core::{WallpaperItem, WallpaperMetadata, WallpaperType, SourceType};
 
 /// Wallpaper library database
 pub struct LibraryDatabase {
     conn: Arc<RwLock<Connection>>,
+    #[allow(dead_code)] // Reserved for future use (backup, migration)
     db_path: PathBuf,
 }
 

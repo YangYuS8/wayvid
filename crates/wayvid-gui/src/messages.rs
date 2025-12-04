@@ -5,11 +5,17 @@
 use std::path::PathBuf;
 use wayvid_core::WallpaperItem;
 
+use crate::async_loader::ThumbnailRequest;
+use crate::i18n::Language;
+use crate::ipc::{ConnectionState, DaemonStatus};
+use crate::state::{SourceFilter, WallpaperFilter};
 use crate::views::View;
-use crate::state::WallpaperFilter;
 
 /// Application messages
+///
+/// Some variants are reserved for features under development.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Some variants reserved for future features
 pub enum Message {
     // Navigation
     /// Navigate to a different view
@@ -20,6 +26,12 @@ pub enum Message {
     LoadLibrary,
     /// Library loading completed
     LibraryLoaded(Result<Vec<WallpaperItem>, String>),
+
+    // Workshop operations
+    /// Start scanning Steam Workshop
+    ScanWorkshop,
+    /// Workshop scan completed
+    WorkshopScanned(Result<Vec<WallpaperItem>, String>),
 
     // Wallpaper selection
     /// Select a wallpaper (single click)
@@ -44,12 +56,24 @@ pub enum Message {
     SearchChanged(String),
     /// Filter changed
     FilterChanged(WallpaperFilter),
+    /// Source filter changed
+    SourceFilterChanged(SourceFilter),
 
     // Settings
     /// Toggle autostart
     ToggleAutostart(bool),
     /// Toggle minimize to tray
     ToggleMinimizeToTray(bool),
+    /// Toggle pause on battery
+    TogglePauseOnBattery(bool),
+    /// Toggle pause on fullscreen
+    TogglePauseOnFullscreen(bool),
+    /// Change volume
+    VolumeChanged(f32),
+    /// Change FPS limit
+    FpsLimitChanged(Option<u32>),
+    /// Change language
+    LanguageChanged(Language),
     /// Save settings
     SaveSettings,
     /// Settings saved
@@ -72,8 +96,14 @@ pub enum Message {
     DaemonDisconnected,
 
     // Thumbnail loading
+    /// Request thumbnails for a batch of wallpapers
+    RequestThumbnails(Vec<ThumbnailRequest>),
     /// Thumbnail loaded for a wallpaper
     ThumbnailLoaded(String, Vec<u8>),
+    /// Thumbnail loading failed
+    ThumbnailFailed(String, String),
+    /// Thumbnail batch complete
+    ThumbnailBatchComplete(usize),
 
     // Monitor operations
     /// Refresh monitor list
@@ -86,4 +116,20 @@ pub enum Message {
     ApplyToMonitor(String),
     /// Clear wallpaper from a specific monitor
     ClearMonitor(String),
+
+    // Daemon control
+    /// Start the wallpaper daemon
+    StartDaemon,
+    /// Stop the wallpaper daemon
+    StopDaemon,
+    /// Daemon status updated
+    DaemonStatusUpdated(bool),
+
+    // IPC communication
+    /// IPC connection state changed
+    IpcConnectionChanged(ConnectionState),
+    /// IPC status received from daemon
+    IpcStatusReceived(DaemonStatus),
+    /// IPC error occurred
+    IpcError(String),
 }

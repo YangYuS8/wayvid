@@ -1,6 +1,8 @@
 //! Application settings management
 //!
 //! Handles loading, saving, and auto-saving of application settings.
+//! Provides persistent storage for GUI preferences, playback settings,
+//! autostart configuration, and power management options.
 
 use std::path::PathBuf;
 use std::sync::Arc;

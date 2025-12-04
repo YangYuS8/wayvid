@@ -7,6 +7,7 @@ use crate::state::MonitorInfo;
 
 /// Monitor selector configuration
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields reserved for extended monitor display options
 pub struct MonitorSelectorConfig {
     pub preview_scale: f32,
     pub min_preview_width: f32,
@@ -65,7 +66,7 @@ impl<'a, M: Clone + 'a> MonitorSelector<'a, M> {
                 .spacing(8)
                 .align_x(Alignment::Center),
             )
-            .center(Length::Fill)
+            .padding(20)
             .into();
         }
 
@@ -110,7 +111,8 @@ impl<'a, M: Clone + 'a> MonitorSelector<'a, M> {
         let preview = container(preview_content)
             .width(Length::Fixed(scaled_width))
             .height(Length::Fixed(scaled_height))
-            .center(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
             .style(container::bordered_box);
 
         let is_primary = monitor.primary;

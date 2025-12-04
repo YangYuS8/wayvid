@@ -1,9 +1,12 @@
 //! Wallpaper card widget
 //!
 //! A card component that displays a wallpaper thumbnail with metadata.
+//! This component will replace the inline card implementation.
+
+#![allow(dead_code)]
 
 use iced::widget::{button, column, container, row, text, Space};
-use iced::{Alignment, Element, Length};
+use iced::{Element, Length};
 use wayvid_core::{WallpaperItem, WallpaperType};
 
 /// Message types for WallpaperCard interactions
@@ -81,13 +84,14 @@ impl<'a> WallpaperCard<'a> {
         let thumbnail_display: Element<'_, CardMessage> = container(text(icon).size(48))
             .width(Length::Fill)
             .height(Length::Fixed(self.config.thumbnail_height))
-            .center(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fixed(self.config.thumbnail_height))
             .style(container::bordered_box)
             .into();
 
         let title = text(&self.wallpaper.name).size(14).width(Length::Fill);
         let type_badge = text(format!("{:?}", self.wallpaper.wallpaper_type)).size(10);
-        
+
         let resolution = if let Some((w, h)) = self.wallpaper.metadata.resolution {
             Some(text(format!("{}×{}", w, h)).size(10))
         } else {
@@ -104,17 +108,17 @@ impl<'a> WallpaperCard<'a> {
             info_row = info_row.push(text(fav_icon).size(12));
         }
 
-        let card_content = column![
-            thumbnail_display,
-            title,
-            info_row
-        ]
-        .spacing(8)
-        .padding(10)
-        .width(Length::Fixed(self.config.width));
+        let card_content = column![thumbnail_display, title, info_row]
+            .spacing(8)
+            .padding(10)
+            .width(Length::Fixed(self.config.width));
 
         button(card_content)
-            .style(if self.is_selected { button::primary } else { button::secondary })
+            .style(if self.is_selected {
+                button::primary
+            } else {
+                button::secondary
+            })
             .padding(0)
             .on_press(on_message(CardMessage::Selected(id)))
             .into()

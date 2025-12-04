@@ -4,13 +4,18 @@
 
 use anyhow::Result;
 use iced::widget::{button, column, container, row, text, Space};
-use iced::{Element, Length, Subscription, Task, Theme};
+use iced::{Element, Font, Length, Subscription, Task, Theme};
+use rust_i18n::t;
 
+use crate::async_loader::{self, LoaderEvent};
+use crate::i18n;
+use crate::ipc::{self, ConnectionState};
 use crate::messages::Message;
+use crate::settings::{AppSettings, AutostartManager};
 use crate::state::AppState;
 use crate::theme::WayvidTheme;
-use crate::views::{self, View};
 use crate::views::monitors::MonitorView;
+use crate::views::{self, View};
 
 /// Main application struct
 pub struct App {
@@ -20,6 +25,8 @@ pub struct App {
     theme: WayvidTheme,
     /// Monitor view state
     monitor_view: MonitorView,
+    /// Pending settings save flag (for debouncing)
+    settings_dirty: bool,
 }
 
 impl App {
@@ -27,19 +34,38 @@ impl App {
     pub fn new() -> (Self, Task<Message>) {
         let (state, task) = AppState::new();
 
+        // Apply theme from settings
+        let theme = if state.app_settings.gui.theme == "light" {
+            WayvidTheme::Light
+        } else {
+            WayvidTheme::Dark
+        };
+
         (
             Self {
                 state,
-                theme: WayvidTheme::Dark,
+                theme,
                 monitor_view: MonitorView::new(),
+                settings_dirty: false,
             },
             task,
         )
     }
 
+    /// Trigger settings save (marks dirty for debounced save)
+    fn trigger_settings_save(&mut self) {
+        self.settings_dirty = true;
+        // Immediate save for now (can add debouncing later)
+        if let Err(e) = self.state.app_settings.save() {
+            tracing::error!("Failed to save settings: {}", e);
+        } else {
+            self.settings_dirty = false;
+        }
+    }
+
     /// Application title
     pub fn title(&self) -> String {
-        format!("Wayvid - {}", self.state.current_view.title())
+        format!("{} - {}", t!("app.title"), self.state.current_view.title())
     }
 
     /// Handle messages
@@ -60,10 +86,36 @@ impl App {
                 self.state.loading = false;
                 match result {
                     Ok(wallpapers) => {
-                        self.state.wallpapers = wallpapers;
+                        self.state.local_wallpapers = wallpapers;
+                        self.state.refresh_wallpapers();
                     }
                     Err(e) => {
-                        self.state.error = Some(format!("Failed to load library: {}", e));
+                        self.state.error = Some(t!("error.load_library", error = e).to_string());
+                    }
+                }
+                Task::none()
+            }
+
+            // Workshop operations
+            Message::ScanWorkshop => {
+                self.state.workshop_scanning = true;
+                Task::perform(async { scan_workshop().await }, Message::WorkshopScanned)
+            }
+            Message::WorkshopScanned(result) => {
+                self.state.workshop_scanning = false;
+                match result {
+                    Ok(wallpapers) => {
+                        let count = wallpapers.len();
+                        self.state.workshop_wallpapers = wallpapers;
+                        self.state.refresh_wallpapers();
+                        if count > 0 {
+                            self.state.status_message =
+                                Some(t!("success.workshop_found", count = count).to_string());
+                        }
+                    }
+                    Err(e) => {
+                        // Not an error if Workshop not found - just means no WE installed
+                        tracing::info!("Workshop scan: {}", e);
                     }
                 }
                 Task::none()
@@ -81,10 +133,11 @@ impl App {
             Message::WallpaperApplied(result) => {
                 match result {
                     Ok(()) => {
-                        self.state.status_message = Some("Wallpaper applied successfully".into());
+                        self.state.status_message =
+                            Some(t!("success.wallpaper_applied").to_string());
                     }
                     Err(e) => {
-                        self.state.error = Some(format!("Failed to apply wallpaper: {}", e));
+                        self.state.error = Some(t!("error.apply_wallpaper", error = e).to_string());
                     }
                 }
                 Task::none()
@@ -118,7 +171,7 @@ impl App {
                         }
                     }
                     Err(e) => {
-                        self.state.error = Some(format!("Scan failed: {}", e));
+                        self.state.error = Some(t!("error.scan_folder", error = e).to_string());
                     }
                 }
                 Task::none()
@@ -133,30 +186,68 @@ impl App {
                 self.state.current_filter = filter;
                 Task::none()
             }
+            Message::SourceFilterChanged(source) => {
+                self.state.source_filter = source;
+                Task::none()
+            }
 
             // Settings
             Message::ToggleAutostart(enabled) => {
-                self.state.settings.autostart = enabled;
+                self.state.app_settings.autostart.enabled = enabled;
+                // Update XDG autostart entry
+                if let Err(e) = AutostartManager::set_enabled(enabled) {
+                    self.state.error =
+                        Some(t!("error.autostart", error = e.to_string()).to_string());
+                } else {
+                    self.trigger_settings_save();
+                }
                 Task::none()
             }
             Message::ToggleMinimizeToTray(enabled) => {
-                self.state.settings.minimize_to_tray = enabled;
+                self.state.app_settings.gui.minimize_to_tray = enabled;
+                self.trigger_settings_save();
                 Task::none()
             }
-            Message::SaveSettings => Task::perform(
-                {
-                    let settings = self.state.settings.clone();
-                    async move { save_settings(&settings).await }
-                },
-                Message::SettingsSaved,
-            ),
+            Message::TogglePauseOnBattery(enabled) => {
+                self.state.app_settings.power.pause_on_battery = enabled;
+                self.trigger_settings_save();
+                Task::none()
+            }
+            Message::TogglePauseOnFullscreen(enabled) => {
+                self.state.app_settings.power.pause_on_fullscreen = enabled;
+                self.trigger_settings_save();
+                Task::none()
+            }
+            Message::VolumeChanged(volume) => {
+                self.state.app_settings.playback.volume = volume;
+                self.trigger_settings_save();
+                Task::none()
+            }
+            Message::FpsLimitChanged(limit) => {
+                self.state.app_settings.playback.fps_limit = limit;
+                self.trigger_settings_save();
+                Task::none()
+            }
+            Message::LanguageChanged(language) => {
+                self.state.app_settings.gui.language = language.to_code().to_string();
+                i18n::set_language(language);
+                self.trigger_settings_save();
+                Task::none()
+            }
+            Message::SaveSettings => {
+                let settings = self.state.app_settings.clone();
+                Task::perform(
+                    async move { save_settings(&settings).await },
+                    Message::SettingsSaved,
+                )
+            }
             Message::SettingsSaved(result) => {
                 match result {
                     Ok(()) => {
-                        self.state.status_message = Some("Settings saved".into());
+                        self.state.status_message = Some(t!("success.settings_saved").to_string());
                     }
                     Err(e) => {
-                        self.state.error = Some(format!("Failed to save settings: {}", e));
+                        self.state.error = Some(t!("error.save_settings", error = e).to_string());
                     }
                 }
                 Task::none()
@@ -192,8 +283,28 @@ impl App {
             }
 
             // Thumbnail loading
+            Message::RequestThumbnails(requests) => {
+                // Mark all requested thumbnails as loading
+                for request in &requests {
+                    self.state
+                        .thumbnail_states
+                        .insert(request.id.clone(), crate::state::ThumbnailState::Loading);
+                    self.state.pending_thumbnails.insert(request.id.clone());
+                }
+                // The actual loading is handled by the subscription
+                Task::none()
+            }
             Message::ThumbnailLoaded(id, data) => {
-                self.state.thumbnails.insert(id, data);
+                self.state.on_thumbnail_loaded(id, data);
+                Task::none()
+            }
+            Message::ThumbnailFailed(id, error) => {
+                tracing::debug!("Thumbnail failed for {}: {}", id, error);
+                self.state.on_thumbnail_failed(id, error);
+                Task::none()
+            }
+            Message::ThumbnailBatchComplete(count) => {
+                tracing::debug!("Thumbnail batch complete: {} loaded", count);
                 Task::none()
             }
 
@@ -217,22 +328,62 @@ impl App {
                         Message::WallpaperApplied,
                     )
                 } else {
-                    self.state.error = Some("No wallpaper selected".into());
+                    self.state.error = Some(t!("error.no_wallpaper").to_string());
                     Task::none()
                 }
             }
-            Message::ClearMonitor(output) => {
-                Task::perform(
-                    async move { clear_monitor_wallpaper(&output).await },
-                    Message::WallpaperApplied,
-                )
+            Message::ClearMonitor(output) => Task::perform(
+                async move { clear_monitor_wallpaper(&output).await },
+                Message::WallpaperApplied,
+            ),
+
+            // Daemon control
+            Message::StartDaemon => {
+                Task::perform(async { ipc::start_daemon_process().await }, |result| {
+                    Message::DaemonStatusUpdated(result.is_ok())
+                })
+            }
+            Message::StopDaemon => {
+                Task::perform(async { ipc::stop_daemon_process().await }, |result| {
+                    Message::DaemonStatusUpdated(!result.is_ok())
+                })
+            }
+            Message::DaemonStatusUpdated(connected) => {
+                self.state.daemon_connected = connected;
+                self.state.ipc_state = if connected {
+                    ConnectionState::Connected
+                } else {
+                    ConnectionState::Disconnected
+                };
+                if connected {
+                    self.state.status_message = Some(t!("success.daemon_started").to_string());
+                } else {
+                    self.state.status_message = Some(t!("success.daemon_stopped").to_string());
+                }
+                Task::none()
+            }
+
+            // IPC communication
+            Message::IpcConnectionChanged(state) => {
+                self.state.ipc_state = state;
+                self.state.daemon_connected = matches!(state, ConnectionState::Connected);
+                Task::none()
+            }
+            Message::IpcStatusReceived(status) => {
+                self.state.update_from_daemon_status(status);
+                Task::none()
+            }
+            Message::IpcError(error) => {
+                self.state.error = Some(error);
+                self.state.ipc_state = ConnectionState::Error;
+                Task::none()
             }
         }
     }
 
     /// Render the view
-    pub fn view(&self) -> Element<Message> {
-        let content: Element<Message> = match self.state.current_view {
+    pub fn view(&self) -> Element<'_, Message> {
+        let content: Element<'_, Message> = match self.state.current_view {
             View::Library => views::library::view(&self.state),
             View::Folders => views::folders::view(&self.state),
             View::Monitors => views::monitors::view(
@@ -271,8 +422,8 @@ impl App {
     }
 
     /// Render the sidebar navigation
-    fn sidebar(&self) -> Element<Message> {
-        fn nav_button(label: &'static str, view: View, current: View) -> Element<'static, Message> {
+    fn sidebar(&self) -> Element<'_, Message> {
+        fn nav_button(label: String, view: View, current: View) -> Element<'static, Message> {
             let is_active = view == current;
             button(text(label))
                 .padding(10)
@@ -287,41 +438,75 @@ impl App {
         }
 
         let nav = column![
-            text("Wayvid").size(24),
+            text(t!("app.title").to_string()).size(24),
             Space::with_height(20),
-            nav_button("Library", View::Library, self.state.current_view),
-            nav_button("Folders", View::Folders, self.state.current_view),
-            nav_button("Monitors", View::Monitors, self.state.current_view),
-            nav_button("Settings", View::Settings, self.state.current_view),
-            nav_button("About", View::About, self.state.current_view),
+            nav_button(
+                t!("nav.library").to_string(),
+                View::Library,
+                self.state.current_view
+            ),
+            nav_button(
+                t!("nav.folders").to_string(),
+                View::Folders,
+                self.state.current_view
+            ),
+            nav_button(
+                t!("nav.monitors").to_string(),
+                View::Monitors,
+                self.state.current_view
+            ),
+            nav_button(
+                t!("nav.settings").to_string(),
+                View::Settings,
+                self.state.current_view
+            ),
+            nav_button(
+                t!("nav.about").to_string(),
+                View::About,
+                self.state.current_view
+            ),
         ]
         .spacing(5)
         .padding(15)
         .width(Length::Fixed(200.0));
 
-        // Status indicator at bottom
+        // Status indicator and daemon control at bottom
         let status = if self.state.daemon_connected {
             row![
                 text("●").style(|_| text::Style {
                     color: Some(iced::Color::from_rgb(0.0, 0.8, 0.0))
                 }),
-                text(" Daemon running")
+                text(format!(" {}", t!("status.daemon_running")))
             ]
         } else {
             row![
                 text("●").style(|_| text::Style {
                     color: Some(iced::Color::from_rgb(0.8, 0.0, 0.0))
                 }),
-                text(" Daemon stopped")
+                text(format!(" {}", t!("status.daemon_stopped")))
             ]
+        };
+
+        // Daemon control button
+        let daemon_button = if self.state.daemon_connected {
+            button(text(t!("daemon.stop").to_string()))
+                .padding(8)
+                .width(Length::Fill)
+                .style(button::danger)
+                .on_press(Message::StopDaemon)
+        } else {
+            button(text(t!("daemon.start").to_string()))
+                .padding(8)
+                .width(Length::Fill)
+                .style(button::success)
+                .on_press(Message::StartDaemon)
         };
 
         let sidebar_content = column![
             nav,
-            Space::with_height(Length::Fill),
-            container(status).padding(15),
-        ]
-        .height(Length::Fill);
+            container(column![status, Space::with_height(10), daemon_button].spacing(5))
+                .padding(15),
+        ];
 
         container(sidebar_content)
             .style(container::bordered_box)
@@ -338,9 +523,9 @@ impl App {
         let error_text = error.to_string();
         let overlay = container(
             column![
-                text("Error").size(18),
+                text(t!("error.title").to_string()).size(18),
                 text(error_text),
-                button("Dismiss").on_press(Message::DismissError),
+                button(text(t!("error.dismiss").to_string())).on_press(Message::DismissError),
             ]
             .spacing(10)
             .padding(20),
@@ -358,16 +543,73 @@ impl App {
 
     /// Subscriptions (background tasks)
     pub fn subscription(&self) -> Subscription<Message> {
-        Subscription::none()
+        // Collect thumbnail requests for visible wallpapers
+        // For now, request thumbnails for all filtered wallpapers (with limit)
+        let thumbnail_requests: Vec<_> = self
+            .state
+            .filtered_wallpapers()
+            .iter()
+            .take(20) // Limit initial batch
+            .filter_map(|wp| {
+                let id = &wp.id;
+                // Skip if already loaded or loading
+                if self.state.thumbnails.contains_key(id)
+                    || self.state.pending_thumbnails.contains(id)
+                {
+                    return None;
+                }
+
+                // Create request - prefer thumbnail_path for Workshop items
+                let source_path = wp
+                    .thumbnail_path
+                    .clone()
+                    .unwrap_or_else(|| wp.source_path.clone());
+
+                Some(async_loader::ThumbnailRequest {
+                    id: id.clone(),
+                    path: source_path,
+                    width: 256,
+                    height: 144,
+                })
+            })
+            .collect();
+
+        // IPC subscription for daemon status polling
+        let ipc_sub = ipc::ipc_subscription();
+
+        // Thumbnail subscription (only if there are requests)
+        let thumbnail_sub = if !thumbnail_requests.is_empty() {
+            let cache_dir = self.state.async_loader.cache_dir().clone();
+            async_loader::thumbnail_subscription(thumbnail_requests, cache_dir, |event| match event
+            {
+                LoaderEvent::ThumbnailLoaded(id, data) => Message::ThumbnailLoaded(id, data),
+                LoaderEvent::ThumbnailFailed(id, error) => Message::ThumbnailFailed(id, error),
+                LoaderEvent::BatchComplete(count) => Message::ThumbnailBatchComplete(count),
+                LoaderEvent::LibraryLoaded(result) => Message::LibraryLoaded(result),
+            })
+        } else {
+            Subscription::none()
+        };
+
+        Subscription::batch([ipc_sub, thumbnail_sub])
     }
 }
 
 /// Run the application
 pub fn run() -> Result<()> {
+    // Use Noto Sans CJK SC for CJK character support (system font)
+    let cjk_font = Font::with_name("Noto Sans CJK SC");
+
+    // Load settings to get window size
+    let settings = AppSettings::load().unwrap_or_default();
+    let window_width = settings.gui.window_width.max(800) as f32;
+    let window_height = settings.gui.window_height.max(600) as f32;
+
     iced::application(App::title, App::update, App::view)
         .theme(App::theme)
         .subscription(App::subscription)
-        .window_size((1200.0, 800.0))
+        .default_font(cjk_font)
+        .window_size((window_width, window_height))
         .run_with(App::new)?;
 
     Ok(())
@@ -380,9 +622,8 @@ async fn load_library() -> Result<Vec<wayvid_core::WallpaperItem>, String> {
 }
 
 async fn apply_wallpaper(id: &str) -> Result<(), String> {
-    // TODO: Send IPC command to daemon
-    tracing::info!("Applying wallpaper: {}", id);
-    Ok(())
+    // Use IPC to apply wallpaper to all outputs
+    ipc::apply_wallpaper_ipc(id, None).await
 }
 
 async fn scan_folder(path: &std::path::Path) -> Result<Vec<wayvid_core::WallpaperItem>, String> {
@@ -392,37 +633,30 @@ async fn scan_folder(path: &std::path::Path) -> Result<Vec<wayvid_core::Wallpape
     scanner.scan_folder(path, true).map_err(|e| e.to_string())
 }
 
-async fn save_settings(settings: &crate::state::Settings) -> Result<(), String> {
-    // TODO: Save to config file
-    tracing::info!("Saving settings: {:?}", settings);
-    Ok(())
+async fn save_settings(settings: &AppSettings) -> Result<(), String> {
+    settings.save().map_err(|e| e.to_string())
 }
 
 async fn refresh_monitors() -> Vec<crate::state::MonitorInfo> {
-    // TODO: Query actual monitors via IPC
-    tracing::info!("Refreshing monitor list");
-    vec![
-        crate::state::MonitorInfo {
-            name: "eDP-1".to_string(),
-            width: 1920,
-            height: 1080,
-            x: 0,
-            y: 0,
-            scale: 1.0,
-            primary: true,
-            current_wallpaper: None,
-        },
-    ]
+    // Query monitors from daemon via IPC
+    ipc::get_monitors_ipc().await
 }
 
 async fn apply_wallpaper_to_monitor(id: &str, output: &str) -> Result<(), String> {
-    // TODO: Send IPC command to daemon
-    tracing::info!("Applying wallpaper {} to monitor {}", id, output);
-    Ok(())
+    // Use IPC to apply wallpaper to specific output
+    ipc::apply_wallpaper_ipc(id, Some(output)).await
 }
 
 async fn clear_monitor_wallpaper(output: &str) -> Result<(), String> {
-    // TODO: Send IPC command to daemon
-    tracing::info!("Clearing wallpaper from monitor {}", output);
-    Ok(())
+    // Use IPC to clear wallpaper from specific output
+    ipc::clear_wallpaper_ipc(output).await
+}
+
+/// Scan Steam Workshop for Wallpaper Engine wallpapers
+async fn scan_workshop() -> Result<Vec<wayvid_core::WallpaperItem>, String> {
+    use wayvid_library::WorkshopScanner;
+
+    let mut scanner = WorkshopScanner::discover().map_err(|e| e.to_string())?;
+
+    scanner.scan_all().map_err(|e| e.to_string())
 }

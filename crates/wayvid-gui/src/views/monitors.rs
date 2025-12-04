@@ -1,13 +1,17 @@
 //! Monitor management view for wayvid-gui
 
-use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, vertical_space};
+use iced::widget::{
+    button, column, container, horizontal_space, row, scrollable, text, vertical_space,
+};
 use iced::{Element, Length};
+use rust_i18n::t;
 
 use crate::state::{MonitorInfo, WayvidState};
 use crate::widgets::MonitorSelector;
 
 /// Monitor view state
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)] // Fields reserved for preview feature
 pub struct MonitorView {
     selected_monitor: Option<String>,
     show_preview: bool,
@@ -18,6 +22,7 @@ impl MonitorView {
         Self::default()
     }
 
+    #[allow(dead_code)] // Reserved for monitor details panel
     pub fn selected_monitor(&self) -> Option<&str> {
         self.selected_monitor.as_deref()
     }
@@ -26,10 +31,12 @@ impl MonitorView {
         self.selected_monitor = Some(name);
     }
 
+    #[allow(dead_code)] // Reserved for monitor details panel
     pub fn clear_selection(&mut self) {
         self.selected_monitor = None;
     }
 
+    #[allow(dead_code)] // Reserved for preview toggle
     pub fn toggle_preview(&mut self) {
         self.show_preview = !self.show_preview;
     }
@@ -44,8 +51,7 @@ pub fn view<'a, M: 'a + Clone>(
     on_clear: impl Fn(String) -> M + 'a,
     on_refresh: M,
 ) -> Element<'a, M> {
-    let title = text("显示器管理")
-        .size(24);
+    let title = text(t!("monitors.title").to_string()).size(24);
 
     let monitors = &state.monitors;
 
@@ -59,12 +65,12 @@ pub fn view<'a, M: 'a + Clone>(
         if let Some(monitor) = monitors.iter().find(|m| &m.name == selected_name) {
             monitor_details_panel(monitor, on_apply, on_clear)
         } else {
-            container(text("未找到显示器信息"))
+            container(text(t!("monitors.no_monitors").to_string()))
                 .padding(20)
                 .into()
         }
     } else {
-        container(text("请选择一个显示器"))
+        container(text(t!("monitors.select_wallpaper").to_string()))
             .padding(20)
             .into()
     };
@@ -72,38 +78,30 @@ pub fn view<'a, M: 'a + Clone>(
     // Monitor list (for accessibility / alternative view)
     let monitor_list = monitor_list_view(monitors, monitor_view.selected_monitor.as_deref());
 
-    let refresh_btn = button("刷新")
+    let refresh_btn = button(text(t!("monitors.refresh").to_string()))
         .padding([8, 16])
         .on_press(on_refresh);
 
     let content = column![
-        row![
-            title,
-            horizontal_space(),
-            refresh_btn,
-        ]
-        .spacing(10),
+        row![title, horizontal_space(), refresh_btn,].spacing(10),
         vertical_space().height(20),
         row![
-            container(selector.view())
-                .width(Length::FillPortion(2)),
+            container(selector.view()).width(Length::FillPortion(2)),
             container(details_panel)
                 .width(Length::FillPortion(1))
                 .padding(10),
         ]
         .spacing(20),
         vertical_space().height(20),
-        text("所有显示器").size(18),
+        text(t!("nav.monitors").to_string()).size(18),
         vertical_space().height(10),
-        scrollable(monitor_list)
-            .height(Length::Fill),
+        scrollable(monitor_list),
     ]
     .spacing(10)
     .padding(20);
 
     container(content)
         .width(Length::Fill)
-        .height(Length::Fill)
         .into()
 }
 
@@ -118,26 +116,38 @@ fn monitor_details_panel<'a, M: 'a + Clone>(
     let details = column![
         text(&monitor.name).size(18),
         vertical_space().height(10),
-        text(format!("分辨率: {}x{}", monitor.width, monitor.height)).size(14),
-        text(format!("位置: ({}, {})", monitor.x, monitor.y)).size(14),
-        text(format!("缩放: {:.1}x", monitor.scale)).size(14),
+        text(
+            t!(
+                "monitors.resolution",
+                width = monitor.width,
+                height = monitor.height
+            )
+            .to_string()
+        )
+        .size(14),
+        text(format!("Position: ({}, {})", monitor.x, monitor.y)).size(14),
+        text(format!("Scale: {:.1}x", monitor.scale)).size(14),
         if monitor.primary {
-            text("主显示器").size(14)
+            text(t!("monitors.primary").to_string()).size(14)
         } else {
             text("").size(14)
         },
         vertical_space().height(20),
         if let Some(ref wallpaper) = monitor.current_wallpaper {
-            text(format!("当前壁纸: {}", wallpaper.display())).size(12)
+            let wp_name = wallpaper
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| wallpaper.display().to_string());
+            text(t!("monitors.current_wallpaper", name = wp_name).to_string()).size(12)
         } else {
-            text("当前壁纸: 无").size(12)
+            text(t!("monitors.no_wallpaper").to_string()).size(12)
         },
         vertical_space().height(20),
         row![
-            button("应用壁纸")
+            button(text(t!("monitors.apply").to_string()))
                 .padding([8, 16])
                 .on_press(on_apply(name)),
-            button("清除")
+            button(text(t!("monitors.clear").to_string()))
                 .padding([8, 16])
                 .on_press(on_clear(name2)),
         ]
@@ -145,9 +155,7 @@ fn monitor_details_panel<'a, M: 'a + Clone>(
     ]
     .spacing(5);
 
-    container(details)
-        .padding(20)
-        .into()
+    container(details).padding(20).into()
 }
 
 fn monitor_list_view<'a, M: 'a>(
@@ -161,25 +169,26 @@ fn monitor_list_view<'a, M: 'a>(
 
             let style_text = if is_selected { "► " } else { "" };
 
+            let primary_text = if m.primary {
+                format!(" ({})", t!("monitors.primary"))
+            } else {
+                String::new()
+            };
+
             let item = row![
                 text(format!("{}{}", style_text, m.name)).size(14),
                 horizontal_space(),
                 text(format!("{}x{}", m.width, m.height)).size(12),
-                text(if m.primary { " (主)" } else { "" }).size(12),
+                text(primary_text).size(12),
             ]
             .spacing(10)
             .padding(8);
 
-            container(item)
-                .width(Length::Fill)
-                .into()
+            container(item).width(Length::Fill).into()
         })
         .collect();
 
-    column(items)
-        .spacing(4)
-        .width(Length::Fill)
-        .into()
+    column(items).spacing(4).width(Length::Fill).into()
 }
 
 #[cfg(test)]

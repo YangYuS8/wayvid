@@ -41,6 +41,10 @@ serde_yaml = "0.9"
 dirs = "5.0"
 open = "5.0"
 
+# Internationalization
+rust-i18n = "3"
+sys-locale = "0.3"
+
 # IPC communication
 interprocess = { version = "2.2", features = ["tokio"] }
 

@@ -1,0 +1,142 @@
+# 简体中文翻译 - wayvid GUI
+
+# 应用程序
+app.title = "Wayvid"
+
+# 导航
+nav.library = "壁纸库"
+nav.folders = "文件夹"
+nav.monitors = "显示器"
+nav.settings = "设置"
+nav.about = "关于"
+
+# 状态
+status.daemon_running = "守护进程运行中"
+status.daemon_stopped = "守护进程已停止"
+status.connected = "已连接"
+status.disconnected = "未连接"
+status.loading = "加载中..."
+
+# 壁纸库视图
+library.title = "壁纸库"
+library.search_placeholder = "搜索壁纸..."
+library.no_wallpapers = "未找到壁纸"
+library.add_folders_hint = "添加文件夹到壁纸库以开始使用"
+library.add_folder = "添加文件夹"
+library.count = "%{count} 张壁纸"
+library.count_filtered = "%{shown} / %{total} 张壁纸"
+
+# 过滤器
+filter.all = "全部"
+filter.videos = "视频"
+filter.images = "图片"
+filter.gifs = "GIF"
+filter.scenes = "场景"
+filter.favorites = "收藏"
+
+# 来源过滤
+source.all = "全部来源"
+source.workshop = "创意工坊"
+source.local = "本地"
+
+# 文件夹视图
+folders.title = "壁纸文件夹"
+folders.add_folder = "添加文件夹"
+folders.add_first = "添加第一个文件夹"
+folders.no_folders = "未配置文件夹"
+folders.no_folders_hint = "添加包含壁纸的文件夹来构建你的壁纸库。"
+folders.scan = "扫描"
+folders.remove = "移除"
+folders.wallpaper_count = "%{count} 张壁纸"
+folders.never_scanned = "从未扫描"
+
+# 显示器视图
+monitors.title = "显示器配置"
+monitors.refresh = "刷新"
+monitors.no_monitors = "未检测到显示器"
+monitors.no_monitors_hint = "点击「刷新」以检测已连接的显示器"
+monitors.resolution = "%{width}×%{height}"
+monitors.primary = "主显示器"
+monitors.apply = "应用壁纸"
+monitors.clear = "清除"
+monitors.select_wallpaper = "请先选择壁纸"
+monitors.current_wallpaper = "当前: %{name}"
+monitors.no_wallpaper = "无壁纸"
+
+# 设置视图
+settings.title = "设置"
+settings.save = "保存设置"
+
+# 设置 - 通用
+settings.general = "通用"
+settings.autostart = "开机自启"
+settings.autostart_desc = "登录时自动启动 wayvid"
+settings.minimize_to_tray = "最小化到托盘"
+settings.minimize_to_tray_desc = "关闭窗口时在后台继续运行"
+
+# 设置 - 播放
+settings.playback = "播放"
+settings.volume = "音量"
+settings.volume_desc = "视频壁纸的默认音量"
+settings.fps_limit = "帧率限制"
+settings.fps_limit_desc = "最大帧率（留空表示不限制）"
+settings.unlimited = "无限制"
+
+# 设置 - 电源
+settings.power = "电源管理"
+settings.pause_on_battery = "使用电池时暂停"
+settings.pause_on_battery_desc = "使用电池供电时暂停壁纸播放"
+settings.pause_on_fullscreen = "全屏时暂停"
+settings.pause_on_fullscreen_desc = "当有应用程序全屏运行时暂停播放"
+
+# 设置 - 外观
+settings.appearance = "外观"
+settings.theme = "主题"
+settings.theme_desc = "切换浅色和深色模式"
+settings.toggle_theme = "切换主题"
+
+# 设置 - 语言
+settings.language = "语言"
+settings.language_desc = "选择你偏好的语言"
+settings.language_auto = "跟随系统"
+settings.language_en = "English"
+settings.language_zh = "简体中文"
+
+# 关于视图
+about.title = "Wayvid"
+about.version = "版本 %{version}"
+about.description = "一款轻量、高性能的 Wayland 动态视频壁纸应用程序。"
+about.features = "功能特性:"
+about.feature_wayland = "原生 Wayland layer-shell 支持"
+about.feature_hwdec = "硬件加速视频解码"
+about.feature_hdr = "HDR 和 10-bit 视频支持"
+about.feature_workshop = "Steam 创意工坊兼容"
+about.feature_multimon = "多显示器独立配置"
+about.feature_power = "智能电源管理"
+about.credits = "致谢"
+about.built_with = "构建工具:"
+about.license = "基于 MIT 或 Apache-2.0 许可证"
+about.github = "GitHub"
+about.docs = "文档"
+about.issues = "报告问题"
+
+# 错误
+error.title = "错误"
+error.dismiss = "关闭"
+error.load_library = "加载壁纸库失败: %{error}"
+error.apply_wallpaper = "应用壁纸失败: %{error}"
+error.scan_folder = "扫描失败: %{error}"
+error.save_settings = "保存设置失败: %{error}"
+error.no_wallpaper = "未选择壁纸"
+
+# 成功消息
+success.wallpaper_applied = "壁纸应用成功"
+success.settings_saved = "设置已保存"
+success.workshop_found = "找到 %{count} 个创意工坊壁纸"
+success.daemon_started = "壁纸引擎已启动"
+success.daemon_stopped = "壁纸引擎已停止"
+
+# 守护进程控制
+daemon.start = "启动引擎"
+daemon.stop = "停止引擎"
+daemon.status = "引擎状态"

@@ -1,4 +1,9 @@
 //! Background service module for wayvid-gui
+//!
+//! This module provides background service management that will be used
+//! when daemon integration is fully implemented.
+
+#![allow(dead_code)]
 
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -1,4 +1,7 @@
 //! Async operations for wayvid-gui
+//!
+//! This module provides asynchronous loading of thumbnails and library data,
+//! including disk caching and memory management for efficient wallpaper browsing.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -38,6 +41,13 @@ impl AsyncLoader {
             .unwrap_or_else(|| PathBuf::from("/tmp"))
             .join("wayvid")
             .join("thumbnails");
+
+        // Ensure cache directory exists
+        if !cache_dir.exists() {
+            if let Err(e) = std::fs::create_dir_all(&cache_dir) {
+                tracing::warn!("Failed to create thumbnail cache directory: {}", e);
+            }
+        }
 
         Self {
             pending_thumbnails: Arc::new(RwLock::new(Vec::new())),

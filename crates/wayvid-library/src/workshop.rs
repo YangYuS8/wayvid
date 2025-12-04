@@ -54,9 +54,7 @@ impl SteamLibrary {
             dirs::home_dir().map(|h| h.join(".local/share/Steam")),
             Some(PathBuf::from("/usr/share/steam")),
             // Flatpak Steam
-            dirs::home_dir().map(|h| {
-                h.join(".var/app/com.valvesoftware.Steam/.steam/steam")
-            }),
+            dirs::home_dir().map(|h| h.join(".var/app/com.valvesoftware.Steam/.steam/steam")),
             // Snap Steam
             dirs::home_dir().map(|h| h.join("snap/steam/common/.steam/steam")),
         ];
@@ -78,8 +76,7 @@ impl SteamLibrary {
             return Ok(vec![root.to_path_buf()]);
         }
 
-        let content =
-            fs::read_to_string(&vdf_path).context("Failed to read libraryfolders.vdf")?;
+        let content = fs::read_to_string(&vdf_path).context("Failed to read libraryfolders.vdf")?;
 
         let mut libraries = vec![root.to_path_buf()];
         libraries.extend(Self::parse_vdf_paths(&content));
@@ -133,14 +130,19 @@ impl SteamLibrary {
     pub fn workshop_content_path(&self, app_id: u32) -> Vec<PathBuf> {
         self.all_libraries()
             .into_iter()
-            .map(|lib| lib.join("steamapps/workshop/content").join(app_id.to_string()))
+            .map(|lib| {
+                lib.join("steamapps/workshop/content")
+                    .join(app_id.to_string())
+            })
             .filter(|p| p.exists())
             .collect()
     }
 
     /// Check if Wallpaper Engine is installed
     pub fn has_wallpaper_engine(&self) -> bool {
-        !self.workshop_content_path(WALLPAPER_ENGINE_APP_ID).is_empty()
+        !self
+            .workshop_content_path(WALLPAPER_ENGINE_APP_ID)
+            .is_empty()
     }
 }
 
@@ -255,9 +257,7 @@ impl WorkshopScanner {
 
     /// Scan all Workshop items for Wallpaper Engine
     pub fn scan_all(&mut self) -> Result<Vec<WallpaperItem>> {
-        let workshop_paths = self
-            .steam
-            .workshop_content_path(WALLPAPER_ENGINE_APP_ID);
+        let workshop_paths = self.steam.workshop_content_path(WALLPAPER_ENGINE_APP_ID);
 
         if workshop_paths.is_empty() {
             warn!("⚠️ No Wallpaper Engine Workshop content found");
@@ -340,10 +340,7 @@ impl WorkshopScanner {
 
         // Only support video and scene types for now
         if !project.is_supported() {
-            debug!(
-                "  ⏭️ Skipping unsupported type: {}",
-                project.project_type
-            );
+            debug!("  ⏭️ Skipping unsupported type: {}", project.project_type);
             return Ok(None);
         }
 
@@ -401,9 +398,7 @@ impl WorkshopScanner {
 
     /// Get workshop item by ID
     pub fn get_item(&self, workshop_id: u64) -> Result<Option<WallpaperItem>> {
-        let workshop_paths = self
-            .steam
-            .workshop_content_path(WALLPAPER_ENGINE_APP_ID);
+        let workshop_paths = self.steam.workshop_content_path(WALLPAPER_ENGINE_APP_ID);
 
         for workshop_path in workshop_paths {
             let item_path = workshop_path.join(workshop_id.to_string());
@@ -425,7 +420,7 @@ impl WorkshopScanner {
         workshop_id: u64,
     ) -> Result<Option<WallpaperItem>> {
         // Clone self temporarily to avoid mutation
-        let mut temp_scanner = WorkshopScanner {
+        let temp_scanner = WorkshopScanner {
             steam: self.steam.clone(),
             scanned_ids: HashSet::new(),
         };

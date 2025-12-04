@@ -8,5 +8,6 @@ pub mod thumbnail_image;
 pub mod wallpaper_card;
 
 pub use monitor_selector::MonitorSelector;
-pub use thumbnail_image::ThumbnailImage;
-pub use wallpaper_card::WallpaperCard;
+// TODO: Enable these when needed
+// pub use thumbnail_image::ThumbnailImage;
+// pub use wallpaper_card::WallpaperCard;

@@ -9,8 +9,12 @@
 //! - Real-time wallpaper preview
 //! - Steam Workshop integration
 
+// Initialize rust-i18n at crate root
+rust_i18n::i18n!("locales");
+
 mod app;
 mod async_loader;
+mod i18n;
 mod ipc;
 mod messages;
 mod service;
@@ -31,6 +35,9 @@ fn main() -> Result<()> {
         .init();
 
     tracing::info!("Starting wayvid-gui v{}", env!("CARGO_PKG_VERSION"));
+
+    // Initialize internationalization
+    i18n::init();
 
     // Run the GUI application
     app::run()

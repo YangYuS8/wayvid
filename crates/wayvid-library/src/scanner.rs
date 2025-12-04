@@ -14,8 +14,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result};
-use notify::{RecursiveMode, Watcher};
-use notify_debouncer_mini::{new_debouncer, DebouncedEventKind, Debouncer, DebounceEventResult};
+use notify::RecursiveMode;
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult, DebouncedEventKind, Debouncer};
 use parking_lot::RwLock;
 use rayon::prelude::*;
 use tracing::{debug, info, warn};
@@ -172,7 +172,8 @@ impl FolderScanner {
         // Get file metadata
         let file_size = fs::metadata(path).ok().map(|m| m.len());
 
-        let mut item = WallpaperItem::new(path.to_owned(), name, SourceType::LocalFile, wallpaper_type);
+        let mut item =
+            WallpaperItem::new(path.to_owned(), name, SourceType::LocalFile, wallpaper_type);
 
         // Update metadata with file size
         item.metadata.file_size = file_size;
@@ -293,9 +294,7 @@ impl IncrementalScanner {
             result.files_scanned += 1;
             current_files.insert(file_path.to_owned());
 
-            let modified = fs::metadata(file_path)
-                .ok()
-                .and_then(|m| m.modified().ok());
+            let modified = fs::metadata(file_path).ok().and_then(|m| m.modified().ok());
 
             if let Some(modified) = modified {
                 if let Some(known_modified) = self.known_files.get(file_path) {
@@ -334,7 +333,11 @@ impl IncrementalScanner {
     }
 
     /// Perform parallel incremental scan
-    pub fn scan_incremental_parallel(&mut self, path: &Path, recursive: bool) -> Result<ScanResult> {
+    pub fn scan_incremental_parallel(
+        &mut self,
+        path: &Path,
+        recursive: bool,
+    ) -> Result<ScanResult> {
         let start = Instant::now();
         let mut result = ScanResult::default();
 
@@ -457,10 +460,7 @@ pub struct FileWatcher {
 
 impl FileWatcher {
     /// Create a new file watcher for the given paths
-    pub fn new(
-        paths: Vec<(PathBuf, bool)>,
-        debounce_duration: Duration,
-    ) -> Result<Self> {
+    pub fn new(paths: Vec<(PathBuf, bool)>, debounce_duration: Duration) -> Result<Self> {
         let scanner = FolderScanner::new();
         let (event_tx, event_rx) = channel();
 
@@ -472,7 +472,7 @@ impl FileWatcher {
             if let Ok(events) = res {
                 for event in events {
                     let path = event.path;
-                    
+
                     // Only process wallpaper files
                     if path.is_file() && scanner_clone.is_wallpaper_file(&path) {
                         let file_event = match event.kind {
@@ -492,7 +492,8 @@ impl FileWatcher {
                     }
                 }
             }
-        }).context("Failed to create file watcher")?;
+        })
+        .context("Failed to create file watcher")?;
 
         let mut watcher = Self {
             scanner,
@@ -507,7 +508,10 @@ impl FileWatcher {
             } else {
                 RecursiveMode::NonRecursive
             };
-            watcher.debouncer.watcher().watch(path, mode)
+            watcher
+                .debouncer
+                .watcher()
+                .watch(path, mode)
                 .with_context(|| format!("Failed to watch path: {}", path.display()))?;
         }
 
@@ -528,9 +532,7 @@ impl FileWatcher {
     /// Process event and return WallpaperItem for created/modified files
     pub fn process_event(&self, event: &FileEvent) -> Option<WallpaperItem> {
         match event {
-            FileEvent::Created(path) | FileEvent::Modified(path) => {
-                self.scanner.process_file(path)
-            }
+            FileEvent::Created(path) | FileEvent::Modified(path) => self.scanner.process_file(path),
             FileEvent::Deleted(_) => None,
         }
     }
@@ -625,7 +627,9 @@ mod tests {
         create_test_files(temp_dir.path());
 
         let scanner = FolderScanner::new();
-        let items = scanner.scan_folder_parallel(temp_dir.path(), false).unwrap();
+        let items = scanner
+            .scan_folder_parallel(temp_dir.path(), false)
+            .unwrap();
 
         assert_eq!(items.len(), 3);
     }

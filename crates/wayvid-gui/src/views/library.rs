@@ -4,15 +4,16 @@
 //! search, and filtering capabilities.
 
 use iced::widget::{
-    button, column, container, horizontal_space, row, scrollable, text, text_input, Space,
+    button, column, container, horizontal_space, image, row, scrollable, text, text_input, Space,
 };
 use iced::{Element, Length};
+use rust_i18n::t;
 
 use crate::messages::Message;
-use crate::state::{AppState, WallpaperFilter};
+use crate::state::{AppState, SourceFilter, ThumbnailState, WallpaperFilter};
 
 /// Render the library view
-pub fn view(state: &AppState) -> Element<Message> {
+pub fn view(state: &AppState) -> Element<'_, Message> {
     // Header with search and filters
     let header = view_header(state);
 
@@ -25,19 +26,40 @@ pub fn view(state: &AppState) -> Element<Message> {
     column![header, grid, status]
         .spacing(10)
         .width(Length::Fill)
-        .height(Length::Fill)
         .into()
 }
 
 /// Header with search bar and filter buttons
-fn view_header(state: &AppState) -> Element<Message> {
+fn view_header(state: &AppState) -> Element<'_, Message> {
     // Search input
-    let search = text_input("Search wallpapers...", &state.search_query)
-        .on_input(Message::SearchChanged)
-        .padding(10)
-        .width(Length::Fixed(300.0));
+    let search = text_input(
+        &t!("library.search_placeholder").to_string(),
+        &state.search_query,
+    )
+    .on_input(Message::SearchChanged)
+    .padding(10)
+    .width(Length::Fixed(300.0));
 
-    // Filter buttons
+    // Source filter buttons (Workshop / Local / All)
+    let source_buttons: Vec<Element<Message>> = SourceFilter::all()
+        .iter()
+        .map(|source| {
+            let is_active = state.source_filter == *source;
+            button(text(source.name()))
+                .padding(5)
+                .style(if is_active {
+                    button::primary
+                } else {
+                    button::secondary
+                })
+                .on_press(Message::SourceFilterChanged(*source))
+                .into()
+        })
+        .collect();
+
+    let source_filters = row(source_buttons).spacing(5);
+
+    // Type filter buttons
     let filter_buttons: Vec<Element<Message>> = WallpaperFilter::all()
         .iter()
         .map(|filter| {
@@ -54,24 +76,27 @@ fn view_header(state: &AppState) -> Element<Message> {
         })
         .collect();
 
-    let filters = row(filter_buttons).spacing(5);
+    let type_filters = row(filter_buttons).spacing(5);
 
-    row![search, horizontal_space(), filters]
-        .spacing(20)
-        .into()
+    column![
+        row![search, horizontal_space(), source_filters].spacing(20),
+        type_filters,
+    ]
+    .spacing(10)
+    .into()
 }
 
 /// Wallpaper grid
-fn view_grid(state: &AppState) -> Element<Message> {
+fn view_grid(state: &AppState) -> Element<'_, Message> {
     let wallpapers = state.filtered_wallpapers();
 
     if wallpapers.is_empty() {
         let empty_view = column![
-            text("No wallpapers found").size(24),
+            text(t!("library.no_wallpapers").to_string()).size(24),
             Space::with_height(10),
-            text("Add folders to your library to get started"),
+            text(t!("library.add_folders_hint").to_string()),
             Space::with_height(20),
-            button("Add Folder")
+            button(text(t!("library.add_folder").to_string()))
                 .padding(10)
                 .on_press(Message::AddFolder),
         ]
@@ -79,7 +104,8 @@ fn view_grid(state: &AppState) -> Element<Message> {
         .align_x(iced::Alignment::Center);
 
         return container(empty_view)
-            .center(Length::Fill)
+            .padding(40)
+            .center_x(Length::Fill)
             .into();
     }
 
@@ -110,86 +136,168 @@ fn view_grid(state: &AppState) -> Element<Message> {
         rows.push(row(current_row).spacing(15).into());
     }
 
-    let grid_content = column(rows).spacing(15);
-
-    scrollable(grid_content)
+    let grid_content = container(column(rows).spacing(15))
         .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        .padding(10);
+
+    // Use scrollable with explicit shrink for content
+    scrollable(grid_content).width(Length::Fill).into()
 }
 
 /// Single wallpaper card
-fn wallpaper_card<'a>(wallpaper: &'a wayvid_core::WallpaperItem, state: &'a AppState) -> Element<'a, Message> {
+fn wallpaper_card<'a>(
+    wallpaper: &'a wayvid_core::WallpaperItem,
+    state: &'a AppState,
+) -> Element<'a, Message> {
     let id = wallpaper.id.clone();
     let is_selected = state.selected_wallpaper.as_ref() == Some(&id);
 
-    // Thumbnail (placeholder for now)
-    let thumbnail: Element<Message> = if state.thumbnails.contains_key(&id) {
-        // TODO: Load actual image from data
-        container(text("🖼️").size(48))
+    // Get thumbnail state and display accordingly
+    let thumbnail_state = state.get_thumbnail_state(&id);
+
+    let thumbnail: Element<Message> = match thumbnail_state {
+        ThumbnailState::Loaded => {
+            // Display actual thumbnail image from cached data
+            if let Some(data) = state.thumbnails.get(&id) {
+                let handle = image::Handle::from_bytes(data.clone());
+                container(
+                    image(handle)
+                        .width(Length::Fill)
+                        .height(Length::Fixed(120.0))
+                        .content_fit(iced::ContentFit::Cover),
+                )
+                .width(Length::Fill)
+                .height(Length::Fixed(120.0))
+                .style(container::bordered_box)
+                .into()
+            } else {
+                // Fallback if data is missing (shouldn't happen)
+                container(text(wallpaper.wallpaper_type.icon()).size(48))
+                    .width(Length::Fill)
+                    .height(Length::Fixed(120.0))
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fixed(120.0))
+                    .style(container::bordered_box)
+                    .into()
+            }
+        }
+        ThumbnailState::Loading => {
+            // Show loading indicator
+            container(
+                column![text("⏳").size(32), text(t!("status.loading")).size(10)]
+                    .align_x(iced::Alignment::Center)
+                    .spacing(5),
+            )
             .width(Length::Fill)
             .height(Length::Fixed(120.0))
-            .center(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fixed(120.0))
             .style(container::bordered_box)
             .into()
-    } else {
-        container(text(wallpaper.wallpaper_type.icon()).size(48))
+        }
+        ThumbnailState::Failed(_) => {
+            // Show error indicator with type icon fallback
+            container(
+                column![
+                    text(wallpaper.wallpaper_type.icon()).size(32),
+                    text("⚠").size(12)
+                ]
+                .align_x(iced::Alignment::Center)
+                .spacing(3),
+            )
             .width(Length::Fill)
             .height(Length::Fixed(120.0))
-            .center(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fixed(120.0))
             .style(container::bordered_box)
             .into()
+        }
+        ThumbnailState::NotLoaded => {
+            // Show placeholder with type icon (will be loaded by subscription)
+            let icon = if wallpaper.thumbnail_path.is_some() {
+                "📷" // Has preview image, waiting to load
+            } else {
+                wallpaper.wallpaper_type.icon()
+            };
+            container(text(icon).size(48))
+                .width(Length::Fill)
+                .height(Length::Fixed(120.0))
+                .center_x(Length::Fill)
+                .center_y(Length::Fixed(120.0))
+                .style(container::bordered_box)
+                .into()
+        }
     };
 
     // Card title
     let name = wallpaper.name.clone();
     let title = text(name).size(14).width(Length::Fill);
 
-    // Type badge
-    let type_badge = text(format!("{:?}", wallpaper.wallpaper_type)).size(10);
+    // Source and type badge
+    let source_icon = match wallpaper.source_type {
+        wayvid_core::SourceType::SteamWorkshop => "🎮",
+        wayvid_core::SourceType::LocalFile | wayvid_core::SourceType::LocalDirectory => "📁",
+    };
+    let type_badge = text(format!("{} {:?}", source_icon, wallpaper.wallpaper_type)).size(10);
 
     let card_content = column![thumbnail, title, type_badge]
         .spacing(5)
         .padding(10)
         .width(Length::FillPortion(1));
 
-    let _card_style = if is_selected {
-        container::bordered_box
+    // Card style based on selection
+    let card_style = if is_selected {
+        button::primary
     } else {
-        container::bordered_box
+        button::text
     };
 
     // Make the card clickable
     button(card_content)
-        .style(button::text)
+        .style(card_style)
         .padding(0)
         .on_press(Message::SelectWallpaper(id.clone()))
-        // TODO: Double-click for apply
         .into()
 }
 
 /// Status bar
-fn view_status(state: &AppState) -> Element<Message> {
+fn view_status(state: &AppState) -> Element<'_, Message> {
     let wallpaper_count = state.filtered_wallpapers().len();
     let total_count = state.wallpapers.len();
 
     let count_text = if wallpaper_count == total_count {
-        format!("{} wallpapers", total_count)
+        t!("library.count", count = total_count).to_string()
     } else {
-        format!("{} of {} wallpapers", wallpaper_count, total_count)
+        t!(
+            "library.count_filtered",
+            shown = wallpaper_count,
+            total = total_count
+        )
+        .to_string()
     };
 
-    let loading_text = if state.loading {
-        "Loading..."
+    let status_text = if state.workshop_scanning {
+        t!("status.loading").to_string() + " (Workshop)"
+    } else if state.loading {
+        t!("status.loading").to_string()
     } else {
-        ""
+        String::new()
+    };
+
+    // Workshop availability indicator
+    let workshop_status = if state.workshop_available {
+        text("🎮 Workshop").size(12)
+    } else {
+        text("").size(12)
     };
 
     row![
         text(count_text).size(12),
         horizontal_space(),
-        text(loading_text).size(12),
+        workshop_status,
+        text(status_text).size(12),
     ]
+    .spacing(10)
     .padding(5)
     .into()
 }

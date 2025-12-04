@@ -1,4 +1,8 @@
 //! Thumbnail image widget with async loading support
+//!
+//! This widget will be used when thumbnail caching is implemented.
+
+#![allow(dead_code)]
 
 use iced::widget::{container, text};
 use iced::{Element, Length};
@@ -78,7 +82,8 @@ impl ThumbnailImage {
         container(content)
             .width(Length::Fixed(width))
             .height(Length::Fixed(height))
-            .center(Length::Fill)
+            .center_x(Length::Fixed(width))
+            .center_y(Length::Fixed(height))
             .style(container::bordered_box)
             .into()
     }

@@ -1,0 +1,142 @@
+# English translations for wayvid GUI
+
+# Application
+app.title = "Wayvid"
+
+# Navigation
+nav.library = "Library"
+nav.folders = "Folders"
+nav.monitors = "Monitors"
+nav.settings = "Settings"
+nav.about = "About"
+
+# Status
+status.daemon_running = "Daemon running"
+status.daemon_stopped = "Daemon stopped"
+status.connected = "Connected"
+status.disconnected = "Disconnected"
+status.loading = "Loading..."
+
+# Library view
+library.title = "Wallpaper Library"
+library.search_placeholder = "Search wallpapers..."
+library.no_wallpapers = "No wallpapers found"
+library.add_folders_hint = "Add folders to your library to get started"
+library.add_folder = "Add Folder"
+library.count = "%{count} wallpapers"
+library.count_filtered = "%{shown} of %{total} wallpapers"
+
+# Filters
+filter.all = "All"
+filter.videos = "Videos"
+filter.images = "Images"
+filter.gifs = "GIFs"
+filter.scenes = "Scenes"
+filter.favorites = "Favorites"
+
+# Source filters
+source.all = "All Sources"
+source.workshop = "Workshop"
+source.local = "Local"
+
+# Folders view
+folders.title = "Wallpaper Folders"
+folders.add_folder = "Add Folder"
+folders.add_first = "Add Your First Folder"
+folders.no_folders = "No folders configured"
+folders.no_folders_hint = "Add folders containing your wallpapers to build your library."
+folders.scan = "Scan"
+folders.remove = "Remove"
+folders.wallpaper_count = "%{count} wallpapers"
+folders.never_scanned = "Never scanned"
+
+# Monitors view
+monitors.title = "Monitor Configuration"
+monitors.refresh = "Refresh"
+monitors.no_monitors = "No monitors detected"
+monitors.no_monitors_hint = "Click 'Refresh' to detect connected displays"
+monitors.resolution = "%{width}×%{height}"
+monitors.primary = "Primary"
+monitors.apply = "Apply Wallpaper"
+monitors.clear = "Clear"
+monitors.select_wallpaper = "Select a wallpaper first"
+monitors.current_wallpaper = "Current: %{name}"
+monitors.no_wallpaper = "No wallpaper"
+
+# Settings view
+settings.title = "Settings"
+settings.save = "Save Settings"
+
+# Settings - General
+settings.general = "General"
+settings.autostart = "Start with system"
+settings.autostart_desc = "Launch wayvid when you log in"
+settings.minimize_to_tray = "Minimize to tray"
+settings.minimize_to_tray_desc = "Keep running in background when window is closed"
+
+# Settings - Playback
+settings.playback = "Playback"
+settings.volume = "Volume"
+settings.volume_desc = "Default volume for video wallpapers"
+settings.fps_limit = "FPS Limit"
+settings.fps_limit_desc = "Maximum frame rate (leave empty for unlimited)"
+settings.unlimited = "Unlimited"
+
+# Settings - Power
+settings.power = "Power Management"
+settings.pause_on_battery = "Pause on battery"
+settings.pause_on_battery_desc = "Pause wallpaper playback when on battery power"
+settings.pause_on_fullscreen = "Pause on fullscreen"
+settings.pause_on_fullscreen_desc = "Pause when a fullscreen application is running"
+
+# Settings - Appearance
+settings.appearance = "Appearance"
+settings.theme = "Theme"
+settings.theme_desc = "Switch between light and dark mode"
+settings.toggle_theme = "Toggle Theme"
+
+# Settings - Language
+settings.language = "Language"
+settings.language_desc = "Select your preferred language"
+settings.language_auto = "System Default"
+settings.language_en = "English"
+settings.language_zh = "简体中文"
+
+# About view
+about.title = "Wayvid"
+about.version = "Version %{version}"
+about.description = "A lightweight, high-performance dynamic video wallpaper application for Wayland."
+about.features = "Features:"
+about.feature_wayland = "Native Wayland layer-shell support"
+about.feature_hwdec = "Hardware-accelerated video decoding"
+about.feature_hdr = "HDR and 10-bit video support"
+about.feature_workshop = "Steam Workshop compatibility"
+about.feature_multimon = "Multi-monitor with per-output configuration"
+about.feature_power = "Power-aware playback"
+about.credits = "Credits"
+about.built_with = "Built with:"
+about.license = "Licensed under MIT or Apache-2.0"
+about.github = "GitHub"
+about.docs = "Documentation"
+about.issues = "Report Issue"
+
+# Errors
+error.title = "Error"
+error.dismiss = "Dismiss"
+error.load_library = "Failed to load library: %{error}"
+error.apply_wallpaper = "Failed to apply wallpaper: %{error}"
+error.scan_folder = "Scan failed: %{error}"
+error.save_settings = "Failed to save settings: %{error}"
+error.no_wallpaper = "No wallpaper selected"
+
+# Success messages
+success.wallpaper_applied = "Wallpaper applied successfully"
+success.settings_saved = "Settings saved"
+success.workshop_found = "Found %{count} Workshop wallpapers"
+success.daemon_started = "Wallpaper engine started"
+success.daemon_stopped = "Wallpaper engine stopped"
+
+# Daemon control
+daemon.start = "Start Engine"
+daemon.stop = "Stop Engine"
+daemon.status = "Engine Status"
