@@ -28,7 +28,7 @@ ash-window = { version = "0.13", optional = true }
 raw-window-handle = { version = "0.6", optional = true }
 
 # Video playback (libmpv)
-libmpv-sys = { version = "3.1", optional = true }
+libmpv-sys = "3.1"
 
 # Error handling
 thiserror = "1.0"
@@ -46,7 +46,6 @@ libc = "0.2"
 lz4_flex = "0.11.3"
 
 [features]
-default = ["video-mpv", "backend-wayland"]
-video-mpv = ["dep:libmpv-sys"]
+default = ["backend-wayland"]
 backend-wayland = []
 backend-vulkan = ["dep:ash", "dep:ash-window", "dep:raw-window-handle"]

@@ -1,13 +1,35 @@
 //! wayvid-engine: Video rendering engine for wayvid
 //!
-//! This crate provides the Wayland and video rendering functionality:
+//! This crate provides the core rendering functionality:
 //! - Wayland layer-shell surface management
-//! - MPV video playback integration
+//! - MPV video playback integration  
 //! - EGL/OpenGL rendering
 //! - Vulkan rendering (optional)
 //!
-//! This is a placeholder for Phase 1 - full implementation in Phase 1.3
+//! # Architecture
+//!
+//! ```text
+//! WallpaperEngine
+//!     ├── WaylandBackend (surface management)
+//!     │   └── LayerSurface (per-output)
+//!     └── VideoPlayer (per-surface)
+//!         ├── MpvPlayer (video decoding)
+//!         └── EglContext (OpenGL rendering)
+//! ```
 
-pub fn placeholder() {
-    // TODO: Migrate from src/video/ and src/backend/
-}
+pub mod egl;
+pub mod frame_timing;
+pub mod mpv;
+pub mod wayland;
+
+// Re-exports
+pub use egl::{EglContext, EglWindow};
+pub use frame_timing::FrameTiming;
+pub use mpv::{MpvPlayer, VideoConfig};
+pub use wayland::{LayerSurface, OutputManager};
+
+// Re-exports from wayvid-core
+pub use wayvid_core::{
+    calculate_layout, HdrMetadata, HdrMode, HwdecMode, LayoutMode,
+    LayoutTransform, OutputInfo, RenderBackend, ToneMappingConfig,
+};
