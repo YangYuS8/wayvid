@@ -80,16 +80,16 @@ impl<'a, M: Clone + 'a> MonitorSelector<'a, M> {
 
         let monitors_row = row(monitor_cards).spacing(20).align_y(Alignment::End);
 
-        column![text("Select Monitor").size(18), Space::with_height(10), monitors_row]
-            .spacing(10)
-            .into()
+        column![
+            text("Select Monitor").size(18),
+            Space::with_height(10),
+            monitors_row
+        ]
+        .spacing(10)
+        .into()
     }
 
-    fn build_monitor_card(
-        &self,
-        monitor: &'a MonitorInfo,
-        is_selected: bool,
-    ) -> Element<'a, M> {
+    fn build_monitor_card(&self, monitor: &'a MonitorInfo, is_selected: bool) -> Element<'a, M> {
         let scaled_width = (monitor.width as f32 * self.config.preview_scale)
             .max(self.config.min_preview_width)
             .min(self.config.max_preview_width);
@@ -127,7 +127,12 @@ impl<'a, M: Clone + 'a> MonitorSelector<'a, M> {
         .spacing(4);
 
         let wallpaper_info = if let Some(ref wp) = monitor.current_wallpaper {
-            text(wp.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "Wallpaper".into())).size(10)
+            text(
+                wp.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "Wallpaper".into()),
+            )
+            .size(10)
         } else {
             text("No wallpaper").size(10)
         };
@@ -137,7 +142,11 @@ impl<'a, M: Clone + 'a> MonitorSelector<'a, M> {
             .align_x(Alignment::Center);
 
         let mut btn = button(card_content)
-            .style(if is_selected { button::primary } else { button::secondary })
+            .style(if is_selected {
+                button::primary
+            } else {
+                button::secondary
+            })
             .padding(8);
 
         if let Some(ref on_select) = self.on_select {

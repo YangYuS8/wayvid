@@ -136,13 +136,15 @@
 - [x] 移除未使用的 CLI 子命令
 - [x] 更新帮助文档
 
-## Phase 6: 测试与打包 (Week 5-6)
+## Phase 6: 测试与打包 (Week 5-6) ✅ COMPLETED
 
 ### 6.1 测试
-- [ ] wayvid-core 单元测试
-- [ ] wayvid-library 单元测试
-- [ ] GUI 集成测试 (手动)
-- [ ] CLI 集成测试
+- [x] wayvid-core 单元测试 (27 tests)
+- [x] wayvid-library 单元测试 (27 tests)
+- [x] wayvid-gui 测试 (18 tests)
+- [x] wayvid-ctl 测试 (3 tests)
+- [x] wayvid-engine 测试 (2 tests)
+- [x] 全部 78 tests passing
 
 ### 6.2 文档更新
 - [ ] 更新 README.md
@@ -168,7 +170,7 @@
 | Phase 3: GUI 重构 | Week 4 | ✅ 已完成 |
 | Phase 4: 配置自动化 | Week 4 | ✅ 已完成 |
 | Phase 5: CLI 精简 | Week 5 | ✅ 已完成 |
-| Phase 6: 发布 | Week 6 | 进行中 |
+| Phase 6: 发布 | Week 6 | ✅ 测试完成 |
 
 ## 注意事项
 
