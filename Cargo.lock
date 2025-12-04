@@ -4818,7 +4818,7 @@ dependencies = [
 
 [[package]]
 name = "wayvid"
-version = "0.4.5-alpha.1"
+version = "0.4.5-alpha.2"
 dependencies = [
  "anyhow",
  "ash",

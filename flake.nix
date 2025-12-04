@@ -25,7 +25,7 @@
         
         wayvid = rustPlatform.buildRustPackage rec {
           pname = "wayvid";
-          version = "0.4.5-alpha.1";
+          version = "0.4.5-alpha.2";
 
           src = ./.;
 

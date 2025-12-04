@@ -1,5 +1,10 @@
 ## [unreleased]
 
+### 📚 Documentation
+
+- Improve systemd service configuration for niri users
+## [0.4.5-alpha.1] - 2025-12-04
+
 ### 🚀 Features
 
 - Add project logo to README, docs, and packaging
@@ -18,6 +23,10 @@
 ### 🎨 Styling
 
 - Apply rustfmt and add demo section to README
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare v0.4.5-alpha.1
 ## [0.4.4] - 2025-12-03
 
 ### 🐛 Bug Fixes
