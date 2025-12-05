@@ -32,16 +32,10 @@ echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
 #### Option 1: Direct run (no installation)
 
 ```bash
-# Run wayvid directly from GitHub
+# Run wayvid-gui directly from GitHub
 nix run github:YangYuS8/wayvid
 
-# Run with config
-nix run github:YangYuS8/wayvid -- run --config ~/.config/wayvid/config.yaml
-
-# Check system capabilities
-nix run github:YangYuS8/wayvid -- check
-
-# Run wayvid-ctl
+# Run wayvid-ctl to check status
 nix run github:YangYuS8/wayvid#wayvid-ctl -- status
 ```
 
@@ -51,9 +45,9 @@ nix run github:YangYuS8/wayvid#wayvid-ctl -- status
 # Install to user profile
 nix profile install github:YangYuS8/wayvid
 
-# Now wayvid is in PATH
-wayvid check
-wayvid run --config ~/.config/wayvid/config.yaml
+# Now wayvid-gui and wayvid-ctl are in PATH
+wayvid-gui
+wayvid-ctl status
 ```
 
 #### Option 3: Add to NixOS configuration
@@ -104,7 +98,7 @@ Add to `home.nix`:
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${wayvid.packages.x86_64-linux.default}/bin/wayvid run --config %h/.config/wayvid/config.yaml";
+      ExecStart = "${wayvid.packages.x86_64-linux.default}/bin/wayvid-gui";
       Restart = "on-failure";
     };
     Install = {
@@ -125,7 +119,7 @@ cd wayvid
 nix build
 
 # Result is in ./result
-./result/bin/wayvid --version
+./result/bin/wayvid-gui --version
 
 # Install to profile
 nix profile install .
@@ -160,11 +154,11 @@ nix develop
 # Build
 cargo build
 
-# Run
-cargo run --bin wayvid -- check
+# Run GUI
+cargo run --bin wayvid-gui
 
 # Watch mode (auto-rebuild on changes)
-cargo watch -x 'run --bin wayvid -- check'
+cargo watch -x 'run --bin wayvid-gui'
 
 # Run tests
 cargo test
@@ -239,14 +233,11 @@ nix profile remove <index>
 ### Running Apps
 
 ```bash
-# Run default app (wayvid)
+# Run default app (wayvid-gui)
 nix run github:YangYuS8/wayvid
 
-# Run specific app
+# Run wayvid-ctl
 nix run github:YangYuS8/wayvid#wayvid-ctl -- status
-
-# Pass arguments
-nix run github:YangYuS8/wayvid -- run --config /path/to/config.yaml
 ```
 
 ### Development
@@ -313,7 +304,7 @@ nix build
 ```bash
 # Install mpv system-wide or use nix-shell
 nix-shell -p mpv
-./result/bin/wayvid check
+./result/bin/wayvid-gui
 ```
 
 **Error**: Wayland socket not found
