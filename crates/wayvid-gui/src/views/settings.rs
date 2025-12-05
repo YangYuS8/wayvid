@@ -38,6 +38,21 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
 
     // Playback section
     let volume_pct = (state.app_settings.playback.volume * 100.0) as u32;
+    let fps_options: Vec<String> = vec![
+        t!("settings.unlimited").to_string(),
+        "30 FPS".to_string(),
+        "60 FPS".to_string(),
+        "120 FPS".to_string(),
+        "144 FPS".to_string(),
+    ];
+    let current_fps = match state.app_settings.playback.fps_limit {
+        None => t!("settings.unlimited").to_string(),
+        Some(30) => "30 FPS".to_string(),
+        Some(60) => "60 FPS".to_string(),
+        Some(120) => "120 FPS".to_string(),
+        Some(144) => "144 FPS".to_string(),
+        Some(fps) => format!("{} FPS", fps),
+    };
     let playback_section = section(
         &t!("settings.playback"),
         column![
@@ -58,10 +73,25 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             setting_row(
                 &t!("settings.fps_limit"),
                 &t!("settings.fps_limit_desc"),
-                text(match state.app_settings.playback.fps_limit {
-                    Some(fps) => format!("{} FPS", fps),
-                    None => t!("settings.unlimited").to_string(),
-                }),
+                pick_list(
+                    fps_options,
+                    Some(current_fps),
+                    |selected: String| {
+                        let limit = if selected.contains("30") {
+                            Some(30)
+                        } else if selected.contains("60") {
+                            Some(60)
+                        } else if selected.contains("120") {
+                            Some(120)
+                        } else if selected.contains("144") {
+                            Some(144)
+                        } else {
+                            None
+                        };
+                        Message::FpsLimitChanged(limit)
+                    }
+                )
+                .width(Length::Fixed(150.0)),
             ),
         ]
         .spacing(15),
