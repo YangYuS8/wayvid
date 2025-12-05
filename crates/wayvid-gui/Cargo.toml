@@ -53,3 +53,23 @@ default = []
 
 [dev-dependencies]
 tempfile = "3.8"
+
+[package.metadata.deb]
+name = "wayvid"
+maintainer = "wayvid contributors"
+copyright = "2024-2025, wayvid contributors"
+license-file = ["../../LICENSE-MIT", "0"]
+extended-description = """\
+A dynamic wallpaper engine for Wayland compositors.
+Supports video, image, and GIF wallpapers with smooth playback
+and low resource consumption."""
+depends = "$auto"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/wayvid-gui", "usr/bin/", "755"],
+    ["target/release/wayvid-ctl", "usr/bin/", "755"],
+    ["../../packaging/wayvid-gui.desktop", "usr/share/applications/wayvid.desktop", "644"],
+    ["../../logo.svg", "usr/share/icons/hicolor/scalable/apps/wayvid.svg", "644"],
+    ["../../README.md", "usr/share/doc/wayvid/README.md", "644"],
+]
