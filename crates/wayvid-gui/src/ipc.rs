@@ -477,39 +477,166 @@ pub async fn clear_wallpaper_ipc(output: &str) -> Result<(), String> {
     client.stop(Some(output)).await.map_err(|e| e.to_string())
 }
 
-/// Async function to get monitors from daemon via IPC
-pub async fn get_monitors_ipc() -> Vec<crate::state::MonitorInfo> {
-    let client = IpcClient::new();
+/// Parse monitor information from wlr-randr output
+///
+/// This provides a reliable way to detect monitors on Wayland compositors
+/// that support wlr-output-management protocol (sway, hyprland, niri, etc.)
+async fn get_monitors_from_wlr_randr() -> Option<Vec<crate::state::MonitorInfo>> {
+    use std::process::Command;
 
-    match client.get_outputs().await {
-        Ok(outputs) => outputs
-            .into_iter()
-            .map(|o| crate::state::MonitorInfo {
-                name: o.name,
-                width: o.width,
-                height: o.height,
-                x: o.x,
-                y: o.y,
-                scale: 1.0, // OutputInfo doesn't have scale, default to 1.0
-                primary: o.primary,
-                current_wallpaper: None, // Will be updated from status
-            })
-            .collect(),
-        Err(e) => {
-            tracing::warn!("Failed to get monitors from daemon: {}", e);
-            // Return mock data as fallback
-            vec![crate::state::MonitorInfo {
-                name: "eDP-1".to_string(),
-                width: 1920,
-                height: 1080,
-                x: 0,
-                y: 0,
-                scale: 1.0,
-                primary: true,
-                current_wallpaper: None,
-            }]
+    let output = Command::new("wlr-randr").output().ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut monitors = Vec::new();
+    let mut current_monitor: Option<crate::state::MonitorInfo> = None;
+
+    for line in stdout.lines() {
+        // Output name line (not indented)
+        // Format: "eDP-1 \"AU Optronics 0x573D (eDP-1)\""
+        if !line.starts_with(' ') && !line.is_empty() {
+            // Save previous monitor if exists
+            if let Some(monitor) = current_monitor.take() {
+                monitors.push(monitor);
+            }
+
+            // Extract output name (first word before space or quote)
+            let name = line.split_whitespace().next().unwrap_or("").to_string();
+            if !name.is_empty() {
+                current_monitor = Some(crate::state::MonitorInfo {
+                    name,
+                    width: 0,
+                    height: 0,
+                    x: 0,
+                    y: 0,
+                    scale: 1.0,
+                    primary: monitors.is_empty(), // First monitor is primary
+                    current_wallpaper: None,
+                });
+            }
+        }
+        // Current mode line (indented, marked with "current")
+        // Format: "    2160x1440 px, 60.000000 Hz (preferred, current)"
+        else if let Some(ref mut monitor) = current_monitor {
+            let trimmed = line.trim();
+
+            // Parse current resolution
+            if trimmed.contains("current") && trimmed.contains(" px") {
+                if let Some(resolution) = trimmed.split(" px").next() {
+                    let parts: Vec<&str> = resolution.split('x').collect();
+                    if parts.len() == 2 {
+                        monitor.width = parts[0].trim().parse().unwrap_or(0);
+                        monitor.height = parts[1].trim().parse().unwrap_or(0);
+                    }
+                }
+            }
+            // Parse position
+            // Format: "  Position: 0,0"
+            else if trimmed.starts_with("Position:") {
+                if let Some(pos) = trimmed.strip_prefix("Position:") {
+                    let pos = pos.trim();
+                    let parts: Vec<&str> = pos.split(',').collect();
+                    if parts.len() == 2 {
+                        monitor.x = parts[0].trim().parse().unwrap_or(0);
+                        monitor.y = parts[1].trim().parse().unwrap_or(0);
+                    }
+                }
+            }
+            // Parse scale
+            // Format: "  Scale: 1.250000"
+            else if trimmed.starts_with("Scale:") {
+                if let Some(scale_str) = trimmed.strip_prefix("Scale:") {
+                    monitor.scale = scale_str.trim().parse().unwrap_or(1.0);
+                }
+            }
         }
     }
+
+    // Don't forget the last monitor
+    if let Some(monitor) = current_monitor {
+        monitors.push(monitor);
+    }
+
+    if monitors.is_empty() {
+        None
+    } else {
+        Some(monitors)
+    }
+}
+
+/// Async function to get monitors
+///
+/// Tries multiple methods in order:
+/// 1. IPC from running engine/daemon
+/// 2. wlr-randr (for wlr-based compositors: sway, hyprland, niri)
+/// 3. Mock fallback data
+pub async fn get_monitors_ipc() -> Vec<crate::state::MonitorInfo> {
+    tracing::debug!("get_monitors_ipc: starting monitor detection");
+    let client = IpcClient::new();
+
+    // Try IPC first (only if socket exists and returns non-empty results)
+    if client.socket_exists() {
+        match client.get_outputs().await {
+            Ok(outputs) if !outputs.is_empty() => {
+                tracing::debug!("get_monitors_ipc: got {} monitors from IPC", outputs.len());
+                return outputs
+                    .into_iter()
+                    .map(|o| crate::state::MonitorInfo {
+                        name: o.name,
+                        width: o.width,
+                        height: o.height,
+                        x: o.x,
+                        y: o.y,
+                        scale: 1.0, // OutputInfo doesn't have scale, default to 1.0
+                        primary: o.primary,
+                        current_wallpaper: None, // Will be updated from status
+                    })
+                    .collect();
+            }
+            Ok(_) => {
+                tracing::debug!("IPC returned empty outputs, trying wlr-randr");
+            }
+            Err(e) => {
+                tracing::debug!("IPC error: {}, trying wlr-randr", e);
+            }
+        }
+    } else {
+        tracing::debug!("IPC socket not available, trying wlr-randr");
+    }
+
+    // Try wlr-randr as fallback
+    tracing::debug!("get_monitors_ipc: trying wlr-randr fallback");
+    if let Some(monitors) = get_monitors_from_wlr_randr().await {
+        tracing::info!("Detected {} monitors via wlr-randr", monitors.len());
+        for m in &monitors {
+            tracing::debug!(
+                "  Monitor: {} ({}x{} @ {},{}, scale {})",
+                m.name,
+                m.width,
+                m.height,
+                m.x,
+                m.y,
+                m.scale
+            );
+        }
+        return monitors;
+    }
+
+    tracing::warn!("Could not detect monitors, using mock data");
+    // Return mock data as last resort fallback
+    vec![crate::state::MonitorInfo {
+        name: "eDP-1".to_string(),
+        width: 1920,
+        height: 1080,
+        x: 0,
+        y: 0,
+        scale: 1.0,
+        primary: true,
+        current_wallpaper: None,
+    }]
 }
 
 /// Start the playback engine
@@ -521,15 +648,15 @@ pub async fn start_playback_engine() -> Result<(), String> {
     // In v0.5, the engine is integrated into the GUI
     // The IPC server is started automatically when the GUI starts
     // This function is now a no-op that always succeeds
-    // 
+    //
     // Future implementation may initialize the playback subsystem here
     // if it's not auto-started with the GUI
-    
+
     let client = IpcClient::new();
     if client.is_running().await {
         return Ok(());
     }
-    
+
     // Engine should auto-start with GUI, if not running there might be an issue
     // For now, we just report success as the engine initialization
     // is handled elsewhere in the GUI startup sequence

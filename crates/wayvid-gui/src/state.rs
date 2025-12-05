@@ -176,8 +176,11 @@ impl AppState {
             detail_panel_visible,
         };
 
-        // Start scanning Workshop on startup
-        let task = Task::perform(async {}, |_| Message::ScanWorkshop);
+        // Start scanning Workshop and refreshing monitors on startup
+        let task = Task::batch([
+            Task::perform(async {}, |_| Message::ScanWorkshop),
+            Task::perform(async {}, |_| Message::RefreshMonitors),
+        ]);
 
         (state, task)
     }
