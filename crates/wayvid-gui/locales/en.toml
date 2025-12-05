@@ -39,6 +39,16 @@ source.all = "All Sources"
 source.workshop = "Workshop"
 source.local = "Local"
 
+# Detail panel
+detail.author = "Author:"
+detail.type = "Type:"
+detail.source = "Source:"
+detail.tags = "Tags:"
+detail.description = "Description:"
+detail.apply = "Apply"
+detail.apply_to_monitor = "Apply to Monitor:"
+detail.select_wallpaper = "Select a wallpaper to view details"
+
 # Folders view
 folders.title = "Wallpaper Folders"
 folders.add_folder = "Add Folder"
@@ -94,6 +104,8 @@ settings.appearance = "Appearance"
 settings.theme = "Theme"
 settings.theme_desc = "Switch between light and dark mode"
 settings.toggle_theme = "Toggle Theme"
+settings.renderer = "Renderer"
+settings.renderer_desc = "GPU backend (restart required)"
 
 # Settings - Language
 settings.language = "Language"

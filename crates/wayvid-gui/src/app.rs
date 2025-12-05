@@ -262,6 +262,29 @@ impl App {
                 Task::none()
             }
 
+            // Layout
+            Message::ToggleSidebar => {
+                self.state.toggle_sidebar();
+                self.state.app_settings.gui.sidebar_collapsed = self.state.sidebar_collapsed;
+                self.trigger_settings_save();
+                Task::none()
+            }
+            Message::ToggleDetailPanel => {
+                self.state.toggle_detail_panel();
+                self.state.app_settings.gui.detail_panel_visible = self.state.detail_panel_visible;
+                self.trigger_settings_save();
+                Task::none()
+            }
+
+            // Renderer
+            Message::ChangeRenderer(renderer) => {
+                self.state.app_settings.gui.renderer = renderer;
+                self.trigger_settings_save();
+                // Note: Renderer change requires restart to take effect
+                self.state.status_message = Some(t!("settings.restart_required").to_string());
+                Task::none()
+            }
+
             // Error handling
             Message::DismissError => {
                 self.state.error = None;
@@ -421,8 +444,11 @@ impl App {
             .into()
     }
 
-    /// Render the sidebar navigation
+    /// Render the sidebar navigation (fixed, no collapse)
     fn sidebar(&self) -> Element<'_, Message> {
+        let sidebar_width = 180.0;
+
+        // Navigation button helper
         fn nav_button(label: String, view: View, current: View) -> Element<'static, Message> {
             let is_active = view == current;
             button(text(label))
@@ -437,9 +463,11 @@ impl App {
                 .into()
         }
 
+        let header = text(t!("app.title").to_string()).size(20);
+
         let nav = column![
-            text(t!("app.title").to_string()).size(24),
-            Space::with_height(20),
+            header,
+            Space::with_height(15),
             nav_button(
                 t!("nav.library").to_string(),
                 View::Library,
@@ -448,11 +476,6 @@ impl App {
             nav_button(
                 t!("nav.folders").to_string(),
                 View::Folders,
-                self.state.current_view
-            ),
-            nav_button(
-                t!("nav.monitors").to_string(),
-                View::Monitors,
                 self.state.current_view
             ),
             nav_button(
@@ -468,7 +491,7 @@ impl App {
         ]
         .spacing(5)
         .padding(15)
-        .width(Length::Fixed(200.0));
+        .width(Length::Fixed(sidebar_width));
 
         // Status indicator and daemon control at bottom
         let status = if self.state.daemon_connected {
@@ -502,14 +525,54 @@ impl App {
                 .on_press(Message::StartDaemon)
         };
 
+        // Monitor selector section (at bottom of sidebar)
+        let monitor_selector: Element<Message> = if self.state.monitors.is_empty() {
+            text(t!("monitors.no_monitors").to_string()).size(12).into()
+        } else {
+            let monitor_buttons: Vec<Element<Message>> = self
+                .state
+                .monitors
+                .iter()
+                .map(|m| {
+                    let is_selected = self.monitor_view.selected_monitor() == Some(m.name.as_str());
+                    let label = format!("{} ({}x{})", m.name, m.width, m.height);
+                    button(text(label).size(11))
+                        .padding(6)
+                        .width(Length::Fill)
+                        .style(if is_selected {
+                            button::primary
+                        } else {
+                            button::secondary
+                        })
+                        .on_press(Message::SelectMonitor(m.name.clone()))
+                        .into()
+                })
+                .collect();
+
+            column(monitor_buttons).spacing(4).into()
+        };
+
+        let monitor_section = column![
+            text(t!("nav.monitors").to_string()).size(14),
+            Space::with_height(5),
+            monitor_selector,
+        ]
+        .spacing(3)
+        .padding(10);
+
         let sidebar_content = column![
             nav,
+            Space::with_height(Length::Fill),
+            container(monitor_section)
+                .style(container::bordered_box)
+                .width(Length::Fill),
             container(column![status, Space::with_height(10), daemon_button].spacing(5))
                 .padding(15),
         ];
 
         container(sidebar_content)
             .style(container::bordered_box)
+            .width(Length::Fixed(sidebar_width))
             .height(Length::Fill)
             .into()
     }

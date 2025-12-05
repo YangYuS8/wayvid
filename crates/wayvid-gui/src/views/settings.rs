@@ -88,15 +88,30 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
     );
 
     // Appearance section
+    let renderer_options = vec!["vulkan".to_string(), "opengl".to_string()];
+    let current_renderer = state.app_settings.gui.renderer.clone();
+
     let theme_section = section(
         &t!("settings.appearance"),
-        column![setting_row(
-            &t!("settings.theme"),
-            &t!("settings.theme_desc"),
-            button(text(t!("settings.toggle_theme").to_string()))
-                .padding([5, 10])
-                .on_press(Message::ToggleTheme),
-        ),]
+        column![
+            setting_row(
+                &t!("settings.theme"),
+                &t!("settings.theme_desc"),
+                button(text(t!("settings.toggle_theme").to_string()))
+                    .padding([5, 10])
+                    .on_press(Message::ToggleTheme),
+            ),
+            setting_row(
+                &t!("settings.renderer"),
+                &t!("settings.renderer_desc"),
+                pick_list(
+                    renderer_options,
+                    Some(current_renderer),
+                    Message::ChangeRenderer
+                )
+                .width(Length::Fixed(150.0)),
+            ),
+        ]
         .spacing(15),
     );
 

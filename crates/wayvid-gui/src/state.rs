@@ -102,6 +102,12 @@ pub struct AppState {
 
     /// Last daemon status received
     pub last_daemon_status: Option<DaemonStatus>,
+
+    /// Sidebar collapsed state
+    pub sidebar_collapsed: bool,
+
+    /// Detail panel visible state
+    pub detail_panel_visible: bool,
 }
 
 impl AppState {
@@ -131,6 +137,10 @@ impl AppState {
 
         // Check if autostart is actually enabled (sync with system state)
         let autostart_enabled = AutostartManager::is_enabled();
+
+        // Extract GUI settings before moving app_settings
+        let sidebar_collapsed = app_settings.gui.sidebar_collapsed;
+        let detail_panel_visible = app_settings.gui.detail_panel_visible;
 
         let state = Self {
             current_view: View::Library,
@@ -162,6 +172,8 @@ impl AppState {
             workshop_available,
             ipc_state: ConnectionState::Disconnected,
             last_daemon_status: None,
+            sidebar_collapsed,
+            detail_panel_visible,
         };
 
         // Start scanning Workshop on startup
@@ -331,6 +343,23 @@ impl AppState {
                 source_match && type_match && search_match
             })
             .collect()
+    }
+
+    /// Get the currently selected wallpaper
+    pub fn get_selected_wallpaper(&self) -> Option<&WallpaperItem> {
+        self.selected_wallpaper
+            .as_ref()
+            .and_then(|id| self.wallpapers.iter().find(|wp| &wp.id == id))
+    }
+
+    /// Toggle sidebar collapsed state
+    pub fn toggle_sidebar(&mut self) {
+        self.sidebar_collapsed = !self.sidebar_collapsed;
+    }
+
+    /// Toggle detail panel visibility
+    pub fn toggle_detail_panel(&mut self) {
+        self.detail_panel_visible = !self.detail_panel_visible;
     }
 }
 

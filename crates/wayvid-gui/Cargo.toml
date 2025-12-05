@@ -19,7 +19,7 @@ wayvid-core = { path = "../wayvid-core" }
 wayvid-library = { path = "../wayvid-library" }
 
 # GUI framework
-iced = { version = "0.13", features = ["tokio", "image", "lazy", "advanced"] }
+iced = { version = "0.13", features = ["tokio", "image", "lazy", "advanced", "svg"] }
 
 # Async runtime
 tokio = { version = "1.0", features = ["rt-multi-thread", "sync", "fs", "macros", "time"] }

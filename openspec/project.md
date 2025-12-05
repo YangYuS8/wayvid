@@ -148,7 +148,13 @@ cargo test -- --nocapture     # Show println! output
 #### Commit Conventions (Conventional Commits)
 Format: `<type>(<scope>): <subject>`
 
-**Language Rule: All commit messages MUST be written in English.**
+**⚠️ IMPORTANT: All Git messages (commits, branches, tags, PR titles) MUST be written in English.**
+
+This applies to:
+- Commit subjects and bodies
+- Branch names
+- Tag names and annotations
+- Pull request titles and descriptions
 
 **Types:**
 - `feat`: New feature

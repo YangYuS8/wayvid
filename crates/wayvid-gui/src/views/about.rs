@@ -2,16 +2,27 @@
 //!
 //! Shows version, credits, and links.
 
-use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
+use iced::widget::{button, column, container, horizontal_rule, row, svg, text, Space};
 use iced::{Element, Length};
 use rust_i18n::t;
 
 use crate::messages::Message;
 use crate::state::AppState;
 
+/// Logo SVG data (embedded at compile time)
+const LOGO_SVG: &[u8] = include_bytes!("../../../../logo.svg");
+
 /// Render the about view
 pub fn view(_state: &AppState) -> Element<'_, Message> {
-    let logo = text(format!("🎬 {}", t!("about.title"))).size(48);
+    // Logo image using SVG widget
+    let logo_handle = svg::Handle::from_memory(LOGO_SVG);
+    let logo_image = svg(logo_handle)
+        .width(Length::Fixed(64.0))
+        .height(Length::Fixed(64.0));
+
+    let logo_row = row![logo_image, text(t!("about.title").to_string()).size(48)]
+        .spacing(16)
+        .align_y(iced::Alignment::Center);
 
     let version =
         text(t!("about.version", version = env!("CARGO_PKG_VERSION")).to_string()).size(16);
@@ -56,7 +67,7 @@ pub fn view(_state: &AppState) -> Element<'_, Message> {
     let license = text(t!("about.license").to_string()).size(12);
 
     let content = column![
-        logo,
+        logo_row,
         version,
         Space::with_height(10),
         description,
@@ -77,7 +88,12 @@ pub fn view(_state: &AppState) -> Element<'_, Message> {
     .align_x(iced::Alignment::Center)
     .width(Length::Fill);
 
-    container(content).center_x(Length::Fill).padding(20).into()
+    container(content)
+        .center_x(Length::Fill)
+        .padding(20)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }
 
 /// Create a link button

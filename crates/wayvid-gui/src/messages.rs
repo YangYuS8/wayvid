@@ -83,6 +83,16 @@ pub enum Message {
     /// Toggle between light and dark theme
     ToggleTheme,
 
+    // Layout
+    /// Toggle sidebar collapsed state
+    ToggleSidebar,
+    /// Toggle detail panel visibility
+    ToggleDetailPanel,
+
+    // Renderer
+    /// Change renderer backend (requires restart)
+    ChangeRenderer(String),
+
     // Error handling
     /// Dismiss the current error
     DismissError,

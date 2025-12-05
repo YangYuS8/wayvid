@@ -52,6 +52,12 @@ pub struct GuiSettings {
     pub theme: String,
     /// Language
     pub language: String,
+    /// Renderer backend (vulkan/opengl)
+    pub renderer: String,
+    /// Sidebar collapsed state
+    pub sidebar_collapsed: bool,
+    /// Detail panel visible
+    pub detail_panel_visible: bool,
 }
 
 impl Default for GuiSettings {
@@ -63,6 +69,9 @@ impl Default for GuiSettings {
             start_minimized: false,
             theme: "dark".to_string(),
             language: "system".to_string(),
+            renderer: "vulkan".to_string(),
+            sidebar_collapsed: false,
+            detail_panel_visible: true,
         }
     }
 }

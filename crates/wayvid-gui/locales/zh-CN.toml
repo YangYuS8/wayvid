@@ -39,6 +39,16 @@ source.all = "全部来源"
 source.workshop = "创意工坊"
 source.local = "本地"
 
+# 详情面板
+detail.author = "作者："
+detail.type = "类型："
+detail.source = "来源："
+detail.tags = "标签："
+detail.description = "描述："
+detail.apply = "应用"
+detail.apply_to_monitor = "应用到显示器："
+detail.select_wallpaper = "选择壁纸以查看详情"
+
 # 文件夹视图
 folders.title = "壁纸文件夹"
 folders.add_folder = "添加文件夹"
@@ -94,6 +104,8 @@ settings.appearance = "外观"
 settings.theme = "主题"
 settings.theme_desc = "切换浅色和深色模式"
 settings.toggle_theme = "切换主题"
+settings.renderer = "渲染器"
+settings.renderer_desc = "GPU 后端（需要重启）"
 
 # 设置 - 语言
 settings.language = "语言"

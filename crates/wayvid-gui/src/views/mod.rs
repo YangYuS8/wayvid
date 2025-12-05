@@ -18,7 +18,8 @@ pub enum View {
     Library,
     /// Folder management
     Folders,
-    /// Monitor management
+    /// Monitor management (accessed via sidebar selector)
+    #[allow(dead_code)]
     Monitors,
     /// Application settings
     Settings,
