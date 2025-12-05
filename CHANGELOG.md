@@ -1,36 +1,52 @@
-## [unreleased]
-
-## [0.5.0-alpha.1] - 2025-06-15
+## [0.5.0-alpha.1] - 2025-12-05
 
 ### 🚀 Features
 
-- **GUI-first architecture**: Complete rewrite with modular crate structure
-- **New crate system**: Split into wayvid-core, wayvid-engine, wayvid-library, wayvid-gui, wayvid-ctl
-- **iced GUI framework**: Modern, responsive GUI with wallpaper browser and thumbnails
-- **SQLite-backed library**: Wallpaper library with metadata, tags, and search
-- **Async wallpaper loader**: Background thumbnail generation and caching
-- **Monitor management**: Visual monitor selection with independent wallpaper per display
-- **Settings panel**: GUI-based configuration with autostart and power management
-- **Unified IPC protocol**: Shared protocol between wayvid-core and all tools
+- *(v0.5)* Create workspace structure and wayvid-core crate
+- *(engine)* 完成 wayvid-engine 核心模块迁移
+- *(library)* Implement wayvid-library crate
+- *(gui)* Implement wayvid-gui crate with iced framework
+- *(ctl)* Enhance wayvid-ctl CLI with IPC support
+- *(library)* Phase 2 - wayvid-library 模块深化
+- *(gui)* Phase 3 - GUI refinement and componentization
+- *(gui)* Phase 4 - Configuration automation
+- *(core)* Phase 5 - IPC protocol unification
+- *(gui)* Implement async thumbnail loading, settings persistence, and GUI-daemon IPC
+- *(gui)* Improve layout and user experience
 
-### 🔧 Improvements
+### 🐛 Bug Fixes
 
-- Simplified user workflow: Open GUI → Browse → Apply
-- Centralized configuration in wayvid-core
-- Proper error handling with thiserror across all crates
-- Comprehensive test coverage (78 tests across workspace)
+- Update generate_id function to accept Path instead of PathBuf
+- Resolve clippy warnings to pass CI checks
 
 ### 📚 Documentation
 
-- Updated README with GUI-first usage instructions
-- Simplified installation and usage documentation
+- Update tasks.md with Phase 1.1 progress
+- *(openspec)* Update GUI framework from egui to iced
+- Phase 6.2-6.4 - Update documentation and packaging for v0.5
 
-### ⚠️ Breaking Changes
+### 🎨 Styling
 
-- Old wayvid daemon binary removed; use wayvid-gui or wayvid-ctl
-- Configuration now managed via GUI settings panel
-- Legacy config.yaml still supported for advanced users
+- Apply rustfmt formatting (fix CI formatting check)
 
+### 🧪 Testing
+
+- Phase 6 - verify full test suite
+
+### ⚙️ Miscellaneous Tasks
+
+- Archive old proposals, create v0.5 GUI-first refactor proposal
+- Complete v0.5 GUI-first refactor cleanup
+- Remove legacy locales directory (egui i18n files)
+## [0.4.5-alpha.2] - 2025-12-04
+
+### 📚 Documentation
+
+- Improve systemd service configuration for niri users
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* Prepare v0.4.5-alpha.2
 ## [0.4.5-alpha.1] - 2025-12-04
 
 ### 🚀 Features
