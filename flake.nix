@@ -57,6 +57,14 @@
             install -Dm644 configs/config.example.yaml \
               $out/share/wayvid/config.example.yaml
 
+            # Install desktop file
+            install -Dm644 packaging/wayvid-gui.desktop \
+              $out/share/applications/wayvid.desktop
+
+            # Install icon
+            install -Dm644 logo.svg \
+              $out/share/icons/hicolor/scalable/apps/wayvid.svg
+
             # Install documentation
             install -Dm644 README.md $out/share/doc/wayvid/README.md
             install -Dm644 CHANGELOG.md $out/share/doc/wayvid/CHANGELOG.md
@@ -130,14 +138,13 @@
             echo "🚀 wayvid development environment"
             echo ""
             echo "Available commands:"
-            echo "  cargo build           - Build the project"
-            echo "  cargo run --bin wayvid -- check  - Check system capabilities"
-            echo "  cargo run --bin wayvid -- run    - Run wayvid"
-            echo "  cargo run --bin wayvid-ctl       - Control wayvid"
-            echo "  cargo test            - Run tests"
-            echo "  cargo clippy          - Run linter"
-            echo "  cargo fmt             - Format code"
-            echo "  cargo watch -x run    - Auto-rebuild on changes"
+            echo "  cargo build                    - Build the project"
+            echo "  cargo run --bin wayvid-gui     - Run GUI application"
+            echo "  cargo run --bin wayvid-ctl     - Control wayvid daemon"
+            echo "  cargo test                     - Run tests"
+            echo "  cargo clippy                   - Run linter"
+            echo "  cargo fmt                      - Format code"
+            echo "  cargo watch -x run             - Auto-rebuild on changes"
             echo ""
             echo "Environment:"
             echo "  Rust:    $(rustc --version)"
