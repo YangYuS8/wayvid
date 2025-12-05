@@ -30,20 +30,16 @@ case "$BINARY_NAME" in
                 ;;
             gui)
                 shift
-                if [ -x "${APPDIR}/usr/bin/wayvid-gui" ]; then
-                    exec "${APPDIR}/usr/bin/wayvid-gui" "$@"
-                else
-                    echo "Error: wayvid-gui not included in this AppImage" >&2
-                    echo "Rebuild with: cargo build --release --all-features" >&2
-                    exit 1
-                fi
+                exec "${APPDIR}/usr/bin/wayvid-gui" "$@"
                 ;;
             *)
-                exec "${APPDIR}/usr/bin/wayvid" "$@"
+                # Default: launch GUI
+                exec "${APPDIR}/usr/bin/wayvid-gui" "$@"
                 ;;
         esac
         ;;
     *)
-        exec "${APPDIR}/usr/bin/wayvid" "$@"
+        # Default: launch GUI
+        exec "${APPDIR}/usr/bin/wayvid-gui" "$@"
         ;;
 esac

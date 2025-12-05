@@ -10,7 +10,7 @@ Requisite=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/wayvid run
+ExecStart=/usr/bin/wayvid-gui --minimized
 Restart=on-failure
 RestartSec=3
 StandardOutput=journal

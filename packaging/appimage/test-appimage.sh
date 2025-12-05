@@ -114,9 +114,9 @@ else
 fi
 
 echo "Checking binaries..."
-if ldd squashfs-root/usr/bin/wayvid | grep -q "not found"; then
+if ldd squashfs-root/usr/bin/wayvid-gui | grep -q "not found"; then
     echo -e "${RED}❌ Missing dependencies:${NC}"
-    ldd squashfs-root/usr/bin/wayvid | grep "not found"
+    ldd squashfs-root/usr/bin/wayvid-gui | grep "not found"
     cd - > /dev/null
     rm -rf "$TEMP_DIR"
     exit 1

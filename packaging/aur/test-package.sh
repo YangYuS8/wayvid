@@ -61,11 +61,11 @@ echo ""
 # Extract and check binaries
 echo "🔍 Checking binaries..."
 tar -xzf "$PKGFILE" -C /tmp
-if [ -f /tmp/usr/bin/wayvid ]; then
-    echo "✅ wayvid binary found"
-    file /tmp/usr/bin/wayvid
+if [ -f /tmp/usr/bin/wayvid-gui ]; then
+    echo "✅ wayvid-gui binary found"
+    file /tmp/usr/bin/wayvid-gui
 else
-    echo "❌ wayvid binary not found"
+    echo "❌ wayvid-gui binary not found"
     exit 1
 fi
 
@@ -80,7 +80,7 @@ echo ""
 
 # Check dependencies
 echo "🔗 Checking binary dependencies..."
-ldd /tmp/usr/bin/wayvid | grep -E "(libmpv|libwayland|libc)" || true
+ldd /tmp/usr/bin/wayvid-gui | grep -E "(libmpv|libwayland|libc)" || true
 echo ""
 
 # Cleanup
