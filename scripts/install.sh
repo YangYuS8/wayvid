@@ -190,7 +190,7 @@ install_desktop_file() {
     mkdir -p "$DESKTOP_DIR"
     
     local desktop_file="$SCRIPT_DIR/packaging/wayvid-gui.desktop"
-    local dst="$DESKTOP_DIR/wayvid-gui.desktop"
+    local dst="$DESKTOP_DIR/wayvid.desktop"
     
     if [[ "$INSTALL_MODE" == "system" ]]; then
         sudo install -m 644 "$desktop_file" "$dst"
@@ -289,7 +289,7 @@ verify_installation() {
     done
     
     # Check desktop file
-    if [[ -f "$DESKTOP_DIR/wayvid-gui.desktop" ]]; then
+    if [[ -f "$DESKTOP_DIR/wayvid.desktop" ]]; then
         [[ "$VERBOSE" == "true" ]] && success "  Desktop file: OK"
     else
         warn "  Desktop file: NOT FOUND"

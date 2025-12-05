@@ -162,7 +162,7 @@ remove_desktop_file() {
     local use_sudo="false"
     [[ "$INSTALL_MODE" == "system" ]] && use_sudo="true"
     
-    if remove_file "$DESKTOP_DIR/wayvid-gui.desktop" "$use_sudo"; then
+    if remove_file "$DESKTOP_DIR/wayvid.desktop" "$use_sudo"; then
         # Update desktop database
         if command -v update-desktop-database &> /dev/null; then
             if [[ "$use_sudo" == "true" ]]; then

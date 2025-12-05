@@ -55,7 +55,7 @@ package() {
     install -Dm644 "$srcdir/logo.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/wayvid.svg"
     
     # Install desktop file
-    install -Dm644 "$srcdir/wayvid-gui.desktop" "$pkgdir/usr/share/applications/wayvid-gui.desktop"
+    install -Dm644 "$srcdir/wayvid-gui.desktop" "$pkgdir/usr/share/applications/wayvid.desktop"
     
     # Install license
     install -Dm644 "$srcdir/LICENSE-MIT" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
