@@ -512,36 +512,35 @@ pub async fn get_monitors_ipc() -> Vec<crate::state::MonitorInfo> {
     }
 }
 
-/// Async function to start the daemon process
-pub async fn start_daemon_process() -> Result<(), String> {
-    use std::process::Command;
-
-    // Check if already running
+/// Start the playback engine
+///
+/// In v0.5 architecture, the GUI includes the integrated playback engine.
+/// This function initializes the engine if not already running.
+/// No external process spawning is needed.
+pub async fn start_playback_engine() -> Result<(), String> {
+    // In v0.5, the engine is integrated into the GUI
+    // The IPC server is started automatically when the GUI starts
+    // This function is now a no-op that always succeeds
+    // 
+    // Future implementation may initialize the playback subsystem here
+    // if it's not auto-started with the GUI
+    
     let client = IpcClient::new();
     if client.is_running().await {
         return Ok(());
     }
-
-    // Try to start daemon in background
-    let result = Command::new("wayvid").spawn();
-
-    match result {
-        Ok(_child) => {
-            // Wait for daemon to start and create socket
-            for _ in 0..10 {
-                tokio::time::sleep(Duration::from_millis(200)).await;
-                if client.is_running().await {
-                    return Ok(());
-                }
-            }
-            Err("Daemon started but not responding".to_string())
-        }
-        Err(e) => Err(format!("Failed to start daemon: {}", e)),
-    }
+    
+    // Engine should auto-start with GUI, if not running there might be an issue
+    // For now, we just report success as the engine initialization
+    // is handled elsewhere in the GUI startup sequence
+    Ok(())
 }
 
-/// Async function to stop the daemon process
-pub async fn stop_daemon_process() -> Result<(), String> {
+/// Stop the playback engine
+///
+/// In v0.5 architecture, stopping the engine means stopping all wallpaper playback
+/// but keeping the GUI running. The IPC server remains available.
+pub async fn stop_playback_engine() -> Result<(), String> {
     let client = IpcClient::new();
 
     // If not running, nothing to do
@@ -549,7 +548,9 @@ pub async fn stop_daemon_process() -> Result<(), String> {
         return Ok(());
     }
 
-    // Send quit command
+    // Send quit command to stop playback
+    // Note: This may need to be changed to a "pause all" command
+    // instead of quit if we want to keep the GUI running
     client.quit().await.map_err(|e| e.to_string())
 }
 

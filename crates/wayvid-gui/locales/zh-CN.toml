@@ -11,8 +11,8 @@ nav.settings = "设置"
 nav.about = "关于"
 
 # 状态
-status.daemon_running = "守护进程运行中"
-status.daemon_stopped = "守护进程已停止"
+status.engine_running = "引擎运行中"
+status.engine_stopped = "引擎已停止"
 status.connected = "已连接"
 status.disconnected = "未连接"
 status.loading = "加载中..."
@@ -145,10 +145,10 @@ error.no_wallpaper = "未选择壁纸"
 success.wallpaper_applied = "壁纸应用成功"
 success.settings_saved = "设置已保存"
 success.workshop_found = "找到 %{count} 个创意工坊壁纸"
-success.daemon_started = "壁纸引擎已启动"
-success.daemon_stopped = "壁纸引擎已停止"
+success.engine_started = "播放引擎已启动"
+success.engine_stopped = "播放引擎已停止"
 
-# 守护进程控制
-daemon.start = "启动引擎"
-daemon.stop = "停止引擎"
-daemon.status = "引擎状态"
+# 引擎控制
+engine.start = "启动引擎"
+engine.stop = "停止引擎"
+engine.status = "引擎状态"

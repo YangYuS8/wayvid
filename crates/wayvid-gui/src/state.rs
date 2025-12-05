@@ -73,8 +73,8 @@ pub struct AppState {
     /// Status message
     pub status_message: Option<String>,
 
-    /// Daemon connection status
-    pub daemon_connected: bool,
+    /// Playback engine running status
+    pub engine_running: bool,
 
     /// Cached thumbnails (wallpaper_id -> image data)
     pub thumbnails: HashMap<String, Vec<u8>>,
@@ -156,7 +156,7 @@ impl AppState {
             workshop_scanning: false,
             error: None,
             status_message: None,
-            daemon_connected: false,
+            engine_running: false,
             thumbnails: HashMap::new(),
             thumbnail_states: HashMap::new(),
             pending_thumbnails: HashSet::new(),
@@ -184,7 +184,7 @@ impl AppState {
 
     /// Update state from daemon status
     pub fn update_from_daemon_status(&mut self, status: DaemonStatus) {
-        self.daemon_connected = status.running;
+        self.engine_running = status.running;
         self.ipc_state = if status.running {
             ConnectionState::Connected
         } else {

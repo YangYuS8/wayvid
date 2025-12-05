@@ -11,8 +11,8 @@ nav.settings = "Settings"
 nav.about = "About"
 
 # Status
-status.daemon_running = "Daemon running"
-status.daemon_stopped = "Daemon stopped"
+status.engine_running = "Engine running"
+status.engine_stopped = "Engine stopped"
 status.connected = "Connected"
 status.disconnected = "Disconnected"
 status.loading = "Loading..."
@@ -145,10 +145,10 @@ error.no_wallpaper = "No wallpaper selected"
 success.wallpaper_applied = "Wallpaper applied successfully"
 success.settings_saved = "Settings saved"
 success.workshop_found = "Found %{count} Workshop wallpapers"
-success.daemon_started = "Wallpaper engine started"
-success.daemon_stopped = "Wallpaper engine stopped"
+success.engine_started = "Playback engine started"
+success.engine_stopped = "Playback engine stopped"
 
-# Daemon control
-daemon.start = "Start Engine"
-daemon.stop = "Stop Engine"
-daemon.status = "Engine Status"
+# Engine control
+engine.start = "Start Engine"
+engine.stop = "Stop Engine"
+engine.status = "Engine Status"

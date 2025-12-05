@@ -297,11 +297,11 @@ impl App {
 
             // Daemon communication
             Message::DaemonConnected => {
-                self.state.daemon_connected = true;
+                self.state.engine_running = true;
                 Task::none()
             }
             Message::DaemonDisconnected => {
-                self.state.daemon_connected = false;
+                self.state.engine_running = false;
                 Task::none()
             }
 
@@ -360,28 +360,28 @@ impl App {
                 Message::WallpaperApplied,
             ),
 
-            // Daemon control
-            Message::StartDaemon => {
-                Task::perform(async { ipc::start_daemon_process().await }, |result| {
-                    Message::DaemonStatusUpdated(result.is_ok())
+            // Engine control
+            Message::StartEngine => {
+                Task::perform(async { ipc::start_playback_engine().await }, |result| {
+                    Message::EngineStatusUpdated(result.is_ok())
                 })
             }
-            Message::StopDaemon => {
-                Task::perform(async { ipc::stop_daemon_process().await }, |result| {
-                    Message::DaemonStatusUpdated(result.is_err())
+            Message::StopEngine => {
+                Task::perform(async { ipc::stop_playback_engine().await }, |result| {
+                    Message::EngineStatusUpdated(result.is_err())
                 })
             }
-            Message::DaemonStatusUpdated(connected) => {
-                self.state.daemon_connected = connected;
-                self.state.ipc_state = if connected {
+            Message::EngineStatusUpdated(running) => {
+                self.state.engine_running = running;
+                self.state.ipc_state = if running {
                     ConnectionState::Connected
                 } else {
                     ConnectionState::Disconnected
                 };
-                if connected {
-                    self.state.status_message = Some(t!("success.daemon_started").to_string());
+                if running {
+                    self.state.status_message = Some(t!("success.engine_started").to_string());
                 } else {
-                    self.state.status_message = Some(t!("success.daemon_stopped").to_string());
+                    self.state.status_message = Some(t!("success.engine_stopped").to_string());
                 }
                 Task::none()
             }
@@ -389,7 +389,7 @@ impl App {
             // IPC communication
             Message::IpcConnectionChanged(state) => {
                 self.state.ipc_state = state;
-                self.state.daemon_connected = matches!(state, ConnectionState::Connected);
+                self.state.engine_running = matches!(state, ConnectionState::Connected);
                 Task::none()
             }
             Message::IpcStatusReceived(status) => {
@@ -493,36 +493,36 @@ impl App {
         .padding(15)
         .width(Length::Fixed(sidebar_width));
 
-        // Status indicator and daemon control at bottom
-        let status = if self.state.daemon_connected {
+        // Status indicator and engine control at bottom
+        let status = if self.state.engine_running {
             row![
                 text("●").style(|_| text::Style {
                     color: Some(iced::Color::from_rgb(0.0, 0.8, 0.0))
                 }),
-                text(format!(" {}", t!("status.daemon_running")))
+                text(format!(" {}", t!("status.engine_running")))
             ]
         } else {
             row![
                 text("●").style(|_| text::Style {
                     color: Some(iced::Color::from_rgb(0.8, 0.0, 0.0))
                 }),
-                text(format!(" {}", t!("status.daemon_stopped")))
+                text(format!(" {}", t!("status.engine_stopped")))
             ]
         };
 
-        // Daemon control button
-        let daemon_button = if self.state.daemon_connected {
-            button(text(t!("daemon.stop").to_string()))
+        // Engine control button
+        let engine_button = if self.state.engine_running {
+            button(text(t!("engine.stop").to_string()))
                 .padding(8)
                 .width(Length::Fill)
                 .style(button::danger)
-                .on_press(Message::StopDaemon)
+                .on_press(Message::StopEngine)
         } else {
-            button(text(t!("daemon.start").to_string()))
+            button(text(t!("engine.start").to_string()))
                 .padding(8)
                 .width(Length::Fill)
                 .style(button::success)
-                .on_press(Message::StartDaemon)
+                .on_press(Message::StartEngine)
         };
 
         // Monitor selector section (at bottom of sidebar)
@@ -566,7 +566,7 @@ impl App {
             container(monitor_section)
                 .style(container::bordered_box)
                 .width(Length::Fill),
-            container(column![status, Space::with_height(10), daemon_button].spacing(5))
+            container(column![status, Space::with_height(10), engine_button].spacing(5))
                 .padding(15),
         ];
 

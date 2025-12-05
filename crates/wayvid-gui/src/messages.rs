@@ -127,13 +127,13 @@ pub enum Message {
     /// Clear wallpaper from a specific monitor
     ClearMonitor(String),
 
-    // Daemon control
-    /// Start the wallpaper daemon
-    StartDaemon,
-    /// Stop the wallpaper daemon
-    StopDaemon,
-    /// Daemon status updated
-    DaemonStatusUpdated(bool),
+    // Engine control
+    /// Start the playback engine
+    StartEngine,
+    /// Stop the playback engine
+    StopEngine,
+    /// Engine status updated
+    EngineStatusUpdated(bool),
 
     // IPC communication
     /// IPC connection state changed
