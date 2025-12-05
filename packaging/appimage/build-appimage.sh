@@ -65,33 +65,35 @@ mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
 mkdir -p "${APPDIR}/usr/share/wayvid"
 mkdir -p "${APPDIR}/usr/share/doc/wayvid"
 
-# Copy binaries
+# Copy binaries (wayvid-gui is the main entry, wayvid-ctl for CLI control)
 echo "📋 Copying binaries..."
-cp target/release/wayvid "${APPDIR}/usr/bin/"
-cp target/release/wayvid-ctl "${APPDIR}/usr/bin/"
-
-# Copy GUI binary if it exists (requires --all-features build)
 if [ -f target/release/wayvid-gui ]; then
-    echo "   ✅ Copying wayvid-gui (GUI control panel)"
     cp target/release/wayvid-gui "${APPDIR}/usr/bin/"
+    echo "   ✅ Copied wayvid-gui (main application)"
 else
-    echo -e "${YELLOW}   ⚠️  wayvid-gui not found (build with --all-features to include)${NC}"
+    echo -e "${RED}❌ wayvid-gui not found in target/release/${NC}"
+    exit 1
+fi
+
+if [ -f target/release/wayvid-ctl ]; then
+    cp target/release/wayvid-ctl "${APPDIR}/usr/bin/"
+    echo "   ✅ Copied wayvid-ctl (CLI control tool)"
+else
+    echo -e "${YELLOW}⚠️  wayvid-ctl not found (optional)${NC}"
 fi
 
 # Strip binaries if not already stripped
 if command -v strip &> /dev/null; then
     echo "🔪 Stripping binaries..."
-    strip "${APPDIR}/usr/bin/wayvid"
-    strip "${APPDIR}/usr/bin/wayvid-ctl"
     [ -f "${APPDIR}/usr/bin/wayvid-gui" ] && strip "${APPDIR}/usr/bin/wayvid-gui"
+    [ -f "${APPDIR}/usr/bin/wayvid-ctl" ] && strip "${APPDIR}/usr/bin/wayvid-ctl"
 fi
 
 # Optional: Compress binaries with UPX
 if command -v upx &> /dev/null; then
     echo "📦 Compressing binaries with UPX..."
-    upx --best --lzma "${APPDIR}/usr/bin/wayvid" || true
-    upx --best --lzma "${APPDIR}/usr/bin/wayvid-ctl" || true
     [ -f "${APPDIR}/usr/bin/wayvid-gui" ] && upx --best --lzma "${APPDIR}/usr/bin/wayvid-gui" || true
+    [ -f "${APPDIR}/usr/bin/wayvid-ctl" ] && upx --best --lzma "${APPDIR}/usr/bin/wayvid-ctl" || true
 fi
 
 # Copy desktop file

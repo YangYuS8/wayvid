@@ -247,7 +247,7 @@ jobs:
           cargo install cargo-deb --version 2.8.0 --locked
       
       - name: Build .deb package (reusing binaries)
-        run: cargo deb --no-build --no-strip --verbose
+        run: cargo deb -p wayvid-gui --no-build --no-strip --verbose
       
       - name: Generate checksum
         run: |

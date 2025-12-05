@@ -151,7 +151,7 @@ build_release() {
     fi
     
     # Verify binaries exist
-    local binaries=("wayvid" "wayvid-gui" "wayvid-ctl")
+    local binaries=("wayvid-gui" "wayvid-ctl")
     for bin in "${binaries[@]}"; do
         if [[ ! -f "target/release/$bin" ]]; then
             error "Binary not found: target/release/$bin"
@@ -167,7 +167,7 @@ install_binaries() {
     
     mkdir -p "$BIN_DIR"
     
-    local binaries=("wayvid" "wayvid-gui" "wayvid-ctl")
+    local binaries=("wayvid-gui" "wayvid-ctl")
     for bin in "${binaries[@]}"; do
         local src="$SCRIPT_DIR/target/release/$bin"
         local dst="$BIN_DIR/$bin"
