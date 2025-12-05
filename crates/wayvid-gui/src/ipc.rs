@@ -424,36 +424,58 @@ fn ipc_stream() -> impl Stream<Item = Message> {
                 // Create a channel for shutdown (not used currently, but ready for future)
                 let (_tx, rx) = mpsc::channel::<()>(1);
 
-                // Initial connection check
+                // Initial connection check - only if socket exists
                 let client = IpcClient::new();
-                let is_running = client.is_running().await;
 
-                let message = if is_running {
-                    Message::IpcConnectionChanged(ConnectionState::Connected)
+                // Only report connected if socket exists AND daemon is responding
+                if client.socket_exists() {
+                    let is_running = client.is_running().await;
+                    let message = if is_running {
+                        Message::IpcConnectionChanged(ConnectionState::Connected)
+                    } else {
+                        // Socket exists but daemon not responding - might be starting up
+                        // Don't change state, just continue polling
+                        Message::IpcConnectionChanged(ConnectionState::Disconnected)
+                    };
+                    Some((message, IpcWorkerState::Running(rx)))
                 } else {
-                    Message::IpcConnectionChanged(ConnectionState::Disconnected)
-                };
-
-                Some((message, IpcWorkerState::Running(rx)))
+                    // No socket - v0.5 standalone mode, no external daemon needed
+                    // Don't report disconnected, just stay in standalone mode
+                    tracing::debug!("IPC: No daemon socket found, running in standalone mode");
+                    Some((
+                        Message::IpcConnectionChanged(ConnectionState::Disconnected),
+                        IpcWorkerState::Running(rx),
+                    ))
+                }
             }
             IpcWorkerState::Running(rx) => {
                 // Wait for poll interval
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
 
                 let client = IpcClient::new();
 
-                // Try to get status from daemon
-                match client.status().await {
-                    Ok(status) => Some((
-                        Message::IpcStatusReceived(status),
+                // Only poll if socket exists - avoids resetting engine state in standalone mode
+                if !client.socket_exists() {
+                    // No daemon socket, skip polling - don't change any state
+                    // This allows the GUI to manage engine_running independently
+                    Some((
+                        Message::IpcConnectionChanged(ConnectionState::Disconnected),
                         IpcWorkerState::Running(rx),
-                    )),
-                    Err(_) => {
-                        // Daemon not running or error
-                        Some((
-                            Message::IpcConnectionChanged(ConnectionState::Disconnected),
+                    ))
+                } else {
+                    // Socket exists, try to get status from daemon
+                    match client.status().await {
+                        Ok(status) => Some((
+                            Message::IpcStatusReceived(status),
                             IpcWorkerState::Running(rx),
-                        ))
+                        )),
+                        Err(_) => {
+                            // Socket exists but daemon error - report disconnected
+                            Some((
+                                Message::IpcConnectionChanged(ConnectionState::Disconnected),
+                                IpcWorkerState::Running(rx),
+                            ))
+                        }
                     }
                 }
             }

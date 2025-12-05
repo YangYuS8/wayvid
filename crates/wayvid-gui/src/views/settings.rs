@@ -73,24 +73,20 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             setting_row(
                 &t!("settings.fps_limit"),
                 &t!("settings.fps_limit_desc"),
-                pick_list(
-                    fps_options,
-                    Some(current_fps),
-                    |selected: String| {
-                        let limit = if selected.contains("30") {
-                            Some(30)
-                        } else if selected.contains("60") {
-                            Some(60)
-                        } else if selected.contains("120") {
-                            Some(120)
-                        } else if selected.contains("144") {
-                            Some(144)
-                        } else {
-                            None
-                        };
-                        Message::FpsLimitChanged(limit)
-                    }
-                )
+                pick_list(fps_options, Some(current_fps), |selected: String| {
+                    let limit = if selected.contains("30") {
+                        Some(30)
+                    } else if selected.contains("60") {
+                        Some(60)
+                    } else if selected.contains("120") {
+                        Some(120)
+                    } else if selected.contains("144") {
+                        Some(144)
+                    } else {
+                        None
+                    };
+                    Message::FpsLimitChanged(limit)
+                })
                 .width(Length::Fixed(150.0)),
             ),
         ]

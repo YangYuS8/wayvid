@@ -388,8 +388,18 @@ impl App {
 
             // IPC communication
             Message::IpcConnectionChanged(state) => {
+                // Update IPC state
                 self.state.ipc_state = state;
-                self.state.engine_running = matches!(state, ConnectionState::Connected);
+
+                // Only sync engine_running with IPC state when we have an actual daemon connection
+                // In standalone mode (no daemon), engine_running is managed by StartEngine/StopEngine
+                // Only set engine_running = true when connected to a real daemon
+                if matches!(state, ConnectionState::Connected) {
+                    self.state.engine_running = true;
+                }
+                // Note: We intentionally don't set engine_running = false on Disconnected
+                // because in v0.5 standalone mode, the GUI manages engine state independently
+
                 Task::none()
             }
             Message::IpcStatusReceived(status) => {
