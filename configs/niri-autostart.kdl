@@ -31,7 +31,7 @@
 // ----------------------------------------------------------------------------
 // Add this to your niri config.kdl if you prefer not using systemd:
 //
-// spawn-at-startup "wayvid" "run"
+// spawn-at-startup "wayvid-gui" "--minimized"
 
 
 // ----------------------------------------------------------------------------
@@ -46,7 +46,7 @@
 // ----------------------------------------------------------------------------
 // Method 4: With custom config file (Advanced)
 // ----------------------------------------------------------------------------
-// spawn-at-startup "wayvid" "run" "--config" "/path/to/custom.yaml"
+// spawn-at-startup "wayvid-gui" "--minimized"
 
 
 // ============================================================================
