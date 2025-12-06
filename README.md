@@ -8,7 +8,7 @@ Animated wallpaper manager for Wayland
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.0--alpha.3-green.svg)](https://github.com/YangYuS8/wayvid/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/YangYuS8/wayvid/releases)
 
 [Documentation](https://yangyus8.top/wayvid/) • [Releases](https://github.com/YangYuS8/wayvid/releases)
 
@@ -26,6 +26,9 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 - 🎮 **Steam Workshop** import (video wallpapers)
 - 🌈 **HDR support** with tone-mapping
 - 🔧 **CLI tools** for scripting and automation
+- 💾 **Wallpaper persistence** - restore wallpapers after restart
+- 🔋 **Power management** - auto-pause on battery
+- 📥 **System tray** - start minimized and run in background
 
 **Tested on:** Hyprland, Niri
 
@@ -107,17 +110,27 @@ wayvid-ctl outputs
 
 ### Autostart
 
-The GUI includes an autostart option in Settings. Alternatively:
+The GUI includes autostart options in Settings:
 
-**Niri/Hyprland config:**
+1. **Start with system** - Enable autostart
+2. **Minimize to tray** - Keep running in background
+3. **Start minimized** - Start directly to tray
+
+With all three enabled, wayvid will:
+- Start automatically on login
+- Run in the background (tray icon)
+- Restore your wallpapers from last session
+
+**Alternative manual configuration:**
+
 ```kdl
 # niri: ~/.config/niri/config.kdl
-spawn-at-startup "wayvid-gui" "--minimized"
+spawn-at-startup "wayvid-gui"
 ```
 
 ```conf
 # hyprland: ~/.config/hypr/hyprland.conf
-exec-once = wayvid-gui --minimized
+exec-once = wayvid-gui
 ```
 
 **systemd (optional):**

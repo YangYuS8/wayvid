@@ -30,8 +30,9 @@
 // Method 2: spawn-at-startup (Simple, no systemd)
 // ----------------------------------------------------------------------------
 // Add this to your niri config.kdl if you prefer not using systemd:
+// Note: Enable "Start minimized" in wayvid Settings to start in tray
 //
-// spawn-at-startup "wayvid-gui" "--minimized"
+// spawn-at-startup "wayvid-gui"
 
 
 // ----------------------------------------------------------------------------
@@ -46,7 +47,7 @@
 // ----------------------------------------------------------------------------
 // Method 4: With custom config file (Advanced)
 // ----------------------------------------------------------------------------
-// spawn-at-startup "wayvid-gui" "--minimized"
+// spawn-at-startup "wayvid-gui"
 
 
 // ============================================================================

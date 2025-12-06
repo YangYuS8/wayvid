@@ -1,93 +1,50 @@
-## [0.5.0-alpha.3] - 2025-12-06
+## [0.5.0] - 2025-12-06
+
+This is a major release introducing a GUI-first design with integrated playback engine.
 
 ### 🚀 Features
 
-- *(gui)* Implement real system tray using ksni/SNI protocol for noctalia-shell compatibility
+- *(gui)* Complete GUI rewrite using iced framework
+- *(gui)* Wallpaper library browser with thumbnails and search
+- *(gui)* Multi-monitor support with independent wallpapers per display
+- *(gui)* System tray integration using ksni/SNI protocol
+- *(gui)* Start minimized option - start directly to tray
+- *(gui)* Wallpaper persistence - restore wallpapers after restart
+- *(gui)* Engine state persistence - auto-start engine on launch
+- *(gui)* Single-instance mode with window focus on re-launch
+- *(engine)* Integrated playback engine (no separate daemon required)
+- *(engine)* Battery state detection and auto-pause on battery
+- *(engine)* Adaptive polling interval for power saving
+- *(library)* Steam Workshop import support (video wallpapers)
+- *(library)* HDR support with tone-mapping
+
+### ⚡ Performance
+
+- *(engine)* Optimize MPV config for integrated GPU scenarios
+- *(engine)* Add vaapi-device hint for better AMD GPU hardware decoding
+- *(engine)* Use bilinear scaling to reduce GPU load
+- *(engine)* Cap wallpaper playback at 30fps to save resources
+- *(engine)* Disable unnecessary post-processing (deband, dither, sigmoid)
 
 ### 🐛 Bug Fixes
 
-- *(gui)* Fix theme persistence - settings now save immediately when toggling theme
-- *(gui)* Improve window close handling for minimize-to-tray behavior
-- *(gui)* Simplify window show/hide message handling
-
-### 🚜 Refactor
-
-- *(app)* Remove redundant ShowWindow/HideWindow messages, use TrayAction directly
-
-## [0.5.0-alpha.2] - 2025-12-06
+- *(gui)* Fix theme persistence - settings now save immediately
+- *(gui)* Fix window close handling for minimize-to-tray behavior
+- *(gui)* Fix multiple instances running simultaneously
+- *(gui)* Fix tray icon not showing on some systems
 
 ### 📚 Documentation
 
-- *(docs)* Update AUR package recommendation from wayvid-git to wayvid
-- *(docs)* Update workshop.md for v0.5 GUI-first workflow
-- *(docs)* Fix outdated CLI commands in multi-monitor.md
-- *(docs)* Update building.md with correct v0.5 binaries
+- *(docs)* Update for v0.5 GUI-first workflow
 - *(docs)* Add autostart configuration guide for niri/Hyprland/Sway
-
-## [0.5.0-alpha.1] - 2025-12-06
-
-### 🚀 Features
-
-- *(v0.5)* Create workspace structure and wayvid-core crate
-- *(engine)* 完成 wayvid-engine 核心模块迁移
-- *(library)* Implement wayvid-library crate
-- *(gui)* Implement wayvid-gui crate with iced framework
-- *(ctl)* Enhance wayvid-ctl CLI with IPC support
-- *(library)* Phase 2 - wayvid-library 模块深化
-- *(gui)* Phase 3 - GUI refinement and componentization
-- *(gui)* Phase 4 - Configuration automation
-- *(core)* Phase 5 - IPC protocol unification
-- *(gui)* Implement async thumbnail loading, settings persistence, and GUI-daemon IPC
-- *(gui)* Improve layout and user experience
-- *(gui)* Make FPS limit setting editable
-- Implement wallpaper playback session and IPC server for wayvid-gui
-- *(ipc)* Add shared status cache for IPC queries and update handling logic
-- V0.5.0-alpha.1 release preparation
-
-### 🐛 Bug Fixes
-
-- Update generate_id function to accept Path instead of PathBuf
-- Resolve clippy warnings to pass CI checks
-- *(packaging)* Correct binary names in install scripts
-- *(packaging)* Unify desktop file name as wayvid.desktop
-- *(nix)* Add desktop file and icon to flake.nix postInstall
-- *(packaging)* Update all scripts to use wayvid-gui binary
-- *(gui)* Implement wlr-randr fallback for monitor detection
-- *(gui)* Prevent IPC polling from resetting engine state in standalone mode
-
-### 💼 Other
-
-- *(deb)* Add cargo-deb metadata for proper Debian packaging
-- *(openspec)* Create refactor-daemon-architecture proposal
-- *(openspec)* Create integrate-playback-engine-into-gui proposal
+- *(docs)* Update installation instructions
 
 ### 🚜 Refactor
 
-- *(gui)* Replace daemon terminology with engine
+- *(core)* Split into workspace with multiple crates
+- *(app)* Replace daemon terminology with engine
+- *(gui)* Remove legacy egui code
 
-### 📚 Documentation
-
-- Update tasks.md with Phase 1.1 progress
-- *(openspec)* Update GUI framework from egui to iced
-- Phase 6.2-6.4 - Update documentation and packaging for v0.5
-- *(nix)* Update README with correct binary names
-- *(configs)* Update autostart examples for v0.5 architecture
-
-### 🎨 Styling
-
-- Apply rustfmt formatting (fix CI formatting check)
-
-### 🧪 Testing
-
-- Phase 6 - verify full test suite
-
-### ⚙️ Miscellaneous Tasks
-
-- Archive old proposals, create v0.5 GUI-first refactor proposal
-- Complete v0.5 GUI-first refactor cleanup
-- Remove legacy locales directory (egui i18n files)
-- Update CHANGELOG for v0.5.0-alpha.1 release
-- *(release)* Remove redundant quality checks
 ## [0.4.5-alpha.2] - 2025-12-04
 
 ### 📚 Documentation

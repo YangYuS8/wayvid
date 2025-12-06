@@ -34,7 +34,7 @@ Response:
 {
   "type": "status",
   "running": true,
-  "version": "0.5.0-alpha.1",
+  "version": "0.5.0",
   "outputs": [
     {
       "name": "eDP-1",

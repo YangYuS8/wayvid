@@ -37,7 +37,7 @@ Example output:
 Wayvid Daemon Status
 ====================
 Status:  Running
-Version: 0.5.0-alpha.1
+Version: 0.5.0
 
 Active Outputs:
   eDP-1 [Playing]

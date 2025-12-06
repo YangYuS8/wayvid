@@ -34,6 +34,8 @@ Manage source folders for wallpapers. Add/remove folders to scan.
 
 ### Settings
 - **Autostart**: Launch wayvid-gui at login
+- **Minimize to tray**: Keep running in background when window is closed
+- **Start minimized**: Start directly to tray without showing window
 - **Power management**: Pause on battery or fullscreen apps
 - **Performance**: FPS limits, hardware decode options
 
@@ -45,6 +47,21 @@ Version info and links.
 1. **Browse** - View wallpapers in Library tab
 2. **Select monitor** - Click monitor in bottom bar
 3. **Apply** - Double-click a wallpaper
+
+## Wallpaper Persistence
+
+wayvid automatically saves your wallpaper settings and restores them on restart:
+
+- **Per-monitor wallpapers**: Each monitor remembers its wallpaper
+- **Engine state**: Engine auto-starts if it was running before
+- **Settings location**: `~/.config/wayvid/settings.yaml`
+
+To enable full persistence:
+1. Enable "Start with system" in Settings
+2. Enable "Minimize to tray"
+3. Enable "Start minimized"
+
+Now wayvid will start automatically on login, restore your wallpapers, and run quietly in the tray.
 
 ## System Tray
 
@@ -59,13 +76,15 @@ Enable in Settings → Autostart, or manually:
 
 ```kdl
 # niri: ~/.config/niri/config.kdl
-spawn-at-startup "wayvid-gui" "--minimized"
+spawn-at-startup "wayvid-gui"
 ```
 
 ```conf
 # hyprland: ~/.config/hypr/hyprland.conf
-exec-once = wayvid-gui --minimized
+exec-once = wayvid-gui
 ```
+
+> **Note:** Use the "Start minimized" option in Settings to control whether wayvid opens in tray or shows the window on startup.
 
 ## Troubleshooting
 
