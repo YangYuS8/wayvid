@@ -1,6 +1,6 @@
 [package]
 name = "wayvid-core"
-version = "0.5.0-alpha.2"
+version = "0.5.0-alpha.3"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]

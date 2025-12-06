@@ -1,4 +1,4 @@
-## [0.5.0-alpha.2] - 2025-01-25
+## [0.5.0-alpha.3] - 2025-12-06
 
 ### 🚀 Features
 
@@ -8,8 +8,13 @@
 
 - *(gui)* Fix theme persistence - settings now save immediately when toggling theme
 - *(gui)* Improve window close handling for minimize-to-tray behavior
-- *(engine)* Implement Default trait for EngineStatus and simplify code
-- *(engine)* Fix clippy warnings for CI compatibility
+- *(gui)* Simplify window show/hide message handling
+
+### 🚜 Refactor
+
+- *(app)* Remove redundant ShowWindow/HideWindow messages, use TrayAction directly
+
+## [0.5.0-alpha.2] - 2025-12-06
 
 ### 📚 Documentation
 
