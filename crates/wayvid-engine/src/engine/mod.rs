@@ -234,9 +234,16 @@ fn run_engine_thread(
     }
 
     // Main event loop
+    // Calculate dispatch timeout based on fps_limit
+    let frame_duration = state
+        .config
+        .fps_limit
+        .map(|fps| std::time::Duration::from_micros(1_000_000 / fps as u64))
+        .unwrap_or(std::time::Duration::from_millis(8)); // Default ~120fps max
+
     while !shutdown.load(Ordering::Relaxed) {
         event_loop
-            .dispatch(std::time::Duration::from_millis(16), &mut state)
+            .dispatch(frame_duration, &mut state)
             .context("Event loop dispatch failed")?;
 
         // Render frames for configured layer surfaces

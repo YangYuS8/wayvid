@@ -134,9 +134,14 @@ impl IpcServer {
 
         // Spawn the server task
         let handle = tokio::spawn(async move {
-            if let Err(e) =
-                run_server(socket_path, engine_tx, status_cache, show_window_flag, shutdown_rx)
-                    .await
+            if let Err(e) = run_server(
+                socket_path,
+                engine_tx,
+                status_cache,
+                show_window_flag,
+                shutdown_rx,
+            )
+            .await
             {
                 error!("IPC server error: {}", e);
             }

@@ -143,12 +143,23 @@ impl MpvPlayer {
         // Layout configuration
         Self::configure_layout(&set_option, config.layout);
 
-        // Memory optimization
+        // Performance optimization for multi-monitor scenarios
         set_option("video-latency-hacks", "yes");
-        set_option("vd-lavc-dr", "yes");
-        set_option("opengl-swapinterval", "1");
+        set_option("vd-lavc-dr", "yes"); // Direct rendering for zero-copy
+        set_option("opengl-swapinterval", "0"); // Disable vsync in mpv (handled by compositor)
         set_option("demuxer-max-bytes", "50M");
         set_option("demuxer-max-back-bytes", "10M");
+        set_option("cache", "yes");
+        set_option("cache-secs", "2"); // Buffer 2 seconds of video
+        set_option("hr-seek-framedrop", "yes"); // Drop frames during seeks
+        set_option("framedrop", "vo"); // Drop frames if rendering is slow
+        set_option("video-sync", "audio"); // Sync to audio for smoother playback
+        set_option("interpolation", "no"); // Disable interpolation for lower latency
+
+        // GPU rendering optimization
+        set_option("gpu-api", "opengl");
+        set_option("gpu-context", "auto");
+        set_option("opengl-pbo", "yes"); // Use PBOs for faster texture upload
 
         // Playback settings
         if config.loop_playback {
