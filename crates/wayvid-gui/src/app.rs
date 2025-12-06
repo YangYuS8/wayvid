@@ -665,12 +665,8 @@ impl App {
                     }
                 }
             }
-            Message::ShowWindow => {
-                window::get_latest().and_then(window::gain_focus)
-            }
-            Message::HideWindow => {
-                window::get_latest().and_then(|id| window::minimize(id, true))
-            }
+            Message::ShowWindow => window::get_latest().and_then(window::gain_focus),
+            Message::HideWindow => window::get_latest().and_then(|id| window::minimize(id, true)),
         }
     }
 
