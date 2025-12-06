@@ -1,5 +1,9 @@
 ## [0.5.0-alpha.2] - 2025-01-25
 
+### 🚀 Features
+
+- *(gui)* Implement real system tray using ksni/SNI protocol for noctalia-shell compatibility
+
 ### 🐛 Bug Fixes
 
 - *(gui)* Fix theme persistence - settings now save immediately when toggling theme

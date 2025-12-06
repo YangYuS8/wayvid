@@ -17,6 +17,7 @@ use crate::messages::Message;
 use crate::settings::{AppSettings, AutostartManager};
 use crate::state::AppState;
 use crate::theme::WayvidTheme;
+use crate::tray::{SystemTray, TrayAction};
 use crate::views::monitors::MonitorView;
 use crate::views::{self, View};
 
@@ -32,6 +33,8 @@ pub struct App {
     settings_dirty: bool,
     /// Integrated playback engine controller
     engine: EngineController,
+    /// System tray (optional - may not be available on all systems)
+    tray: Option<SystemTray>,
 }
 
 impl App {
@@ -46,6 +49,19 @@ impl App {
             WayvidTheme::Dark
         };
 
+        // Initialize system tray (may fail on some systems)
+        let tray = if state.app_settings.gui.minimize_to_tray {
+            SystemTray::new()
+        } else {
+            None
+        };
+
+        if tray.is_some() {
+            tracing::info!("System tray initialized successfully");
+        } else if state.app_settings.gui.minimize_to_tray {
+            tracing::warn!("System tray not available, minimize to tray will be disabled");
+        }
+
         (
             Self {
                 state,
@@ -53,6 +69,7 @@ impl App {
                 monitor_view: MonitorView::new(),
                 settings_dirty: false,
                 engine: EngineController::new(),
+                tray,
             },
             task,
         )
@@ -609,6 +626,51 @@ impl App {
                 }
                 Task::none()
             }
+
+            // System tray events
+            Message::PollTrayEvents => {
+                if let Some(ref tray) = self.tray {
+                    if let Some(action) = tray.try_recv_action() {
+                        return Task::done(Message::TrayAction(action));
+                    }
+                }
+                Task::none()
+            }
+            Message::TrayAction(action) => {
+                match action {
+                    TrayAction::Show => {
+                        tracing::info!("Tray: Show window");
+                        window::get_latest().and_then(window::gain_focus)
+                    }
+                    TrayAction::Hide => {
+                        tracing::info!("Tray: Hide window");
+                        window::get_latest().and_then(|id| window::minimize(id, true))
+                    }
+                    TrayAction::TogglePause => {
+                        tracing::info!("Tray: Toggle pause");
+                        // Toggle pause state in engine
+                        if self.engine.is_running() {
+                            // For now, just log - actual pause/resume would need engine support
+                            tracing::info!("Engine pause/resume toggled");
+                        }
+                        Task::none()
+                    }
+                    TrayAction::Quit => {
+                        tracing::info!("Tray: Quit");
+                        // Properly quit the application
+                        if let Some(ref tray) = self.tray {
+                            tray.shutdown();
+                        }
+                        window::get_latest().and_then(window::close)
+                    }
+                }
+            }
+            Message::ShowWindow => {
+                window::get_latest().and_then(window::gain_focus)
+            }
+            Message::HideWindow => {
+                window::get_latest().and_then(|id| window::minimize(id, true))
+            }
         }
     }
 
@@ -875,7 +937,15 @@ impl App {
             }
         });
 
-        Subscription::batch([ipc_sub, thumbnail_sub, engine_sub, window_sub])
+        // System tray event polling (every 100ms when tray is active)
+        let tray_sub = if self.tray.is_some() {
+            iced::time::every(std::time::Duration::from_millis(100))
+                .map(|_| Message::PollTrayEvents)
+        } else {
+            Subscription::none()
+        };
+
+        Subscription::batch([ipc_sub, thumbnail_sub, engine_sub, window_sub, tray_sub])
     }
 }
 

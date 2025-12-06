@@ -23,6 +23,7 @@ mod service;
 mod settings;
 mod state;
 mod theme;
+mod tray;
 mod views;
 mod widgets;
 

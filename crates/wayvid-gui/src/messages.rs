@@ -150,4 +150,14 @@ pub enum Message {
     IpcStatusReceived(DaemonStatus),
     /// IPC error occurred
     IpcError(String),
+
+    // System tray
+    /// Tray action received
+    TrayAction(crate::tray::TrayAction),
+    /// Poll tray events
+    PollTrayEvents,
+    /// Show window from tray
+    ShowWindow,
+    /// Hide window to tray
+    HideWindow,
 }
