@@ -662,17 +662,31 @@ impl App {
 
             // Engine events (integrated engine)
             Message::PollEngineEvents => {
+                // Check if we received a ShowWindow request from IPC
+                let show_window = self.engine.check_show_window_request();
+
                 // Poll events from the integrated engine
                 let events = self.engine.poll_events();
-                if events.is_empty() {
+
+                let mut tasks: Vec<Task<Message>> = Vec::new();
+
+                // If ShowWindow was requested, show the window
+                if show_window {
+                    tracing::info!("ShowWindow request received via IPC");
+                    tasks.push(Task::done(Message::ShowWindow));
+                }
+
+                // Process all received engine events
+                tasks.extend(
+                    events
+                        .into_iter()
+                        .map(|e| Task::done(Message::EngineEvent(e))),
+                );
+
+                if tasks.is_empty() {
                     Task::none()
                 } else {
-                    // Process all received events
-                    Task::batch(
-                        events
-                            .into_iter()
-                            .map(|e| Task::done(Message::EngineEvent(e))),
-                    )
+                    Task::batch(tasks)
                 }
             }
             Message::EngineEvent(event) => {

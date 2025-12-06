@@ -9,7 +9,7 @@ use std::sync::mpsc::Receiver;
 use tracing::info;
 use wayvid_engine::{spawn_engine, EngineCommand, EngineConfig, EngineEvent, EngineHandle};
 
-use crate::ipc_server::{IpcServer, SharedStatusCache};
+use crate::ipc_server::{IpcServer, SharedStatusCache, ShowWindowFlag};
 
 /// Wrapper around the engine handle with convenience methods
 pub struct EngineController {
@@ -21,6 +21,8 @@ pub struct EngineController {
     ipc_server: Option<IpcServer>,
     /// Shared status cache for IPC queries
     status_cache: Option<SharedStatusCache>,
+    /// Flag to signal show window request from IPC
+    show_window_flag: Option<ShowWindowFlag>,
 }
 
 #[allow(dead_code)] // Methods reserved for future UI integration
@@ -32,6 +34,7 @@ impl EngineController {
             events_rx: None,
             ipc_server: None,
             status_cache: None,
+            show_window_flag: None,
         }
     }
 
@@ -61,6 +64,7 @@ impl EngineController {
         } else {
             info!("IPC server started for wayvid-ctl integration");
             self.status_cache = Some(ipc_server.status_cache());
+            self.show_window_flag = Some(ipc_server.show_window_flag());
             self.ipc_server = Some(ipc_server);
         }
 
@@ -81,6 +85,7 @@ impl EngineController {
             info!("IPC server stopped");
         }
         self.status_cache = None;
+        self.show_window_flag = None;
 
         if let Some(handle) = self.handle.take() {
             handle.request_shutdown();
@@ -90,6 +95,18 @@ impl EngineController {
         self.events_rx = None;
 
         info!("Playback engine stopped");
+    }
+
+    /// Check and consume the show window flag
+    ///
+    /// Returns true if a ShowWindow IPC request was received since last check
+    pub fn check_show_window_request(&self) -> bool {
+        use std::sync::atomic::Ordering;
+        if let Some(ref flag) = self.show_window_flag {
+            flag.swap(false, Ordering::SeqCst)
+        } else {
+            false
+        }
     }
 
     /// Poll for engine events (non-blocking) and update IPC status cache

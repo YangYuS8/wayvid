@@ -21,6 +21,7 @@ mod ipc_server;
 mod messages;
 mod service;
 mod settings;
+mod single_instance;
 mod state;
 mod theme;
 mod tray;
@@ -38,6 +39,17 @@ fn main() -> Result<()> {
         .init();
 
     tracing::info!("Starting wayvid-gui v{}", env!("CARGO_PKG_VERSION"));
+
+    // Check for existing instance
+    if single_instance::is_another_instance_running() {
+        tracing::info!("Another instance is running, sending show window request");
+        if single_instance::request_show_window() {
+            tracing::info!("Show window request sent successfully");
+            return Ok(());
+        } else {
+            tracing::warn!("Failed to send show window request, starting new instance");
+        }
+    }
 
     // Initialize internationalization
     i18n::init();

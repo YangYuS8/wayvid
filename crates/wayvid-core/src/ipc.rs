@@ -19,6 +19,9 @@ pub enum IpcRequest {
     /// List available outputs/monitors
     Outputs,
 
+    /// Show the GUI window (for single instance support)
+    ShowWindow,
+
     /// Apply wallpaper to output(s)
     Apply {
         /// Path to wallpaper file

@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Result};
@@ -53,6 +54,9 @@ impl EngineStatusCache {
 /// Shared status cache type
 pub type SharedStatusCache = Arc<RwLock<EngineStatusCache>>;
 
+/// Shared flag for show window request
+pub type ShowWindowFlag = Arc<AtomicBool>;
+
 /// IPC server for handling external requests
 pub struct IpcServer {
     /// Socket path
@@ -63,6 +67,8 @@ pub struct IpcServer {
     handle: Option<tokio::task::JoinHandle<()>>,
     /// Shared status cache
     status_cache: SharedStatusCache,
+    /// Flag to signal show window request
+    show_window_flag: ShowWindowFlag,
 }
 
 impl IpcServer {
@@ -73,6 +79,7 @@ impl IpcServer {
             shutdown_tx: None,
             handle: None,
             status_cache: Arc::new(RwLock::new(EngineStatusCache::new())),
+            show_window_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -84,12 +91,18 @@ impl IpcServer {
             shutdown_tx: None,
             handle: None,
             status_cache: Arc::new(RwLock::new(EngineStatusCache::new())),
+            show_window_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
     /// Get a clone of the status cache for external updates
     pub fn status_cache(&self) -> SharedStatusCache {
         Arc::clone(&self.status_cache)
+    }
+
+    /// Get a clone of the show window flag
+    pub fn show_window_flag(&self) -> ShowWindowFlag {
+        Arc::clone(&self.show_window_flag)
     }
 
     /// Start the IPC server
@@ -114,13 +127,17 @@ impl IpcServer {
 
         let socket_path = self.socket_path.clone();
         let status_cache = Arc::clone(&self.status_cache);
+        let show_window_flag = Arc::clone(&self.show_window_flag);
         let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>(1);
 
         self.shutdown_tx = Some(shutdown_tx);
 
         // Spawn the server task
         let handle = tokio::spawn(async move {
-            if let Err(e) = run_server(socket_path, engine_tx, status_cache, shutdown_rx).await {
+            if let Err(e) =
+                run_server(socket_path, engine_tx, status_cache, show_window_flag, shutdown_rx)
+                    .await
+            {
                 error!("IPC server error: {}", e);
             }
         });
@@ -182,6 +199,7 @@ async fn run_server(
     socket_path: PathBuf,
     engine_tx: calloop::channel::Sender<EngineCommand>,
     status_cache: SharedStatusCache,
+    show_window_flag: ShowWindowFlag,
     mut shutdown_rx: mpsc::Receiver<()>,
 ) -> Result<()> {
     let listener = UnixListener::bind(&socket_path).context("Failed to bind socket")?;
@@ -202,8 +220,9 @@ async fn run_server(
                     Ok((stream, _)) => {
                         let tx = engine_tx.clone();
                         let cache = Arc::clone(&status_cache);
+                        let flag = Arc::clone(&show_window_flag);
                         tokio::spawn(async move {
-                            if let Err(e) = handle_connection(stream, tx, cache).await {
+                            if let Err(e) = handle_connection(stream, tx, cache, flag).await {
                                 warn!("Connection handler error: {}", e);
                             }
                         });
@@ -224,6 +243,7 @@ async fn handle_connection(
     stream: UnixStream,
     engine_tx: calloop::channel::Sender<EngineCommand>,
     status_cache: SharedStatusCache,
+    show_window_flag: ShowWindowFlag,
 ) -> Result<()> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
@@ -240,7 +260,9 @@ async fn handle_connection(
 
         // Parse request
         let response = match serde_json::from_str::<IpcRequest>(trimmed) {
-            Ok(request) => handle_request(request, &engine_tx, &status_cache).await,
+            Ok(request) => {
+                handle_request(request, &engine_tx, &status_cache, &show_window_flag).await
+            }
             Err(e) => IpcResponse::Error {
                 error: format!("Invalid request: {}", e),
             },
@@ -263,6 +285,7 @@ async fn handle_request(
     request: IpcRequest,
     engine_tx: &calloop::channel::Sender<EngineCommand>,
     status_cache: &SharedStatusCache,
+    show_window_flag: &ShowWindowFlag,
 ) -> IpcResponse {
     match request {
         IpcRequest::Apply { path, output, .. } => {
@@ -377,6 +400,15 @@ async fn handle_request(
         }
 
         IpcRequest::Ping => IpcResponse::Pong,
+
+        IpcRequest::ShowWindow => {
+            // Set the flag to notify the GUI to show the window
+            show_window_flag.store(true, Ordering::SeqCst);
+            info!("ShowWindow request received");
+            IpcResponse::Ok {
+                message: Some("Window show requested".to_string()),
+            }
+        }
 
         IpcRequest::Reload => {
             // GUI doesn't support hot reload yet
