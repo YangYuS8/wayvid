@@ -203,7 +203,7 @@ pub fn default_engine_config(settings: &crate::settings::AppSettings) -> EngineC
             ..VideoConfig::default()
         },
         auto_play: true,
-        fps_limit: settings.playback.fps_limit.map(|f| f as u32),
+        fps_limit: settings.playback.fps_limit,
         pause_on_battery: settings.power.pause_on_battery,
     }
 }

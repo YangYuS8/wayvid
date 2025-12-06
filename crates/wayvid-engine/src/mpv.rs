@@ -439,7 +439,7 @@ impl MpvPlayer {
         // Also check via mpv_render_context_update if we have a render context
         if let Some(render_ctx) = self.render_context {
             let flags = unsafe { libmpv_sys::mpv_render_context_update(render_ctx) };
-            if flags & (MPV_RENDER_UPDATE_FRAME as u64) != 0 {
+            if flags & MPV_RENDER_UPDATE_FRAME != 0 {
                 return true;
             }
         }

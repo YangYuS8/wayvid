@@ -118,7 +118,7 @@ impl Default for EngineConfig {
 }
 
 /// Current engine status
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct EngineStatus {
     /// Whether engine is running
     pub running: bool,
@@ -126,14 +126,4 @@ pub struct EngineStatus {
     pub outputs: Vec<OutputInfo>,
     /// Active wallpapers per output
     pub active_wallpapers: HashMap<String, Option<PathBuf>>,
-}
-
-impl Default for EngineStatus {
-    fn default() -> Self {
-        Self {
-            running: false,
-            outputs: Vec::new(),
-            active_wallpapers: HashMap::new(),
-        }
-    }
 }

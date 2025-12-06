@@ -12,7 +12,6 @@ pub use session::WallpaperSession;
 
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver as StdReceiver, Sender as StdSender};
 use std::sync::Arc;
@@ -493,9 +492,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
                 .map(|(name, session)| {
                     (
                         name.clone(),
-                        session
-                            .wallpaper_path()
-                            .map(|p| std::path::PathBuf::from(p)),
+                        session.wallpaper_path().map(std::path::PathBuf::from),
                     )
                 })
                 .collect();
@@ -517,7 +514,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
 /// Apply wallpaper to a specific output
 fn apply_wallpaper_to_output(
     state: &mut EngineState,
-    path: &PathBuf,
+    path: &std::path::Path,
     output_name: &str,
     qh: &QueueHandle<EngineState>,
 ) -> Result<()> {
@@ -609,7 +606,8 @@ fn apply_wallpaper_to_output(
     );
 
     // Create wallpaper session
-    let session = WallpaperSession::new(path.clone(), output_info, state.config.video.clone())?;
+    let session =
+        WallpaperSession::new(path.to_path_buf(), output_info, state.config.video.clone())?;
     state.sessions.insert(output_name.to_string(), session);
 
     info!("Wallpaper session created for {}", output_name);
@@ -722,19 +720,14 @@ impl Dispatch<WlOutput, u32> for EngineState {
                 pending.y = y;
             }
             wl_output::Event::Mode {
-                flags,
+                flags: wayland_client::WEnum::Value(mode),
                 width,
                 height,
                 refresh: _,
-            } => {
+            } if mode.contains(wl_output::Mode::Current) => {
                 // Only use current mode
-                // WEnum needs to be converted to the actual type first
-                if let wayland_client::WEnum::Value(mode) = flags {
-                    if mode.contains(wl_output::Mode::Current) {
-                        pending.width = width;
-                        pending.height = height;
-                    }
-                }
+                pending.width = width;
+                pending.height = height;
             }
             wl_output::Event::Scale { factor } => {
                 pending.scale = factor;
