@@ -41,12 +41,16 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 ### Arch Linux (AUR)
 
 ```bash
-yay -S wayvid
+yay -S wayvid-git
 ```
 
 ### Nix
 
 ```bash
+# Direct run
+nix run github:YangYuS8/wayvid
+
+# Install to profile
 nix profile install github:YangYuS8/wayvid
 ```
 
@@ -56,6 +60,11 @@ nix profile install github:YangYuS8/wayvid
 git clone https://github.com/YangYuS8/wayvid.git
 cd wayvid
 cargo build --release
+
+# Install using script (recommended)
+./scripts/install.sh --user
+
+# Or manual install
 sudo install -Dm755 target/release/wayvid-gui /usr/local/bin/
 sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/
 ```

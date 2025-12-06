@@ -56,8 +56,8 @@ build() {
     # Use system zstd library instead of building from source
     export ZSTD_SYS_USE_PKG_CONFIG=1
     
-    # Build with all features including GUI
-    cargo build --frozen --release --all-features --features gui
+    # Build GUI and CLI tools
+    cargo build --frozen --release --workspace
 }
 
 check() {

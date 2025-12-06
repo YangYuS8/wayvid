@@ -244,8 +244,13 @@ impl WallpaperState {
         output: Option<&WlOutput>,
         config: LayerSurfaceConfig,
     ) -> Result<usize> {
-        let surface =
-            LayerSurface::new(&self.layer_shell, qh, &self.compositor_state, output, config)?;
+        let surface = LayerSurface::new(
+            &self.layer_shell,
+            qh,
+            &self.compositor_state,
+            output,
+            config,
+        )?;
         let index = self.surfaces.len();
         self.surfaces.push(surface);
         Ok(index)
@@ -312,12 +317,7 @@ impl OutputHandler for WallpaperState {
 
     fn update_output(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _output: WlOutput) {}
 
-    fn output_destroyed(
-        &mut self,
-        _conn: &Connection,
-        _qh: &QueueHandle<Self>,
-        _output: WlOutput,
-    ) {
+    fn output_destroyed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _output: WlOutput) {
         tracing::info!("Output removed");
     }
 }

@@ -1,3 +1,39 @@
+## [unreleased]
+
+### 🚀 Features
+
+- *(gui)* Make FPS limit setting editable
+- Implement wallpaper playback session and IPC server for wayvid-gui
+- *(ipc)* Add shared status cache for IPC queries and update handling logic
+
+### 🐛 Bug Fixes
+
+- *(packaging)* Correct binary names in install scripts
+- *(packaging)* Unify desktop file name as wayvid.desktop
+- *(nix)* Add desktop file and icon to flake.nix postInstall
+- *(packaging)* Update all scripts to use wayvid-gui binary
+- *(gui)* Implement wlr-randr fallback for monitor detection
+- *(gui)* Prevent IPC polling from resetting engine state in standalone mode
+
+### 💼 Other
+
+- *(deb)* Add cargo-deb metadata for proper Debian packaging
+- *(openspec)* Create refactor-daemon-architecture proposal
+- *(openspec)* Create integrate-playback-engine-into-gui proposal
+
+### 🚜 Refactor
+
+- *(gui)* Replace daemon terminology with engine
+
+### 📚 Documentation
+
+- *(nix)* Update README with correct binary names
+- *(configs)* Update autostart examples for v0.5 architecture
+
+### ⚙️ Miscellaneous Tasks
+
+- Update CHANGELOG for v0.5.0-alpha.1 release
+- *(release)* Remove redundant quality checks
 ## [0.5.0-alpha.1] - 2025-12-05
 
 ### 🚀 Features

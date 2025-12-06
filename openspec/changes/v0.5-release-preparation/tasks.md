@@ -87,17 +87,41 @@
 
 | Task | Status | Blockers |
 |------|--------|----------|
-| Desktop Integration | Not Started | None |
-| Install Script Test | Not Started | None |
-| Documentation | Not Started | None |
-| Git Operations | Not Started | Depends on above |
+| Desktop Integration | **Completed** | None |
+| Install Script Test | **Completed** | None |
+| Documentation | **Completed** | None |
+| Git Operations | Not Started | None |
 | **IPC Server Integration** | **Completed** | None |
 | **Layer Surface Fix** | **Completed** | None |
 | **Hot-swap Optimization** | **Completed** | None |
+| **Status Cache** | **Completed** | None |
 
 ---
 
 ## Completed Tasks (Previous Sessions)
+
+### Desktop Integration Verification
+**Status**: ✅ Completed (2025-12-06)
+
+- Desktop file installs to `~/.local/share/applications/wayvid.desktop`
+- Icon installs to `~/.local/share/icons/hicolor/scalable/apps/wayvid.svg`
+- desktop-file-validate passes (only hints, no errors)
+
+### Install Script Testing
+**Status**: ✅ Completed (2025-12-06)
+
+- Fixed verification function to not check non-existent `wayvid` binary
+- Install script completes successfully with `--user --no-build`
+- All binaries installed and executable
+
+### Documentation Updates
+**Status**: ✅ Completed (2025-12-06)
+
+- Updated `docs/src/user-guide/installation.md` with install script and Nix options
+- Updated `docs/src/reference/ipc-protocol.md` with new JSON format
+- Updated `docs/src/reference/cli.md` with status examples
+- Updated `README.md` with correct AUR package name
+- Updated `CHANGELOG.md` with new features
 
 ### IPC Server Integration for wayvid-ctl
 **Status**: ✅ Completed (2025-12-06)
@@ -139,7 +163,6 @@ Screen flicker when switching wallpapers due to layer surface recreation
 ---
 
 ## Notes for Next Session
-- Start with Task 1 (Desktop Integration) as it's a quick verification
-- Task 2 (Install Script) should be tested on a clean state
-- Task 3 and 4 can be done after verification tasks pass
-- Consider implementing actual output status query for `wayvid-ctl status` (currently returns empty list)
+- All major tasks completed
+- Ready for v0.5.0-alpha.1 release
+- Consider implementing actual output status query for `wayvid-ctl outputs` (currently returns basic info)
