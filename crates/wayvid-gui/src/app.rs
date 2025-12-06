@@ -38,6 +38,8 @@ pub struct App {
     window_id: Option<window::Id>,
     /// Playback paused state (for tray icon)
     paused: bool,
+    /// Whether wallpaper restoration is pending (on startup)
+    pending_restore: bool,
 }
 
 impl App {
@@ -75,6 +77,16 @@ impl App {
             ..Default::default()
         });
 
+        // Check if we should restore wallpapers on startup
+        let pending_restore = settings.autostart.restore_last_wallpaper
+            && !settings.autostart.monitor_states.is_empty();
+        if pending_restore {
+            tracing::info!(
+                "Will restore wallpapers for {} monitors on startup",
+                settings.autostart.monitor_states.len()
+            );
+        }
+
         (
             Self {
                 state,
@@ -85,6 +97,7 @@ impl App {
                 tray,
                 window_id: Some(window_id),
                 paused: false,
+                pending_restore,
             },
             Task::batch([task, open_window.map(Message::WindowOpened)]),
         )
@@ -99,6 +112,105 @@ impl App {
         } else {
             self.settings_dirty = false;
         }
+    }
+
+    /// Restore wallpapers from saved state (called on startup)
+    fn restore_wallpapers(&mut self) {
+        if !self.pending_restore {
+            return;
+        }
+        self.pending_restore = false;
+
+        let monitor_states = self.state.app_settings.autostart.monitor_states.clone();
+        if monitor_states.is_empty() {
+            tracing::debug!("No wallpapers to restore");
+            return;
+        }
+
+        tracing::info!("Restoring wallpapers for {} monitors", monitor_states.len());
+
+        for monitor_state in monitor_states {
+            if let Some(ref path) = monitor_state.wallpaper_path {
+                if path.exists() {
+                    tracing::info!(
+                        "Restoring wallpaper for {}: {:?}",
+                        monitor_state.monitor,
+                        path
+                    );
+                    match self
+                        .engine
+                        .apply_wallpaper(Some(monitor_state.monitor.clone()), path.clone())
+                    {
+                        Ok(()) => {
+                            tracing::info!("Restored wallpaper for {}", monitor_state.monitor);
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to restore wallpaper for {}: {}",
+                                monitor_state.monitor,
+                                e
+                            );
+                        }
+                    }
+                } else {
+                    tracing::warn!(
+                        "Wallpaper file not found for {}: {:?}",
+                        monitor_state.monitor,
+                        path
+                    );
+                }
+            }
+        }
+    }
+
+    /// Save wallpaper state for a specific monitor or all monitors
+    fn save_wallpaper_state(&mut self, output: Option<&str>, path: &std::path::Path) {
+        use crate::settings::MonitorState;
+
+        if let Some(output_name) = output {
+            // Save for specific monitor
+            let state = MonitorState {
+                monitor: output_name.to_string(),
+                wallpaper_path: Some(path.to_path_buf()),
+            };
+
+            // Update or insert the monitor state
+            let autostart = &mut self.state.app_settings.autostart;
+            if let Some(existing) = autostart
+                .monitor_states
+                .iter_mut()
+                .find(|s| s.monitor == output_name)
+            {
+                *existing = state;
+            } else {
+                autostart.monitor_states.push(state);
+            }
+        } else {
+            // Apply to all monitors - update all known monitors
+            for monitor in &self.state.monitors {
+                let state = MonitorState {
+                    monitor: monitor.name.clone(),
+                    wallpaper_path: Some(path.to_path_buf()),
+                };
+
+                let autostart = &mut self.state.app_settings.autostart;
+                if let Some(existing) = autostart
+                    .monitor_states
+                    .iter_mut()
+                    .find(|s| s.monitor == monitor.name)
+                {
+                    *existing = state;
+                } else {
+                    autostart.monitor_states.push(state);
+                }
+            }
+        }
+
+        self.trigger_settings_save();
+        tracing::debug!(
+            "Saved wallpaper state: {} monitors",
+            self.state.app_settings.autostart.monitor_states.len()
+        );
     }
 
     /// Application title (daemon mode - receives window id)
@@ -204,11 +316,14 @@ impl App {
 
                     // If engine is running, use it directly
                     if self.engine.is_running() {
-                        match self.engine.apply_wallpaper(None, path) {
+                        match self.engine.apply_wallpaper(None, path.clone()) {
                             Ok(()) => {
                                 tracing::info!("Applied wallpaper to all outputs via engine");
                                 self.state.status_message =
                                     Some(t!("success.wallpaper_applied").to_string());
+
+                                // Save wallpaper state for persistence
+                                self.save_wallpaper_state(None, &path);
                             }
                             Err(e) => {
                                 tracing::error!("Failed to apply wallpaper via engine: {}", e);
@@ -509,9 +624,14 @@ impl App {
 
                         // If engine is running, use it directly
                         if self.engine.is_running() {
-                            match self.engine.apply_wallpaper(Some(output.clone()), path) {
+                            match self
+                                .engine
+                                .apply_wallpaper(Some(output.clone()), path.clone())
+                            {
                                 Ok(()) => {
                                     tracing::info!("Applied wallpaper to {} via engine", output);
+                                    // Save wallpaper state for persistence
+                                    self.save_wallpaper_state(Some(&output), &path);
                                 }
                                 Err(e) => {
                                     tracing::error!("Failed to apply wallpaper via engine: {}", e);
@@ -703,6 +823,8 @@ impl App {
                         {
                             tracing::warn!("Failed to request outputs: {}", e);
                         }
+                        // Restore wallpapers if pending
+                        self.restore_wallpapers();
                     }
                     EngineEvent::Stopped => {
                         self.state.engine_running = false;

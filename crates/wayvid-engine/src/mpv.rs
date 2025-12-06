@@ -142,41 +142,48 @@ impl MpvPlayer {
         Self::configure_layout(&set_option, config.layout);
 
         // ===== Critical Performance Optimizations =====
+        // Optimized for integrated GPUs (AMD APU, Intel UHD, etc.)
 
-        // Hardware decoding - MUST be set early and aggressively
+        // Hardware decoding - VAAPI for AMD/Intel on Linux
         let hwdec_str = match config.hwdec {
-            HwdecMode::Auto => "auto-copy", // auto-copy is more compatible than auto-safe
-            HwdecMode::Force => "vaapi",    // Force VAAPI on Linux for best performance
+            HwdecMode::Auto => "vaapi-copy", // VAAPI copy-back for AMD APU
+            HwdecMode::Force => "vaapi",     // Direct VAAPI
             HwdecMode::No => "no",
         };
         set_option("hwdec", hwdec_str);
-        set_option("hwdec-codecs", "all"); // Enable hwdec for all codecs
+        set_option("hwdec-codecs", "all");
 
-        // Video output optimization
+        // Video output - minimal GPU load
         set_option("vo", "libmpv");
         set_option("gpu-api", "opengl");
-        set_option("opengl-swapinterval", "0"); // Disable vsync (compositor handles it)
-        set_option("opengl-pbo", "yes"); // Use PBOs for faster texture upload
-        set_option("vd-lavc-dr", "yes"); // Direct rendering for zero-copy
+        set_option("opengl-swapinterval", "0");
+        set_option("opengl-pbo", "no"); // Disable PBO on integrated GPU (can cause overhead)
 
-        // Reduce CPU usage significantly
+        // Aggressive performance settings for low-power scenarios
         set_option("video-latency-hacks", "yes");
-        set_option("correct-pts", "no"); // Faster timestamp handling
-        set_option("fps", "60"); // Cap internal fps
-        set_option("framedrop", "decoder+vo"); // Aggressive frame dropping
+        set_option("correct-pts", "no");
+        set_option("framedrop", "decoder+vo");
 
-        // Disable unnecessary processing for wallpaper use
+        // Reduce rendering quality for power efficiency
+        set_option("profile", "fast"); // Use fast profile
         set_option("deband", "no");
         set_option("dither-depth", "no");
         set_option("temporal-dither", "no");
         set_option("sigmoid-upscaling", "no");
-        set_option("scale", "bilinear"); // Fast scaling
+        set_option("linear-downscaling", "no");
+        set_option("linear-upscaling", "no");
+        set_option("correct-downscaling", "no");
+        set_option("scale", "bilinear");
         set_option("dscale", "bilinear");
         set_option("cscale", "bilinear");
+        set_option("fbo-format", "rgba8"); // Simpler FBO format
 
-        // Memory and cache optimization
-        set_option("demuxer-max-bytes", "32M");
-        set_option("demuxer-max-back-bytes", "8M");
+        // Limit video FPS to reduce GPU load
+        set_option("vf", "fps=30"); // Cap video to 30fps for wallpaper use
+
+        // Memory optimization
+        set_option("demuxer-max-bytes", "16M");
+        set_option("demuxer-max-back-bytes", "4M");
         set_option("cache", "yes");
         set_option("cache-secs", "3");
         set_option("demuxer-readahead-secs", "2");
