@@ -114,6 +114,8 @@ pub struct AutostartSettings {
     pub restore_last_wallpaper: bool,
     /// Per-monitor wallpaper state
     pub monitor_states: Vec<MonitorState>,
+    /// Engine was running when app closed (to restore on startup)
+    pub engine_running: bool,
 }
 
 impl Default for AutostartSettings {
@@ -122,6 +124,7 @@ impl Default for AutostartSettings {
             enabled: false,
             restore_last_wallpaper: true,
             monitor_states: Vec::new(),
+            engine_running: false,
         }
     }
 }

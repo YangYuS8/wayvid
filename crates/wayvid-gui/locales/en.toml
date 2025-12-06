@@ -87,6 +87,8 @@ settings.autostart = "Start with system"
 settings.autostart_desc = "Launch wayvid when you log in"
 settings.minimize_to_tray = "Minimize to tray"
 settings.minimize_to_tray_desc = "Keep running in background when window is closed"
+settings.start_minimized = "Start minimized"
+settings.start_minimized_desc = "Start in tray without showing window"
 
 # Settings - Playback
 settings.playback = "Playback"

@@ -87,6 +87,8 @@ settings.autostart = "开机自启"
 settings.autostart_desc = "登录时自动启动 wayvid"
 settings.minimize_to_tray = "最小化到托盘"
 settings.minimize_to_tray_desc = "关闭窗口时在后台继续运行"
+settings.start_minimized = "启动时最小化"
+settings.start_minimized_desc = "启动时直接进入托盘，不显示窗口"
 
 # 设置 - 播放
 settings.playback = "播放"

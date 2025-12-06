@@ -67,15 +67,10 @@ impl App {
             tracing::warn!("System tray not available, minimize to tray will be disabled");
         }
 
-        // Open initial window
+        // Load settings
         let settings = AppSettings::load().unwrap_or_default();
-        let window_width = settings.gui.window_width.max(800) as f32;
-        let window_height = settings.gui.window_height.max(600) as f32;
-
-        let (window_id, open_window) = window::open(window::Settings {
-            size: iced::Size::new(window_width, window_height),
-            ..Default::default()
-        });
+        let start_minimized = settings.gui.start_minimized;
+        let should_start_engine = settings.autostart.engine_running;
 
         // Check if we should restore wallpapers on startup
         let pending_restore = settings.autostart.restore_last_wallpaper
@@ -87,19 +82,45 @@ impl App {
             );
         }
 
+        // Decide whether to open window or start minimized
+        let (window_id, window_task) = if start_minimized && tray.is_some() {
+            tracing::info!("Starting minimized to tray");
+            (None, Task::none())
+        } else {
+            let window_width = settings.gui.window_width.max(800) as f32;
+            let window_height = settings.gui.window_height.max(600) as f32;
+            let (id, open_window) = window::open(window::Settings {
+                size: iced::Size::new(window_width, window_height),
+                ..Default::default()
+            });
+            (Some(id), open_window.map(Message::WindowOpened))
+        };
+
+        // Create engine controller
+        let engine = EngineController::new();
+
+        // Build initial tasks
+        let mut tasks = vec![task, window_task];
+
+        // Auto-start engine if it was running before
+        if should_start_engine {
+            tracing::info!("Auto-starting engine (was running before shutdown)");
+            tasks.push(Task::done(Message::StartEngine));
+        }
+
         (
             Self {
                 state,
                 theme,
                 monitor_view: MonitorView::new(),
                 settings_dirty: false,
-                engine: EngineController::new(),
+                engine,
                 tray,
-                window_id: Some(window_id),
+                window_id,
                 paused: false,
                 pending_restore,
             },
-            Task::batch([task, open_window.map(Message::WindowOpened)]),
+            Task::batch(tasks),
         )
     }
 
@@ -422,6 +443,11 @@ impl App {
                 self.trigger_settings_save();
                 Task::none()
             }
+            Message::ToggleStartMinimized(enabled) => {
+                self.state.app_settings.gui.start_minimized = enabled;
+                self.trigger_settings_save();
+                Task::none()
+            }
             Message::TogglePauseOnBattery(enabled) => {
                 self.state.app_settings.power.pause_on_battery = enabled;
                 self.trigger_settings_save();
@@ -688,6 +714,9 @@ impl App {
                         self.state.engine_running = true;
                         self.state.status_message = Some(t!("success.engine_started").to_string());
                         tracing::info!("Integrated playback engine started");
+                        // Persist engine running state
+                        self.state.app_settings.autostart.engine_running = true;
+                        self.trigger_settings_save();
                     }
                     Err(e) => {
                         self.state.error = Some(format!("Failed to start engine: {}", e));
@@ -702,6 +731,9 @@ impl App {
                 self.state.engine_running = false;
                 self.state.status_message = Some(t!("success.engine_stopped").to_string());
                 tracing::info!("Integrated playback engine stopped");
+                // Persist engine stopped state
+                self.state.app_settings.autostart.engine_running = false;
+                self.trigger_settings_save();
                 Task::none()
             }
             Message::EngineStatusUpdated(running) => {

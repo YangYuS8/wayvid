@@ -32,6 +32,12 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
                 checkbox("", state.app_settings.gui.minimize_to_tray)
                     .on_toggle(Message::ToggleMinimizeToTray),
             ),
+            setting_row(
+                &t!("settings.start_minimized"),
+                &t!("settings.start_minimized_desc"),
+                checkbox("", state.app_settings.gui.start_minimized)
+                    .on_toggle(Message::ToggleStartMinimized),
+            ),
         ]
         .spacing(15),
     );

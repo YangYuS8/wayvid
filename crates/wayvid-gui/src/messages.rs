@@ -64,6 +64,8 @@ pub enum Message {
     ToggleAutostart(bool),
     /// Toggle minimize to tray
     ToggleMinimizeToTray(bool),
+    /// Toggle start minimized (to tray)
+    ToggleStartMinimized(bool),
     /// Toggle pause on battery
     TogglePauseOnBattery(bool),
     /// Toggle pause on fullscreen
