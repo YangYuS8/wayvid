@@ -114,8 +114,14 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
     );
 
     // Appearance section
-    let renderer_options = vec!["vulkan".to_string(), "opengl".to_string()];
-    let current_renderer = state.app_settings.gui.renderer.clone();
+    // Use proper case for renderer display names
+    let renderer_options = vec!["Vulkan".to_string(), "OpenGL".to_string()];
+    // Capitalize current renderer for display
+    let current_renderer = match state.app_settings.gui.renderer.to_lowercase().as_str() {
+        "vulkan" => "Vulkan".to_string(),
+        "opengl" | "gl" => "OpenGL".to_string(),
+        _ => "Vulkan".to_string(),
+    };
 
     let theme_section = section(
         &t!("settings.appearance"),

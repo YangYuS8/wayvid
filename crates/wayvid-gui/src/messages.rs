@@ -102,6 +102,10 @@ pub enum Message {
     // Window events
     /// Window close requested
     WindowCloseRequested,
+    /// Window opened (daemon mode)
+    WindowOpened(iced::window::Id),
+    /// Window closed (daemon mode)
+    WindowClosed(iced::window::Id),
 
     // Daemon communication
     /// Daemon connected successfully
@@ -122,12 +126,18 @@ pub enum Message {
     // Monitor operations
     /// Refresh monitor list
     RefreshMonitors,
+    /// Poll for monitor changes (automatic detection)
+    PollMonitorChanges,
     /// Monitor list updated
     MonitorsUpdated(Vec<crate::state::MonitorInfo>),
     /// Select a monitor for wallpaper application
     SelectMonitor(String),
+    /// Select target monitor for wallpaper application in library view
+    SelectTargetMonitor(Option<String>),
     /// Apply wallpaper to a specific monitor
     ApplyToMonitor(String),
+    /// Double click to apply wallpaper immediately
+    DoubleClickWallpaper(String),
     /// Clear wallpaper from a specific monitor
     ClearMonitor(String),
 

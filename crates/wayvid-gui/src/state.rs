@@ -108,6 +108,12 @@ pub struct AppState {
 
     /// Detail panel visible state
     pub detail_panel_visible: bool,
+
+    /// Target monitor for wallpaper application (None = all monitors)
+    pub target_monitor: Option<String>,
+
+    /// Last click time and wallpaper ID for double-click detection
+    pub last_click: Option<(std::time::Instant, String)>,
 }
 
 impl AppState {
@@ -174,6 +180,8 @@ impl AppState {
             last_daemon_status: None,
             sidebar_collapsed,
             detail_panel_visible,
+            target_monitor: None,
+            last_click: None,
         };
 
         // Start scanning Workshop and refreshing monitors on startup

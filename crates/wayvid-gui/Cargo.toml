@@ -52,6 +52,9 @@ interprocess = { version = "2.2", features = ["tokio"] }
 # System tray (SNI/StatusNotifierItem for Linux/Wayland)
 ksni = "0.2"
 
+# PNG decoding (for tray icon)
+png = "0.17"
+
 # Event loop (for engine communication)
 calloop = "0.14"
 

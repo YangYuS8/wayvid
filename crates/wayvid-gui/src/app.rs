@@ -3,7 +3,6 @@
 //! Defines the core App struct and iced integration.
 
 use anyhow::Result;
-use iced::event::{self, Event};
 use iced::widget::{button, column, container, row, text, Space};
 use iced::window;
 use iced::{Element, Font, Length, Subscription, Task, Theme};
@@ -35,10 +34,14 @@ pub struct App {
     engine: EngineController,
     /// System tray (optional - may not be available on all systems)
     tray: Option<SystemTray>,
+    /// Window ID (for daemon mode - can close and reopen window)
+    window_id: Option<window::Id>,
+    /// Playback paused state (for tray icon)
+    paused: bool,
 }
 
 impl App {
-    /// Create a new application instance
+    /// Create a new application instance (daemon mode - no window initially)
     pub fn new() -> (Self, Task<Message>) {
         let (state, task) = AppState::new();
 
@@ -62,6 +65,16 @@ impl App {
             tracing::warn!("System tray not available, minimize to tray will be disabled");
         }
 
+        // Open initial window
+        let settings = AppSettings::load().unwrap_or_default();
+        let window_width = settings.gui.window_width.max(800) as f32;
+        let window_height = settings.gui.window_height.max(600) as f32;
+
+        let (window_id, open_window) = window::open(window::Settings {
+            size: iced::Size::new(window_width, window_height),
+            ..Default::default()
+        });
+
         (
             Self {
                 state,
@@ -70,8 +83,10 @@ impl App {
                 settings_dirty: false,
                 engine: EngineController::new(),
                 tray,
+                window_id: Some(window_id),
+                paused: false,
             },
-            task,
+            Task::batch([task, open_window.map(Message::WindowOpened)]),
         )
     }
 
@@ -86,8 +101,8 @@ impl App {
         }
     }
 
-    /// Application title
-    pub fn title(&self) -> String {
+    /// Application title (daemon mode - receives window id)
+    pub fn title(&self, _window: window::Id) -> String {
         format!("{} - {}", t!("app.title"), self.state.current_view.title())
     }
 
@@ -144,9 +159,42 @@ impl App {
                 Task::none()
             }
 
-            // Wallpaper selection
+            // Wallpaper selection with double-click detection
             Message::SelectWallpaper(id) => {
-                self.state.selected_wallpaper = Some(id);
+                let now = std::time::Instant::now();
+                let double_click_threshold = std::time::Duration::from_millis(400);
+
+                // Check for double-click
+                if let Some((last_time, last_id)) = &self.state.last_click {
+                    if &id == last_id && now.duration_since(*last_time) < double_click_threshold {
+                        // Double-click detected - apply wallpaper
+                        self.state.last_click = None;
+                        return self.update(Message::DoubleClickWallpaper(id));
+                    }
+                }
+
+                // Single click - select wallpaper and record click time
+                self.state.selected_wallpaper = Some(id.clone());
+                self.state.last_click = Some((now, id));
+                Task::none()
+            }
+            Message::DoubleClickWallpaper(id) => {
+                // Apply wallpaper to target monitor (or all if none selected)
+                tracing::debug!(
+                    "DoubleClickWallpaper: id={}, target_monitor={:?}",
+                    id,
+                    self.state.target_monitor
+                );
+                self.state.selected_wallpaper = Some(id.clone());
+                if let Some(ref target) = self.state.target_monitor {
+                    self.update(Message::ApplyToMonitor(target.clone()))
+                } else {
+                    self.update(Message::ApplyWallpaper(id))
+                }
+            }
+            Message::SelectTargetMonitor(monitor) => {
+                tracing::info!("SelectTargetMonitor: {:?}", monitor);
+                self.state.target_monitor = monitor;
                 Task::none()
             }
             Message::ApplyWallpaper(id) => {
@@ -283,6 +331,22 @@ impl App {
                 self.state.app_settings.gui.language = language.to_code().to_string();
                 i18n::set_language(language);
                 self.trigger_settings_save();
+
+                // Recreate tray to update menu labels with new language
+                if self.state.app_settings.gui.minimize_to_tray {
+                    // Shutdown old tray
+                    if let Some(ref tray) = self.tray {
+                        tray.shutdown();
+                    }
+                    // Create new tray with updated labels
+                    self.tray = SystemTray::new();
+                    // Sync paused state to new tray
+                    if let Some(ref tray) = self.tray {
+                        tray.set_paused(self.paused);
+                    }
+                    tracing::info!("Tray recreated with new language");
+                }
+
                 Task::none()
             }
             Message::SaveSettings => {
@@ -335,7 +399,13 @@ impl App {
 
             // Renderer
             Message::ChangeRenderer(renderer) => {
-                self.state.app_settings.gui.renderer = renderer;
+                // Convert display name to internal value (lowercase for WGPU_BACKEND)
+                let internal_value = match renderer.as_str() {
+                    "Vulkan" => "vulkan",
+                    "OpenGL" => "opengl",
+                    _ => "vulkan",
+                };
+                self.state.app_settings.gui.renderer = internal_value.to_string();
                 self.trigger_settings_save();
                 // Note: Renderer change requires restart to take effect
                 self.state.status_message = Some(t!("settings.restart_required").to_string());
@@ -392,8 +462,33 @@ impl App {
             Message::RefreshMonitors => {
                 Task::perform(async { refresh_monitors().await }, Message::MonitorsUpdated)
             }
+            Message::PollMonitorChanges => {
+                // Only refresh if monitor count might have changed
+                // This is a lightweight poll - actual detection happens in refresh_monitors
+                Task::perform(async { refresh_monitors().await }, |new_monitors| {
+                    Message::MonitorsUpdated(new_monitors)
+                })
+            }
             Message::MonitorsUpdated(monitors) => {
-                self.state.monitors = monitors;
+                // Only update if monitors actually changed
+                if self.state.monitors.len() != monitors.len()
+                    || self
+                        .state
+                        .monitors
+                        .iter()
+                        .zip(monitors.iter())
+                        .any(|(a, b)| a.name != b.name)
+                {
+                    tracing::info!(
+                        "Monitor configuration changed: {} -> {} monitors",
+                        self.state.monitors.len(),
+                        monitors.len()
+                    );
+                    self.state.monitors = monitors;
+                } else {
+                    // Update wallpaper status without logging
+                    self.state.monitors = monitors;
+                }
                 Task::none()
             }
             Message::SelectMonitor(name) => {
@@ -532,17 +627,37 @@ impl App {
 
             // Window close handling
             Message::WindowCloseRequested => {
-                if self.state.app_settings.gui.minimize_to_tray {
-                    // 尝试最小化窗口而非关闭
+                if self.state.app_settings.gui.minimize_to_tray && self.tray.is_some() {
+                    // 关闭窗口但保持应用运行（daemon 模式）
                     tracing::info!(
-                        "Minimize to tray enabled, minimizing window instead of closing"
+                        "Minimize to tray enabled, closing window but keeping app running"
                     );
-                    window::get_latest().and_then(|id| window::minimize(id, true))
+                    if let Some(id) = self.window_id.take() {
+                        window::close(id)
+                    } else {
+                        Task::none()
+                    }
                 } else {
-                    // 正常关闭窗口
-                    tracing::info!("Closing window");
-                    window::get_latest().and_then(window::close)
+                    // 正常退出应用程序
+                    tracing::info!("Exiting application");
+                    iced::exit()
                 }
+            }
+
+            // Window opened (daemon mode)
+            Message::WindowOpened(id) => {
+                tracing::info!("Window opened: {:?}", id);
+                self.window_id = Some(id);
+                Task::none()
+            }
+
+            // Window closed (daemon mode)
+            Message::WindowClosed(id) => {
+                tracing::info!("Window closed: {:?}", id);
+                if self.window_id == Some(id) {
+                    self.window_id = None;
+                }
+                Task::none()
             }
 
             // Engine events (integrated engine)
@@ -601,11 +716,8 @@ impl App {
                     }
                     EngineEvent::OutputsList(outputs) => {
                         tracing::info!("Received {} outputs from engine", outputs.len());
-                        // Update monitor list from engine
-                        self.state.monitors = outputs
-                            .into_iter()
-                            .map(|info| crate::state::MonitorInfo::from_output_info(&info))
-                            .collect();
+                        // Don't replace monitor list - just log it
+                        // Monitor list is managed by wlr-randr polling
                     }
                     EngineEvent::Status(status) => {
                         tracing::debug!(
@@ -614,11 +726,8 @@ impl App {
                             status.outputs.len()
                         );
                         self.state.engine_running = status.running;
-                        self.state.monitors = status
-                            .outputs
-                            .into_iter()
-                            .map(|info| crate::state::MonitorInfo::from_output_info(&info))
-                            .collect();
+                        // Don't replace monitor list - just update engine status
+                        // Monitor list is managed by wlr-randr polling
                     }
                     EngineEvent::Error(err) => {
                         self.state.error = Some(err);
@@ -640,18 +749,57 @@ impl App {
                 match action {
                     TrayAction::Show => {
                         tracing::info!("Tray: Show window");
-                        window::get_latest().and_then(window::gain_focus)
+                        // 如果窗口不存在，重新创建窗口（daemon 模式）
+                        if self.window_id.is_none() {
+                            let settings = AppSettings::load().unwrap_or_default();
+                            let window_width = settings.gui.window_width.max(800) as f32;
+                            let window_height = settings.gui.window_height.max(600) as f32;
+
+                            let (_id, open_window) = window::open(window::Settings {
+                                size: iced::Size::new(window_width, window_height),
+                                ..Default::default()
+                            });
+                            tracing::info!("Opening new window from tray");
+                            open_window.map(Message::WindowOpened)
+                        } else {
+                            // 窗口存在，聚焦
+                            window::get_latest().and_then(window::gain_focus)
+                        }
                     }
                     TrayAction::Hide => {
                         tracing::info!("Tray: Hide window");
-                        window::get_latest().and_then(|id| window::minimize(id, true))
+                        // 关闭窗口但保持应用运行（daemon 模式）
+                        if let Some(id) = self.window_id {
+                            window::close(id)
+                        } else {
+                            Task::none()
+                        }
                     }
                     TrayAction::TogglePause => {
                         tracing::info!("Tray: Toggle pause");
-                        // Toggle pause state in engine
+                        // Toggle pause state
+                        self.paused = !self.paused;
+
+                        // Update tray icon state
+                        if let Some(ref tray) = self.tray {
+                            tray.set_paused(self.paused);
+                        }
+
+                        // Send pause/resume command to engine
                         if self.engine.is_running() {
-                            // For now, just log - actual pause/resume would need engine support
-                            tracing::info!("Engine pause/resume toggled");
+                            if self.paused {
+                                if let Err(e) = self.engine.pause(None) {
+                                    tracing::error!("Failed to pause engine: {}", e);
+                                } else {
+                                    tracing::info!("Engine paused");
+                                }
+                            } else {
+                                if let Err(e) = self.engine.resume(None) {
+                                    tracing::error!("Failed to resume engine: {}", e);
+                                } else {
+                                    tracing::info!("Engine resumed");
+                                }
+                            }
                         }
                         Task::none()
                     }
@@ -661,17 +809,42 @@ impl App {
                         if let Some(ref tray) = self.tray {
                             tray.shutdown();
                         }
-                        window::get_latest().and_then(window::close)
+                        iced::exit()
                     }
                 }
             }
-            Message::ShowWindow => window::get_latest().and_then(window::gain_focus),
-            Message::HideWindow => window::get_latest().and_then(|id| window::minimize(id, true)),
+            Message::ShowWindow => {
+                // 重新打开窗口（daemon 模式）
+                if self.window_id.is_none() {
+                    let settings = AppSettings::load().unwrap_or_default();
+                    let window_width = settings.gui.window_width.max(800) as f32;
+                    let window_height = settings.gui.window_height.max(600) as f32;
+
+                    let (_id, open_window) = window::open(window::Settings {
+                        size: iced::Size::new(window_width, window_height),
+                        ..Default::default()
+                    });
+                    tracing::info!("Opening new window from tray");
+                    open_window.map(Message::WindowOpened)
+                } else {
+                    // 窗口已存在，聚焦
+                    window::get_latest().and_then(window::gain_focus)
+                }
+            }
+            Message::HideWindow => {
+                // 关闭窗口但保持应用运行（daemon 模式）
+                if let Some(id) = self.window_id {
+                    tracing::info!("Hiding window (closing)");
+                    window::close(id)
+                } else {
+                    Task::none()
+                }
+            }
         }
     }
 
-    /// Render the view
-    pub fn view(&self) -> Element<'_, Message> {
+    /// Render the view (daemon mode - receives window id)
+    pub fn view(&self, _window: window::Id) -> Element<'_, Message> {
         let content: Element<'_, Message> = match self.state.current_view {
             View::Library => views::library::view(&self.state),
             View::Folders => views::folders::view(&self.state),
@@ -791,47 +964,9 @@ impl App {
                 .on_press(Message::StartEngine)
         };
 
-        // Monitor selector section (at bottom of sidebar)
-        let monitor_selector: Element<Message> = if self.state.monitors.is_empty() {
-            text(t!("monitors.no_monitors").to_string()).size(12).into()
-        } else {
-            let monitor_buttons: Vec<Element<Message>> = self
-                .state
-                .monitors
-                .iter()
-                .map(|m| {
-                    let is_selected = self.monitor_view.selected_monitor() == Some(m.name.as_str());
-                    let label = format!("{} ({}x{})", m.name, m.width, m.height);
-                    button(text(label).size(11))
-                        .padding(6)
-                        .width(Length::Fill)
-                        .style(if is_selected {
-                            button::primary
-                        } else {
-                            button::secondary
-                        })
-                        .on_press(Message::SelectMonitor(m.name.clone()))
-                        .into()
-                })
-                .collect();
-
-            column(monitor_buttons).spacing(4).into()
-        };
-
-        let monitor_section = column![
-            text(t!("nav.monitors").to_string()).size(14),
-            Space::with_height(5),
-            monitor_selector,
-        ]
-        .spacing(3)
-        .padding(10);
-
         let sidebar_content = column![
             nav,
             Space::with_height(Length::Fill),
-            container(monitor_section)
-                .style(container::bordered_box)
-                .width(Length::Fill),
             container(column![status, Space::with_height(10), engine_button].spacing(5))
                 .padding(15),
         ];
@@ -865,8 +1000,8 @@ impl App {
         column![overlay, base].into()
     }
 
-    /// Get theme
-    pub fn theme(&self) -> Theme {
+    /// Get theme (daemon mode - receives window id)
+    pub fn theme(&self, _window: window::Id) -> Theme {
         self.theme.into()
     }
 
@@ -923,15 +1058,11 @@ impl App {
         // Engine event polling subscription (when engine is running)
         let engine_sub = crate::engine::engine_subscription(self.engine.is_running());
 
-        // Window event subscription (for close handling)
-        let window_sub = event::listen().map(|event| {
-            if let Event::Window(window::Event::CloseRequested) = event {
-                Message::WindowCloseRequested
-            } else {
-                // 忽略其他事件，发送一个无操作消息
-                Message::DismissStatus
-            }
-        });
+        // Window close request subscription (for minimize to tray)
+        let close_request_sub = window::close_requests().map(|_id| Message::WindowCloseRequested);
+
+        // Window close events subscription (daemon mode - track when windows are closed)
+        let close_events_sub = window::close_events().map(Message::WindowClosed);
 
         // System tray event polling (every 100ms when tray is active)
         let tray_sub = if self.tray.is_some() {
@@ -941,25 +1072,51 @@ impl App {
             Subscription::none()
         };
 
-        Subscription::batch([ipc_sub, thumbnail_sub, engine_sub, window_sub, tray_sub])
+        // Monitor change detection subscription (poll every 5 seconds)
+        let monitor_poll_sub = iced::time::every(std::time::Duration::from_secs(5))
+            .map(|_| Message::PollMonitorChanges);
+
+        Subscription::batch([
+            ipc_sub,
+            thumbnail_sub,
+            engine_sub,
+            close_request_sub,
+            close_events_sub,
+            tray_sub,
+            monitor_poll_sub,
+        ])
     }
 }
 
 /// Run the application
 pub fn run() -> Result<()> {
+    // Load settings to get renderer preference
+    let settings = AppSettings::load().unwrap_or_default();
+
+    // Set WGPU_BACKEND environment variable based on renderer setting
+    // This must be done before iced initializes wgpu
+    let backend = match settings.gui.renderer.to_lowercase().as_str() {
+        "vulkan" => "vulkan",
+        "opengl" | "gl" => "gl",
+        _ => "vulkan", // Default to Vulkan
+    };
+
+    // Only set if not already set by user
+    if std::env::var("WGPU_BACKEND").is_err() {
+        std::env::set_var("WGPU_BACKEND", backend);
+        tracing::info!("Set WGPU_BACKEND to: {}", backend);
+    } else {
+        tracing::info!("WGPU_BACKEND already set, respecting user override");
+    }
+
     // Use Noto Sans CJK SC for CJK character support (system font)
     let cjk_font = Font::with_name("Noto Sans CJK SC");
 
-    // Load settings to get window size
-    let settings = AppSettings::load().unwrap_or_default();
-    let window_width = settings.gui.window_width.max(800) as f32;
-    let window_height = settings.gui.window_height.max(600) as f32;
-
-    iced::application(App::title, App::update, App::view)
+    // Use daemon mode so closing window doesn't exit app (for tray support)
+    iced::daemon(App::title, App::update, App::view)
         .theme(App::theme)
         .subscription(App::subscription)
         .default_font(cjk_font)
-        .window_size((window_width, window_height))
         .run_with(App::new)?;
 
     Ok(())

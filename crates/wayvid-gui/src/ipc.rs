@@ -597,40 +597,10 @@ async fn get_monitors_from_wlr_randr() -> Option<Vec<crate::state::MonitorInfo>>
 /// 3. Mock fallback data
 pub async fn get_monitors_ipc() -> Vec<crate::state::MonitorInfo> {
     tracing::debug!("get_monitors_ipc: starting monitor detection");
-    let client = IpcClient::new();
 
-    // Try IPC first (only if socket exists and returns non-empty results)
-    if client.socket_exists() {
-        match client.get_outputs().await {
-            Ok(outputs) if !outputs.is_empty() => {
-                tracing::debug!("get_monitors_ipc: got {} monitors from IPC", outputs.len());
-                return outputs
-                    .into_iter()
-                    .map(|o| crate::state::MonitorInfo {
-                        name: o.name,
-                        width: o.width,
-                        height: o.height,
-                        x: o.x,
-                        y: o.y,
-                        scale: 1.0, // OutputInfo doesn't have scale, default to 1.0
-                        primary: o.primary,
-                        current_wallpaper: None, // Will be updated from status
-                    })
-                    .collect();
-            }
-            Ok(_) => {
-                tracing::debug!("IPC returned empty outputs, trying wlr-randr");
-            }
-            Err(e) => {
-                tracing::debug!("IPC error: {}, trying wlr-randr", e);
-            }
-        }
-    } else {
-        tracing::debug!("IPC socket not available, trying wlr-randr");
-    }
-
-    // Try wlr-randr as fallback
-    tracing::debug!("get_monitors_ipc: trying wlr-randr fallback");
+    // Always use wlr-randr for monitor detection (most reliable for all outputs)
+    // IPC only returns outputs with active wallpapers, not all connected monitors
+    tracing::debug!("get_monitors_ipc: using wlr-randr for monitor detection");
     if let Some(monitors) = get_monitors_from_wlr_randr().await {
         tracing::info!("Detected {} monitors via wlr-randr", monitors.len());
         for m in &monitors {
@@ -647,7 +617,7 @@ pub async fn get_monitors_ipc() -> Vec<crate::state::MonitorInfo> {
         return monitors;
     }
 
-    tracing::warn!("Could not detect monitors, using mock data");
+    tracing::warn!("Could not detect monitors via wlr-randr, using mock data");
     // Return mock data as last resort fallback
     vec![crate::state::MonitorInfo {
         name: "eDP-1".to_string(),

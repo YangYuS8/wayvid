@@ -3,9 +3,41 @@
 //! This module provides real system tray functionality for Linux desktop environments
 //! that support the SNI protocol (KDE, GNOME with extensions, niri + noctalia-shell, etc.)
 
-use ksni::{self, Tray, TrayService};
+use ksni::{self, Icon, Tray, TrayService};
+use rust_i18n::t;
 use std::sync::mpsc;
 use std::thread;
+
+/// Embedded tray icon (32x32 PNG converted to ARGB32)
+/// The icon is embedded at compile time for portability
+const TRAY_ICON_PNG: &[u8] = include_bytes!("assets/wayvid-tray.png");
+
+/// Convert PNG to ARGB32 format for ksni
+fn png_to_argb32(png_data: &[u8]) -> Option<(i32, i32, Vec<u8>)> {
+    use std::io::Cursor;
+
+    let decoder = png::Decoder::new(Cursor::new(png_data));
+    let mut reader = decoder.read_info().ok()?;
+    let mut buf = vec![0; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buf).ok()?;
+
+    let width = info.width as i32;
+    let height = info.height as i32;
+
+    // Convert RGBA to ARGB (network byte order = big-endian)
+    let mut argb_data = Vec::with_capacity((width * height * 4) as usize);
+    for chunk in buf[..info.buffer_size()].chunks(4) {
+        if chunk.len() == 4 {
+            // RGBA -> ARGB (big-endian)
+            argb_data.push(chunk[3]); // A
+            argb_data.push(chunk[0]); // R
+            argb_data.push(chunk[1]); // G
+            argb_data.push(chunk[2]); // B
+        }
+    }
+
+    Some((width, height, argb_data))
+}
 
 /// Tray menu actions that can be triggered by user
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,10 +57,37 @@ pub enum TrayIconState {
     Paused,
 }
 
+/// Translated labels for tray menu items
+#[derive(Clone)]
+struct TrayLabels {
+    show_window: String,
+    hide_window: String,
+    pause_playback: String,
+    resume_playback: String,
+    quit: String,
+    tooltip_normal: String,
+    tooltip_paused: String,
+}
+
+impl TrayLabels {
+    fn new() -> Self {
+        Self {
+            show_window: t!("tray.show_window").to_string(),
+            hide_window: t!("tray.hide_window").to_string(),
+            pause_playback: t!("tray.pause_playback").to_string(),
+            resume_playback: t!("tray.resume_playback").to_string(),
+            quit: t!("tray.quit").to_string(),
+            tooltip_normal: t!("tray.tooltip_normal").to_string(),
+            tooltip_paused: t!("tray.tooltip_paused").to_string(),
+        }
+    }
+}
+
 /// The actual tray implementation using ksni
 struct WayvidTray {
     action_tx: mpsc::Sender<TrayAction>,
     paused: bool,
+    labels: TrayLabels,
 }
 
 impl Tray for WayvidTray {
@@ -37,9 +96,21 @@ impl Tray for WayvidTray {
     }
 
     fn icon_name(&self) -> String {
-        // Use XDG icon name - this will look for wayvid.svg in standard icon paths
-        // Falls back to a generic icon if not found
+        // Fallback XDG icon name (used if icon_pixmap is not supported)
         "wayvid".into()
+    }
+
+    fn icon_pixmap(&self) -> Vec<Icon> {
+        // Provide embedded icon for better compatibility
+        if let Some((width, height, data)) = png_to_argb32(TRAY_ICON_PNG) {
+            vec![Icon {
+                width,
+                height,
+                data,
+            }]
+        } else {
+            vec![]
+        }
     }
 
     fn title(&self) -> String {
@@ -47,15 +118,25 @@ impl Tray for WayvidTray {
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
+        let icon_pixmap = if let Some((width, height, data)) = png_to_argb32(TRAY_ICON_PNG) {
+            vec![Icon {
+                width,
+                height,
+                data,
+            }]
+        } else {
+            vec![]
+        };
+
         ksni::ToolTip {
             icon_name: "wayvid".into(),
+            icon_pixmap,
             title: "Wayvid".into(),
             description: if self.paused {
-                "Wallpaper paused".into()
+                self.labels.tooltip_paused.clone()
             } else {
-                "Animated wallpaper manager".into()
+                self.labels.tooltip_normal.clone()
             },
-            ..Default::default()
         }
     }
 
@@ -64,7 +145,7 @@ impl Tray for WayvidTray {
 
         vec![
             StandardItem {
-                label: "Show Window".into(),
+                label: self.labels.show_window.clone(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.action_tx.send(TrayAction::Show);
                 }),
@@ -72,7 +153,7 @@ impl Tray for WayvidTray {
             }
             .into(),
             StandardItem {
-                label: "Hide Window".into(),
+                label: self.labels.hide_window.clone(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.action_tx.send(TrayAction::Hide);
                 }),
@@ -82,9 +163,9 @@ impl Tray for WayvidTray {
             MenuItem::Separator,
             StandardItem {
                 label: if self.paused {
-                    "Resume Playback".into()
+                    self.labels.resume_playback.clone()
                 } else {
-                    "Pause Playback".into()
+                    self.labels.pause_playback.clone()
                 },
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.action_tx.send(TrayAction::TogglePause);
@@ -94,7 +175,7 @@ impl Tray for WayvidTray {
             .into(),
             MenuItem::Separator,
             StandardItem {
-                label: "Quit".into(),
+                label: self.labels.quit.clone(),
                 activate: Box::new(|tray: &mut Self| {
                     let _ = tray.action_tx.send(TrayAction::Quit);
                 }),
@@ -119,9 +200,13 @@ impl SystemTray {
     pub fn new() -> Option<Self> {
         let (action_tx, action_rx) = mpsc::channel();
 
+        // Capture translated labels in main thread before spawning tray thread
+        let labels = TrayLabels::new();
+
         let tray = WayvidTray {
             action_tx,
             paused: false,
+            labels,
         };
 
         // Create the tray service

@@ -5871,6 +5871,7 @@ dependencies = [
  "interprocess",
  "ksni",
  "open",
+ "png 0.17.16",
  "rust-i18n",
  "serde",
  "serde_json",

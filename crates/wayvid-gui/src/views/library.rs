@@ -64,7 +64,7 @@ fn view_header(state: &AppState) -> Element<'_, Message> {
     let search = text_input(&t!("library.search_placeholder"), &state.search_query)
         .on_input(Message::SearchChanged)
         .padding(8)
-        .width(Length::Fixed(250.0));
+        .width(Length::Fixed(200.0));
 
     // Source filter buttons (Workshop / Local / All)
     let source_buttons: Vec<Element<Message>> = SourceFilter::all()
@@ -115,7 +115,7 @@ fn view_header(state: &AppState) -> Element<'_, Message> {
     .on_press(Message::ToggleDetailPanel);
 
     column![
-        row![search, horizontal_space(), source_filters, detail_toggle].spacing(15),
+        row![search, horizontal_space(), source_filters, detail_toggle].spacing(10),
         type_filters,
     ]
     .spacing(8)
@@ -335,40 +335,29 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
             Space::with_height(0).into()
         };
 
-        // Action buttons
-        let apply_button = button(
-            row![text(">").size(14), text(t!("detail.apply")).size(13)]
-                .spacing(5)
-                .align_y(iced::Alignment::Center),
-        )
-        .padding([8, 16])
-        .width(Length::Fill)
-        .style(button::success)
-        .on_press(Message::ApplyWallpaper(id.clone()));
-
-        // Monitor selector (if multiple monitors)
-        let monitor_section: Element<Message> = if state.monitors.len() > 1 {
-            let monitor_buttons: Vec<Element<Message>> = state
-                .monitors
-                .iter()
-                .map(|m| {
-                    button(text(&m.name).size(11))
-                        .padding([4, 8])
-                        .style(button::secondary)
-                        .on_press(Message::ApplyToMonitor(m.name.clone()))
-                        .into()
-                })
-                .collect();
-
-            column![
-                text(t!("detail.apply_to_monitor")).size(12),
-                row(monitor_buttons).spacing(4)
-            ]
-            .spacing(5)
-            .into()
+        // Action button - apply to target monitor or all monitors
+        let apply_message = if let Some(ref target) = state.target_monitor {
+            Message::ApplyToMonitor(target.clone())
         } else {
-            Space::with_height(0).into()
+            Message::ApplyWallpaper(id.clone())
         };
+
+        let apply_label = if let Some(ref target) = state.target_monitor {
+            t!("detail.apply_to", monitor = target.as_str()).to_string()
+        } else {
+            t!("detail.apply").to_string()
+        };
+
+        let apply_button = button(text(apply_label).size(13))
+            .padding([8, 16])
+            .width(Length::Fill)
+            .style(button::success)
+            .on_press(apply_message);
+
+        // Hint text for double-click
+        let hint_text = text(t!("detail.double_click_hint").to_string())
+            .size(10)
+            .color([0.5, 0.5, 0.5]);
 
         column![
             preview,
@@ -383,7 +372,7 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
             desc_section,
             Space::with_height(Length::Fill),
             apply_button,
-            monitor_section,
+            hint_text,
         ]
         .spacing(4)
         .padding(12)
@@ -413,7 +402,7 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
         .into()
 }
 
-/// Status bar
+/// Status bar with monitor selector
 fn view_status(state: &AppState) -> Element<'_, Message> {
     let wallpaper_count = state.filtered_wallpapers().len();
     let total_count = state.wallpapers.len();
@@ -427,6 +416,41 @@ fn view_status(state: &AppState) -> Element<'_, Message> {
             total = total_count
         )
         .to_string()
+    };
+
+    // Monitor selector - always show if monitors detected
+    let monitor_selector: Element<Message> = if !state.monitors.is_empty() {
+        let all_monitors_label = t!("library.all_monitors").to_string();
+        let options: Vec<String> = std::iter::once(all_monitors_label.clone())
+            .chain(state.monitors.iter().map(|m| m.name.clone()))
+            .collect();
+
+        let selected_idx = state
+            .target_monitor
+            .as_ref()
+            .and_then(|t| state.monitors.iter().position(|m| &m.name == t))
+            .map(|i| i + 1)
+            .unwrap_or(0);
+
+        let selected_text = options.get(selected_idx).cloned().unwrap_or_default();
+
+        row![
+            text(t!("library.target_monitor")).size(12),
+            iced::widget::pick_list(options.clone(), Some(selected_text), move |selected| {
+                if selected == all_monitors_label {
+                    Message::SelectTargetMonitor(None)
+                } else {
+                    Message::SelectTargetMonitor(Some(selected))
+                }
+            })
+            .padding([4, 8])
+            .text_size(12)
+        ]
+        .spacing(8)
+        .align_y(iced::Alignment::Center)
+        .into()
+    } else {
+        Space::with_width(0).into()
     };
 
     let status_text = if state.workshop_scanning {
@@ -445,6 +469,8 @@ fn view_status(state: &AppState) -> Element<'_, Message> {
 
     row![
         text(count_text).size(11),
+        Space::with_width(15),
+        monitor_selector,
         horizontal_space(),
         workshop_status,
         text(status_text).size(11),
