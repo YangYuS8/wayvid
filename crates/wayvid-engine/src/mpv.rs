@@ -135,49 +135,63 @@ impl MpvPlayer {
         set_option("config-dir", "/dev/null");
         set_option("terminal", "no");
         set_option("msg-level", "all=warn");
-        set_option("vo", "libmpv");
         set_option("vid", "auto");
-        set_option("aid", "auto");
         set_option("pause", "no");
 
         // Layout configuration
         Self::configure_layout(&set_option, config.layout);
 
-        // Performance optimization for multi-monitor scenarios
-        set_option("video-latency-hacks", "yes");
-        set_option("vd-lavc-dr", "yes"); // Direct rendering for zero-copy
-        set_option("opengl-swapinterval", "0"); // Disable vsync in mpv (handled by compositor)
-        set_option("demuxer-max-bytes", "50M");
-        set_option("demuxer-max-back-bytes", "10M");
-        set_option("cache", "yes");
-        set_option("cache-secs", "2"); // Buffer 2 seconds of video
-        set_option("hr-seek-framedrop", "yes"); // Drop frames during seeks
-        set_option("framedrop", "vo"); // Drop frames if rendering is slow
-        set_option("video-sync", "audio"); // Sync to audio for smoother playback
-        set_option("interpolation", "no"); // Disable interpolation for lower latency
+        // ===== Critical Performance Optimizations =====
 
-        // GPU rendering optimization
+        // Hardware decoding - MUST be set early and aggressively
+        let hwdec_str = match config.hwdec {
+            HwdecMode::Auto => "auto-copy", // auto-copy is more compatible than auto-safe
+            HwdecMode::Force => "vaapi",    // Force VAAPI on Linux for best performance
+            HwdecMode::No => "no",
+        };
+        set_option("hwdec", hwdec_str);
+        set_option("hwdec-codecs", "all"); // Enable hwdec for all codecs
+
+        // Video output optimization
+        set_option("vo", "libmpv");
         set_option("gpu-api", "opengl");
-        set_option("gpu-context", "auto");
+        set_option("opengl-swapinterval", "0"); // Disable vsync (compositor handles it)
         set_option("opengl-pbo", "yes"); // Use PBOs for faster texture upload
+        set_option("vd-lavc-dr", "yes"); // Direct rendering for zero-copy
+
+        // Reduce CPU usage significantly
+        set_option("video-latency-hacks", "yes");
+        set_option("correct-pts", "no"); // Faster timestamp handling
+        set_option("fps", "60"); // Cap internal fps
+        set_option("framedrop", "decoder+vo"); // Aggressive frame dropping
+
+        // Disable unnecessary processing for wallpaper use
+        set_option("deband", "no");
+        set_option("dither-depth", "no");
+        set_option("temporal-dither", "no");
+        set_option("sigmoid-upscaling", "no");
+        set_option("scale", "bilinear"); // Fast scaling
+        set_option("dscale", "bilinear");
+        set_option("cscale", "bilinear");
+
+        // Memory and cache optimization
+        set_option("demuxer-max-bytes", "32M");
+        set_option("demuxer-max-back-bytes", "8M");
+        set_option("cache", "yes");
+        set_option("cache-secs", "3");
+        set_option("demuxer-readahead-secs", "2");
+
+        // Audio disabled by default for wallpapers (can be re-enabled)
+        set_option("audio", "no"); // Disable audio pipeline entirely
 
         // Playback settings
         if config.loop_playback {
             set_option("loop-file", "inf");
         }
 
-        // Hardware decoding
-        let hwdec_str = match config.hwdec {
-            HwdecMode::Auto => "auto-safe",
-            HwdecMode::Force => "yes",
-            HwdecMode::No => "no",
-        };
-        set_option("hwdec", hwdec_str);
-
-        // Audio settings
-        if config.mute {
-            set_option("mute", "yes");
-        } else {
+        // Re-enable audio if not muted (overrides the default audio=no)
+        if !config.mute {
+            set_option("audio", "auto");
             let volume = format!("{}", (config.volume * 100.0) as i64);
             set_option("volume", &volume);
         }

@@ -165,6 +165,9 @@ fn run_engine_thread(
         egl_context: None,
         layer_surfaces: HashMap::new(),
         queue_handle: None,
+        on_battery: check_battery_status(),
+        power_paused: false,
+        last_battery_check: std::time::Instant::now(),
     };
 
     // Create event loop
@@ -233,21 +236,53 @@ fn run_engine_thread(
         }
     }
 
-    // Main event loop
-    // Calculate dispatch timeout based on fps_limit
-    let frame_duration = state
-        .config
-        .fps_limit
-        .map(|fps| std::time::Duration::from_micros(1_000_000 / fps as u64))
-        .unwrap_or(std::time::Duration::from_millis(8)); // Default ~120fps max
+    // Main event loop with power management
+    let battery_check_interval = std::time::Duration::from_secs(10);
 
     while !shutdown.load(Ordering::Relaxed) {
+        // Periodically check battery status
+        if state.last_battery_check.elapsed() >= battery_check_interval {
+            state.on_battery = check_battery_status();
+            state.last_battery_check = std::time::Instant::now();
+
+            // Handle pause on battery
+            if state.config.pause_on_battery {
+                if state.on_battery && !state.power_paused {
+                    info!("On battery power, pausing playback for power saving");
+                    for session in state.sessions.values_mut() {
+                        session.pause();
+                    }
+                    state.power_paused = true;
+                } else if !state.on_battery && state.power_paused {
+                    info!("On AC power, resuming playback");
+                    for session in state.sessions.values_mut() {
+                        session.resume();
+                    }
+                    state.power_paused = false;
+                }
+            }
+        }
+
+        // Calculate frame duration based on power state
+        let frame_duration = if state.power_paused {
+            // When paused, use longer sleep to save power
+            std::time::Duration::from_millis(100)
+        } else {
+            state
+                .config
+                .fps_limit
+                .map(|fps| std::time::Duration::from_micros(1_000_000 / fps as u64))
+                .unwrap_or(std::time::Duration::from_millis(16)) // Default 60fps
+        };
+
         event_loop
             .dispatch(frame_duration, &mut state)
             .context("Event loop dispatch failed")?;
 
-        // Render frames for configured layer surfaces
-        render_all_surfaces(&mut state);
+        // Render frames for configured layer surfaces (skip if power paused)
+        if !state.power_paused {
+            render_all_surfaces(&mut state);
+        }
     }
 
     info!("PlaybackEngine shutting down");
@@ -344,6 +379,12 @@ struct EngineState {
     layer_surfaces: HashMap<String, LayerSurfaceInfo>,
     /// Queue handle for creating Wayland objects
     queue_handle: Option<QueueHandle<EngineState>>,
+    /// Whether currently on battery power
+    on_battery: bool,
+    /// Whether playback is paused due to power saving
+    power_paused: bool,
+    /// Last battery check time
+    last_battery_check: std::time::Instant,
 }
 
 /// Layer surface state for an output
@@ -895,4 +936,34 @@ impl Dispatch<WlCallback, String> for EngineState {
             }
         }
     }
+}
+
+/// Check if the system is running on battery power
+fn check_battery_status() -> bool {
+    let power_supply = std::path::Path::new("/sys/class/power_supply");
+
+    if let Ok(entries) = std::fs::read_dir(power_supply) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            // Check if this is a battery (type = "Battery")
+            let type_path = path.join("type");
+            if let Ok(device_type) = std::fs::read_to_string(&type_path) {
+                if device_type.trim().to_lowercase() != "battery" {
+                    continue;
+                }
+            }
+
+            // Check battery status
+            let status_path = path.join("status");
+            if let Ok(status) = std::fs::read_to_string(status_path) {
+                let status = status.trim().to_lowercase();
+                if status == "discharging" {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
 }
