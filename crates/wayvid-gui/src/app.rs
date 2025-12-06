@@ -793,12 +793,10 @@ impl App {
                                 } else {
                                     tracing::info!("Engine paused");
                                 }
+                            } else if let Err(e) = self.engine.resume(None) {
+                                tracing::error!("Failed to resume engine: {}", e);
                             } else {
-                                if let Err(e) = self.engine.resume(None) {
-                                    tracing::error!("Failed to resume engine: {}", e);
-                                } else {
-                                    tracing::info!("Engine resumed");
-                                }
+                                tracing::info!("Engine resumed");
                             }
                         }
                         Task::none()
