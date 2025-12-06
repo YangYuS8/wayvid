@@ -1,13 +1,32 @@
 ## [unreleased]
 
+### 🐛 Bug Fixes
+
+- *(engine)* Implement Default trait for EngineStatus and simplify code
+## [0.5.0-alpha.1] - 2025-12-06
+
 ### 🚀 Features
 
+- *(v0.5)* Create workspace structure and wayvid-core crate
+- *(engine)* 完成 wayvid-engine 核心模块迁移
+- *(library)* Implement wayvid-library crate
+- *(gui)* Implement wayvid-gui crate with iced framework
+- *(ctl)* Enhance wayvid-ctl CLI with IPC support
+- *(library)* Phase 2 - wayvid-library 模块深化
+- *(gui)* Phase 3 - GUI refinement and componentization
+- *(gui)* Phase 4 - Configuration automation
+- *(core)* Phase 5 - IPC protocol unification
+- *(gui)* Implement async thumbnail loading, settings persistence, and GUI-daemon IPC
+- *(gui)* Improve layout and user experience
 - *(gui)* Make FPS limit setting editable
 - Implement wallpaper playback session and IPC server for wayvid-gui
 - *(ipc)* Add shared status cache for IPC queries and update handling logic
+- V0.5.0-alpha.1 release preparation
 
 ### 🐛 Bug Fixes
 
+- Update generate_id function to accept Path instead of PathBuf
+- Resolve clippy warnings to pass CI checks
 - *(packaging)* Correct binary names in install scripts
 - *(packaging)* Unify desktop file name as wayvid.desktop
 - *(nix)* Add desktop file and icon to flake.nix postInstall
@@ -27,39 +46,11 @@
 
 ### 📚 Documentation
 
-- *(nix)* Update README with correct binary names
-- *(configs)* Update autostart examples for v0.5 architecture
-
-### ⚙️ Miscellaneous Tasks
-
-- Update CHANGELOG for v0.5.0-alpha.1 release
-- *(release)* Remove redundant quality checks
-## [0.5.0-alpha.1] - 2025-12-05
-
-### 🚀 Features
-
-- *(v0.5)* Create workspace structure and wayvid-core crate
-- *(engine)* 完成 wayvid-engine 核心模块迁移
-- *(library)* Implement wayvid-library crate
-- *(gui)* Implement wayvid-gui crate with iced framework
-- *(ctl)* Enhance wayvid-ctl CLI with IPC support
-- *(library)* Phase 2 - wayvid-library 模块深化
-- *(gui)* Phase 3 - GUI refinement and componentization
-- *(gui)* Phase 4 - Configuration automation
-- *(core)* Phase 5 - IPC protocol unification
-- *(gui)* Implement async thumbnail loading, settings persistence, and GUI-daemon IPC
-- *(gui)* Improve layout and user experience
-
-### 🐛 Bug Fixes
-
-- Update generate_id function to accept Path instead of PathBuf
-- Resolve clippy warnings to pass CI checks
-
-### 📚 Documentation
-
 - Update tasks.md with Phase 1.1 progress
 - *(openspec)* Update GUI framework from egui to iced
 - Phase 6.2-6.4 - Update documentation and packaging for v0.5
+- *(nix)* Update README with correct binary names
+- *(configs)* Update autostart examples for v0.5 architecture
 
 ### 🎨 Styling
 
@@ -74,6 +65,8 @@
 - Archive old proposals, create v0.5 GUI-first refactor proposal
 - Complete v0.5 GUI-first refactor cleanup
 - Remove legacy locales directory (egui i18n files)
+- Update CHANGELOG for v0.5.0-alpha.1 release
+- *(release)* Remove redundant quality checks
 ## [0.4.5-alpha.2] - 2025-12-04
 
 ### 📚 Documentation

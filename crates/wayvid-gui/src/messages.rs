@@ -99,6 +99,10 @@ pub enum Message {
     /// Dismiss the current status message
     DismissStatus,
 
+    // Window events
+    /// Window close requested
+    WindowCloseRequested,
+
     // Daemon communication
     /// Daemon connected successfully
     DaemonConnected,

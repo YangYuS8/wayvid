@@ -3,7 +3,9 @@
 //! Defines the core App struct and iced integration.
 
 use anyhow::Result;
+use iced::event::{self, Event};
 use iced::widget::{button, column, container, row, text, Space};
+use iced::window;
 use iced::{Element, Font, Length, Subscription, Task, Theme};
 use rust_i18n::t;
 
@@ -291,6 +293,12 @@ impl App {
                     WayvidTheme::Dark => WayvidTheme::Light,
                     WayvidTheme::Light => WayvidTheme::Dark,
                 };
+                // 持久化主题设置
+                self.state.app_settings.gui.theme = match self.theme {
+                    WayvidTheme::Dark => "dark".to_string(),
+                    WayvidTheme::Light => "light".to_string(),
+                };
+                self.trigger_settings_save();
                 Task::none()
             }
 
@@ -503,6 +511,21 @@ impl App {
                 self.state.error = Some(error);
                 self.state.ipc_state = ConnectionState::Error;
                 Task::none()
+            }
+
+            // Window close handling
+            Message::WindowCloseRequested => {
+                if self.state.app_settings.gui.minimize_to_tray {
+                    // 尝试最小化窗口而非关闭
+                    tracing::info!(
+                        "Minimize to tray enabled, minimizing window instead of closing"
+                    );
+                    window::get_latest().and_then(|id| window::minimize(id, true))
+                } else {
+                    // 正常关闭窗口
+                    tracing::info!("Closing window");
+                    window::get_latest().and_then(window::close)
+                }
             }
 
             // Engine events (integrated engine)
@@ -842,7 +865,17 @@ impl App {
         // Engine event polling subscription (when engine is running)
         let engine_sub = crate::engine::engine_subscription(self.engine.is_running());
 
-        Subscription::batch([ipc_sub, thumbnail_sub, engine_sub])
+        // Window event subscription (for close handling)
+        let window_sub = event::listen().map(|event| {
+            if let Event::Window(window::Event::CloseRequested) = event {
+                Message::WindowCloseRequested
+            } else {
+                // 忽略其他事件，发送一个无操作消息
+                Message::DismissStatus
+            }
+        });
+
+        Subscription::batch([ipc_sub, thumbnail_sub, engine_sub, window_sub])
     }
 }
 

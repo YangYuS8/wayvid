@@ -118,6 +118,38 @@ wayvid-gui --version
 wayvid-ctl --version
 ```
 
+## Autostart Configuration
+
+### Method 1: GUI Settings (Recommended)
+
+Enable "Autostart" in Settings > General. This creates an XDG autostart entry at `~/.config/autostart/wayvid.desktop`.
+
+### Method 2: niri spawn-at-startup
+
+For [niri](https://github.com/YaLTeR/niri) users, add to `~/.config/niri/config.kdl`:
+
+```kdl
+spawn-at-startup "wayvid-gui" "--minimized"
+```
+
+Note: niri's systemd session also supports XDG autostart, so Method 1 works too.
+
+### Method 3: Hyprland exec-once
+
+For [Hyprland](https://hyprland.org/) users, add to `~/.config/hypr/hyprland.conf`:
+
+```conf
+exec-once = wayvid-gui --minimized
+```
+
+### Method 4: Sway exec
+
+For [Sway](https://swaywm.org/) users, add to `~/.config/sway/config`:
+
+```conf
+exec wayvid-gui --minimized
+```
+
 ## Uninstall
 
 ```bash
