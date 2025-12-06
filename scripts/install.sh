@@ -278,8 +278,8 @@ verify_installation() {
     
     local failed=false
     
-    # Check binaries
-    for bin in wayvid wayvid-gui wayvid-ctl; do
+    # Check binaries (only wayvid-gui and wayvid-ctl are required)
+    for bin in wayvid-gui wayvid-ctl; do
         if [[ -x "$BIN_DIR/$bin" ]]; then
             [[ "$VERBOSE" == "true" ]] && success "  $bin: OK"
         else

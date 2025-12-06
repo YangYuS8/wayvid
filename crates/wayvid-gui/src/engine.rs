@@ -9,7 +9,7 @@ use std::sync::mpsc::Receiver;
 use tracing::info;
 use wayvid_engine::{spawn_engine, EngineCommand, EngineConfig, EngineEvent, EngineHandle};
 
-use crate::ipc_server::IpcServer;
+use crate::ipc_server::{IpcServer, SharedStatusCache};
 
 /// Wrapper around the engine handle with convenience methods
 pub struct EngineController {
@@ -19,6 +19,8 @@ pub struct EngineController {
     events_rx: Option<Receiver<EngineEvent>>,
     /// IPC server for wayvid-ctl communication
     ipc_server: Option<IpcServer>,
+    /// Shared status cache for IPC queries
+    status_cache: Option<SharedStatusCache>,
 }
 
 #[allow(dead_code)] // Methods reserved for future UI integration
@@ -29,6 +31,7 @@ impl EngineController {
             handle: None,
             events_rx: None,
             ipc_server: None,
+            status_cache: None,
         }
     }
 
@@ -57,6 +60,7 @@ impl EngineController {
             tracing::warn!("Failed to start IPC server: {}", e);
         } else {
             info!("IPC server started for wayvid-ctl integration");
+            self.status_cache = Some(ipc_server.status_cache());
             self.ipc_server = Some(ipc_server);
         }
 
@@ -76,6 +80,7 @@ impl EngineController {
             ipc_server.stop();
             info!("IPC server stopped");
         }
+        self.status_cache = None;
 
         if let Some(handle) = self.handle.take() {
             handle.request_shutdown();
@@ -87,17 +92,42 @@ impl EngineController {
         info!("Playback engine stopped");
     }
 
-    /// Poll for engine events (non-blocking)
+    /// Poll for engine events (non-blocking) and update IPC status cache
     pub fn poll_events(&self) -> Vec<EngineEvent> {
         let mut events = Vec::new();
         if let Some(ref rx) = self.events_rx {
             while let Ok(event) = rx.try_recv() {
+                // Update IPC status cache based on events
+                self.update_status_cache(&event);
                 events.push(event);
             }
         }
         events
     }
 
+    /// Update the IPC status cache based on engine events
+    fn update_status_cache(&self, event: &EngineEvent) {
+        if let Some(ref cache) = self.status_cache {
+            if let Ok(mut cache) = cache.write() {
+                match event {
+                    EngineEvent::Started => {
+                        cache.running = true;
+                    }
+                    EngineEvent::Stopped => {
+                        cache.running = false;
+                        cache.active_wallpapers.clear();
+                    }
+                    EngineEvent::WallpaperApplied { output, path } => {
+                        cache.active_wallpapers.insert(output.clone(), path.clone());
+                    }
+                    EngineEvent::WallpaperCleared { output } => {
+                        cache.active_wallpapers.remove(output);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
     /// Send a command to the engine
     pub fn send_command(&self, command: EngineCommand) -> Result<(), String> {
         if let Some(ref handle) = self.handle {

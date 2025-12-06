@@ -5,7 +5,9 @@
 
 #![allow(dead_code)] // Server will be used when engine is started with IPC enabled
 
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 
 use anyhow::{Context, Result};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -13,8 +15,43 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-use wayvid_core::ipc::{default_socket_path, IpcRequest, IpcResponse};
+use wayvid_core::ipc::{default_socket_path, IpcRequest, IpcResponse, OutputInfo, OutputStatus};
 use wayvid_engine::EngineCommand;
+
+/// Cached engine status for IPC queries
+#[derive(Debug, Clone, Default)]
+pub struct EngineStatusCache {
+    /// Whether engine is running
+    pub running: bool,
+    /// Active wallpapers per output (output_name -> wallpaper_path)
+    pub active_wallpapers: HashMap<String, PathBuf>,
+    /// Paused outputs
+    pub paused_outputs: HashMap<String, bool>,
+    /// Volume per output (default 1.0)
+    pub volumes: HashMap<String, f32>,
+}
+
+impl EngineStatusCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Convert to IPC OutputStatus list
+    pub fn to_output_status_list(&self) -> Vec<OutputStatus> {
+        self.active_wallpapers
+            .iter()
+            .map(|(name, path)| OutputStatus {
+                name: name.clone(),
+                wallpaper: Some(path.to_string_lossy().to_string()),
+                paused: self.paused_outputs.get(name).copied().unwrap_or(false),
+                volume: self.volumes.get(name).copied().unwrap_or(1.0),
+            })
+            .collect()
+    }
+}
+
+/// Shared status cache type
+pub type SharedStatusCache = Arc<RwLock<EngineStatusCache>>;
 
 /// IPC server for handling external requests
 pub struct IpcServer {
@@ -24,6 +61,8 @@ pub struct IpcServer {
     shutdown_tx: Option<mpsc::Sender<()>>,
     /// Server task handle
     handle: Option<tokio::task::JoinHandle<()>>,
+    /// Shared status cache
+    status_cache: SharedStatusCache,
 }
 
 impl IpcServer {
@@ -33,6 +72,7 @@ impl IpcServer {
             socket_path: default_socket_path(),
             shutdown_tx: None,
             handle: None,
+            status_cache: Arc::new(RwLock::new(EngineStatusCache::new())),
         }
     }
 
@@ -43,7 +83,13 @@ impl IpcServer {
             socket_path,
             shutdown_tx: None,
             handle: None,
+            status_cache: Arc::new(RwLock::new(EngineStatusCache::new())),
         }
+    }
+
+    /// Get a clone of the status cache for external updates
+    pub fn status_cache(&self) -> SharedStatusCache {
+        Arc::clone(&self.status_cache)
     }
 
     /// Start the IPC server
@@ -67,13 +113,14 @@ impl IpcServer {
         }
 
         let socket_path = self.socket_path.clone();
+        let status_cache = Arc::clone(&self.status_cache);
         let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>(1);
 
         self.shutdown_tx = Some(shutdown_tx);
 
         // Spawn the server task
         let handle = tokio::spawn(async move {
-            if let Err(e) = run_server(socket_path, engine_tx, shutdown_rx).await {
+            if let Err(e) = run_server(socket_path, engine_tx, status_cache, shutdown_rx).await {
                 error!("IPC server error: {}", e);
             }
         });
@@ -134,6 +181,7 @@ impl Drop for IpcServer {
 async fn run_server(
     socket_path: PathBuf,
     engine_tx: calloop::channel::Sender<EngineCommand>,
+    status_cache: SharedStatusCache,
     mut shutdown_rx: mpsc::Receiver<()>,
 ) -> Result<()> {
     let listener = UnixListener::bind(&socket_path).context("Failed to bind socket")?;
@@ -153,8 +201,9 @@ async fn run_server(
                 match result {
                     Ok((stream, _)) => {
                         let tx = engine_tx.clone();
+                        let cache = Arc::clone(&status_cache);
                         tokio::spawn(async move {
-                            if let Err(e) = handle_connection(stream, tx).await {
+                            if let Err(e) = handle_connection(stream, tx, cache).await {
                                 warn!("Connection handler error: {}", e);
                             }
                         });
@@ -174,6 +223,7 @@ async fn run_server(
 async fn handle_connection(
     stream: UnixStream,
     engine_tx: calloop::channel::Sender<EngineCommand>,
+    status_cache: SharedStatusCache,
 ) -> Result<()> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
@@ -190,7 +240,7 @@ async fn handle_connection(
 
         // Parse request
         let response = match serde_json::from_str::<IpcRequest>(trimmed) {
-            Ok(request) => handle_request(request, &engine_tx).await,
+            Ok(request) => handle_request(request, &engine_tx, &status_cache).await,
             Err(e) => IpcResponse::Error {
                 error: format!("Invalid request: {}", e),
             },
@@ -212,12 +262,15 @@ async fn handle_connection(
 async fn handle_request(
     request: IpcRequest,
     engine_tx: &calloop::channel::Sender<EngineCommand>,
+    status_cache: &SharedStatusCache,
 ) -> IpcResponse {
     match request {
         IpcRequest::Apply { path, output, .. } => {
             let cmd = EngineCommand::ApplyWallpaper { path, output };
             match engine_tx.send(cmd) {
-                Ok(()) => IpcResponse::Ok { message: Some("Wallpaper applied".to_string()) },
+                Ok(()) => IpcResponse::Ok {
+                    message: Some("Wallpaper applied".to_string()),
+                },
                 Err(e) => IpcResponse::Error {
                     error: format!("Failed to send command: {}", e),
                 },
@@ -227,7 +280,9 @@ async fn handle_request(
         IpcRequest::Stop { output } => {
             let cmd = EngineCommand::ClearWallpaper { output };
             match engine_tx.send(cmd) {
-                Ok(()) => IpcResponse::Ok { message: Some("Wallpaper cleared".to_string()) },
+                Ok(()) => IpcResponse::Ok {
+                    message: Some("Wallpaper cleared".to_string()),
+                },
                 Err(e) => IpcResponse::Error {
                     error: format!("Failed to send command: {}", e),
                 },
@@ -237,7 +292,9 @@ async fn handle_request(
         IpcRequest::Pause { output } => {
             let cmd = EngineCommand::Pause { output };
             match engine_tx.send(cmd) {
-                Ok(()) => IpcResponse::Ok { message: Some("Paused".to_string()) },
+                Ok(()) => IpcResponse::Ok {
+                    message: Some("Paused".to_string()),
+                },
                 Err(e) => IpcResponse::Error {
                     error: format!("Failed to send command: {}", e),
                 },
@@ -247,7 +304,9 @@ async fn handle_request(
         IpcRequest::Resume { output } => {
             let cmd = EngineCommand::Resume { output };
             match engine_tx.send(cmd) {
-                Ok(()) => IpcResponse::Ok { message: Some("Resumed".to_string()) },
+                Ok(()) => IpcResponse::Ok {
+                    message: Some("Resumed".to_string()),
+                },
                 Err(e) => IpcResponse::Error {
                     error: format!("Failed to send command: {}", e),
                 },
@@ -257,7 +316,9 @@ async fn handle_request(
         IpcRequest::SetVolume { output, volume } => {
             let cmd = EngineCommand::SetVolume { output, volume };
             match engine_tx.send(cmd) {
-                Ok(()) => IpcResponse::Ok { message: Some("Volume set".to_string()) },
+                Ok(()) => IpcResponse::Ok {
+                    message: Some("Volume set".to_string()),
+                },
                 Err(e) => IpcResponse::Error {
                     error: format!("Failed to send command: {}", e),
                 },
@@ -265,24 +326,50 @@ async fn handle_request(
         }
 
         IpcRequest::Status => {
-            // For status, return a simple "running" status
-            // TODO: Get actual output status from engine
+            // Get actual output status from cache
+            let outputs = status_cache
+                .read()
+                .map(|cache| cache.to_output_status_list())
+                .unwrap_or_default();
+
             IpcResponse::Status {
                 running: true,
                 version: Some(env!("CARGO_PKG_VERSION").to_string()),
-                outputs: Vec::new(),
+                outputs,
             }
         }
 
         IpcRequest::Outputs => {
-            // TODO: Get actual outputs from engine
-            IpcResponse::Outputs { outputs: Vec::new() }
+            // Get outputs from cache - return basic info with just the name
+            let outputs = status_cache
+                .read()
+                .map(|cache| {
+                    cache
+                        .active_wallpapers
+                        .keys()
+                        .map(|name| OutputInfo {
+                            name: name.clone(),
+                            width: 0,
+                            height: 0,
+                            refresh: None,
+                            make: None,
+                            model: None,
+                            primary: false,
+                            x: 0,
+                            y: 0,
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            IpcResponse::Outputs { outputs }
         }
 
         IpcRequest::Quit => {
             let cmd = EngineCommand::Shutdown;
             match engine_tx.send(cmd) {
-                Ok(()) => IpcResponse::Ok { message: Some("Shutting down".to_string()) },
+                Ok(()) => IpcResponse::Ok {
+                    message: Some("Shutting down".to_string()),
+                },
                 Err(e) => IpcResponse::Error {
                     error: format!("Failed to send command: {}", e),
                 },
@@ -293,7 +380,9 @@ async fn handle_request(
 
         IpcRequest::Reload => {
             // GUI doesn't support hot reload yet
-            IpcResponse::Ok { message: Some("Reload not supported in GUI mode".to_string()) }
+            IpcResponse::Ok {
+                message: Some("Reload not supported in GUI mode".to_string()),
+            }
         }
 
         IpcRequest::GetLibrary { .. } => {
@@ -316,4 +405,3 @@ mod tests {
         assert!(!server.is_running());
     }
 }
-
