@@ -1,8 +1,20 @@
-## [unreleased]
+## [0.5.0-alpha.2] - 2025-01-25
 
 ### 🐛 Bug Fixes
 
+- *(gui)* Fix theme persistence - settings now save immediately when toggling theme
+- *(gui)* Improve window close handling for minimize-to-tray behavior
 - *(engine)* Implement Default trait for EngineStatus and simplify code
+- *(engine)* Fix clippy warnings for CI compatibility
+
+### 📚 Documentation
+
+- *(docs)* Update AUR package recommendation from wayvid-git to wayvid
+- *(docs)* Update workshop.md for v0.5 GUI-first workflow
+- *(docs)* Fix outdated CLI commands in multi-monitor.md
+- *(docs)* Update building.md with correct v0.5 binaries
+- *(docs)* Add autostart configuration guide for niri/Hyprland/Sway
+
 ## [0.5.0-alpha.1] - 2025-12-06
 
 ### 🚀 Features

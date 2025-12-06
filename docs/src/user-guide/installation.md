@@ -3,7 +3,7 @@
 ## Arch Linux (AUR)
 
 ```bash
-yay -S wayvid-git
+yay -S wayvid
 ```
 
 ## Nix / NixOS
@@ -157,7 +157,7 @@ exec wayvid-gui --minimized
 ./scripts/uninstall.sh --user
 
 # AUR
-yay -R wayvid-git
+yay -R wayvid
 
 # Nix
 nix profile remove wayvid

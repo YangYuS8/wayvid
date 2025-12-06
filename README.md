@@ -8,7 +8,7 @@ Animated wallpaper manager for Wayland
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.0--alpha.1-green.svg)](https://github.com/YangYuS8/wayvid/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0--alpha.2-green.svg)](https://github.com/YangYuS8/wayvid/releases)
 
 [Documentation](https://yangyus8.top/wayvid/) • [Releases](https://github.com/YangYuS8/wayvid/releases)
 
@@ -41,7 +41,7 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 ### Arch Linux (AUR)
 
 ```bash
-yay -S wayvid-git
+yay -S wayvid
 ```
 
 ### Nix

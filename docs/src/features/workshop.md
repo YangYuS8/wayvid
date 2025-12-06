@@ -2,21 +2,30 @@
 
 Import video wallpapers from Wallpaper Engine.
 
-## Quick Start
+## Using GUI (Recommended)
+
+The easiest way to use Workshop wallpapers is through the GUI:
+
+1. Open `wayvid-gui`
+2. Go to **Folders** tab
+3. Add your Workshop content folder:
+   ```
+   ~/.steam/steam/steamapps/workshop/content/431960/
+   ```
+4. Browse Workshop wallpapers in **Library** tab
+5. Double-click to apply
+
+## Using CLI
+
+Apply Workshop wallpapers directly with wayvid-ctl:
 
 ```bash
-wayvid workshop list          # List subscribed items
-wayvid workshop import <id>   # Import to config
+# Find workshop items
+ls ~/.steam/steam/steamapps/workshop/content/431960/
+
+# Apply a workshop wallpaper
+wayvid-ctl apply ~/.steam/steam/steamapps/workshop/content/431960/<id>/video.mp4
 ```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `list` | List subscribed items |
-| `info <id>` | Show item details |
-| `import <id>` | Import to config |
-| `download <id>` | Download item |
 
 ## Find Workshop ID
 
@@ -24,6 +33,11 @@ From URL:
 ```
 https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890
                                                         ^^^^^^^^^^
+```
+
+The workshop content is typically at:
+```
+~/.steam/steam/steamapps/workshop/content/431960/<workshop_id>/
 ```
 
 ## Compatibility
@@ -38,20 +52,12 @@ https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890
 
 Look for "Video" tag in Workshop.
 
-## Example
-
-```bash
-# Import wallpaper
-wayvid workshop import 2815866033 -o ~/.config/wayvid/config.yaml
-
-# Start
-systemctl --user restart wayvid.service
-```
-
 ## Troubleshooting
 
-**"Steam not found":**
-- Use `wayvid workshop download <id>` instead
+**"No video file found":**
+- The wallpaper may not be a video type
+- Check the folder for actual video files: `ls ~/.steam/.../431960/<id>/`
 
-**"No video file":**
-- Item is not a video wallpaper (try different one)
+**Workshop folder not found:**
+- Ensure Steam and Wallpaper Engine are installed
+- Workshop content downloads to: `~/.steam/steam/steamapps/workshop/content/431960/`

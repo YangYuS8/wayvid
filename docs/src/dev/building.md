@@ -4,17 +4,17 @@
 
 **Arch:**
 ```bash
-sudo pacman -S rust mpv wayland wayland-protocols libxkbcommon
+sudo pacman -S rust mpv wayland wayland-protocols libxkbcommon fontconfig mesa
 ```
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt install cargo libmpv-dev libwayland-dev libxkbcommon-dev
+sudo apt install cargo libmpv-dev libwayland-dev libxkbcommon-dev libfontconfig-dev libegl-dev
 ```
 
 **Fedora:**
 ```bash
-sudo dnf install cargo mpv-libs-devel wayland-devel libxkbcommon-devel
+sudo dnf install cargo mpv-libs-devel wayland-devel libxkbcommon-devel fontconfig-devel mesa-libEGL-devel
 ```
 
 ## Build
@@ -23,30 +23,33 @@ sudo dnf install cargo mpv-libs-devel wayland-devel libxkbcommon-devel
 git clone https://github.com/YangYuS8/wayvid
 cd wayvid
 
-# Release build with all features
-cargo build --release --all-features
+# Release build
+cargo build --release
 
-# Install
-sudo install -Dm755 target/release/{wayvid,wayvid-ctl,wayvid-gui} /usr/local/bin/
+# Install using script (recommended)
+./scripts/install.sh --user
+
+# Or manual install
+sudo install -Dm755 target/release/wayvid-gui /usr/local/bin/
+sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/
 ```
 
-## Features
+## Binaries
 
-```bash
-cargo build --features gui       # GUI only
-cargo build --features workshop  # Workshop only
-cargo build --all-features       # Everything
-```
+v0.5 produces two binaries:
+- `wayvid-gui` - Main GUI application with embedded playback engine
+- `wayvid-ctl` - CLI control tool for scripting
 
 ## Test
 
 ```bash
-cargo test
-cargo clippy
+cargo test --workspace
+cargo clippy --workspace
 ```
 
 ## Verify
 
 ```bash
-wayvid --version
+wayvid-gui --version
+wayvid-ctl --version
 ```
