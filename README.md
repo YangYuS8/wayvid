@@ -36,8 +36,9 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 
 ## Demo
 
-<!-- TODO: Add demo video/GIF here -->
-*Demo coming soon*
+<video src="https://yangyus8.top/wayvid/assets/demo.mp4" controls width="100%"></video>
+
+> If the video doesn't play, [click here to watch](https://yangyus8.top/wayvid/assets/demo.mp4)
 
 ## Install
 
