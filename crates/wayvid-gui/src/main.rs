@@ -14,8 +14,10 @@ rust_i18n::i18n!("locales");
 
 mod app;
 mod async_loader;
+mod engine;
 mod i18n;
 mod ipc;
+mod ipc_server;
 mod messages;
 mod service;
 mod settings;

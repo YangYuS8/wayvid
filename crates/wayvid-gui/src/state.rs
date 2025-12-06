@@ -466,6 +466,22 @@ pub struct MonitorInfo {
     pub current_wallpaper: Option<std::path::PathBuf>,
 }
 
+impl MonitorInfo {
+    /// Create MonitorInfo from wayvid_core::OutputInfo
+    pub fn from_output_info(info: &wayvid_core::OutputInfo) -> Self {
+        Self {
+            name: info.name.clone(),
+            width: info.width as u32,
+            height: info.height as u32,
+            x: info.position.0,
+            y: info.position.1,
+            scale: info.scale,
+            primary: false, // OutputInfo doesn't track primary status
+            current_wallpaper: None,
+        }
+    }
+}
+
 /// Type alias for state used in views
 pub type WayvidState = AppState;
 

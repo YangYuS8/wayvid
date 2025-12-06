@@ -105,6 +105,11 @@ impl OutputManager {
             .map(|(name, state)| (name.as_str(), &state.info))
     }
 
+    /// Get all ready output states
+    pub fn get_all_ready(&self) -> impl Iterator<Item = &OutputState> {
+        self.outputs.values().filter(|state| state.ready)
+    }
+
     /// Get output count
     pub fn len(&self) -> usize {
         self.outputs.len()

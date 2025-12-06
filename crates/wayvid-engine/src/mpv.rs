@@ -423,6 +423,30 @@ impl MpvPlayer {
         Ok(())
     }
 
+    /// Load a video/image file for playback
+    pub fn load_file(&mut self, path: &std::path::Path) -> Result<()> {
+        let path_str = path.to_string_lossy();
+        self.load_source(&path_str)
+    }
+
+    /// Check if a new frame is available for rendering
+    pub fn has_frame(&self) -> bool {
+        // Check if render context update callback was triggered
+        if self.frame_available.load(Ordering::Acquire) {
+            return true;
+        }
+
+        // Also check via mpv_render_context_update if we have a render context
+        if let Some(render_ctx) = self.render_context {
+            let flags = unsafe { libmpv_sys::mpv_render_context_update(render_ctx) };
+            if flags & (MPV_RENDER_UPDATE_FRAME as u64) != 0 {
+                return true;
+            }
+        }
+
+        false
+    }
+
     /// Render a video frame
     pub fn render(&mut self, width: i32, height: i32, fbo: i32) -> Result<bool> {
         let Some(render_ctx) = self.render_context else {

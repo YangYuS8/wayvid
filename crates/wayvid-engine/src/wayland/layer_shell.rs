@@ -1,14 +1,27 @@
 //! Layer shell surface management
 //!
 //! Handles wlr-layer-shell protocol for creating wallpaper surfaces.
+//! Uses smithay-client-toolkit (sctk) for higher-level abstractions.
 
+use anyhow::{Context, Result};
+use smithay_client_toolkit::{
+    compositor::{CompositorHandler, CompositorState},
+    delegate_compositor, delegate_layer, delegate_output, delegate_registry,
+    output::{OutputHandler, OutputState},
+    registry::{ProvidesRegistryState, RegistryState},
+    registry_handlers,
+    shell::{
+        wlr_layer::{
+            Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler,
+            LayerSurface as SctkLayerSurface, LayerSurfaceConfigure,
+        },
+        WaylandSurface,
+    },
+};
 use wayland_client::{
+    globals::registry_queue_init,
     protocol::{wl_output::WlOutput, wl_surface::WlSurface},
     Connection, QueueHandle,
-};
-use wayland_protocols_wlr::layer_shell::v1::client::{
-    zwlr_layer_shell_v1::ZwlrLayerShellV1,
-    zwlr_layer_surface_v1::{Anchor, ZwlrLayerSurfaceV1},
 };
 
 /// Layer surface configuration
@@ -61,43 +74,74 @@ pub enum SurfaceState {
     Closed,
 }
 
-/// Manages a single layer shell surface
+/// Manages a single layer shell surface for wallpaper rendering
 pub struct LayerSurface {
-    /// Wayland surface
-    surface: WlSurface,
-    /// Layer surface protocol object
-    layer_surface: ZwlrLayerSurfaceV1,
+    /// SCTK layer surface
+    layer: SctkLayerSurface,
     /// Current state
     state: SurfaceState,
     /// Configured width
     width: u32,
     /// Configured height
     height: u32,
-    /// Surface configuration (reserved for future use)
+    /// Surface configuration
     #[allow(dead_code)]
     config: LayerSurfaceConfig,
 }
 
 impl LayerSurface {
-    /// Create a new layer surface
-    ///
-    /// Note: This is a placeholder - full implementation needs proper
-    /// Wayland connection and event handling setup.
+    /// Create a new layer surface for wallpaper rendering
     pub fn new(
-        _connection: &Connection,
-        _qh: &QueueHandle<()>,
-        _layer_shell: &ZwlrLayerShellV1,
-        _output: Option<&WlOutput>,
-        _config: LayerSurfaceConfig,
-    ) -> anyhow::Result<Self> {
-        // TODO: Implement proper surface creation
-        // This requires:
-        // 1. Creating wl_surface from compositor
-        // 2. Getting layer_surface from layer_shell
-        // 3. Setting up configure callback
-        // 4. Initial commit
+        layer_shell: &LayerShell,
+        qh: &QueueHandle<WallpaperState>,
+        compositor: &CompositorState,
+        output: Option<&WlOutput>,
+        config: LayerSurfaceConfig,
+    ) -> Result<Self> {
+        // Create the underlying wl_surface
+        let surface = compositor.create_surface(qh);
 
-        anyhow::bail!("LayerSurface::new() not yet implemented - placeholder")
+        // Create layer surface on the background layer (for wallpaper)
+        let layer = layer_shell.create_layer_surface(
+            qh,
+            surface,
+            Layer::Background,
+            Some("wayvid-wallpaper"),
+            output,
+        );
+
+        // Configure the layer surface for wallpaper use
+        layer.set_anchor(Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT);
+        layer.set_exclusive_zone(config.exclusive_zone);
+        layer.set_margin(
+            config.margin.top,
+            config.margin.right,
+            config.margin.bottom,
+            config.margin.left,
+        );
+
+        let interactivity = if config.keyboard_interactive {
+            KeyboardInteractivity::Exclusive
+        } else {
+            KeyboardInteractivity::None
+        };
+        layer.set_keyboard_interactivity(interactivity);
+
+        if config.width > 0 && config.height > 0 {
+            layer.set_size(config.width, config.height);
+        }
+
+        layer.commit();
+
+        tracing::debug!("Created layer surface for wallpaper");
+
+        Ok(Self {
+            layer,
+            state: SurfaceState::Pending,
+            width: config.width,
+            height: config.height,
+            config,
+        })
     }
 
     /// Get current surface state
@@ -112,46 +156,212 @@ impl LayerSurface {
 
     /// Get the underlying Wayland surface
     pub fn wl_surface(&self) -> &WlSurface {
-        &self.surface
+        self.layer.wl_surface()
     }
 
-    /// Acknowledge a configure event
-    pub fn ack_configure(&self, serial: u32) {
-        self.layer_surface.ack_configure(serial);
+    /// Handle a configure event
+    pub fn handle_configure(&mut self, configure: LayerSurfaceConfigure) {
+        let (width, height) = configure.new_size;
+        if width > 0 {
+            self.width = width;
+        }
+        if height > 0 {
+            self.height = height;
+        }
+        self.state = SurfaceState::Configured;
+        tracing::debug!("Layer surface configured: {}x{}", self.width, self.height);
     }
 
-    /// Set surface size
-    pub fn set_size(&self, width: u32, height: u32) {
-        self.layer_surface.set_size(width, height);
-    }
-
-    /// Set anchor edges
-    pub fn set_anchor(&self, anchor: Anchor) {
-        self.layer_surface.set_anchor(anchor);
-    }
-
-    /// Set exclusive zone
-    pub fn set_exclusive_zone(&self, zone: i32) {
-        self.layer_surface.set_exclusive_zone(zone);
-    }
-
-    /// Set margins
-    pub fn set_margin(&self, top: i32, right: i32, bottom: i32, left: i32) {
-        self.layer_surface.set_margin(top, right, bottom, left);
+    /// Mark surface as closed
+    pub fn handle_closed(&mut self) {
+        self.state = SurfaceState::Closed;
+        tracing::debug!("Layer surface closed");
     }
 
     /// Commit pending changes
     pub fn commit(&self) {
-        self.surface.commit();
+        self.layer.commit();
+    }
+
+    /// Attach a buffer to the surface
+    pub fn attach(
+        &self,
+        buffer: Option<&wayland_client::protocol::wl_buffer::WlBuffer>,
+        x: i32,
+        y: i32,
+    ) {
+        self.layer.wl_surface().attach(buffer, x, y);
+    }
+
+    /// Damage the entire surface for redraw
+    pub fn damage_all(&self) {
+        self.layer
+            .wl_surface()
+            .damage_buffer(0, 0, self.width as i32, self.height as i32);
     }
 }
 
-impl Drop for LayerSurface {
-    fn drop(&mut self) {
-        self.layer_surface.destroy();
-        self.surface.destroy();
+/// State for managing wallpaper surfaces
+pub struct WallpaperState {
+    pub registry_state: RegistryState,
+    pub output_state: OutputState,
+    pub compositor_state: CompositorState,
+    pub layer_shell: LayerShell,
+    pub surfaces: Vec<LayerSurface>,
+    pub configured: bool,
+}
+
+impl WallpaperState {
+    /// Create a new wallpaper state from a Wayland connection
+    pub fn new(connection: &Connection) -> Result<(Self, wayland_client::EventQueue<Self>)> {
+        let (globals, event_queue) =
+            registry_queue_init::<Self>(connection).context("Failed to initialize registry")?;
+        let qh = event_queue.handle();
+
+        let registry_state = RegistryState::new(&globals);
+        let output_state = OutputState::new(&globals, &qh);
+        let compositor_state =
+            CompositorState::bind(&globals, &qh).context("Failed to bind compositor")?;
+        let layer_shell = LayerShell::bind(&globals, &qh)
+            .context("Failed to bind layer shell - is wlr-layer-shell supported?")?;
+
+        let state = Self {
+            registry_state,
+            output_state,
+            compositor_state,
+            layer_shell,
+            surfaces: Vec::new(),
+            configured: false,
+        };
+
+        Ok((state, event_queue))
+    }
+
+    /// Create a wallpaper surface for a specific output
+    pub fn create_surface(
+        &mut self,
+        qh: &QueueHandle<Self>,
+        output: Option<&WlOutput>,
+        config: LayerSurfaceConfig,
+    ) -> Result<usize> {
+        let surface =
+            LayerSurface::new(&self.layer_shell, qh, &self.compositor_state, output, config)?;
+        let index = self.surfaces.len();
+        self.surfaces.push(surface);
+        Ok(index)
     }
 }
+
+// Implement required traits for smithay-client-toolkit
+
+impl CompositorHandler for WallpaperState {
+    fn scale_factor_changed(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &WlSurface,
+        _new_factor: i32,
+    ) {
+    }
+
+    fn transform_changed(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &WlSurface,
+        _new_transform: wayland_client::protocol::wl_output::Transform,
+    ) {
+    }
+
+    fn frame(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &WlSurface,
+        _time: u32,
+    ) {
+    }
+
+    fn surface_enter(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &WlSurface,
+        _output: &WlOutput,
+    ) {
+    }
+
+    fn surface_leave(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &WlSurface,
+        _output: &WlOutput,
+    ) {
+    }
+}
+
+impl OutputHandler for WallpaperState {
+    fn output_state(&mut self) -> &mut OutputState {
+        &mut self.output_state
+    }
+
+    fn new_output(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _output: WlOutput) {
+        tracing::info!("New output detected");
+    }
+
+    fn update_output(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, _output: WlOutput) {}
+
+    fn output_destroyed(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _output: WlOutput,
+    ) {
+        tracing::info!("Output removed");
+    }
+}
+
+impl LayerShellHandler for WallpaperState {
+    fn closed(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>, layer: &SctkLayerSurface) {
+        for surface in &mut self.surfaces {
+            if surface.layer.wl_surface() == layer.wl_surface() {
+                surface.handle_closed();
+                break;
+            }
+        }
+    }
+
+    fn configure(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        layer: &SctkLayerSurface,
+        configure: LayerSurfaceConfigure,
+        _serial: u32,
+    ) {
+        for surface in &mut self.surfaces {
+            if surface.layer.wl_surface() == layer.wl_surface() {
+                surface.handle_configure(configure);
+                self.configured = true;
+                break;
+            }
+        }
+    }
+}
+
+impl ProvidesRegistryState for WallpaperState {
+    fn registry(&mut self) -> &mut RegistryState {
+        &mut self.registry_state
+    }
+
+    registry_handlers![OutputState];
+}
+
+delegate_compositor!(WallpaperState);
+delegate_output!(WallpaperState);
+delegate_layer!(WallpaperState);
+delegate_registry!(WallpaperState);
 
 /// Builder for layer surfaces
 pub struct LayerSurfaceBuilder {
@@ -196,8 +406,8 @@ impl LayerSurfaceBuilder {
         self
     }
 
-    pub fn config(&self) -> &LayerSurfaceConfig {
-        &self.config
+    pub fn build(self) -> LayerSurfaceConfig {
+        self.config
     }
 }
 

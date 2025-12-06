@@ -8,6 +8,7 @@ use iced::{Element, Font, Length, Subscription, Task, Theme};
 use rust_i18n::t;
 
 use crate::async_loader::{self, LoaderEvent};
+use crate::engine::EngineController;
 use crate::i18n;
 use crate::ipc::{self, ConnectionState};
 use crate::messages::Message;
@@ -27,6 +28,8 @@ pub struct App {
     monitor_view: MonitorView,
     /// Pending settings save flag (for debouncing)
     settings_dirty: bool,
+    /// Integrated playback engine controller
+    engine: EngineController,
 }
 
 impl App {
@@ -47,6 +50,7 @@ impl App {
                 theme,
                 monitor_view: MonitorView::new(),
                 settings_dirty: false,
+                engine: EngineController::new(),
             },
             task,
         )
@@ -126,10 +130,38 @@ impl App {
                 self.state.selected_wallpaper = Some(id);
                 Task::none()
             }
-            Message::ApplyWallpaper(id) => Task::perform(
-                async move { apply_wallpaper(&id).await },
-                Message::WallpaperApplied,
-            ),
+            Message::ApplyWallpaper(id) => {
+                // Find the wallpaper to get its path
+                if let Some(wallpaper) = self.state.wallpapers.iter().find(|wp| wp.id == id) {
+                    let path = wallpaper.source_path.clone();
+
+                    // If engine is running, use it directly
+                    if self.engine.is_running() {
+                        match self.engine.apply_wallpaper(None, path) {
+                            Ok(()) => {
+                                tracing::info!("Applied wallpaper to all outputs via engine");
+                                self.state.status_message =
+                                    Some(t!("success.wallpaper_applied").to_string());
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to apply wallpaper via engine: {}", e);
+                                self.state.error =
+                                    Some(t!("error.apply_wallpaper", error = e).to_string());
+                            }
+                        }
+                        Task::none()
+                    } else {
+                        // Fallback to IPC for external daemon
+                        Task::perform(
+                            async move { apply_wallpaper(&id).await },
+                            Message::WallpaperApplied,
+                        )
+                    }
+                } else {
+                    self.state.error = Some(t!("error.wallpaper_not_found").to_string());
+                    Task::none()
+                }
+            }
             Message::WallpaperApplied(result) => {
                 match result {
                     Ok(()) => {
@@ -344,32 +376,93 @@ impl App {
                 Task::none()
             }
             Message::ApplyToMonitor(output) => {
+                tracing::debug!(
+                    "ApplyToMonitor: output={}, engine_running={}",
+                    output,
+                    self.engine.is_running()
+                );
                 if let Some(ref id) = self.state.selected_wallpaper {
-                    let id = id.clone();
-                    Task::perform(
-                        async move { apply_wallpaper_to_monitor(&id, &output).await },
-                        Message::WallpaperApplied,
-                    )
+                    // Find the wallpaper to get its path
+                    if let Some(wallpaper) = self.state.wallpapers.iter().find(|wp| &wp.id == id) {
+                        let path = wallpaper.source_path.clone();
+                        tracing::debug!("Applying wallpaper: path={:?}", path);
+
+                        // If engine is running, use it directly
+                        if self.engine.is_running() {
+                            match self.engine.apply_wallpaper(Some(output.clone()), path) {
+                                Ok(()) => {
+                                    tracing::info!("Applied wallpaper to {} via engine", output);
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to apply wallpaper via engine: {}", e);
+                                    self.state.error =
+                                        Some(format!("Failed to apply wallpaper: {}", e));
+                                }
+                            }
+                            Task::none()
+                        } else {
+                            tracing::debug!("Engine not running, falling back to IPC");
+                            // Fallback to IPC for external daemon
+                            let id = id.clone();
+                            Task::perform(
+                                async move { apply_wallpaper_to_monitor(&id, &output).await },
+                                Message::WallpaperApplied,
+                            )
+                        }
+                    } else {
+                        self.state.error = Some(t!("error.wallpaper_not_found").to_string());
+                        Task::none()
+                    }
                 } else {
                     self.state.error = Some(t!("error.no_wallpaper").to_string());
                     Task::none()
                 }
             }
-            Message::ClearMonitor(output) => Task::perform(
-                async move { clear_monitor_wallpaper(&output).await },
-                Message::WallpaperApplied,
-            ),
+            Message::ClearMonitor(output) => {
+                // If engine is running, use it directly
+                if self.engine.is_running() {
+                    match self.engine.clear_wallpaper(Some(output.clone())) {
+                        Ok(()) => {
+                            tracing::info!("Cleared wallpaper from {} via engine", output);
+                        }
+                        Err(e) => {
+                            self.state.error = Some(format!("Failed to clear wallpaper: {}", e));
+                        }
+                    }
+                    Task::none()
+                } else {
+                    // Fallback to IPC for external daemon
+                    Task::perform(
+                        async move { clear_monitor_wallpaper(&output).await },
+                        Message::WallpaperApplied,
+                    )
+                }
+            }
 
             // Engine control
             Message::StartEngine => {
-                Task::perform(async { ipc::start_playback_engine().await }, |result| {
-                    Message::EngineStatusUpdated(result.is_ok())
-                })
+                // Start the integrated playback engine
+                let config = crate::engine::default_engine_config(&self.state.app_settings);
+                match self.engine.start(config) {
+                    Ok(()) => {
+                        self.state.engine_running = true;
+                        self.state.status_message = Some(t!("success.engine_started").to_string());
+                        tracing::info!("Integrated playback engine started");
+                    }
+                    Err(e) => {
+                        self.state.error = Some(format!("Failed to start engine: {}", e));
+                        tracing::error!("Failed to start engine: {}", e);
+                    }
+                }
+                Task::none()
             }
             Message::StopEngine => {
-                Task::perform(async { ipc::stop_playback_engine().await }, |result| {
-                    Message::EngineStatusUpdated(result.is_err())
-                })
+                // Stop the integrated playback engine
+                self.engine.stop();
+                self.state.engine_running = false;
+                self.state.status_message = Some(t!("success.engine_stopped").to_string());
+                tracing::info!("Integrated playback engine stopped");
+                Task::none()
             }
             Message::EngineStatusUpdated(running) => {
                 self.state.engine_running = running;
@@ -409,6 +502,88 @@ impl App {
             Message::IpcError(error) => {
                 self.state.error = Some(error);
                 self.state.ipc_state = ConnectionState::Error;
+                Task::none()
+            }
+
+            // Engine events (integrated engine)
+            Message::PollEngineEvents => {
+                // Poll events from the integrated engine
+                let events = self.engine.poll_events();
+                if events.is_empty() {
+                    Task::none()
+                } else {
+                    // Process all received events
+                    Task::batch(
+                        events
+                            .into_iter()
+                            .map(|e| Task::done(Message::EngineEvent(e))),
+                    )
+                }
+            }
+            Message::EngineEvent(event) => {
+                // Handle engine event
+                use wayvid_engine::EngineEvent;
+                match event {
+                    EngineEvent::Started => {
+                        self.state.engine_running = true;
+                        self.state.status_message = Some(t!("success.engine_started").to_string());
+                        // Request outputs when engine starts
+                        if let Err(e) = self
+                            .engine
+                            .send_command(wayvid_engine::EngineCommand::GetOutputs)
+                        {
+                            tracing::warn!("Failed to request outputs: {}", e);
+                        }
+                    }
+                    EngineEvent::Stopped => {
+                        self.state.engine_running = false;
+                        self.state.status_message = Some(t!("success.engine_stopped").to_string());
+                    }
+                    EngineEvent::WallpaperApplied { output, path } => {
+                        tracing::info!("Wallpaper applied to {}: {:?}", output, path);
+                        self.state.status_message =
+                            Some(t!("success.wallpaper_applied").to_string());
+                    }
+                    EngineEvent::WallpaperCleared { output } => {
+                        tracing::info!("Wallpaper cleared from {}", output);
+                    }
+                    EngineEvent::OutputAdded(info) => {
+                        tracing::info!("Output added: {}", info.name);
+                        // Update monitor list
+                        self.state
+                            .monitors
+                            .push(crate::state::MonitorInfo::from_output_info(&info));
+                    }
+                    EngineEvent::OutputRemoved(name) => {
+                        tracing::info!("Output removed: {}", name);
+                        // Remove from monitor list
+                        self.state.monitors.retain(|m| m.name != name);
+                    }
+                    EngineEvent::OutputsList(outputs) => {
+                        tracing::info!("Received {} outputs from engine", outputs.len());
+                        // Update monitor list from engine
+                        self.state.monitors = outputs
+                            .into_iter()
+                            .map(|info| crate::state::MonitorInfo::from_output_info(&info))
+                            .collect();
+                    }
+                    EngineEvent::Status(status) => {
+                        tracing::debug!(
+                            "Engine status: running={}, outputs={}",
+                            status.running,
+                            status.outputs.len()
+                        );
+                        self.state.engine_running = status.running;
+                        self.state.monitors = status
+                            .outputs
+                            .into_iter()
+                            .map(|info| crate::state::MonitorInfo::from_output_info(&info))
+                            .collect();
+                    }
+                    EngineEvent::Error(err) => {
+                        self.state.error = Some(err);
+                    }
+                }
                 Task::none()
             }
         }
@@ -664,7 +839,10 @@ impl App {
             Subscription::none()
         };
 
-        Subscription::batch([ipc_sub, thumbnail_sub])
+        // Engine event polling subscription (when engine is running)
+        let engine_sub = crate::engine::engine_subscription(self.engine.is_running());
+
+        Subscription::batch([ipc_sub, thumbnail_sub, engine_sub])
     }
 }
 

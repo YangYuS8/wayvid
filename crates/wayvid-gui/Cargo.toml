@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 # Internal crates
 wayvid-core = { path = "../wayvid-core" }
+wayvid-engine = { path = "../wayvid-engine" }
 wayvid-library = { path = "../wayvid-library" }
 
 # GUI framework
@@ -47,6 +48,9 @@ sys-locale = "0.3"
 
 # IPC communication
 interprocess = { version = "2.2", features = ["tokio"] }
+
+# Event loop (for engine communication)
+calloop = "0.14"
 
 [features]
 default = []

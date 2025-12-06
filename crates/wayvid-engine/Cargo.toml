@@ -38,7 +38,8 @@ anyhow = "1.0"
 tracing = "0.1"
 
 # Event loop
-calloop = "0.13"
+calloop = "0.14"
+calloop-wayland-source = "0.4"
 
 # Utilities
 bitflags = "2.4"

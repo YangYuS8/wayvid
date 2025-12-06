@@ -134,6 +134,10 @@ pub enum Message {
     StopEngine,
     /// Engine status updated
     EngineStatusUpdated(bool),
+    /// Poll for engine events (timer-driven)
+    PollEngineEvents,
+    /// Engine event received
+    EngineEvent(wayvid_engine::engine::EngineEvent),
 
     // IPC communication
     /// IPC connection state changed

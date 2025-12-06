@@ -151,6 +151,30 @@ impl EglContext {
         Ok(())
     }
 
+    /// Unbind the current EGL context (make no context current)
+    pub fn make_current_none(&self) -> Result<()> {
+        self.instance
+            .make_current(self.display, None, None, None)
+            .context("Failed to unbind EGL context")?;
+        Ok(())
+    }
+
+    /// Destroy an EGL window surface (must be called before dropping EglWindow when switching)
+    pub fn destroy_surface(&self, window: &EglWindow) -> Result<()> {
+        // First unbind the context from this surface
+        self.instance
+            .make_current(self.display, None, None, None)
+            .context("Failed to unbind EGL context")?;
+
+        // Destroy the EGL surface
+        self.instance
+            .destroy_surface(self.display, window.egl_surface)
+            .context("Failed to destroy EGL surface")?;
+
+        tracing::debug!("EGL surface destroyed");
+        Ok(())
+    }
+
     /// Swap buffers to display rendered frame
     pub fn swap_buffers(&self, window: &EglWindow) -> Result<()> {
         self.instance

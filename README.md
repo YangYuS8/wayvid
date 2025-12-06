@@ -187,10 +187,32 @@ journalctl --user -u wayvid -f
 ```
 crates/
 ├── wayvid-core     # Core types and configuration
-├── wayvid-engine   # Video rendering engine (Wayland + MPV)
+├── wayvid-engine   # Integrated playback engine (Wayland layer-shell + MPV)
 ├── wayvid-library  # Wallpaper library (SQLite + thumbnails)
-├── wayvid-gui      # GUI application (iced framework)
+├── wayvid-gui      # GUI application (iced framework + embedded engine)
 └── wayvid-ctl      # CLI control tool
+```
+
+### Architecture (v0.5)
+
+wayvid v0.5 uses a **single-process architecture**:
+
+- The GUI (`wayvid-gui`) embeds the playback engine directly
+- No separate daemon process required
+- CLI tools communicate via IPC socket
+- Better resource management and simpler deployment
+
+```
+┌─────────────────────────────────────┐
+│         wayvid-gui                  │
+│  ┌─────────────┐  ┌──────────────┐  │
+│  │  iced GUI   │──│ PlaybackEngine│ │
+│  └─────────────┘  └──────────────┘  │
+│         │                 │         │
+│    IPC Server    Wayland Layer Shell│
+└─────────│─────────────────│─────────┘
+          │                 │
+    wayvid-ctl         Compositor
 ```
 
 ## Contributing
