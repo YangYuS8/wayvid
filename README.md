@@ -38,7 +38,7 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 
 <video src="[Youtube](https://youtu.be/1dHbzkATMFM)" controls width="100%"></video>
 
-> If the video doesn't play, [click here to watch]([Youtube](https://youtu.be/1dHbzkATMFM))
+> If the video doesn't play, [click here to watch](https://youtu.be/1dHbzkATMFM)
 
 ## Install
 
