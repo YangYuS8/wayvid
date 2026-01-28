@@ -4,7 +4,7 @@
 //! search, filtering, and a right-side detail panel.
 
 use iced::widget::{
-    button, column, container, horizontal_space, image, row, scrollable, text, text_input, Space,
+    button, column, container, image, row, rule, scrollable, text, text_input, Space,
 };
 use iced::{Element, Length};
 use rust_i18n::t;
@@ -115,7 +115,7 @@ fn view_header(state: &AppState) -> Element<'_, Message> {
     .on_press(Message::ToggleDetailPanel);
 
     column![
-        row![search, horizontal_space(), source_filters, detail_toggle].spacing(10),
+        row![search, rule::horizontal(1), source_filters, detail_toggle].spacing(10),
         type_filters,
     ]
     .spacing(8)
@@ -129,11 +129,11 @@ fn view_grid(state: &AppState) -> Element<'_, Message> {
     if wallpapers.is_empty() {
         let empty_view = column![
             text("[Empty]").size(32),
-            Space::with_height(10),
+            Space::new().height(10),
             text(t!("library.no_wallpapers").to_string()).size(20),
-            Space::with_height(5),
+            Space::new().height(5),
             text(t!("library.add_folders_hint").to_string()).size(14),
-            Space::with_height(15),
+            Space::new().height(15),
             button(text(t!("library.add_folder").to_string()))
                 .padding([8, 16])
                 .on_press(Message::AddFolder),
@@ -315,7 +315,7 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
                 .spacing(3)
                 .into()
         } else {
-            Space::with_height(0).into()
+            Space::new().height(0).into()
         };
 
         // Description (if any)
@@ -329,10 +329,10 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
                 .spacing(3)
                 .into()
             } else {
-                Space::with_height(0).into()
+                Space::new().height(0).into()
             }
         } else {
-            Space::with_height(0).into()
+            Space::new().height(0).into()
         };
 
         // Action button - apply to target monitor or all monitors
@@ -361,16 +361,16 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
 
         column![
             preview,
-            Space::with_height(10),
+            Space::new().height(10),
             title,
-            Space::with_height(8),
+            Space::new().height(8),
             author_row,
             type_row,
             source_row,
-            Space::with_height(5),
+            Space::new().height(5),
             tags_section,
             desc_section,
-            Space::with_height(Length::Fill),
+            Space::new().height(Length::Fill),
             apply_button,
             hint_text,
         ]
@@ -383,7 +383,7 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
         container(
             column![
                 text("[Select]").size(24),
-                Space::with_height(10),
+                Space::new().height(10),
                 text(t!("detail.select_wallpaper")).size(14),
             ]
             .spacing(5)
@@ -450,7 +450,7 @@ fn view_status(state: &AppState) -> Element<'_, Message> {
         .align_y(iced::Alignment::Center)
         .into()
     } else {
-        Space::with_width(0).into()
+        Space::new().width(0).into()
     };
 
     let status_text = if state.workshop_scanning {
@@ -469,9 +469,9 @@ fn view_status(state: &AppState) -> Element<'_, Message> {
 
     row![
         text(count_text).size(11),
-        Space::with_width(15),
+        Space::new().width(15),
         monitor_selector,
-        horizontal_space(),
+        rule::horizontal(1),
         workshop_status,
         text(status_text).size(11),
     ]

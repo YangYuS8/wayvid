@@ -104,7 +104,7 @@ impl<'a> WallpaperCard<'a> {
         }
         if self.config.show_favorite {
             let fav_icon = if self.is_favorite { "★" } else { "☆" };
-            info_row = info_row.push(Space::with_width(Length::Fill));
+            info_row = info_row.push(Space::new().width(Length::Fill));
             info_row = info_row.push(text(fav_icon).size(12));
         }
 

@@ -380,7 +380,33 @@ impl App {
 
             // Folder management
             Message::AddFolder => {
-                // TODO: Open file dialog
+                // Open folder picker dialog
+                let title = t!("folders.select_folder").to_string();
+                Task::perform(
+                    async move {
+                        let folder = rfd::AsyncFileDialog::new()
+                            .set_title(&title)
+                            .pick_folder()
+                            .await;
+                        folder.map(|f| f.path().to_path_buf())
+                    },
+                    Message::FolderSelected,
+                )
+            }
+            Message::FolderSelected(path) => {
+                if let Some(path) = path {
+                    // Check if folder is already added
+                    if !self.state.folders.iter().any(|f| f.path == path) {
+                        self.state.folders.push(crate::state::FolderEntry {
+                            path: path.clone(),
+                            enabled: true,
+                            wallpaper_count: 0,
+                            last_scan: None,
+                        });
+                        // Automatically start scanning the newly added folder
+                        return Task::done(Message::ScanFolder(path));
+                    }
+                }
                 Task::none()
             }
             Message::RemoveFolder(path) => {
@@ -931,7 +957,7 @@ impl App {
                             open_window.map(Message::WindowOpened)
                         } else {
                             // 窗口存在，聚焦
-                            window::get_latest().and_then(window::gain_focus)
+                            window::latest().and_then(window::gain_focus)
                         }
                     }
                     TrayAction::Hide => {
@@ -994,7 +1020,7 @@ impl App {
                     open_window.map(Message::WindowOpened)
                 } else {
                     // 窗口已存在，聚焦
-                    window::get_latest().and_then(window::gain_focus)
+                    window::latest().and_then(window::gain_focus)
                 }
             }
             Message::HideWindow => {
@@ -1072,7 +1098,7 @@ impl App {
 
         let nav = column![
             header,
-            Space::with_height(15),
+            Space::new().height(15),
             nav_button(
                 t!("nav.library").to_string(),
                 View::Library,
@@ -1132,8 +1158,8 @@ impl App {
 
         let sidebar_content = column![
             nav,
-            Space::with_height(Length::Fill),
-            container(column![status, Space::with_height(10), engine_button].spacing(5))
+            Space::new().height(Length::Fill),
+            container(column![status, Space::new().height(10), engine_button].spacing(5))
                 .padding(15),
         ];
 
@@ -1279,11 +1305,12 @@ pub fn run() -> Result<()> {
     let cjk_font = Font::with_name("Noto Sans CJK SC");
 
     // Use daemon mode so closing window doesn't exit app (for tray support)
-    iced::daemon(App::title, App::update, App::view)
+    iced::daemon(App::new, App::update, App::view)
+        .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
         .default_font(cjk_font)
-        .run_with(App::new)?;
+        .run()?;
 
     Ok(())
 }

@@ -2,7 +2,7 @@
 //!
 //! Add, remove, and configure folders that contain wallpapers.
 
-use iced::widget::{button, column, container, horizontal_space, row, scrollable, text, Space};
+use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Element, Length};
 use rust_i18n::t;
 
@@ -13,7 +13,7 @@ use crate::state::AppState;
 pub fn view(state: &AppState) -> Element<'_, Message> {
     let header = row![
         text(t!("folders.title").to_string()).size(24),
-        horizontal_space(),
+        Space::new().width(Length::Fill),
         button(text(t!("folders.add_folder").to_string()))
             .padding(10)
             .on_press(Message::AddFolder),
@@ -23,9 +23,9 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
     let content: Element<Message> = if state.folders.is_empty() {
         let empty_view = column![
             text(t!("folders.no_folders").to_string()).size(18),
-            Space::with_height(10),
+            Space::new().height(10),
             text(t!("folders.no_folders_hint").to_string()),
-            Space::with_height(20),
+            Space::new().height(20),
             button(text(t!("folders.add_first").to_string()))
                 .padding(10)
                 .on_press(Message::AddFolder),
@@ -91,7 +91,7 @@ fn folder_row(folder: &crate::state::FolderEntry) -> Element<'_, Message> {
     ]
     .spacing(5);
 
-    let content = row![info, horizontal_space(), actions]
+    let content = row![info, Space::new().width(Length::Fill), actions]
         .padding(15)
         .align_y(iced::Alignment::Center);
 

@@ -56,6 +56,7 @@ detail.double_click_hint = "Tip: Double-click wallpaper to apply quickly"
 # Folders view
 folders.title = "Wallpaper Folders"
 folders.add_folder = "Add Folder"
+folders.select_folder = "Select Wallpaper Folder"
 folders.add_first = "Add Your First Folder"
 folders.no_folders = "No folders configured"
 folders.no_folders_hint = "Add folders containing your wallpapers to build your library."

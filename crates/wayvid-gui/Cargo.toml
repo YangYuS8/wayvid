@@ -20,7 +20,7 @@ wayvid-engine = { path = "../wayvid-engine" }
 wayvid-library = { path = "../wayvid-library" }
 
 # GUI framework
-iced = { version = "0.13", features = ["tokio", "image", "lazy", "advanced", "svg"] }
+iced = { version = "0.14", features = ["tokio", "image", "lazy", "advanced", "svg"] }
 
 # Async runtime
 tokio = { version = "1.0", features = ["rt-multi-thread", "sync", "fs", "macros", "time"] }
@@ -41,6 +41,7 @@ serde_yaml = "0.9"
 # Utilities
 dirs = "5.0"
 open = "5.0"
+rfd = "0.15"
 
 # Internationalization
 rust-i18n = "3"

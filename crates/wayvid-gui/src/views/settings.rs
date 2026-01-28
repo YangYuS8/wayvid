@@ -3,7 +3,7 @@
 //! Configure playback, power management, and general options.
 
 use iced::widget::{
-    button, checkbox, column, container, horizontal_space, pick_list, row, slider, text, Space,
+    button, checkbox, column, container, pick_list, row, rule, slider, text, Space,
 };
 use iced::{Element, Length};
 use rust_i18n::t;
@@ -23,19 +23,18 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             setting_row(
                 &t!("settings.autostart"),
                 &t!("settings.autostart_desc"),
-                checkbox("", state.app_settings.autostart.enabled)
-                    .on_toggle(Message::ToggleAutostart),
+                checkbox(state.app_settings.autostart.enabled).on_toggle(Message::ToggleAutostart),
             ),
             setting_row(
                 &t!("settings.minimize_to_tray"),
                 &t!("settings.minimize_to_tray_desc"),
-                checkbox("", state.app_settings.gui.minimize_to_tray)
+                checkbox(state.app_settings.gui.minimize_to_tray)
                     .on_toggle(Message::ToggleMinimizeToTray),
             ),
             setting_row(
                 &t!("settings.start_minimized"),
                 &t!("settings.start_minimized_desc"),
-                checkbox("", state.app_settings.gui.start_minimized)
+                checkbox(state.app_settings.gui.start_minimized)
                     .on_toggle(Message::ToggleStartMinimized),
             ),
         ]
@@ -106,13 +105,13 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             setting_row(
                 &t!("settings.pause_on_battery"),
                 &t!("settings.pause_on_battery_desc"),
-                checkbox("", state.app_settings.power.pause_on_battery)
+                checkbox(state.app_settings.power.pause_on_battery)
                     .on_toggle(Message::TogglePauseOnBattery),
             ),
             setting_row(
                 &t!("settings.pause_on_fullscreen"),
                 &t!("settings.pause_on_fullscreen_desc"),
-                checkbox("", state.app_settings.power.pause_on_fullscreen)
+                checkbox(state.app_settings.power.pause_on_fullscreen)
                     .on_toggle(Message::TogglePauseOnFullscreen),
             ),
         ]
@@ -173,7 +172,7 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
 
     // Save button
     let actions = row![
-        horizontal_space(),
+        rule::horizontal(1),
         button(text(t!("settings.save").to_string()))
             .padding([10, 30])
             .style(button::primary)
@@ -182,13 +181,13 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
 
     column![
         header,
-        Space::with_height(20),
+        Space::new().height(20),
         general_section,
         playback_section,
         power_section,
         theme_section,
         language_section,
-        Space::with_height(40),
+        Space::new().height(40),
         actions,
     ]
     .spacing(20)
@@ -200,7 +199,7 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
 fn section<'a>(title: &str, content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
     let section_content = column![
         text(title.to_string()).size(18),
-        Space::with_height(10),
+        Space::new().height(10),
         content.into(),
     ]
     .spacing(5)
@@ -224,7 +223,7 @@ fn setting_row<'a>(
     ]
     .spacing(2);
 
-    row![label_col, horizontal_space(), control.into()]
+    row![label_col, Space::new().width(Length::Fill), control.into()]
         .align_y(iced::Alignment::Center)
         .into()
 }

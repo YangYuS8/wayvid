@@ -1,8 +1,6 @@
 //! Monitor management view for wayvid-gui
 
-use iced::widget::{
-    button, column, container, horizontal_space, row, scrollable, text, vertical_space,
-};
+use iced::widget::{button, column, container, row, rule, scrollable, text, Space};
 use iced::{Element, Length};
 use rust_i18n::t;
 
@@ -83,8 +81,8 @@ pub fn view<'a, M: 'a + Clone>(
         .on_press(on_refresh);
 
     let content = column![
-        row![title, horizontal_space(), refresh_btn,].spacing(10),
-        vertical_space().height(20),
+        row![title, rule::horizontal(1), refresh_btn,].spacing(10),
+        Space::new().height(20),
         row![
             container(selector.view()).width(Length::FillPortion(2)),
             container(details_panel)
@@ -92,9 +90,9 @@ pub fn view<'a, M: 'a + Clone>(
                 .padding(10),
         ]
         .spacing(20),
-        vertical_space().height(20),
+        Space::new().height(20),
         text(t!("nav.monitors").to_string()).size(18),
-        vertical_space().height(10),
+        Space::new().height(10),
         scrollable(monitor_list),
     ]
     .spacing(10)
@@ -113,7 +111,7 @@ fn monitor_details_panel<'a, M: 'a + Clone>(
 
     let details = column![
         text(&monitor.name).size(18),
-        vertical_space().height(10),
+        Space::new().height(10),
         text(
             t!(
                 "monitors.resolution",
@@ -130,7 +128,7 @@ fn monitor_details_panel<'a, M: 'a + Clone>(
         } else {
             text("").size(14)
         },
-        vertical_space().height(20),
+        Space::new().height(20),
         if let Some(ref wallpaper) = monitor.current_wallpaper {
             let wp_name = wallpaper
                 .file_name()
@@ -140,7 +138,7 @@ fn monitor_details_panel<'a, M: 'a + Clone>(
         } else {
             text(t!("monitors.no_wallpaper").to_string()).size(12)
         },
-        vertical_space().height(20),
+        Space::new().height(20),
         row![
             button(text(t!("monitors.apply").to_string()))
                 .padding([8, 16])
@@ -175,7 +173,7 @@ fn monitor_list_view<'a, M: 'a>(
 
             let item = row![
                 text(format!("{}{}", style_text, m.name)).size(14),
-                horizontal_space(),
+                rule::horizontal(1),
                 text(format!("{}x{}", m.width, m.height)).size(12),
                 text(primary_text).size(12),
             ]

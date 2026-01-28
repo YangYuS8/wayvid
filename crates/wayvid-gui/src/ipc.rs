@@ -411,9 +411,7 @@ enum IpcWorkerState {
 
 /// Create an IPC subscription that polls daemon status periodically
 pub fn ipc_subscription() -> Subscription<Message> {
-    struct IpcSubscription;
-
-    Subscription::run_with_id(std::any::TypeId::of::<IpcSubscription>(), ipc_stream())
+    Subscription::run(ipc_stream)
 }
 
 /// Create a stream of IPC events

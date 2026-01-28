@@ -2,7 +2,7 @@
 //!
 //! Shows version, credits, and links.
 
-use iced::widget::{button, column, container, horizontal_rule, row, svg, text, Space};
+use iced::widget::{button, column, container, row, rule, svg, text, Space};
 use iced::{Element, Length};
 use rust_i18n::t;
 
@@ -31,7 +31,7 @@ pub fn view(_state: &AppState) -> Element<'_, Message> {
 
     let features = column![
         text(t!("about.features").to_string()).size(16),
-        Space::with_height(5),
+        Space::new().height(5),
         text(format!("• {}", t!("about.feature_wayland"))),
         text(format!("• {}", t!("about.feature_hwdec"))),
         text(format!("• {}", t!("about.feature_hdr"))),
@@ -55,7 +55,7 @@ pub fn view(_state: &AppState) -> Element<'_, Message> {
 
     let credits = column![
         text(t!("about.credits").to_string()).size(16),
-        Space::with_height(5),
+        Space::new().height(5),
         text(t!("about.built_with").to_string()),
         text("• Rust programming language"),
         text("• iced GUI framework"),
@@ -69,19 +69,19 @@ pub fn view(_state: &AppState) -> Element<'_, Message> {
     let content = column![
         logo_row,
         version,
-        Space::with_height(10),
+        Space::new().height(10),
         description,
-        Space::with_height(20),
-        horizontal_rule(1),
-        Space::with_height(20),
+        Space::new().height(20),
+        rule::horizontal(1),
+        Space::new().height(20),
         features,
-        Space::with_height(20),
+        Space::new().height(20),
         links,
-        Space::with_height(20),
-        horizontal_rule(1),
-        Space::with_height(20),
+        Space::new().height(20),
+        rule::horizontal(1),
+        Space::new().height(20),
         credits,
-        Space::with_height(40),
+        Space::new().height(40),
         license,
     ]
     .spacing(5)

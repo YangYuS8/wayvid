@@ -42,8 +42,10 @@ pub enum Message {
     WallpaperApplied(Result<(), String>),
 
     // Folder management
-    /// Add a new folder to scan
+    /// Add a new folder to scan (opens dialog)
     AddFolder,
+    /// Folder selected from dialog
+    FolderSelected(Option<PathBuf>),
     /// Remove a folder from the library
     RemoveFolder(PathBuf),
     /// Start scanning a folder

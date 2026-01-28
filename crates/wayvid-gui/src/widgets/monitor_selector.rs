@@ -83,7 +83,7 @@ impl<'a, M: Clone + 'a> MonitorSelector<'a, M> {
 
         column![
             text("Select Monitor").size(18),
-            Space::with_height(10),
+            Space::new().height(10),
             monitors_row
         ]
         .spacing(10)

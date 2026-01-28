@@ -56,6 +56,7 @@ detail.double_click_hint = "提示：双击壁纸可快速应用"
 # 文件夹视图
 folders.title = "壁纸文件夹"
 folders.add_folder = "添加文件夹"
+folders.select_folder = "选择壁纸文件夹"
 folders.add_first = "添加第一个文件夹"
 folders.no_folders = "未配置文件夹"
 folders.no_folders_hint = "添加包含壁纸的文件夹来构建你的壁纸库。"
