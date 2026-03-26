@@ -31,6 +31,15 @@ The reset points the repository toward a Linux dynamic wallpaper platform that p
 - future application architecture
 - first-release scope definition
 
+## Foundation Checkpoint
+
+The repository reset is considered complete when all of the following are true:
+
+- the top-level product story consistently describes the Linux dynamic wallpaper platform
+- the product documentation set points future work at Workshop import, compatibility, and desktop application delivery
+- retained legacy assets are called out as technical inputs rather than product commitments
+- OpenSpec remains healthy so follow-on plans can start from a clean baseline
+
 ## Documentation Entry Points
 
 - Product overview: `docs/product/overview.md`
