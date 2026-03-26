@@ -5,7 +5,7 @@ context: |
   Primary audience: Wallpaper Engine migration users on Linux.
   Product shape: Desktop application first, not a daemon-first system.
   Core differentiator: In-app Workshop discovery, acquisition orchestration, synchronization awareness, import, compatibility visibility, and runtime support.
-  First release focus: video + scene support, with web recognized but deferred for strong runtime support.
+  First release focus: video wallpapers and scene wallpapers, with web wallpapers recognized in the product model but deferred for strong runtime support.
   Internationalization: Chinese and English must both be supported in first-release product surfaces.
   Repository policy: Treat existing code as migration candidates, not a trusted foundation. Prefer retaining proven low-level playback and import knowledge while aggressively removing stale product framing.
 

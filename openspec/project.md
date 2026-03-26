@@ -10,7 +10,8 @@ The product exists to help Wallpaper Engine migration users on Linux discover, a
 
 - Desktop application first
 - Workshop-centered differentiation
-- video + scene first-release focus
+- first-release focus on video wallpapers and scene wallpapers
+- web wallpapers recognized in the product model, with strong runtime support deferred
 - compatibility visibility as a product feature
 - bilingual-first user experience (Chinese and English)
 
@@ -18,7 +19,7 @@ The product exists to help Wallpaper Engine migration users on Linux discover, a
 
 - Keep only high-value technical assets.
 - Treat old docs, naming, and architecture assumptions as removable unless proven useful.
-- Build follow-on changes from the approved product blueprint in `docs/superpowers/specs/2026-03-27-linux-dynamic-wallpaper-platform-design.md`.
+- Build follow-on changes from the approved product blueprint for the Linux dynamic wallpaper platform.
 
 ## Technical Starting Point
 
