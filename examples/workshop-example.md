@@ -121,11 +121,11 @@ Some Workshop items require Steam client authentication. In this case:
 
 ### Wrong Wallpaper Type
 
-Only **video wallpapers** work with wayvid. Check:
+For the reset-era first release, focus on **video** and **scene** wallpapers. Check:
 
-- Look for "Video" tag in Workshop
-- Avoid "Web", "Scene", or "Application" types
-- Check file list for `.mp4`, `.webm`, or `.mkv` files
+- Look for "Video" or "Scene" tags in Workshop
+- Avoid "Web" or "Application" types for the current reset scope
+- Check file list for video assets or scene project files before importing
 
 ## See Also
 
