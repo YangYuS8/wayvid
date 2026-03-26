@@ -29,7 +29,7 @@ authors = ["wayvid contributors"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/YangYuS8/wayvid"
 
-# 共享依赖版本 (workspace.dependencies)
+# Shared dependency versions (workspace.dependencies)
 [workspace.dependencies]
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -77,6 +77,6 @@ codegen-units = 1
 [profile.dev]
 opt-level = 1
 
-# 注意: 旧的 [lib], [[bin]], [package.metadata.deb] 配置已移除
-# 各个 crate 现在有自己的 Cargo.toml 配置
-# 打包配置将在 crates/wayvid/Cargo.toml 中定义
+# Legacy root-level [lib], [[bin]], and package metadata entries were removed
+# during the workspace transition. Packaging and release details should be
+# re-evaluated per migration candidate crate during the repository reset.
