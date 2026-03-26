@@ -129,6 +129,6 @@ Only **video wallpapers** work with wayvid. Check:
 
 ## See Also
 
-- [Workshop Documentation](../docs/src/features/workshop.md)
-- [Configuration Reference](../docs/src/reference/config.md)
-- [Multi-Monitor Setup](../docs/src/user-guide/multi-monitor.md)
+- [Product Overview](../docs/product/overview.md)
+- [Product Roadmap](../docs/product/roadmap.md)
+- [Repository Reset Inventory](../docs/product/repository-reset.md)
