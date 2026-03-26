@@ -35,7 +35,9 @@ jobs:
       - name: Smoke test reset-era docs helpers
         run: |
           python3 -m py_compile docs/translate_po.py
+          python3 -m py_compile docs/auto_translate.py
           python3 docs/translate_po.py
+          python3 docs/auto_translate.py
 
       - name: Write summary
         run: |
