@@ -42,7 +42,3 @@ tests/
 # Nix
 result
 result-*
-
-# Documentation build artifacts
-docs/*.mo
-docs/po/*.mo
