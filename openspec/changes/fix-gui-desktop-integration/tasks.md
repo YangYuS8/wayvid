@@ -34,7 +34,7 @@
   - 添加 niri `spawn-at-startup` 示例
   - 添加 Hyprland `exec-once` 示例
   - 添加 Sway `exec` 示例
-  - 更新 mdbook 用户指南 (`docs/src/user-guide/installation.md`)
+  - 更新任务记录：旧版 mdBook 安装指南已在仓库重置中退役，当前参考改为 `docs/product/repository-reset.md`
 
 ## Phase 4: Documentation & Testing
 

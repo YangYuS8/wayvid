@@ -117,9 +117,9 @@
 ### Documentation Updates
 **Status**: ✅ Completed (2025-12-06)
 
-- Updated `docs/src/user-guide/installation.md` with install script and Nix options
-- Updated `docs/src/reference/ipc-protocol.md` with new JSON format
-- Updated `docs/src/reference/cli.md` with status examples
+- Updated reset-era docs to note that legacy installation guidance was retired during the repository reset; current direction lives in `docs/product/repository-reset.md`
+- Recorded that legacy IPC protocol documentation pages were retired during the repository reset; current retained-doc context lives in `docs/product/repository-reset.md`
+- Recorded that legacy CLI reference pages were retired during the repository reset; current retained-doc context lives in `docs/product/repository-reset.md`
 - Updated `README.md` with correct AUR package name
 - Updated `CHANGELOG.md` with new features
 
