@@ -1,12 +1,15 @@
-# Wayvid Workspace
-# =================
-# 
-# v0.5+ 采用 GUI-first 架构，多 crate 工作区结构：
-# - wayvid-core:    核心类型和配置
-# - wayvid-engine:  视频渲染引擎 (Wayland + MPV)
-# - wayvid-library: 壁纸库管理 (SQLite + 缩略图)
-# - wayvid-gui:     GUI 应用 (主入口，iced 框架)
-# - wayvid-ctl:     精简 CLI 工具
+# Repository Reset Workspace
+# ==========================
+#
+# This repository is in repository-reset mode for the Linux dynamic wallpaper
+# platform. The current crates remain in the workspace as migration candidates
+# and retained technical assets to review selectively, not as final product
+# commitments for the next release.
+# - wayvid-core: retained shared models and configuration candidate
+# - wayvid-engine: retained playback and rendering candidate
+# - wayvid-library: retained local library and metadata candidate
+# - wayvid-gui: retained desktop shell and UX pattern candidate
+# - wayvid-ctl: retained command surface and automation candidate
 
 [workspace]
 resolver = "2"
