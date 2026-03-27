@@ -53,6 +53,7 @@ fn compatibility_badge(entry: &WorkshopCatalogEntry) -> CompatibilityBadge {
     } else if matches!(
         entry.sync_state,
         wayvid_library::WorkshopSyncState::MissingProjectFile
+            | wayvid_library::WorkshopSyncState::UnsupportedType
     ) || matches!(entry.project_type, WorkshopProjectType::Web)
     {
         CompatibilityBadge::Unsupported
@@ -256,5 +257,22 @@ mod tests {
         assert_eq!(sync_status(&entry), WorkshopSyncStatus::MissingProject);
         assert_eq!(compatibility_badge(&entry), CompatibilityBadge::Unsupported);
         assert!(compatibility_note(&entry).unwrap().contains("metadata"));
+    }
+
+    #[test]
+    fn unsupported_other_type_uses_unsupported_badge() {
+        let entry = WorkshopCatalogEntry {
+            workshop_id: 10,
+            title: "Application Wallpaper".to_string(),
+            project_type: WorkshopProjectType::Other,
+            project_dir: std::path::PathBuf::from("/tmp/10"),
+            cover_path: None,
+            sync_state: WorkshopSyncState::UnsupportedType,
+            supported_first_release: false,
+            library_item_id: None,
+        };
+
+        assert_eq!(sync_status(&entry), WorkshopSyncStatus::UnsupportedType);
+        assert_eq!(compatibility_badge(&entry), CompatibilityBadge::Unsupported);
     }
 }
