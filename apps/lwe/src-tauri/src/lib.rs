@@ -1,6 +1,8 @@
 pub const APP_CODE_NAME: &str = "lwe";
 
-pub fn register_commands() {}
+pub fn builder() -> tauri::Builder<tauri::Wry> {
+    tauri::Builder::default().invoke_handler(tauri::generate_handler![])
+}
 
 #[cfg(test)]
 mod tests {
