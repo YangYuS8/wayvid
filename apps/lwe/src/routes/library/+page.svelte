@@ -168,6 +168,12 @@
     background: transparent;
     text-align: left;
     cursor: pointer;
+    border-radius: 18px;
+  }
+
+  .item-button:focus-visible {
+    outline: 3px solid #0f5f9a;
+    outline-offset: 4px;
   }
 
   .message {

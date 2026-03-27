@@ -262,6 +262,12 @@
     cursor: pointer;
   }
 
+  header > button:focus-visible,
+  .item-button:focus-visible {
+    outline: 3px solid #0f5f9a;
+    outline-offset: 4px;
+  }
+
   .layout {
     grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
     align-items: start;
@@ -277,6 +283,7 @@
     background: transparent;
     text-align: left;
     cursor: pointer;
+    border-radius: 18px;
   }
 
   .message {

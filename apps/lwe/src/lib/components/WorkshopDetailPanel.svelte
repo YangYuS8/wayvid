@@ -91,6 +91,11 @@
     cursor: pointer;
   }
 
+  button:focus-visible {
+    outline: 3px solid #0f5f9a;
+    outline-offset: 4px;
+  }
+
   button:disabled {
     opacity: 0.6;
     cursor: default;

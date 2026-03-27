@@ -9,7 +9,7 @@
   export let selected = false;
 </script>
 
-<article class:selected>
+<div class:selected>
   <CoverImage {coverPath} label={title} />
 
   <div class="copy">
@@ -17,10 +17,10 @@
     <p>{itemType}</p>
     <StatusBadge label={primaryBadge} />
   </div>
-</article>
+</div>
 
 <style>
-  article {
+  div {
     display: grid;
     gap: 0.8rem;
     border: 1px solid rgba(33, 52, 72, 0.12);
@@ -31,7 +31,7 @@
     transition: border-color 0.18s ease, transform 0.18s ease;
   }
 
-  article.selected {
+  div.selected {
     border-color: #23456e;
     transform: translateY(-1px);
   }
