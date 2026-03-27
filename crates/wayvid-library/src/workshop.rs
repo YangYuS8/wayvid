@@ -328,20 +328,22 @@ impl WorkshopScanner {
 
                 let project_file = item_path.join("project.json");
                 if !project_file.exists() {
-                    entries.push(WorkshopCatalogEntry {
-                        workshop_id,
-                        title: format!("Workshop #{workshop_id}"),
-                        project_type: WorkshopProjectType::Other,
-                        project_dir: item_path,
-                        cover_path: None,
-                        sync_state: WorkshopSyncState::MissingProjectFile,
-                        supported_first_release: false,
-                        library_item_id: None,
-                    });
+                    entries.push(Self::fallback_catalog_entry(workshop_id, item_path));
                     continue;
                 }
 
-                let project = WeProject::load(&item_path)?;
+                let project = match WeProject::load(&item_path) {
+                    Ok(project) => project,
+                    Err(error) => {
+                        debug!(
+                            "  ⚠️ Failed to read catalog project {}: {}",
+                            project_file.display(),
+                            error
+                        );
+                        entries.push(Self::fallback_catalog_entry(workshop_id, item_path));
+                        continue;
+                    }
+                };
                 let project_type = project.project_type_enum();
                 let parsed_item = match project_type {
                     WorkshopProjectType::Video | WorkshopProjectType::Scene => {
@@ -381,6 +383,19 @@ impl WorkshopScanner {
 
         entries.sort_by_key(|entry| entry.workshop_id);
         Ok(entries)
+    }
+
+    fn fallback_catalog_entry(workshop_id: u64, project_dir: PathBuf) -> WorkshopCatalogEntry {
+        WorkshopCatalogEntry {
+            workshop_id,
+            title: format!("Workshop #{workshop_id}"),
+            project_type: WorkshopProjectType::Other,
+            project_dir,
+            cover_path: None,
+            sync_state: WorkshopSyncState::MissingProjectFile,
+            supported_first_release: false,
+            library_item_id: None,
+        }
     }
 
     /// Scan a specific Workshop directory
