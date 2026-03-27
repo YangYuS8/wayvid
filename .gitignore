@@ -46,3 +46,6 @@ result-*
 # Documentation build artifacts
 docs/*.mo
 docs/po/*.mo
+
+# Local git worktrees
+.worktrees/
