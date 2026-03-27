@@ -12,8 +12,11 @@ pub enum InvalidatedPage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppShellPatch {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub workshop_synced_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub library_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor_count: Option<usize>,
 }
 

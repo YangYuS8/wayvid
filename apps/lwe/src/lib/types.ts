@@ -1,4 +1,9 @@
 export type InvalidatedPage = 'library' | 'workshop' | 'desktop' | 'settings';
+export type ItemType = 'video' | 'scene' | 'web' | 'other';
+export type WorkshopSyncStatus = 'synced' | 'missing_project' | 'missing_asset' | 'unsupported_type';
+export type CompatibilityBadge = 'fully_supported' | 'partially_supported' | 'unsupported';
+export type LibrarySource = 'local' | 'workshop' | 'core' | 'other';
+export type RuntimeStatus = 'running' | 'idle' | 'unsupported' | 'error';
 
 export interface AppShellSnapshot {
   appName: string;
@@ -10,27 +15,27 @@ export interface AppShellSnapshot {
 }
 
 export interface WorkshopItemSummary {
-  id: number;
+  id: string;
   title: string;
-  itemType: string;
+  itemType: ItemType;
   coverPath: string | null;
-  syncStatus: string;
-  compatibilityBadge: string;
+  syncStatus: WorkshopSyncStatus;
+  compatibilityBadge: CompatibilityBadge;
 }
 
 export interface WorkshopPageSnapshot {
   items: WorkshopItemSummary[];
-  selectedItemId: number | null;
+  selectedItemId: string | null;
   stale: boolean;
 }
 
 export interface WorkshopItemDetail {
-  id: number;
+  id: string;
   title: string;
-  itemType: string;
+  itemType: ItemType;
   coverPath: string | null;
-  syncStatus: string;
-  compatibilityBadge: string;
+  syncStatus: WorkshopSyncStatus;
+  compatibilityBadge: CompatibilityBadge;
   compatibilityNote: string | null;
   tags: string[];
   description: string | null;
@@ -39,9 +44,9 @@ export interface WorkshopItemDetail {
 export interface LibraryItemSummary {
   id: string;
   title: string;
-  itemType: string;
+  itemType: ItemType;
   coverPath: string | null;
-  source: string;
+  source: LibrarySource;
   favorite: boolean;
 }
 
@@ -54,9 +59,9 @@ export interface LibraryPageSnapshot {
 export interface LibraryItemDetail {
   id: string;
   title: string;
-  itemType: string;
+  itemType: ItemType;
   coverPath: string | null;
-  source: string;
+  source: LibrarySource;
   description: string | null;
   tags: string[];
 }
@@ -67,7 +72,7 @@ export interface DesktopMonitorSummary {
   resolution: string;
   currentWallpaperTitle: string | null;
   currentCoverPath: string | null;
-  runtimeStatus: string;
+  runtimeStatus: RuntimeStatus;
 }
 
 export interface DesktopPageSnapshot {
