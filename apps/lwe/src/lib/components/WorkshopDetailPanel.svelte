@@ -11,7 +11,7 @@
 
 <section class="panel">
   {#if loading}
-    <p role="status" aria-live="polite">Loading item details...</p>
+    <p role="status" aria-live="polite">Loading item details…</p>
   {:else if error}
     <p role="alert" aria-live="assertive">{error}</p>
   {:else if detail}

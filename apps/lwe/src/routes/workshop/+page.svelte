@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import ItemCard from '$lib/components/ItemCard.svelte';
   import WorkshopDetailPanel from '$lib/components/WorkshopDetailPanel.svelte';
-  import { resolveWorkshopRefreshDetailState } from './page-state';
+  import { resolveWorkshopRefreshState } from './page-state';
   import {
     loadWorkshopItemDetail,
     loadWorkshopPage,
@@ -85,33 +85,33 @@
     try {
       const previousSelection = $pageCache.workshop.snapshot?.selectedItemId ?? null;
       const outcome = await refreshWorkshopCatalog();
-      const nextSelection =
-        previousSelection && outcome.currentUpdate?.items.some((item) => item.id === previousSelection)
-          ? previousSelection
-          : null;
+      const currentSelection = $pageCache.workshop.snapshot?.selectedItemId ?? null;
+      const availableItemIds = outcome.currentUpdate?.items.map((item) => item.id) ?? [];
+      const refreshState = resolveWorkshopRefreshState({
+        previousSelection,
+        currentSelection,
+        availableItemIds,
+        detailLoading,
+        detailRequestToken,
+        detailError
+      });
 
       if (outcome.currentUpdate) {
         setWorkshopSnapshot({
           ...outcome.currentUpdate,
-          selectedItemId: nextSelection
+          selectedItemId: refreshState.nextSelection
         });
       } else {
         setPageStale('workshop', true);
       }
 
-      ({ detailLoading, detailRequestToken, detailError } = resolveWorkshopRefreshDetailState({
-        previousSelection,
-        nextSelection,
-        detailLoading,
-        detailRequestToken,
-        detailError
-      }));
+      ({ detailLoading, detailRequestToken, detailError } = refreshState);
 
       applyInvalidations(outcome.invalidations);
       actionMessage = outcome.message;
 
-      if (previousSelection && $pageCache.workshop.snapshot?.selectedItemId === previousSelection) {
-        await selectItem(previousSelection);
+      if (refreshState.nextSelection && $pageCache.workshop.snapshot?.selectedItemId === refreshState.nextSelection) {
+        await selectItem(refreshState.nextSelection);
       } else {
         setWorkshopDetail(null);
       }
@@ -171,7 +171,7 @@
   <div class="layout">
     <section class="list-panel">
       {#if loading && !$pageCache.workshop.snapshot}
-        <p>Loading Workshop snapshot...</p>
+        <p role="status" aria-live="polite">Loading Workshop snapshot…</p>
       {:else if $pageCache.workshop.snapshot?.items.length}
         <div class="item-grid">
           {#each $pageCache.workshop.snapshot.items as item}
