@@ -268,6 +268,11 @@
     outline-offset: 4px;
   }
 
+  header > button:hover,
+  .item-button:hover {
+    transform: translateY(-1px);
+  }
+
   .layout {
     grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
     align-items: start;

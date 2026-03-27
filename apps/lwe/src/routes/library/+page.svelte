@@ -93,7 +93,7 @@
   <div class="layout">
     <section>
       {#if loading && !$pageCache.library.snapshot}
-        <p role="status" aria-live="polite">Loading Library snapshot...</p>
+        <p role="status" aria-live="polite">Loading Library snapshot…</p>
       {:else if $pageCache.library.snapshot?.items.length}
         <div class="item-grid">
           {#each $pageCache.library.snapshot.items as item}
@@ -174,6 +174,10 @@
   .item-button:focus-visible {
     outline: 3px solid #0f5f9a;
     outline-offset: 4px;
+  }
+
+  .item-button:hover {
+    transform: translateY(-1px);
   }
 
   .message {

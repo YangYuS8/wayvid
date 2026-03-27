@@ -96,6 +96,10 @@
     outline-offset: 4px;
   }
 
+  button:hover {
+    transform: translateY(-1px);
+  }
+
   button:disabled {
     opacity: 0.6;
     cursor: default;

@@ -42,7 +42,7 @@
   {#if pageError}
     <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !$pageCache.settings.snapshot}
-    <p role="status" aria-live="polite">Loading Settings snapshot...</p>
+    <p role="status" aria-live="polite">Loading Settings snapshot…</p>
   {:else if $pageCache.settings.snapshot}
     <section class="panel">
       <p>Language: {$pageCache.settings.snapshot.language}</p>
