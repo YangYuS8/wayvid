@@ -53,9 +53,8 @@ fn compatibility_badge(entry: &WorkshopCatalogEntry) -> CompatibilityBadge {
     } else if matches!(
         entry.sync_state,
         wayvid_library::WorkshopSyncState::MissingProjectFile
-    ) {
-        CompatibilityBadge::Unsupported
-    } else if matches!(entry.project_type, WorkshopProjectType::Web) {
+    ) || matches!(entry.project_type, WorkshopProjectType::Web)
+    {
         CompatibilityBadge::Unsupported
     } else {
         CompatibilityBadge::PartiallySupported
