@@ -87,13 +87,13 @@
   </header>
 
   {#if pageError}
-    <p class="message error">{pageError}</p>
+    <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
   {/if}
 
   <div class="layout">
     <section>
       {#if loading && !$pageCache.library.snapshot}
-        <p>Loading Library snapshot...</p>
+        <p role="status" aria-live="polite">Loading Library snapshot...</p>
       {:else if $pageCache.library.snapshot?.items.length}
         <div class="item-grid">
           {#each $pageCache.library.snapshot.items as item}

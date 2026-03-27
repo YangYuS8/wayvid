@@ -40,9 +40,9 @@
   </header>
 
   {#if pageError}
-    <p class="message error">{pageError}</p>
+    <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !$pageCache.desktop.snapshot}
-    <p>Loading Desktop snapshot...</p>
+    <p role="status" aria-live="polite">Loading Desktop snapshot...</p>
   {:else if $pageCache.desktop.snapshot}
     <section class="panel">
       <p>Monitors discovered: {$pageCache.desktop.snapshot.monitors.length}</p>

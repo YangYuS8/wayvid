@@ -10,9 +10,9 @@
 
 <section class="panel">
   {#if loading}
-    <p>Loading item details...</p>
+    <p role="status" aria-live="polite">Loading item details...</p>
   {:else if error}
-    <p>{error}</p>
+    <p role="alert" aria-live="assertive">{error}</p>
   {:else if detail}
     <div class="panel-body">
       <CoverImage coverPath={detail.coverPath} label={detail.title} />

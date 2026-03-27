@@ -16,7 +16,15 @@
 </script>
 
 {#if showCoverImage}
-  <img class="cover-image" src={coverPath ?? undefined} alt={label} loading="lazy" on:error={() => (loadFailed = true)} />
+  <img
+    class="cover-image"
+    src={coverPath ?? undefined}
+    alt={label}
+    width="1600"
+    height="900"
+    loading="lazy"
+    on:error={() => (loadFailed = true)}
+  />
 {:else}
   <div class="cover-placeholder" aria-label={`${label} placeholder`}>
     <span>No Cover</span>
