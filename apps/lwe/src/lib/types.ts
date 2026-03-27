@@ -9,9 +9,9 @@ export interface AppShellSnapshot {
   appName: string;
   codeName: string;
   steamAvailable: boolean;
-  libraryCount: number;
-  workshopSyncedCount: number;
-  monitorCount: number;
+  libraryCount: number | null;
+  workshopSyncedCount: number | null;
+  monitorCount: number | null;
 }
 
 export interface WorkshopItemSummary {
