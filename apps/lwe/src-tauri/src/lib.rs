@@ -1,5 +1,8 @@
 pub const APP_CODE_NAME: &str = "lwe";
 
+pub mod action_outcome;
+pub mod models;
+
 pub fn builder() -> tauri::Builder<tauri::Wry> {
     tauri::Builder::default().invoke_handler(tauri::generate_handler![])
 }

@@ -6,6 +6,7 @@ rust-version = "1.75"
 
 [dependencies]
 tauri = { version = "2", features = [] }
+serde = { workspace = true }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
