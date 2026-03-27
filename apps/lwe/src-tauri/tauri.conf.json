@@ -3,6 +3,9 @@
   "productName": "LWE",
   "identifier": "dev.lwe.app",
   "build": {
+    "beforeBuildCommand": "npm run build --prefix ..",
+    "beforeDevCommand": "npm run dev --prefix .. -- --host 127.0.0.1 --port 1420",
+    "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../build"
   },
   "app": {
