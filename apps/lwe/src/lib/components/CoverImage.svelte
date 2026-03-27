@@ -1,10 +1,22 @@
 <script lang="ts">
+  import { shouldRenderCoverImage } from '$lib/components/cover-image';
+
   export let coverPath: string | null = null;
   export let label = 'cover';
+
+  let loadFailed = false;
+  let previousCoverPath: string | null = null;
+
+  $: if (coverPath !== previousCoverPath) {
+    previousCoverPath = coverPath;
+    loadFailed = false;
+  }
+
+  $: showCoverImage = shouldRenderCoverImage(coverPath, loadFailed);
 </script>
 
-{#if coverPath}
-  <img class="cover-image" src={coverPath} alt={label} loading="lazy" />
+{#if showCoverImage}
+  <img class="cover-image" src={coverPath ?? undefined} alt={label} loading="lazy" on:error={() => (loadFailed = true)} />
 {:else}
   <div class="cover-placeholder" aria-label={`${label} placeholder`}>
     <span>No Cover</span>

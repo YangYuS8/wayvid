@@ -4,10 +4,11 @@
   import LibraryDetailPanel from '$lib/components/LibraryDetailPanel.svelte';
   import { loadLibraryItemDetail, loadLibraryPage } from '$lib/ipc';
   import {
+    isSelectedItem,
     needsPageLoad,
     pageCache,
     setCurrentPage,
-    setLibraryDetail,
+    setLibraryDetailIfSelected,
     setLibrarySnapshot,
     setSelectedItem
   } from '$lib/stores/ui';
@@ -19,6 +20,7 @@
   let detailLoading = false;
   let pageError: string | null = null;
   let detailError: string | null = null;
+  let detailRequestToken = 0;
 
   const ensurePage = async () => {
     if (!needsPageLoad('library')) {
@@ -38,17 +40,30 @@
   };
 
   const selectItem = async (itemId: string) => {
+    const requestToken = ++detailRequestToken;
+
     setSelectedItem('library', itemId);
     detailLoading = true;
     detailError = null;
 
     try {
-      setLibraryDetail(await loadLibraryItemDetail(itemId));
+      const detail = await loadLibraryItemDetail(itemId);
+      if (requestToken !== detailRequestToken) {
+        return;
+      }
+
+      setLibraryDetailIfSelected(detail, itemId);
     } catch (error) {
-      setLibraryDetail(null);
+      if (requestToken !== detailRequestToken || !isSelectedItem('library', itemId)) {
+        return;
+      }
+
+      setLibraryDetailIfSelected(null, itemId);
       detailError = readError(error);
     } finally {
-      detailLoading = false;
+      if (requestToken === detailRequestToken) {
+        detailLoading = false;
+      }
     }
   };
 

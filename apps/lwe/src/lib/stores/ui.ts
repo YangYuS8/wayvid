@@ -141,6 +141,19 @@ export const setLibraryDetail = (detail: LibraryItemDetail | null) => {
   }));
 };
 
+export const isSelectedItem = (page: DetailPageKey, itemId: string | null) => {
+  const snapshot = get(pageCache)[page].snapshot;
+  return snapshot?.selectedItemId === itemId;
+};
+
+export const setLibraryDetailIfSelected = (detail: LibraryItemDetail | null, itemId: string | null) => {
+  if (!isSelectedItem('library', itemId)) {
+    return;
+  }
+
+  setLibraryDetail(detail);
+};
+
 export const setWorkshopDetail = (detail: WorkshopItemDetail | null) => {
   pageCache.update((cache) => ({
     ...cache,
@@ -149,4 +162,12 @@ export const setWorkshopDetail = (detail: WorkshopItemDetail | null) => {
       detail
     }
   }));
+};
+
+export const setWorkshopDetailIfSelected = (detail: WorkshopItemDetail | null, itemId: string | null) => {
+  if (!isSelectedItem('workshop', itemId)) {
+    return;
+  }
+
+  setWorkshopDetail(detail);
 };

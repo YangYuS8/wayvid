@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
 
-import { applyInvalidations, needsPageLoad, pageCache, setLibrarySnapshot, setPageStale } from './ui';
+import {
+  applyInvalidations,
+  isSelectedItem,
+  needsPageLoad,
+  pageCache,
+  setLibraryDetailIfSelected,
+  setLibrarySnapshot,
+  setPageStale,
+  setSelectedItem
+} from './ui';
 
 const resetCache = () => {
   pageCache.set({
@@ -49,5 +58,37 @@ describe('ui page cache', () => {
     expect(cache.library.snapshot).toEqual(snapshot);
     expect(cache.library.stale).toBe(true);
     expect(cache.workshop.stale).toBe(false);
+  });
+
+  it('ignores stale detail responses for a previous library selection', () => {
+    setLibrarySnapshot({
+      items: [
+        { id: 'a', title: 'A', itemType: 'scene', coverPath: null, source: 'workshop', favorite: false },
+        { id: 'b', title: 'B', itemType: 'scene', coverPath: null, source: 'workshop', favorite: false }
+      ],
+      selectedItemId: null,
+      stale: false
+    });
+
+    setSelectedItem('library', 'a');
+    setSelectedItem('library', 'b');
+    setLibraryDetailIfSelected(
+      {
+        id: 'a',
+        title: 'A',
+        itemType: 'scene',
+        coverPath: null,
+        source: 'workshop',
+        description: null,
+        tags: []
+      },
+      'a'
+    );
+
+    const cache = get(pageCache);
+
+    expect(isSelectedItem('library', 'a')).toBe(false);
+    expect(isSelectedItem('library', 'b')).toBe(true);
+    expect(cache.library.detail).toBeNull();
   });
 });

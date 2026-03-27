@@ -10,12 +10,14 @@
   } from '$lib/ipc';
   import {
     applyInvalidations,
+    isSelectedItem,
     needsPageLoad,
     pageCache,
     setCurrentPage,
     setPageStale,
     setSelectedItem,
     setWorkshopDetail,
+    setWorkshopDetailIfSelected,
     setWorkshopSnapshot
   } from '$lib/stores/ui';
 
@@ -27,6 +29,7 @@
   let pageError: string | null = null;
   let detailError: string | null = null;
   let actionMessage: string | null = null;
+  let detailRequestToken = 0;
 
   const ensurePage = async () => {
     if (!needsPageLoad('workshop')) {
@@ -46,17 +49,30 @@
   };
 
   const selectItem = async (itemId: string) => {
+    const requestToken = ++detailRequestToken;
+
     setSelectedItem('workshop', itemId);
     detailLoading = true;
     detailError = null;
 
     try {
-      setWorkshopDetail(await loadWorkshopItemDetail(itemId));
+      const detail = await loadWorkshopItemDetail(itemId);
+      if (requestToken !== detailRequestToken) {
+        return;
+      }
+
+      setWorkshopDetailIfSelected(detail, itemId);
     } catch (error) {
-      setWorkshopDetail(null);
+      if (requestToken !== detailRequestToken || !isSelectedItem('workshop', itemId)) {
+        return;
+      }
+
+      setWorkshopDetailIfSelected(null, itemId);
       detailError = readError(error);
     } finally {
-      detailLoading = false;
+      if (requestToken === detailRequestToken) {
+        detailLoading = false;
+      }
     }
   };
 
