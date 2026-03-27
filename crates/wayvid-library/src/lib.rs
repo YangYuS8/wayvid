@@ -37,6 +37,7 @@ pub mod database;
 pub mod scanner;
 pub mod thumbnail;
 pub mod workshop;
+pub mod workshop_catalog;
 
 // Re-exports
 pub use database::{
@@ -50,6 +51,7 @@ pub use thumbnail::{
     get_video_dimensions, get_video_duration, CacheStats, ThumbnailFormat, ThumbnailGenerator,
     ThumbnailPriority, ThumbnailRequest, ThumbnailResponse, ThumbnailResult, ThumbnailService,
 };
+pub use workshop_catalog::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 // Re-exports from wayvid-core
 pub use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
