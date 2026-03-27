@@ -21,6 +21,6 @@
 
 ## Next Planning Tracks
 
-- `workshop-browsing-and-acquisition`: define the first implementation plan for in-app discovery, entitlement handling, and download orchestration
+- `workshop-browsing-and-acquisition`: build the first `LWE` Workshop loop in the new `lwe` Tauri + Svelte shell using Rust-owned page snapshots, detail payloads, and official Steam handoff actions
 - `compatibility-evaluation-and-reporting`: define the import pipeline plan for content-type recognition, compatibility levels, and user-facing explanations
 - `desktop-shell-and-library-flow`: define the application shell plan for library management, playback controls, and Linux desktop integration

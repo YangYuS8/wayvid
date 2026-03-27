@@ -18,6 +18,13 @@ The reset points the repository toward a Linux dynamic wallpaper platform that p
 - a polished Linux desktop application experience
 - Chinese and English user-facing support
 
+## Naming Direction
+
+- Product name: `LWE`
+- Code name and file-path prefix: `lwe`
+
+The old `wayvid` name remains only where legacy crates or migration-candidate assets have not been renamed yet.
+
 ## What Remains Valuable
 
 - low-level playback and runtime knowledge
