@@ -39,6 +39,7 @@ The repository reset is considered complete when all of the following are true:
 - the product documentation set points future work at Workshop import, compatibility, and desktop application delivery
 - retained legacy assets are called out as technical inputs rather than product commitments
 - OpenSpec remains healthy so follow-on plans can start from a clean baseline
+- retired OpenSpec change history stays available under `openspec/changes/archive/` without appearing as current reset work
 
 ## Documentation Entry Points
 
