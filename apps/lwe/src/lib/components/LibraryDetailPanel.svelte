@@ -54,6 +54,10 @@
     gap: 0.9rem;
   }
 
+  .copy {
+    min-width: 0;
+  }
+
   .badges {
     grid-template-columns: repeat(auto-fit, minmax(0, max-content));
   }
@@ -61,6 +65,7 @@
   h2,
   p {
     margin: 0;
+    overflow-wrap: anywhere;
   }
 
   .tags {

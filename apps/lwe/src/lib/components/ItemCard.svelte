@@ -39,16 +39,23 @@
   .copy {
     display: grid;
     gap: 0.35rem;
+    min-width: 0;
   }
 
   h3,
   p {
     margin: 0;
+    overflow-wrap: anywhere;
   }
 
   h3 {
     font-size: 1rem;
     color: #162432;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   p {
