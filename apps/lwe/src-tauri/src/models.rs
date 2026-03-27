@@ -50,9 +50,9 @@ pub struct AppShellSnapshot {
     pub app_name: String,
     pub code_name: String,
     pub steam_available: bool,
-    pub library_count: usize,
-    pub workshop_synced_count: usize,
-    pub monitor_count: usize,
+    pub library_count: Option<usize>,
+    pub workshop_synced_count: Option<usize>,
+    pub monitor_count: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,5 +199,23 @@ mod tests {
         assert_eq!(value["workshopSyncedCount"], 2);
         assert!(value.get("libraryCount").is_none());
         assert!(value.get("monitorCount").is_none());
+    }
+
+    #[test]
+    fn app_shell_snapshot_allows_unknown_counts() {
+        let snapshot = AppShellSnapshot {
+            app_name: "LWE".to_string(),
+            code_name: "lwe".to_string(),
+            steam_available: false,
+            library_count: None,
+            workshop_synced_count: None,
+            monitor_count: None,
+        };
+
+        let value = serde_json::to_value(&snapshot).unwrap();
+
+        assert!(value["libraryCount"].is_null());
+        assert!(value["workshopSyncedCount"].is_null());
+        assert!(value["monitorCount"].is_null());
     }
 }

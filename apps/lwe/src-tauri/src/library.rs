@@ -1,7 +1,9 @@
 use crate::models::{
     ItemType, LibraryItemDetail, LibraryItemSummary, LibraryPageSnapshot, LibrarySource,
 };
-use wayvid_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner};
+use wayvid_library::{
+    SteamLibrary, WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner,
+};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
     match project_type {
@@ -12,16 +14,7 @@ fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
     }
 }
 
-pub(crate) fn load_library_projection() -> Vec<LibraryItemSummary> {
-    let mut scanner = match WorkshopScanner::try_discover() {
-        Some(scanner) => scanner,
-        None => return Vec::new(),
-    };
-
-    let Ok(entries) = scanner.scan_catalog() else {
-        return Vec::new();
-    };
-
+fn project_library_items(entries: Vec<WorkshopCatalogEntry>) -> Vec<LibraryItemSummary> {
     entries
         .into_iter()
         .filter(|entry| {
@@ -40,6 +33,22 @@ pub(crate) fn load_library_projection() -> Vec<LibraryItemSummary> {
             favorite: false,
         })
         .collect()
+}
+
+pub(crate) fn load_library_projection() -> Result<Vec<LibraryItemSummary>, String> {
+    let steam = SteamLibrary::discover()
+        .map_err(|error| format!("Steam Workshop is unavailable: {error}"))?;
+    if !steam.has_wallpaper_engine() {
+        return Err("Wallpaper Engine Workshop content is unavailable on this machine".to_string());
+    }
+
+    let mut scanner = WorkshopScanner::new(steam);
+
+    let entries = scanner
+        .scan_catalog()
+        .map_err(|error| format!("Failed to scan the Steam Workshop catalog: {error}"))?;
+
+    Ok(project_library_items(entries))
 }
 
 fn detail_from_entry(entry: WorkshopCatalogEntry) -> LibraryItemDetail {
@@ -63,18 +72,23 @@ fn detail_from_entry(entry: WorkshopCatalogEntry) -> LibraryItemDetail {
 }
 
 #[tauri::command]
-pub fn load_library_page() -> LibraryPageSnapshot {
-    LibraryPageSnapshot {
-        items: load_library_projection(),
+pub fn load_library_page() -> Result<LibraryPageSnapshot, String> {
+    Ok(LibraryPageSnapshot {
+        items: load_library_projection()?,
         selected_item_id: None,
         stale: false,
-    }
+    })
 }
 
 #[tauri::command]
 pub fn load_library_item_detail(item_id: String) -> Result<LibraryItemDetail, String> {
-    let mut scanner = WorkshopScanner::try_discover()
-        .ok_or_else(|| "Steam Workshop is not available on this machine".to_string())?;
+    let steam = SteamLibrary::discover()
+        .map_err(|error| format!("Steam Workshop is unavailable: {error}"))?;
+    if !steam.has_wallpaper_engine() {
+        return Err("Wallpaper Engine Workshop content is unavailable on this machine".to_string());
+    }
+
+    let mut scanner = WorkshopScanner::new(steam);
 
     let entry = scanner
         .scan_catalog()

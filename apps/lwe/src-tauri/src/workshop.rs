@@ -3,7 +3,9 @@ use crate::models::{
     CompatibilityBadge, ItemType, WorkshopItemDetail, WorkshopItemSummary, WorkshopPageSnapshot,
     WorkshopSyncStatus,
 };
-use wayvid_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner};
+use wayvid_library::{
+    SteamLibrary, WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner,
+};
 
 pub(crate) fn workshop_item_url(workshop_id: &str) -> String {
     format!("https://steamcommunity.com/sharedfiles/filedetails/?id={workshop_id}")
@@ -13,13 +15,18 @@ pub(crate) fn steam_openurl(workshop_id: &str) -> String {
     format!("steam://openurl/{}", workshop_item_url(workshop_id))
 }
 
-pub(crate) fn scan_workshop_catalog() -> Vec<WorkshopCatalogEntry> {
-    let mut scanner = match WorkshopScanner::try_discover() {
-        Some(scanner) => scanner,
-        None => return Vec::new(),
-    };
+pub(crate) fn scan_workshop_catalog() -> Result<Vec<WorkshopCatalogEntry>, String> {
+    let steam = SteamLibrary::discover()
+        .map_err(|error| format!("Steam Workshop is unavailable: {error}"))?;
+    if !steam.has_wallpaper_engine() {
+        return Err("Wallpaper Engine Workshop content is unavailable on this machine".to_string());
+    }
 
-    scanner.scan_catalog().unwrap_or_default()
+    let mut scanner = WorkshopScanner::new(steam);
+
+    scanner
+        .scan_catalog()
+        .map_err(|error| format!("Failed to scan the Steam Workshop catalog: {error}"))
 }
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -43,6 +50,11 @@ fn sync_status(entry: &WorkshopCatalogEntry) -> WorkshopSyncStatus {
 fn compatibility_badge(entry: &WorkshopCatalogEntry) -> CompatibilityBadge {
     if entry.supported_first_release {
         CompatibilityBadge::FullySupported
+    } else if matches!(
+        entry.sync_state,
+        wayvid_library::WorkshopSyncState::MissingProjectFile
+    ) {
+        CompatibilityBadge::Unsupported
     } else if matches!(entry.project_type, WorkshopProjectType::Web) {
         CompatibilityBadge::Unsupported
     } else {
@@ -54,6 +66,16 @@ fn compatibility_note(entry: &WorkshopCatalogEntry) -> Option<String> {
     if entry.supported_first_release {
         Some("This item is synchronized locally and available in the Library page.".to_string())
     } else {
+        if matches!(
+            entry.sync_state,
+            wayvid_library::WorkshopSyncState::MissingProjectFile
+        ) {
+            return Some(
+                "The local Workshop folder is missing valid project metadata, so LWE cannot classify or import this item yet."
+                    .to_string(),
+            );
+        }
+
         match entry.project_type {
             WorkshopProjectType::Web => Some(
                 "Web Workshop items are visible here, but the first release only supports video and scene imports."
@@ -118,38 +140,27 @@ fn detail_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemDetail {
     }
 }
 
-#[tauri::command]
-pub fn load_workshop_page() -> WorkshopPageSnapshot {
-    WorkshopPageSnapshot {
-        items: scan_workshop_catalog()
-            .into_iter()
-            .map(summary_from_entry)
-            .collect(),
+fn workshop_page_from_scan_result(
+    scan_result: Result<Vec<WorkshopCatalogEntry>, String>,
+) -> Result<WorkshopPageSnapshot, String> {
+    Ok(WorkshopPageSnapshot {
+        items: scan_result?.into_iter().map(summary_from_entry).collect(),
         selected_item_id: None,
         stale: false,
-    }
+    })
 }
 
-#[tauri::command]
-pub fn load_workshop_item_detail(workshop_id: String) -> Result<WorkshopItemDetail, String> {
-    let entry = scan_workshop_catalog()
-        .into_iter()
-        .find(|entry| entry.workshop_id.to_string() == workshop_id)
-        .ok_or_else(|| format!("Workshop item {workshop_id} not found"))?;
-
-    Ok(detail_from_entry(entry))
-}
-
-#[tauri::command]
-pub fn refresh_workshop_catalog() -> ActionOutcome<WorkshopPageSnapshot> {
-    let page = load_workshop_page();
+fn refresh_outcome_from_scan_result(
+    scan_result: Result<Vec<WorkshopCatalogEntry>, String>,
+) -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
+    let page = workshop_page_from_scan_result(scan_result)?;
     let workshop_synced_count = page
         .items
         .iter()
         .filter(|item| item.sync_status == WorkshopSyncStatus::Synced)
         .count();
 
-    ActionOutcome {
+    Ok(ActionOutcome {
         ok: true,
         message: Some("Workshop catalog refreshed".to_string()),
         shell_patch: Some(AppShellPatch {
@@ -159,7 +170,27 @@ pub fn refresh_workshop_catalog() -> ActionOutcome<WorkshopPageSnapshot> {
         }),
         current_update: Some(page),
         invalidations: vec![InvalidatedPage::Library],
-    }
+    })
+}
+
+#[tauri::command]
+pub fn load_workshop_page() -> Result<WorkshopPageSnapshot, String> {
+    workshop_page_from_scan_result(scan_workshop_catalog())
+}
+
+#[tauri::command]
+pub fn load_workshop_item_detail(workshop_id: String) -> Result<WorkshopItemDetail, String> {
+    let entry = scan_workshop_catalog()?
+        .into_iter()
+        .find(|entry| entry.workshop_id.to_string() == workshop_id)
+        .ok_or_else(|| format!("Workshop item {workshop_id} not found"))?;
+
+    Ok(detail_from_entry(entry))
+}
+
+#[tauri::command]
+pub fn refresh_workshop_catalog() -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
+    refresh_outcome_from_scan_result(scan_workshop_catalog())
 }
 
 #[tauri::command]
@@ -178,6 +209,7 @@ pub fn open_workshop_in_steam(workshop_id: String) -> Result<ActionOutcome<()>, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wayvid_library::WorkshopSyncState;
 
     #[test]
     fn steam_url_uses_official_workshop_page() {
@@ -193,5 +225,37 @@ mod tests {
             steam_openurl("12345"),
             "steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id=12345"
         );
+    }
+
+    #[test]
+    fn workshop_page_from_scan_result_propagates_failures() {
+        let error = workshop_page_from_scan_result(Err("scan failed".to_string())).unwrap_err();
+
+        assert_eq!(error, "scan failed");
+    }
+
+    #[test]
+    fn refresh_outcome_from_scan_result_propagates_failures() {
+        let error = refresh_outcome_from_scan_result(Err("scan failed".to_string())).unwrap_err();
+
+        assert_eq!(error, "scan failed");
+    }
+
+    #[test]
+    fn missing_project_metadata_is_distinct_from_unsupported_type() {
+        let entry = WorkshopCatalogEntry {
+            workshop_id: 9,
+            title: "Broken Item".to_string(),
+            project_type: WorkshopProjectType::Other,
+            project_dir: std::path::PathBuf::from("/tmp/9"),
+            cover_path: None,
+            sync_state: WorkshopSyncState::MissingProjectFile,
+            supported_first_release: false,
+            library_item_id: None,
+        };
+
+        assert_eq!(sync_status(&entry), WorkshopSyncStatus::MissingProject);
+        assert_eq!(compatibility_badge(&entry), CompatibilityBadge::Unsupported);
+        assert!(compatibility_note(&entry).unwrap().contains("metadata"));
     }
 }
