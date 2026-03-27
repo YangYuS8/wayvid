@@ -35,7 +35,6 @@ Follow-on plans should cover at least:
 
 - `README.md` - replace old product framing with the new platform story and repo-reset status
 - `openspec/config.yaml` - define the new OpenSpec project context and artifact rules
-- `openspec/project.md` - replace legacy daemon-first/project-shape assumptions with the new desktop-platform direction
 - `docs/README.md` - replace old mdBook-centric guidance with the new documentation structure and reset policy
 - `Cargo.toml` - add a workspace comment block that marks the repo as in transition and identifies retained crates as migration candidates, without renaming crates yet
 - `.gitignore` - add archive/build entries if needed for the new docs structure
@@ -62,7 +61,6 @@ These are the primary sources for deciding what is migrated vs retired.
 
 **Files:**
 - Modify: `openspec/config.yaml`
-- Modify: `openspec/project.md`
 - Test: verify with `openspec-cn list --json`
 
 - [ ] **Step 1: Replace `openspec/config.yaml` with a new project context**
@@ -99,69 +97,27 @@ rules:
 Run: `openspec-cn list --json`
 Expected: valid JSON output; no YAML parse errors.
 
-- [ ] **Step 3: Replace `openspec/project.md` with a new project context document**
-
-Write a new `openspec/project.md` with these sections and points:
-
-```md
-# Project Context
-
-## Purpose
-
-This repository is being reset from the legacy `wayvid` direction into a new Linux dynamic wallpaper platform.
-
-The product exists to help Wallpaper Engine users on Linux discover, acquire, import, understand, and run Workshop wallpapers in a polished desktop application.
-
-## Product Priorities
-
-- Desktop application first
-- Workshop-centered differentiation
-- video + scene first-release focus
-- compatibility visibility as a product feature
-- bilingual-first user experience (Chinese and English)
-
-## Repository Strategy
-
-- Keep only high-value technical assets.
-- Treat old docs, naming, and architecture assumptions as removable unless proven useful.
-- Build follow-on changes from the approved product blueprint in `docs/superpowers/specs/2026-03-27-linux-dynamic-wallpaper-platform-design.md`.
-
-## Technical Starting Point
-
-Current Rust crates are migration candidates:
-
-- `crates/wayvid-engine` for low-level playback and Wayland runtime knowledge
-- `crates/wayvid-library` for Workshop parsing/import knowledge and library mechanics
-- `crates/wayvid-core` for reusable shared domain types only where still relevant
-
-Current GUI/application structure is not assumed to be the foundation for the new product.
-
-## Planning Rule
-
-Do not treat the first approved blueprint as a single implementation unit. Split future work into separate plans for repository reset, Workshop loop, compatibility, runtime, and application shell.
-```
-
-- [ ] **Step 4: Verify the new project context is internally consistent**
+- [ ] **Step 3: Verify the retained OpenSpec context is internally consistent**
 
 Run:
 
 ```bash
 python3 - <<'PY'
 from pathlib import Path
-for path in [Path('openspec/config.yaml'), Path('openspec/project.md')]:
-    text = path.read_text()
-    assert 'Wallpaper Engine migration users' in text
-    assert 'video + scene' in text
+config = Path('openspec/config.yaml').read_text()
+assert 'Wallpaper Engine migration users' in config
+assert 'video + scene' in config
+assert not (Path('openspec') / 'project.md').exists()
 print('ok')
 PY
 ```
 
 Expected: prints `ok`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add openspec/config.yaml openspec/project.md
+git add openspec/config.yaml
 git commit -m "docs(openspec): redefine project context for platform reset"
 ```
 
