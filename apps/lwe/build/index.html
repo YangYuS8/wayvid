@@ -3,33 +3,39 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="/_app/immutable/entry/start.CaRM6B5K.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/IzvIxrpx.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/CP6IOrTw.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/g5qBJWHl.js" rel="modulepreload">
-		<link href="/_app/immutable/entry/app.CBNlg1dE.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/BJBwKhTQ.js" rel="modulepreload">
-		<link href="/_app/immutable/chunks/DIuJC1US.js" rel="modulepreload">
-		
+    <title>LWE Shell Scaffold</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f3f0e8;
+        color: #1f1b16;
+      }
+
+      main {
+        max-width: 32rem;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      a {
+        color: inherit;
+      }
+    </style>
   </head>
-  <body data-sveltekit-preload-data="hover">
-    <div style="display: contents">
-			<script>
-				{
-					__sveltekit_1aq5ctu = {
-						base: ""
-					};
-
-					const element = document.currentScript.parentElement;
-
-					Promise.all([
-						import("/_app/immutable/entry/start.CaRM6B5K.js"),
-						import("/_app/immutable/entry/app.CBNlg1dE.js")
-					]).then(([kit, app]) => {
-						kit.start(app, element);
-					});
-				}
-			</script>
-		</div>
+  <body>
+    <main>
+      <h1>LWE</h1>
+      <p>Reset-era Tauri plus Svelte shell scaffold.</p>
+      <p>The checked-in dist is a stable placeholder. Running the configured frontend build will replace it.</p>
+      <p><a href="/library">Library</a></p>
+    </main>
   </body>
 </html>
