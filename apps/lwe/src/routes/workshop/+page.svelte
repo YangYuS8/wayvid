@@ -99,11 +99,12 @@
         setPageStale('workshop', true);
       }
 
-      ({ detailLoading, detailRequestToken } = resolveWorkshopRefreshDetailState({
+      ({ detailLoading, detailRequestToken, detailError } = resolveWorkshopRefreshDetailState({
         previousSelection,
         nextSelection,
         detailLoading,
-        detailRequestToken
+        detailRequestToken,
+        detailError
       }));
 
       applyInvalidations(outcome.invalidations);
@@ -160,11 +161,11 @@
   </header>
 
   {#if pageError}
-    <p class="message error">{pageError}</p>
+    <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
   {/if}
 
   {#if actionMessage}
-    <p class="message">{actionMessage}</p>
+    <p class="message" role="status" aria-live="polite">{actionMessage}</p>
   {/if}
 
   <div class="layout">

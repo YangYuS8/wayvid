@@ -3,28 +3,33 @@ type WorkshopRefreshDetailStateInput = {
   nextSelection: string | null;
   detailLoading: boolean;
   detailRequestToken: number;
+  detailError: string | null;
 };
 
 type WorkshopRefreshDetailState = {
   detailLoading: boolean;
   detailRequestToken: number;
+  detailError: string | null;
 };
 
 export const resolveWorkshopRefreshDetailState = ({
   previousSelection,
   nextSelection,
   detailLoading,
-  detailRequestToken
+  detailRequestToken,
+  detailError
 }: WorkshopRefreshDetailStateInput): WorkshopRefreshDetailState => {
   if (previousSelection && previousSelection !== nextSelection) {
     return {
       detailLoading: false,
-      detailRequestToken: detailRequestToken + 1
+      detailRequestToken: detailRequestToken + 1,
+      detailError: null
     };
   }
 
   return {
     detailLoading,
-    detailRequestToken
+    detailRequestToken,
+    detailError
   };
 };

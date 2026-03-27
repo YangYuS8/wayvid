@@ -9,11 +9,13 @@ describe('workshop refresh detail state', () => {
         previousSelection: 'item-a',
         nextSelection: null,
         detailLoading: true,
-        detailRequestToken: 4
+        detailRequestToken: 4,
+        detailError: 'Detail request failed'
       })
     ).toEqual({
       detailLoading: false,
-      detailRequestToken: 5
+      detailRequestToken: 5,
+      detailError: null
     });
   });
 
@@ -23,11 +25,13 @@ describe('workshop refresh detail state', () => {
         previousSelection: 'item-a',
         nextSelection: 'item-a',
         detailLoading: true,
-        detailRequestToken: 4
+        detailRequestToken: 4,
+        detailError: 'Detail request failed'
       })
     ).toEqual({
       detailLoading: true,
-      detailRequestToken: 4
+      detailRequestToken: 4,
+      detailError: 'Detail request failed'
     });
   });
 });
