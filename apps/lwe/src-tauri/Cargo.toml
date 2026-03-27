@@ -8,6 +8,8 @@ rust-version = "1.75"
 tauri = { version = "2", features = [] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+open = "5.3"
+wayvid-library = { path = "../../../crates/wayvid-library" }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
