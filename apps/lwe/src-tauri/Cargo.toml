@@ -6,14 +6,6 @@ rust-version = "1.75"
 
 [dependencies]
 tauri = { version = "2", features = [] }
-serde = { workspace = true }
-serde_json = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-wayvid-core = { path = "../../../crates/wayvid-core" }
-wayvid-library = { path = "../../../crates/wayvid-library" }
-open = "5.0"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
