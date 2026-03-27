@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LWE",
+  "identifier": "dev.lwe.app",
+  "build": {
+    "beforeBuildCommand": "npm run build --prefix ..",
+    "beforeDevCommand": "npm run dev --prefix .. -- --host 127.0.0.1 --port 1420",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LWE",
+        "width": 1440,
+        "height": 920,
+        "resizable": true
+      }
+    ]
+  }
+}

@@ -14,6 +14,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
+use crate::workshop_catalog::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 /// Wallpaper Engine app ID on Steam
@@ -216,6 +217,16 @@ impl WeProject {
         }
     }
 
+    /// Get the reset-era catalog project type.
+    pub fn project_type_enum(&self) -> WorkshopProjectType {
+        match self.project_type.to_lowercase().as_str() {
+            "video" => WorkshopProjectType::Video,
+            "scene" => WorkshopProjectType::Scene,
+            "web" => WorkshopProjectType::Web,
+            _ => WorkshopProjectType::Other,
+        }
+    }
+
     /// Get the main file path
     pub fn main_file(&self, project_dir: &Path) -> Option<PathBuf> {
         self.file.as_ref().map(|f| project_dir.join(f))
@@ -224,6 +235,11 @@ impl WeProject {
     /// Get the preview image path
     pub fn preview_image(&self, project_dir: &Path) -> Option<PathBuf> {
         self.preview.as_ref().map(|p| project_dir.join(p))
+    }
+
+    /// Resolve a bundled cover image when present.
+    pub fn cover_image(&self, project_dir: &Path) -> Option<PathBuf> {
+        self.preview_image(project_dir).filter(|path| path.exists())
     }
 }
 
@@ -275,6 +291,111 @@ impl WorkshopScanner {
 
         info!("✅ Found {} Workshop wallpapers", items.len());
         Ok(items)
+    }
+
+    /// Scan Workshop items into reset-era catalog entries.
+    pub fn scan_catalog(&mut self) -> Result<Vec<WorkshopCatalogEntry>> {
+        let workshop_paths = self.steam.workshop_content_path(WALLPAPER_ENGINE_APP_ID);
+
+        if workshop_paths.is_empty() {
+            warn!("⚠️ No Wallpaper Engine Workshop content found");
+            return Ok(Vec::new());
+        }
+
+        let mut entries = Vec::new();
+        let mut seen_ids = HashSet::new();
+
+        for workshop_path in workshop_paths {
+            info!("🔍 Scanning Workshop catalog: {}", workshop_path.display());
+
+            for entry in fs::read_dir(&workshop_path)? {
+                let entry = entry?;
+                let item_path = entry.path();
+
+                if !item_path.is_dir() {
+                    continue;
+                }
+
+                let workshop_id = match item_path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .and_then(|name| name.parse::<u64>().ok())
+                {
+                    Some(id) if seen_ids.insert(id) => id,
+                    Some(_) => continue,
+                    None => continue,
+                };
+
+                let project_file = item_path.join("project.json");
+                if !project_file.exists() {
+                    entries.push(Self::fallback_catalog_entry(workshop_id, item_path));
+                    continue;
+                }
+
+                let project = match WeProject::load(&item_path) {
+                    Ok(project) => project,
+                    Err(error) => {
+                        debug!(
+                            "  ⚠️ Failed to read catalog project {}: {}",
+                            project_file.display(),
+                            error
+                        );
+                        entries.push(Self::fallback_catalog_entry(workshop_id, item_path));
+                        continue;
+                    }
+                };
+                let project_type = project.project_type_enum();
+                let parsed_item = match project_type {
+                    WorkshopProjectType::Video | WorkshopProjectType::Scene => {
+                        self.parse_workshop_item_const(&item_path, workshop_id)?
+                    }
+                    WorkshopProjectType::Web | WorkshopProjectType::Other => None,
+                };
+                let supported_first_release = parsed_item.is_some();
+                let sync_state = match project_type {
+                    WorkshopProjectType::Web | WorkshopProjectType::Other => {
+                        WorkshopSyncState::UnsupportedType
+                    }
+                    WorkshopProjectType::Video | WorkshopProjectType::Scene => {
+                        if supported_first_release {
+                            WorkshopSyncState::Synced
+                        } else {
+                            WorkshopSyncState::MissingPrimaryAsset
+                        }
+                    }
+                };
+
+                entries.push(WorkshopCatalogEntry {
+                    workshop_id,
+                    title: project
+                        .title
+                        .clone()
+                        .unwrap_or_else(|| format!("Workshop #{workshop_id}")),
+                    project_type,
+                    project_dir: item_path.clone(),
+                    cover_path: project.cover_image(&item_path),
+                    sync_state,
+                    supported_first_release,
+                    library_item_id: parsed_item.map(|item| item.id),
+                });
+            }
+        }
+
+        entries.sort_by_key(|entry| entry.workshop_id);
+        Ok(entries)
+    }
+
+    fn fallback_catalog_entry(workshop_id: u64, project_dir: PathBuf) -> WorkshopCatalogEntry {
+        WorkshopCatalogEntry {
+            workshop_id,
+            title: format!("Workshop #{workshop_id}"),
+            project_type: WorkshopProjectType::Other,
+            project_dir,
+            cover_path: None,
+            sync_state: WorkshopSyncState::MissingProjectFile,
+            supported_first_release: false,
+            library_item_id: None,
+        }
     }
 
     /// Scan a specific Workshop directory
@@ -387,10 +508,8 @@ impl WorkshopScanner {
         };
 
         // Set thumbnail path if preview exists
-        if let Some(preview) = project.preview_image(item_path) {
-            if preview.exists() {
-                item.thumbnail_path = Some(preview);
-            }
+        if let Some(preview) = project.cover_image(item_path) {
+            item.thumbnail_path = Some(preview);
         }
 
         Ok(Some(item))

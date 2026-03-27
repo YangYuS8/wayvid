@@ -15,8 +15,16 @@ The reset points the repository toward a Linux dynamic wallpaper platform that p
 - in-app Workshop browsing and acquisition orchestration for Wallpaper Engine content
 - compatibility visibility before and after import
 - first-release focus on `video` and `scene` wallpapers
+- recognition of `web` wallpapers for compatibility reporting rather than first-release runtime support
 - a polished Linux desktop application experience
 - Chinese and English user-facing support
+
+## Naming Direction
+
+- Product name: `LWE`
+- Code name and file-path prefix: `lwe`
+
+The old `wayvid` name remains only where legacy crates or migration-candidate assets have not been renamed yet.
 
 ## What Remains Valuable
 

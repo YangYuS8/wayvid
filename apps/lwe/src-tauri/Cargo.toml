@@ -1,0 +1,15 @@
+[package]
+name = "lwe-app-shell"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+open = "5.3"
+wayvid-library = { path = "../../../crates/wayvid-library" }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
