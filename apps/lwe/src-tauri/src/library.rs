@@ -14,7 +14,7 @@ fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
     }
 }
 
-fn project_library_items(entries: Vec<WorkshopCatalogEntry>) -> Vec<LibraryItemSummary> {
+pub(crate) fn project_library_items(entries: Vec<WorkshopCatalogEntry>) -> Vec<LibraryItemSummary> {
     entries
         .into_iter()
         .filter(|entry| {
