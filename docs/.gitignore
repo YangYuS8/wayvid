@@ -1,9 +1,3 @@
-# mdBook build output
-book/
-
-# PO template (auto-generated, don't commit)
-po/messages.pot
-
 # Python cache
 __pycache__/
 *.pyc

@@ -1,16 +1,13 @@
 # Workshop Integration Example
 
-This example demonstrates how to use wayvid's Steam Workshop integration.
+This file is a reset-era reference note, not a guide to currently implemented commands.
 
-## Quick Example
+The current repository direction includes future Workshop-centered discovery and acquisition work, but the repo does not currently provide active Workshop CLI commands. Treat the examples here as planning context for future product work.
 
-```bash
-# 1. Install a Workshop wallpaper by ID
-wayvid workshop install 2815866033 -o ~/.config/wayvid/config.yaml
+## Concept Example
 
-# 2. Run wayvid
-wayvid
-```
+- A future Workshop flow may let users identify a Wallpaper Engine item by Workshop ID, review compatibility, import supported assets, and add them to a local wallpaper library.
+- Until that support exists, use this document only as a conceptual example of the product direction.
 
 ## Finding Workshop IDs
 
@@ -31,84 +28,36 @@ Here are some popular video wallpapers to try (IDs may change):
 - **Sakura Garden**: Search for "sakura" in Workshop
 - **Space Scene**: Search for "space" with "Video" tag
 
-## Complete Workflow
+## Concept Workflow
 
-### Using Steam Client (Recommended)
+### Future Steam Client-Oriented Flow
 
-```bash
-# 1. Subscribe to wallpapers in Steam
-# 2. List subscribed items
-wayvid workshop list
+1. Subscribe to wallpapers in Steam or locate already downloaded Workshop items.
+2. Identify the Workshop item ID and inspect the downloaded asset layout.
+3. Determine whether the item is a supported `video` or `scene` wallpaper.
+4. Import or register supported assets in the future wallpaper library workflow once that support exists.
 
-# Example output:
-# 📦 Found 3 Workshop items:
-#
-#   [1234567890] Animated Sakura
-#       📁 ~/.local/share/Steam/steamapps/workshop/content/431960/1234567890/scene.mp4
-#
-#   [9876543210] Neon City
-#       📁 ~/.local/share/Steam/steamapps/workshop/content/431960/9876543210/video.webm
+### Future Direct Acquisition Flow
 
-# 3. Import to config
-wayvid workshop import 1234567890 -o ~/.config/wayvid/config.yaml
+1. Find a Workshop ID from a Steam URL.
+2. Acquire the item through a future supported workflow.
+3. Review compatibility details before adding it to the library.
 
-# 4. Start wayvid
-wayvid
-```
+## Multi-Monitor Planning Notes
 
-### Direct Download
+- A future library-first application could let users choose different Workshop-derived wallpapers per display.
+- Example asset mapping might associate one monitor with a scene wallpaper and another with a video wallpaper after import and compatibility review.
 
-```bash
-# 1. Find Workshop ID from URL
-# 2. Download and install in one command
-wayvid workshop install 2815866033 -o ~/.config/wayvid/config.yaml
+## Library and Cache Planning Notes
 
-# 3. Start wayvid
-wayvid
-```
-
-## Multi-Monitor Setup
-
-```bash
-# Import wallpapers for each monitor
-wayvid workshop import 1111111111 > monitor1.yaml
-wayvid workshop import 2222222222 > monitor2.yaml
-
-# Then manually edit config.yaml to use per_output:
-# outputs:
-#   eDP-1:
-#     source:
-#       type: file
-#       path: ~/.local/share/Steam/.../1111111111/scene.mp4
-#   HDMI-A-1:
-#     source:
-#       type: file
-#       path: ~/.local/share/Steam/.../2222222222/video.webm
-```
-
-## Cache Management
-
-```bash
-# List cached downloads
-wayvid workshop cache
-
-# Clear specific item
-wayvid workshop cache --clear-item 1234567890
-
-# Clear all cached downloads
-wayvid workshop cache --clear
-```
+- Future Workshop support may need local cache management, imported asset tracking, and cleanup tools.
+- Those workflows are not implemented in the current reset-era repository state.
 
 ## Troubleshooting
 
 ### No Steam Installation
 
-If you don't have Steam installed, you can still use direct download:
-
-```bash
-wayvid workshop download 2815866033
-wayvid workshop import 2815866033 -o config.yaml
-```
+The reset-era repository does not currently provide a direct download workflow. Keep this case as future product planning only.
 
 ### Item Not Downloading
 
@@ -116,19 +65,19 @@ Some Workshop items require Steam client authentication. In this case:
 
 1. Install Steam
 2. Subscribe to the item in Steam Workshop
-3. Use `wayvid workshop list` to see it
-4. Import with `wayvid workshop import <id>`
+3. Verify the item is available in the local Workshop content directory
+4. Keep the item as future import/library work until supported commands exist
 
 ### Wrong Wallpaper Type
 
-Only **video wallpapers** work with wayvid. Check:
+For the reset-era first release, focus on **video** and **scene** wallpapers. Check:
 
-- Look for "Video" tag in Workshop
-- Avoid "Web", "Scene", or "Application" types
-- Check file list for `.mp4`, `.webm`, or `.mkv` files
+- Look for "Video" or "Scene" tags in Workshop
+- Avoid "Web" or "Application" types for the current reset scope
+- Check file list for video assets or scene project files before importing
 
 ## See Also
 
-- [Workshop Documentation](../docs/src/features/workshop.md)
-- [Configuration Reference](../docs/src/reference/config.md)
-- [Multi-Monitor Setup](../docs/src/user-guide/multi-monitor.md)
+- [Product Overview](../docs/product/overview.md)
+- [Product Roadmap](../docs/product/roadmap.md)
+- [Repository Reset Inventory](../docs/product/repository-reset.md)

@@ -1,18 +1,15 @@
 #!/bin/bash
-# Serve documentation locally
 
-cd "$(dirname "$0")/book"
+set -e
 
-echo "=== wayvid Documentation Server ==="
-echo
-echo "📚 Serving documentation at:"
-echo "   http://localhost:3000"
-echo
-echo "   Language Selector: http://localhost:3000/"
-echo "   English:           http://localhost:3000/introduction.html"
-echo "   Chinese:           http://localhost:3000/zh-cn/introduction.html"
-echo
-echo "Press Ctrl+C to stop"
-echo
+cd "$(dirname "$0")"
 
-python3 -m http.server 3000
+cat <<'EOF'
+Documentation serving is retired after the repository reset.
+
+Open the reset-era markdown docs directly:
+- docs/product/overview.md
+- docs/product/roadmap.md
+- docs/product/repository-reset.md
+- docs/archive/legacy-wayvid-summary.md
+EOF

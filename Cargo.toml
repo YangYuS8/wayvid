@@ -1,12 +1,15 @@
-# Wayvid Workspace
-# =================
-# 
-# v0.5+ 采用 GUI-first 架构，多 crate 工作区结构：
-# - wayvid-core:    核心类型和配置
-# - wayvid-engine:  视频渲染引擎 (Wayland + MPV)
-# - wayvid-library: 壁纸库管理 (SQLite + 缩略图)
-# - wayvid-gui:     GUI 应用 (主入口，iced 框架)
-# - wayvid-ctl:     精简 CLI 工具
+# Repository Reset Workspace
+# ==========================
+#
+# This repository is in repository-reset mode for the Linux dynamic wallpaper
+# platform. The current crates remain in the workspace as migration candidates
+# and retained technical assets to review selectively, not as final product
+# commitments for the next release.
+# - wayvid-core: retained shared models and configuration candidate
+# - wayvid-engine: retained playback and rendering candidate
+# - wayvid-library: retained local library and metadata candidate
+# - wayvid-gui: retained desktop shell and UX pattern candidate
+# - wayvid-ctl: retained command surface and automation candidate
 
 [workspace]
 resolver = "2"
@@ -26,7 +29,7 @@ authors = ["wayvid contributors"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/YangYuS8/wayvid"
 
-# 共享依赖版本 (workspace.dependencies)
+# Shared dependency versions (workspace.dependencies)
 [workspace.dependencies]
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -74,6 +77,6 @@ codegen-units = 1
 [profile.dev]
 opt-level = 1
 
-# 注意: 旧的 [lib], [[bin]], [package.metadata.deb] 配置已移除
-# 各个 crate 现在有自己的 Cargo.toml 配置
-# 打包配置将在 crates/wayvid/Cargo.toml 中定义
+# Legacy root-level [lib], [[bin]], and package metadata entries were removed
+# during the workspace transition. Packaging and release details should be
+# re-evaluated per migration candidate crate during the repository reset.
