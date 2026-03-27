@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import ItemCard from '$lib/components/ItemCard.svelte';
   import WorkshopDetailPanel from '$lib/components/WorkshopDetailPanel.svelte';
+  import { resolveWorkshopRefreshDetailState } from './page-state';
   import {
     loadWorkshopItemDetail,
     loadWorkshopPage,
@@ -84,18 +85,26 @@
     try {
       const previousSelection = $pageCache.workshop.snapshot?.selectedItemId ?? null;
       const outcome = await refreshWorkshopCatalog();
+      const nextSelection =
+        previousSelection && outcome.currentUpdate?.items.some((item) => item.id === previousSelection)
+          ? previousSelection
+          : null;
 
       if (outcome.currentUpdate) {
         setWorkshopSnapshot({
           ...outcome.currentUpdate,
-          selectedItemId:
-            previousSelection && outcome.currentUpdate.items.some((item) => item.id === previousSelection)
-              ? previousSelection
-              : null
+          selectedItemId: nextSelection
         });
       } else {
         setPageStale('workshop', true);
       }
+
+      ({ detailLoading, detailRequestToken } = resolveWorkshopRefreshDetailState({
+        previousSelection,
+        nextSelection,
+        detailLoading,
+        detailRequestToken
+      }));
 
       applyInvalidations(outcome.invalidations);
       actionMessage = outcome.message;
