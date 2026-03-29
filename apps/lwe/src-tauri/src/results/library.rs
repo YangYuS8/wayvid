@@ -1,4 +1,4 @@
-use wayvid_library::WorkshopCatalogEntry;
+use lwe_library::WorkshopCatalogEntry;
 
 #[derive(Debug, Clone)]
 pub struct LibraryProjection {

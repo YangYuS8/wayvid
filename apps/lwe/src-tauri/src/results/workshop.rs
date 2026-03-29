@@ -1,4 +1,4 @@
-use wayvid_library::{WorkshopCatalogEntry, WorkshopSyncState};
+use lwe_library::{WorkshopCatalogEntry, WorkshopSyncState};
 
 #[derive(Debug, Clone)]
 pub struct WorkshopRefreshResult {

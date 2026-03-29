@@ -9,7 +9,7 @@ tauri = { version = "2", features = [] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 open = "5.3"
-wayvid-library = { path = "../../../crates/wayvid-library" }
+lwe-library = { path = "../../../crates/lwe-library" }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

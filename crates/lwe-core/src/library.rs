@@ -1,6 +1,6 @@
 //! Wallpaper library types
 //!
-//! Core types for the wallpaper library system (used by wayvid-library crate).
+//! Core types for the wallpaper library system (used by lwe-library crate).
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

@@ -1,5 +1,5 @@
 use crate::policies::shared::support_policy::supports_first_release;
-use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompatibilityLevel {

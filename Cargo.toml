@@ -8,7 +8,7 @@
 # reference only and are not active workspace members.
 # - lwe-core: retained shared models and configuration candidate
 # - wayvid-engine: retained playback and rendering candidate
-# - wayvid-library: retained local library and metadata candidate
+# - lwe-library: retained local library and metadata candidate
 # - apps/lwe/src-tauri: active LWE application shell
 # - wayvid-gui: retired legacy GUI shell kept temporarily for reference only
 # - wayvid-ctl: retired legacy CLI surface kept temporarily for reference only
@@ -18,7 +18,7 @@ resolver = "2"
 members = [
     "crates/lwe-core",
     "crates/wayvid-engine",
-    "crates/wayvid-library",
+    "crates/lwe-library",
     "apps/lwe/src-tauri",
 ]
 

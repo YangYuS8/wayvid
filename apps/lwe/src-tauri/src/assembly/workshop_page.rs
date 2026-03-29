@@ -4,7 +4,7 @@ use crate::models::{
 use crate::policies::shared::compatibility_policy::{compatibility_decision, CompatibilityLevel};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::workshop::WorkshopRefreshResult;
-use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
     match project_type {

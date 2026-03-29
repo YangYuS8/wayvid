@@ -6,7 +6,7 @@
 
 **Architecture:** This plan replaces the old `wayvid-gui`/`iced` Workshop direction with the active `lwe` application shell rooted at `apps/lwe/src-tauri` and `apps/lwe`. Rust remains the product brain: it discovers Steam libraries, scans locally synchronized Wallpaper Engine items, resolves bundled covers, produces page snapshots and item details, and returns `ActionOutcome` results for state-changing commands. The Svelte frontend stays thin: it renders `Library / Workshop / Desktop / Settings`, caches page snapshots by page, requests details on selection, and obeys stale-page invalidation instead of maintaining its own business truth.
 
-**Tech Stack:** Rust workspace, Tauri, Svelte, TypeScript, `wayvid-library`, `lwe-core`, Steam local filesystem discovery, `open` crate, Cargo tests, Vitest
+**Tech Stack:** Rust workspace, Tauri, Svelte, TypeScript, `lwe-library`, `lwe-core`, Steam local filesystem discovery, `open` crate, Cargo tests, Vitest
 
 ---
 
@@ -60,22 +60,22 @@ This plan does **not** implement:
 - `apps/lwe/src-tauri/src/desktop.rs` - Desktop page snapshot shell commands
 - `apps/lwe/src-tauri/src/settings.rs` - Settings page snapshot shell commands
 - `apps/lwe/src-tauri/src/action_outcome.rs` - shared `ActionOutcome<T>` model and invalidation enums
-- `crates/wayvid-library/src/workshop_catalog.rs` - catalog/domain layer for synchronized Workshop entries, bundled covers, and first-release support state
+- `crates/lwe-library/src/workshop_catalog.rs` - catalog/domain layer for synchronized Workshop entries, bundled covers, and first-release support state
 
 ### Files to modify
 
 - `Cargo.toml` - keep `apps/lwe/src-tauri` as the active Rust workspace shell member
 - `README.md` - add a short note that the reset-era app shell is now `LWE` / `lwe`
 - `docs/product/roadmap.md` - align the Workshop planning track with the new Tauri + Svelte direction if wording still mentions only generic browsing
-- `crates/wayvid-library/src/lib.rs` - export new Workshop catalog types
-- `crates/wayvid-library/src/workshop.rs` - expose conversion helpers from parsed Workshop data into catalog/page inputs
+- `crates/lwe-library/src/lib.rs` - export new Workshop catalog types
+- `crates/lwe-library/src/workshop.rs` - expose conversion helpers from parsed Workshop data into catalog/page inputs
 
 ### Files to inspect while implementing
 
 - `docs/superpowers/specs/2026-03-27-linux-dynamic-wallpaper-platform-design.md`
 - `docs/product/overview.md`
 - `docs/product/roadmap.md`
-- `crates/wayvid-library/src/workshop.rs`
+- `crates/lwe-library/src/workshop.rs`
 - `crates/lwe-core/src/library.rs`
 - `crates/wayvid-gui/locales/en.toml`
 - `crates/wayvid-gui/locales/zh-CN.toml`
@@ -141,7 +141,7 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 lwe-core = { path = "../../../crates/lwe-core" }
-wayvid-library = { path = "../../../crates/wayvid-library" }
+lwe-library = { path = "../../../crates/lwe-library" }
 open = "5.0"
 
 [build-dependencies]
@@ -203,7 +203,7 @@ In the root `Cargo.toml`, add the new member:
 members = [
     "crates/lwe-core",
     "crates/wayvid-engine",
-    "crates/wayvid-library",
+    "crates/lwe-library",
     "apps/lwe/src-tauri",
 ]
 ```
@@ -295,14 +295,14 @@ git commit -m "feat: add lwe tauri and svelte shell"
 ## Task 2: Build Rust-Owned Workshop Catalog and Cover Policy
 
 **Files:**
-- Create: `crates/wayvid-library/src/workshop_catalog.rs`
-- Modify: `crates/wayvid-library/src/lib.rs`
-- Modify: `crates/wayvid-library/src/workshop.rs`
-- Test: `cargo test -p wayvid-library workshop_catalog::tests -- --nocapture`
+- Create: `crates/lwe-library/src/workshop_catalog.rs`
+- Modify: `crates/lwe-library/src/lib.rs`
+- Modify: `crates/lwe-library/src/workshop.rs`
+- Test: `cargo test -p lwe-library workshop_catalog::tests -- --nocapture`
 
 - [ ] **Step 1: Write the failing catalog and cover-policy tests**
 
-Create `crates/wayvid-library/src/workshop_catalog.rs` with this test module first:
+Create `crates/lwe-library/src/workshop_catalog.rs` with this test module first:
 
 ```rust
 #[cfg(test)]
@@ -347,12 +347,12 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p wayvid-library workshop_catalog::tests -- --nocapture`
+Run: `cargo test -p lwe-library workshop_catalog::tests -- --nocapture`
 Expected: FAIL with missing `WorkshopCatalogEntry`, `WorkshopProjectType`, or `WorkshopSyncState`.
 
 - [ ] **Step 3: Implement the reset-era Workshop catalog model**
 
-Create `crates/wayvid-library/src/workshop_catalog.rs` with:
+Create `crates/lwe-library/src/workshop_catalog.rs` with:
 
 ```rust
 use std::path::PathBuf;
@@ -396,7 +396,7 @@ impl WorkshopCatalogEntry {
 
 - [ ] **Step 4: Re-export and bridge from existing Workshop parsing**
 
-In `crates/wayvid-library/src/lib.rs`, export:
+In `crates/lwe-library/src/lib.rs`, export:
 
 ```rust
 pub mod workshop_catalog;
@@ -406,7 +406,7 @@ pub use workshop_catalog::{
 };
 ```
 
-In `crates/wayvid-library/src/workshop.rs`, add helpers with this shape:
+In `crates/lwe-library/src/workshop.rs`, add helpers with this shape:
 
 ```rust
 use crate::workshop_catalog::{
@@ -501,13 +501,13 @@ impl WorkshopScanner {
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p wayvid-library workshop_catalog::tests -- --nocapture`
+Run: `cargo test -p lwe-library workshop_catalog::tests -- --nocapture`
 Expected: PASS
 
 Then:
 
 ```bash
-git add crates/wayvid-library/src/workshop_catalog.rs crates/wayvid-library/src/lib.rs crates/wayvid-library/src/workshop.rs
+git add crates/lwe-library/src/workshop_catalog.rs crates/lwe-library/src/lib.rs crates/lwe-library/src/workshop.rs
 git commit -m "feat: add lwe workshop catalog model"
 ```
 
@@ -884,7 +884,7 @@ pub fn load_app_shell() -> AppShellSnapshot {
     AppShellSnapshot {
         app_name: "LWE".to_string(),
         code_name: "lwe".to_string(),
-        steam_available: wayvid_library::SteamLibrary::try_discover().is_some(),
+        steam_available: lwe_library::SteamLibrary::try_discover().is_some(),
         library_count: 0,
         workshop_synced_count: 0,
         monitor_count: 0,
@@ -897,7 +897,7 @@ Create `apps/lwe/src-tauri/src/workshop.rs` with these core pieces:
 ```rust
 use crate::action_outcome::{ActionOutcome, AppShellPatch, InvalidatedPage};
 use crate::models::{WorkshopItemDetail, WorkshopItemSummary, WorkshopPageSnapshot};
-use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner};
+use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner};
 
 pub fn workshop_item_url(workshop_id: u64) -> String {
     format!("https://steamcommunity.com/sharedfiles/filedetails/?id={workshop_id}")
@@ -909,10 +909,10 @@ pub fn steam_openurl(workshop_id: u64) -> String {
 
 fn sync_label(entry: &WorkshopCatalogEntry) -> String {
     match entry.sync_state {
-        wayvid_library::WorkshopSyncState::Synced => "synced".to_string(),
-        wayvid_library::WorkshopSyncState::MissingProjectFile => "missing_project".to_string(),
-        wayvid_library::WorkshopSyncState::MissingPrimaryAsset => "missing_asset".to_string(),
-        wayvid_library::WorkshopSyncState::UnsupportedType => "unsupported_type".to_string(),
+        lwe_library::WorkshopSyncState::Synced => "synced".to_string(),
+        lwe_library::WorkshopSyncState::MissingProjectFile => "missing_project".to_string(),
+        lwe_library::WorkshopSyncState::MissingPrimaryAsset => "missing_asset".to_string(),
+        lwe_library::WorkshopSyncState::UnsupportedType => "unsupported_type".to_string(),
     }
 }
 
@@ -1022,7 +1022,7 @@ Create `apps/lwe/src-tauri/src/library.rs` with:
 
 ```rust
 use crate::models::{LibraryItemDetail, LibraryItemSummary, LibraryPageSnapshot};
-use wayvid_library::WorkshopScanner;
+use lwe_library::WorkshopScanner;
 
 pub fn load_library_page() -> Result<LibraryPageSnapshot, String> {
     let mut scanner = WorkshopScanner::discover().map_err(|e| e.to_string())?;

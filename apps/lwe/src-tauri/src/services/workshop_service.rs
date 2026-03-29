@@ -1,5 +1,5 @@
 use crate::results::workshop::{WorkshopInspection, WorkshopRefreshResult};
-use wayvid_library::{SteamLibrary, WorkshopCatalogEntry, WorkshopScanner};
+use lwe_library::{SteamLibrary, WorkshopCatalogEntry, WorkshopScanner};
 
 pub struct WorkshopService;
 

@@ -2,7 +2,7 @@ use crate::models::LibraryPageSnapshot;
 use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::library::LibraryProjection;
-use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType};
+use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
     match project_type {
@@ -52,7 +52,7 @@ pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
 mod tests {
     use super::*;
     use crate::results::library::LibraryProjection;
-    use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+    use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     #[test]
     fn assembler_turns_library_projection_entries_into_page_snapshot() {

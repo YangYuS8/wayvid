@@ -4,9 +4,9 @@
 
 **Goal:** Refactor `apps/lwe/src-tauri` into a layered Rust application core where commands, services, policies, application results, and assemblers are clearly separated without introducing new crates yet.
 
-**Architecture:** Keep the active crate boundaries as `lwe-app-shell`, `wayvid-library`, `lwe-core`, and `wayvid-engine` for now, with `apps/lwe/src-tauri` as the shell entrypoint, but restructure `lwe-app-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads. Legacy `wayvid-gui` and `wayvid-ctl` crates are outside the active workspace path.
+**Architecture:** Keep the active crate boundaries as `lwe-app-shell`, `lwe-library`, `lwe-core`, and `wayvid-engine` for now, with `apps/lwe/src-tauri` as the shell entrypoint, but restructure `lwe-app-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads. Legacy `wayvid-gui` and `wayvid-ctl` crates are outside the active workspace path.
 
-**Tech Stack:** Rust workspace, Tauri, `wayvid-library`, `lwe-core`, serde, Cargo tests
+**Tech Stack:** Rust workspace, Tauri, `lwe-library`, `lwe-core`, serde, Cargo tests
 
 ---
 
@@ -69,7 +69,7 @@ This plan does **not**:
 - `apps/lwe/src-tauri/src/models.rs` - keep frontend-facing contracts only, no business classification logic
 - `apps/lwe/src-tauri/src/action_outcome.rs` - keep frontend-facing outcome structs only, no action-decision logic
 
-The active layering surface in this plan stops at the `lwe-app-shell` <-> `wayvid-library` <-> `lwe-core` <-> `wayvid-engine` boundaries. Legacy GUI and CLI peers stay outside the active workspace path.
+The active layering surface in this plan stops at the `lwe-app-shell` <-> `lwe-library` <-> `lwe-core` <-> `wayvid-engine` boundaries. Legacy GUI and CLI peers stay outside the active workspace path.
 
 ### Files to inspect while implementing
 
@@ -79,7 +79,7 @@ The active layering surface in this plan stops at the `lwe-app-shell` <-> `wayvi
 - `apps/lwe/src-tauri/src/app_shell.rs`
 - `apps/lwe/src-tauri/src/models.rs`
 - `apps/lwe/src-tauri/src/action_outcome.rs`
-- `crates/wayvid-library/src/workshop_catalog.rs`
+- `crates/lwe-library/src/workshop_catalog.rs`
 
 ## Task 1: Introduce Shared Policies and Application Results
 
@@ -105,7 +105,7 @@ Create `apps/lwe/src-tauri/src/policies/shared/support_policy.rs` with this test
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wayvid_library::WorkshopProjectType;
+    use lwe_library::WorkshopProjectType;
 
     #[test]
     fn first_release_support_only_includes_video_and_scene() {
@@ -127,7 +127,7 @@ Expected: FAIL because the new policy modules do not exist yet.
 Create `apps/lwe/src-tauri/src/policies/shared/support_policy.rs` with:
 
 ```rust
-use wayvid_library::WorkshopProjectType;
+use lwe_library::WorkshopProjectType;
 
 pub fn supports_first_release(project_type: WorkshopProjectType) -> bool {
     matches!(project_type, WorkshopProjectType::Video | WorkshopProjectType::Scene)
@@ -136,7 +136,7 @@ pub fn supports_first_release(project_type: WorkshopProjectType) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wayvid_library::WorkshopProjectType;
+    use lwe_library::WorkshopProjectType;
 
     #[test]
     fn first_release_support_only_includes_video_and_scene() {
@@ -160,7 +160,7 @@ Create `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs` with:
 
 ```rust
 use crate::models::CompatibilityBadge;
-use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 pub fn compatibility_badge(entry: &WorkshopCatalogEntry) -> CompatibilityBadge {
     if entry.supported_first_release {
@@ -221,7 +221,7 @@ pub mod shared;
 Create `apps/lwe/src-tauri/src/results/workshop.rs` with:
 
 ```rust
-use wayvid_library::WorkshopCatalogEntry;
+use lwe_library::WorkshopCatalogEntry;
 
 #[derive(Debug, Clone)]
 pub struct WorkshopRefreshResult {
@@ -536,7 +536,7 @@ Create `apps/lwe/src-tauri/src/assembly/library_detail.rs` with:
 
 ```rust
 use crate::models::LibraryItemDetail;
-use wayvid_library::WorkshopCatalogEntry;
+use lwe_library::WorkshopCatalogEntry;
 use crate::library::detail_from_entry;
 
 pub fn assemble_library_detail(entry: WorkshopCatalogEntry) -> LibraryItemDetail {

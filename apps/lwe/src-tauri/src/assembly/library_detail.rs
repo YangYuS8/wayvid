@@ -1,6 +1,6 @@
 use crate::models::{ItemType, LibraryItemDetail, LibrarySource};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
-use wayvid_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType};
+use lwe_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
     match project_type {

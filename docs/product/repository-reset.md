@@ -8,7 +8,7 @@ The repository reset repositions this repository around `LWE`, a Linux dynamic w
 
 - `crates/lwe-core` as a migration candidate for shared models, configuration, and cross-cutting types.
 - `crates/wayvid-engine` as a migration candidate for Linux wallpaper playback, rendering, and runtime integration knowledge.
-- `crates/wayvid-library` as a migration candidate for library indexing, metadata handling, and local asset management.
+- `crates/lwe-library` as a migration candidate for library indexing, metadata handling, and local asset management.
 - Supporting technical knowledge such as packaging lessons, runtime constraints, and platform integration notes when they help the new Linux dynamic wallpaper platform.
 
 ## Retired Legacy Crates
