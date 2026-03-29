@@ -1,6 +1,6 @@
-//! lwe-library: Wallpaper library management for wayvid
+//! lwe-library: Wallpaper library management for LWE
 //!
-//! This crate provides wallpaper library functionality:
+//! This crate provides LWE wallpaper library functionality:
 //! - SQLite database for wallpaper indexing and metadata
 //! - Folder scanning and change detection
 //! - Thumbnail generation and caching

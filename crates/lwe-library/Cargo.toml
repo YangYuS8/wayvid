@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
 license = "MIT OR Apache-2.0"
-description = "Wallpaper library management for wayvid (SQLite + thumbnails)"
+description = "Wallpaper library management for LWE (SQLite + thumbnails)"
 repository = "https://github.com/YangYuS8/wayvid"
 
 [dependencies]
