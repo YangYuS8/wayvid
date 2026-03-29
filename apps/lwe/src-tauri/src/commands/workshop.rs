@@ -50,11 +50,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn command_module_name_no_longer_implies_service_logic() {
-        assert!(true);
-    }
-
-    #[test]
     fn steam_url_uses_official_workshop_page() {
         assert_eq!(
             workshop_item_url("12345"),
