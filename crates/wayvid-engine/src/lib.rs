@@ -38,8 +38,8 @@ pub use frame_timing::FrameTiming;
 pub use mpv::{MpvPlayer, VideoConfig};
 pub use wayland::{LayerSurface, OutputManager};
 
-// Re-exports from wayvid-core
-pub use wayvid_core::{
+// Re-exports from lwe-core
+pub use lwe_core::{
     calculate_layout, HdrMetadata, HdrMode, HwdecMode, LayoutMode, LayoutTransform, OutputInfo,
     RenderBackend, ToneMappingConfig,
 };

@@ -9,7 +9,7 @@ description = "Wallpaper library management for wayvid (SQLite + thumbnails)"
 repository = "https://github.com/YangYuS8/wayvid"
 
 [dependencies]
-wayvid-core = { path = "../wayvid-core" }
+lwe-core = { path = "../lwe-core" }
 
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }

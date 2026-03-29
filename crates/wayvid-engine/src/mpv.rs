@@ -11,7 +11,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use tracing::{debug, info, warn};
 
-use wayvid_core::{
+use lwe_core::{
     hdr::{parse_colorspace, parse_transfer_function, HdrMetadata, HdrMode, ToneMappingConfig},
     HwdecMode, LayoutMode, OutputInfo,
 };

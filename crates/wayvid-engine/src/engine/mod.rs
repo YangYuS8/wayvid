@@ -810,14 +810,14 @@ impl Dispatch<WlOutput, u32> for EngineState {
                 state.outputs.mark_ready(&output_name);
 
                 // Send event to GUI
-                let info = wayvid_core::OutputInfo {
+                let info = lwe_core::OutputInfo {
                     name: output_name.clone(),
                     width: pending.width,
                     height: pending.height,
                     scale: pending.scale as f64,
                     position: (pending.x, pending.y),
                     active: true,
-                    hdr_capabilities: wayvid_core::OutputHdrCapabilities::default(),
+                    hdr_capabilities: lwe_core::OutputHdrCapabilities::default(),
                 };
                 let _ = state.events_tx.send(EngineEvent::OutputAdded(info));
             }

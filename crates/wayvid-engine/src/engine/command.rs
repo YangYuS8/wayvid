@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use wayvid_core::OutputInfo;
+use lwe_core::OutputInfo;
 
 use crate::mpv::VideoConfig;
 

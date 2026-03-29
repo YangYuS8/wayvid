@@ -53,8 +53,8 @@ pub use thumbnail::{
 };
 pub use workshop_catalog::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
-// Re-exports from wayvid-core
-pub use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+// Re-exports from lwe-core
+pub use lwe_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 // Workshop exports
 pub use workshop::{

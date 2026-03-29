@@ -42,7 +42,7 @@ cargo test --workspace
 
 # Run tests for a specific crate
 cargo test -p lwe-app-shell
-cargo test -p wayvid-core
+cargo test -p lwe-core
 cargo test -p wayvid-library
 cargo test -p wayvid-engine
 ```

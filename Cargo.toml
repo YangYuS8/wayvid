@@ -6,7 +6,7 @@
 # retained core crates that remain under evaluation for selective migration.
 # Retired legacy GUI/CLI crates stay in the repository temporarily for
 # reference only and are not active workspace members.
-# - wayvid-core: retained shared models and configuration candidate
+# - lwe-core: retained shared models and configuration candidate
 # - wayvid-engine: retained playback and rendering candidate
 # - wayvid-library: retained local library and metadata candidate
 # - apps/lwe/src-tauri: active LWE application shell
@@ -16,7 +16,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/wayvid-core",
+    "crates/lwe-core",
     "crates/wayvid-engine",
     "crates/wayvid-library",
     "apps/lwe/src-tauri",

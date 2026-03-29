@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use tracing::{debug, info};
 
-use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+use lwe_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 /// Wallpaper library database
 #[allow(clippy::arc_with_non_send_sync)] // Intentional: Connection is used in single-threaded context

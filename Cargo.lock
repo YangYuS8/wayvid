@@ -2382,6 +2382,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "lwe-core"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs 5.0.1",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "sys-locale",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "lz4_flex"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5467,22 +5483,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wayvid-core"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs 5.0.1",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "sys-locale",
- "tempfile",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "wayvid-engine"
 version = "0.5.0"
 dependencies = [
@@ -5496,6 +5496,7 @@ dependencies = [
  "khronos-egl",
  "libc",
  "libmpv-sys",
+ "lwe-core",
  "lz4_flex",
  "raw-window-handle",
  "smithay-client-toolkit",
@@ -5505,7 +5506,6 @@ dependencies = [
  "wayland-egl",
  "wayland-protocols",
  "wayland-protocols-wlr",
- "wayvid-core",
 ]
 
 [[package]]
@@ -5517,6 +5517,7 @@ dependencies = [
  "dirs 5.0.1",
  "hex",
  "image",
+ "lwe-core",
  "notify",
  "notify-debouncer-mini",
  "parking_lot",
@@ -5531,7 +5532,6 @@ dependencies = [
  "tokio",
  "tracing",
  "walkdir",
- "wayvid-core",
  "zip",
 ]
 

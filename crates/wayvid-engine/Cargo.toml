@@ -9,7 +9,7 @@ description = "Video rendering engine for wayvid (Wayland + MPV)"
 repository = "https://github.com/YangYuS8/wayvid"
 
 [dependencies]
-wayvid-core = { path = "../wayvid-core" }
+lwe-core = { path = "../lwe-core" }
 
 # Wayland client
 wayland-client = "0.31"

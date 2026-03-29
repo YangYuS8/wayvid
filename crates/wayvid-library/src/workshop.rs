@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
 use crate::workshop_catalog::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
-use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+use lwe_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 /// Wallpaper Engine app ID on Steam
 pub const WALLPAPER_ENGINE_APP_ID: u32 = 431960;

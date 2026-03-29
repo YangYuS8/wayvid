@@ -6,7 +6,7 @@
 
 **Architecture:** This plan replaces the old `wayvid-gui`/`iced` Workshop direction with the active `lwe` application shell rooted at `apps/lwe/src-tauri` and `apps/lwe`. Rust remains the product brain: it discovers Steam libraries, scans locally synchronized Wallpaper Engine items, resolves bundled covers, produces page snapshots and item details, and returns `ActionOutcome` results for state-changing commands. The Svelte frontend stays thin: it renders `Library / Workshop / Desktop / Settings`, caches page snapshots by page, requests details on selection, and obeys stale-page invalidation instead of maintaining its own business truth.
 
-**Tech Stack:** Rust workspace, Tauri, Svelte, TypeScript, `wayvid-library`, `wayvid-core`, Steam local filesystem discovery, `open` crate, Cargo tests, Vitest
+**Tech Stack:** Rust workspace, Tauri, Svelte, TypeScript, `wayvid-library`, `lwe-core`, Steam local filesystem discovery, `open` crate, Cargo tests, Vitest
 
 ---
 
@@ -76,7 +76,7 @@ This plan does **not** implement:
 - `docs/product/overview.md`
 - `docs/product/roadmap.md`
 - `crates/wayvid-library/src/workshop.rs`
-- `crates/wayvid-core/src/library.rs`
+- `crates/lwe-core/src/library.rs`
 - `crates/wayvid-gui/locales/en.toml`
 - `crates/wayvid-gui/locales/zh-CN.toml`
 
@@ -140,7 +140,7 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-wayvid-core = { path = "../../../crates/wayvid-core" }
+lwe-core = { path = "../../../crates/lwe-core" }
 wayvid-library = { path = "../../../crates/wayvid-library" }
 open = "5.0"
 
@@ -201,7 +201,7 @@ In the root `Cargo.toml`, add the new member:
 
 ```toml
 members = [
-    "crates/wayvid-core",
+    "crates/lwe-core",
     "crates/wayvid-engine",
     "crates/wayvid-library",
     "apps/lwe/src-tauri",
