@@ -1,5 +1,6 @@
 pub mod action_outcome;
 pub mod app_shell;
+pub mod assembly;
 pub mod desktop;
 pub mod library;
 pub mod models;

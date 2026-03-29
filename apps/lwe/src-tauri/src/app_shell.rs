@@ -1,42 +1,25 @@
+use crate::assembly::app_shell::assemble_app_shell;
 use crate::models::AppShellSnapshot;
 use crate::results::app_shell::{ObservedCount, ShellSummary};
 use crate::services::library_service::LibraryService;
 use crate::services::workshop_service::WorkshopService;
 
-fn observed_count_to_option(count: ObservedCount) -> Option<usize> {
-    match count {
-        ObservedCount::Known(value) => Some(value),
-        ObservedCount::Unknown => None,
-    }
-}
-
-fn shell_snapshot_from_summary(summary: ShellSummary) -> AppShellSnapshot {
-    AppShellSnapshot {
-        app_name: "LWE".to_string(),
-        code_name: crate::APP_CODE_NAME.to_string(),
-        steam_available: summary.steam_available,
-        library_count: observed_count_to_option(summary.library_items),
-        workshop_synced_count: observed_count_to_option(summary.synced_workshop_items),
-        monitor_count: observed_count_to_option(summary.connected_monitors),
-    }
-}
-
-fn unavailable_app_shell() -> AppShellSnapshot {
-    shell_snapshot_from_summary(ShellSummary {
+fn unavailable_app_shell_summary() -> ShellSummary {
+    ShellSummary {
         steam_available: false,
         library_items: ObservedCount::Unknown,
         synced_workshop_items: ObservedCount::Unknown,
         connected_monitors: ObservedCount::Unknown,
-    })
+    }
 }
 
-fn unavailable_workshop_app_shell() -> AppShellSnapshot {
-    shell_snapshot_from_summary(ShellSummary {
+fn unavailable_workshop_app_shell_summary() -> ShellSummary {
+    ShellSummary {
         steam_available: true,
         library_items: ObservedCount::Unknown,
         synced_workshop_items: ObservedCount::Unknown,
         connected_monitors: ObservedCount::Unknown,
-    })
+    }
 }
 
 fn shell_summary_from_refresh(
@@ -54,25 +37,25 @@ fn shell_summary_from_refresh(
     }
 }
 
-fn shell_snapshot() -> Result<AppShellSnapshot, String> {
+fn shell_summary() -> Result<ShellSummary, String> {
     let steam = match wayvid_library::SteamLibrary::try_discover() {
         Some(steam) => steam,
-        None => return Ok(unavailable_app_shell()),
+        None => return Ok(unavailable_app_shell_summary()),
     };
 
     if !steam.has_wallpaper_engine() {
-        return Ok(unavailable_workshop_app_shell());
+        return Ok(unavailable_workshop_app_shell_summary());
     }
 
-    Ok(shell_snapshot_from_summary(shell_summary_from_refresh(
+    Ok(shell_summary_from_refresh(
         steam.has_wallpaper_engine(),
         WorkshopService::refresh_catalog()?,
-    )))
+    ))
 }
 
 #[tauri::command]
 pub fn load_app_shell() -> Result<AppShellSnapshot, String> {
-    shell_snapshot()
+    Ok(assemble_app_shell(shell_summary()?))
 }
 
 #[cfg(test)]
@@ -83,7 +66,7 @@ mod tests {
 
     #[test]
     fn unavailable_steam_leaves_shell_counts_unknown() {
-        let snapshot = unavailable_app_shell();
+        let snapshot = assemble_app_shell(unavailable_app_shell_summary());
 
         assert!(!snapshot.steam_available);
         assert_eq!(snapshot.library_count, None);
@@ -93,7 +76,7 @@ mod tests {
 
     #[test]
     fn steam_without_wallpaper_engine_content_keeps_counts_unknown() {
-        let snapshot = unavailable_workshop_app_shell();
+        let snapshot = assemble_app_shell(unavailable_workshop_app_shell_summary());
 
         assert!(snapshot.steam_available);
         assert_eq!(snapshot.library_count, None);
@@ -103,7 +86,7 @@ mod tests {
 
     #[test]
     fn shell_counts_come_from_one_refresh_result() {
-        let snapshot = shell_snapshot_from_summary(shell_summary_from_refresh(
+        let snapshot = assemble_app_shell(shell_summary_from_refresh(
             true,
             WorkshopRefreshResult {
                 catalog_entries: vec![

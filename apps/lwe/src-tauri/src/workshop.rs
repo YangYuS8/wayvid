@@ -1,4 +1,7 @@
 use crate::action_outcome::ActionOutcome;
+use crate::assembly::action_outcome::assemble_workshop_refresh_outcome;
+use crate::assembly::workshop_detail::assemble_workshop_detail;
+use crate::assembly::workshop_page::assemble_workshop_page;
 use crate::models::{WorkshopItemDetail, WorkshopPageSnapshot};
 use crate::services::workshop_service::WorkshopService;
 
@@ -12,17 +15,21 @@ pub(crate) fn steam_openurl(workshop_id: &str) -> String {
 
 #[tauri::command]
 pub fn load_workshop_page() -> Result<WorkshopPageSnapshot, String> {
-    WorkshopService::load_page()
+    Ok(assemble_workshop_page(&WorkshopService::refresh_catalog()?))
 }
 
 #[tauri::command]
 pub fn load_workshop_item_detail(workshop_id: String) -> Result<WorkshopItemDetail, String> {
-    WorkshopService::load_item_detail(&workshop_id)
+    Ok(assemble_workshop_detail(WorkshopService::inspect_item(
+        &workshop_id,
+    )?))
 }
 
 #[tauri::command]
 pub fn refresh_workshop_catalog() -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
-    WorkshopService::refresh_outcome()
+    Ok(assemble_workshop_refresh_outcome(
+        &WorkshopService::refresh_catalog()?,
+    ))
 }
 
 #[tauri::command]
