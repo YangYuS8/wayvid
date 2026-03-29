@@ -2,7 +2,6 @@ use crate::assembly::desktop_page::assemble_desktop_page;
 use crate::models::DesktopPageSnapshot;
 use crate::services::desktop_service::DesktopService;
 
-#[tauri::command]
 pub fn load_desktop_page() -> Result<DesktopPageSnapshot, String> {
     DesktopService::load_page().map(assemble_desktop_page)
 }

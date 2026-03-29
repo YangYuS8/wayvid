@@ -2,7 +2,6 @@ use crate::assembly::settings_page::assemble_settings_page;
 use crate::models::SettingsPageSnapshot;
 use crate::services::settings_service::SettingsService;
 
-#[tauri::command]
 pub fn load_settings_page() -> Result<SettingsPageSnapshot, String> {
     SettingsService::load_page().map(assemble_settings_page)
 }

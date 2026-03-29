@@ -1,28 +1,32 @@
+// Frontend-facing contracts and layered application core.
 pub mod action_outcome;
-pub mod app_shell;
 pub mod assembly;
-pub mod desktop;
-pub mod library;
+pub mod commands;
 pub mod models;
 pub mod policies;
 pub mod results;
 pub mod services;
-pub mod settings;
-pub mod workshop;
+
+// Legacy command-module compatibility shims and page modules.
+mod app_shell;
+mod desktop;
+mod library;
+mod settings;
+mod workshop;
 
 pub const APP_CODE_NAME: &str = "lwe";
 
 pub fn register_commands(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     builder.invoke_handler(tauri::generate_handler![
-        app_shell::load_app_shell,
-        workshop::load_workshop_page,
-        workshop::load_workshop_item_detail,
-        workshop::refresh_workshop_catalog,
-        workshop::open_workshop_in_steam,
-        library::load_library_page,
-        library::load_library_item_detail,
-        desktop::load_desktop_page,
-        settings::load_settings_page,
+        commands::app_shell::load_app_shell,
+        commands::workshop::load_workshop_page,
+        commands::workshop::load_workshop_item_detail,
+        commands::workshop::refresh_workshop_catalog,
+        commands::workshop::open_workshop_in_steam,
+        commands::library::load_library_page,
+        commands::library::load_library_item_detail,
+        commands::desktop::load_desktop_page,
+        commands::settings::load_settings_page,
     ])
 }
 
