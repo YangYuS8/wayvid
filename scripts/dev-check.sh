@@ -83,7 +83,7 @@ echo
 echo "[Workspace Crates]"
 echo "  Active workspace members:"
 echo "  - lwe-app-shell   (active LWE application shell)"
-echo "  - wayvid-core     (retained core types and config)"
+echo "  - lwe-core        (retained core types and config)"
 echo "  - wayvid-engine   (retained Wayland + MPV rendering)"
 echo "  - wayvid-library  (retained wallpaper library logic)"
 echo
