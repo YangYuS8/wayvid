@@ -51,7 +51,7 @@ Deletion should happen only after the replacement docs above exist.
 
 - `docs/superpowers/specs/2026-03-27-linux-dynamic-wallpaper-platform-design.md`
 - `openspec/changes/**`
-- `crates/wayvid-engine/**`
+- `crates/lwe-engine/**`
 - `crates/lwe-library/**`
 - `crates/lwe-core/**`
 
@@ -305,7 +305,7 @@ Write this content structure:
 
 ## Retain as Migration Candidates
 
-- `crates/wayvid-engine/` - low-level playback/runtime knowledge
+- `crates/lwe-engine/` - low-level playback/runtime knowledge
 - `crates/lwe-library/` - Workshop parsing/import knowledge and library mechanics
 - `crates/lwe-core/` - only shared domain or protocol pieces still useful after review
 
@@ -365,7 +365,7 @@ python3 - <<'PY'
 from pathlib import Path
 text = Path('docs/product/repository-reset.md').read_text()
 cargo = Path('Cargo.toml').read_text()
-for needle in ['wayvid-engine', 'lwe-library', 'migration candidates']:
+for needle in ['lwe-engine', 'lwe-library', 'migration candidates']:
     assert needle in text or needle in cargo, needle
 print('ok')
 PY

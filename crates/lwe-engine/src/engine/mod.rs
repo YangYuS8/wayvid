@@ -117,7 +117,7 @@ pub fn spawn_engine(config: EngineConfig) -> Result<(EngineHandle, StdReceiver<E
     let shutdown_clone = shutdown.clone();
 
     let thread = thread::Builder::new()
-        .name("wayvid-engine".to_string())
+        .name("lwe-engine".to_string())
         .spawn(move || {
             if let Err(e) = run_engine_thread(config, events_tx, commands_rx, shutdown_clone) {
                 error!("Engine thread error: {}", e);

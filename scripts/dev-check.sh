@@ -84,7 +84,7 @@ echo "[Workspace Crates]"
 echo "  Active workspace members:"
 echo "  - lwe-app-shell   (active LWE application shell)"
 echo "  - lwe-core        (retained core types and config)"
-echo "  - wayvid-engine   (retained Wayland + MPV rendering)"
+echo "  - lwe-engine      (retained Wayland + MPV rendering)"
 echo "  - lwe-library     (retained wallpaper library logic)"
 echo
 echo "  Retired reference crates (not active workspace members):"

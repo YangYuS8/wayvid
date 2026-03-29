@@ -7,7 +7,7 @@
 # Retired legacy GUI/CLI crates stay in the repository temporarily for
 # reference only and are not active workspace members.
 # - lwe-core: retained shared models and configuration candidate
-# - wayvid-engine: retained playback and rendering candidate
+# - lwe-engine: retained playback and rendering candidate
 # - lwe-library: retained local library and metadata candidate
 # - apps/lwe/src-tauri: active LWE application shell
 # - wayvid-gui: retired legacy GUI shell kept temporarily for reference only
@@ -17,7 +17,7 @@
 resolver = "2"
 members = [
     "crates/lwe-core",
-    "crates/wayvid-engine",
+    "crates/lwe-engine",
     "crates/lwe-library",
     "apps/lwe/src-tauri",
 ]

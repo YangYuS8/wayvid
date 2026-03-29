@@ -44,7 +44,7 @@ cargo test --workspace
 cargo test -p lwe-app-shell
 cargo test -p lwe-core
 cargo test -p lwe-library
-cargo test -p wayvid-engine
+cargo test -p lwe-engine
 ```
 
 Retired reference crates:

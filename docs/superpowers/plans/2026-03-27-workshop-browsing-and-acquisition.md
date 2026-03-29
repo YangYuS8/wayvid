@@ -202,7 +202,7 @@ In the root `Cargo.toml`, add the new member:
 ```toml
 members = [
     "crates/lwe-core",
-    "crates/wayvid-engine",
+    "crates/lwe-engine",
     "crates/lwe-library",
     "apps/lwe/src-tauri",
 ]

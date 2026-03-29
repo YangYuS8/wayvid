@@ -2398,6 +2398,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "lwe-engine"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "ash",
+ "ash-window",
+ "bitflags 2.10.0",
+ "calloop 0.14.3",
+ "calloop-wayland-source 0.4.1",
+ "gl",
+ "khronos-egl",
+ "libc",
+ "libmpv-sys",
+ "lwe-core",
+ "lz4_flex",
+ "raw-window-handle",
+ "smithay-client-toolkit",
+ "thiserror 1.0.69",
+ "tracing",
+ "wayland-client",
+ "wayland-egl",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
 name = "lwe-library"
 version = "0.5.0"
 dependencies = [
@@ -5507,32 +5533,6 @@ dependencies = [
  "dlib",
  "log",
  "pkg-config",
-]
-
-[[package]]
-name = "wayvid-engine"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "ash",
- "ash-window",
- "bitflags 2.10.0",
- "calloop 0.14.3",
- "calloop-wayland-source 0.4.1",
- "gl",
- "khronos-egl",
- "libc",
- "libmpv-sys",
- "lwe-core",
- "lz4_flex",
- "raw-window-handle",
- "smithay-client-toolkit",
- "thiserror 1.0.69",
- "tracing",
- "wayland-client",
- "wayland-egl",
- "wayland-protocols",
- "wayland-protocols-wlr",
 ]
 
 [[package]]

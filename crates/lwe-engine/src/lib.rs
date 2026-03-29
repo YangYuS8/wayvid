@@ -1,4 +1,4 @@
-//! wayvid-engine: Video rendering engine for wayvid
+//! lwe-engine: Video rendering engine for LWE
 //!
 //! This crate provides the core rendering functionality:
 //! - Wayland layer-shell surface management
