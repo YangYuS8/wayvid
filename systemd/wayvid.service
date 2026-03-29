@@ -1,36 +1,3 @@
-[Unit]
-Description=wayvid - Wayland Video Wallpaper Engine
-Documentation=https://github.com/YangYuS8/wayvid
-
-# Proper systemd session integration (following niri docs recommendations)
-# See: https://yalter.github.io/niri/Example-systemd-Setup.html
-PartOf=graphical-session.target
-After=graphical-session.target
-Requisite=graphical-session.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/wayvid-gui --minimized
-Restart=on-failure
-RestartSec=3
-StandardOutput=journal
-StandardError=journal
-
-# Environment variables
-Environment="RUST_LOG=wayvid=info"
-
-# Resource limits
-MemoryMax=2G
-CPUQuota=80%
-
-# Security hardening
-PrivateTmp=yes
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=%h/.config/wayvid %h/.cache/wayvid %C/wayvid
-# Allow access to runtime directory (for IPC socket)
-ReadWritePaths=%t
-
-[Install]
-# Do NOT use WantedBy here - use systemctl --user add-wants instead
-# See README.md for proper setup instructions
+# RETIRED LEGACY REFERENCE
+# This user unit launched the pre-LWE GUI session.
+# LWE does not currently ship an active systemd user service from this file.

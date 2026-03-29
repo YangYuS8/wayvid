@@ -1,25 +1,3 @@
-[Desktop Entry]
-Name=wayvid
-GenericName=Wallpaper Manager
-Comment=Animated wallpaper manager for Wayland
-Comment[zh_CN]=Wayland 动态壁纸管理器
-Icon=wayvid
-Exec=wayvid-gui
-Terminal=false
-Type=Application
-Categories=Utility;System;Settings;
-Keywords=wallpaper;video;background;wayland;
-StartupWMClass=wayvid-gui
-StartupNotify=true
-
-Actions=Minimized;Status;
-
-[Desktop Action Minimized]
-Name=Start Minimized
-Name[zh_CN]=最小化启动
-Exec=wayvid-gui --minimized
-
-[Desktop Action Status]
-Name=Check Status
-Name[zh_CN]=检查状态
-Exec=wayvid-ctl status
+# RETIRED LEGACY REFERENCE
+# This desktop entry launched the pre-LWE GUI/CLI flow.
+# LWE does not currently ship an active desktop launcher from this file.
