@@ -843,7 +843,7 @@ impl App {
             }
             Message::EngineEvent(event) => {
                 // Handle engine event
-                use wayvid_engine::EngineEvent;
+                use lwe_engine::EngineEvent;
                 match event {
                     EngineEvent::Started => {
                         self.state.engine_running = true;
@@ -851,7 +851,7 @@ impl App {
                         // Request outputs when engine starts
                         if let Err(e) = self
                             .engine
-                            .send_command(wayvid_engine::EngineCommand::GetOutputs)
+                            .send_command(lwe_engine::EngineCommand::GetOutputs)
                         {
                             tracing::warn!("Failed to request outputs: {}", e);
                         }

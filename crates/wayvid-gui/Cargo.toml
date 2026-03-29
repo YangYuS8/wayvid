@@ -16,7 +16,7 @@ path = "src/main.rs"
 [dependencies]
 # Internal crates
 lwe-core = { path = "../lwe-core" }
-wayvid-engine = { path = "../wayvid-engine" }
+lwe-engine = { path = "../lwe-engine" }
 lwe-library = { path = "../lwe-library" }
 
 # GUI framework

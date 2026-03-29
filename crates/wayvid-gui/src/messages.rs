@@ -153,7 +153,7 @@ pub enum Message {
     /// Poll for engine events (timer-driven)
     PollEngineEvents,
     /// Engine event received
-    EngineEvent(wayvid_engine::engine::EngineEvent),
+    EngineEvent(lwe_engine::engine::EngineEvent),
 
     // IPC communication
     /// IPC connection state changed
