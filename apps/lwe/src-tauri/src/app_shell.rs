@@ -1,27 +1,57 @@
-use crate::library::project_library_items;
+use crate::library::library_projection_from_entries;
 use crate::models::AppShellSnapshot;
-use crate::workshop::scan_workshop_catalog;
+use crate::results::app_shell::{ObservedCount, ShellSummary};
+use crate::workshop::{scan_workshop_catalog, workshop_refresh_result};
 use wayvid_library::WorkshopCatalogEntry;
 
-fn unavailable_app_shell() -> AppShellSnapshot {
-    AppShellSnapshot {
-        app_name: "LWE".to_string(),
-        code_name: crate::APP_CODE_NAME.to_string(),
-        steam_available: false,
-        library_count: None,
-        workshop_synced_count: None,
-        monitor_count: None,
+fn observed_count_to_option(count: ObservedCount) -> Option<usize> {
+    match count {
+        ObservedCount::Known(value) => Some(value),
+        ObservedCount::Unknown => None,
     }
 }
 
-fn unavailable_workshop_app_shell() -> AppShellSnapshot {
+fn shell_snapshot_from_summary(summary: ShellSummary) -> AppShellSnapshot {
     AppShellSnapshot {
         app_name: "LWE".to_string(),
         code_name: crate::APP_CODE_NAME.to_string(),
+        steam_available: summary.steam_available,
+        library_count: observed_count_to_option(summary.library_items),
+        workshop_synced_count: observed_count_to_option(summary.synced_workshop_items),
+        monitor_count: observed_count_to_option(summary.connected_monitors),
+    }
+}
+
+fn unavailable_app_shell() -> AppShellSnapshot {
+    shell_snapshot_from_summary(ShellSummary {
+        steam_available: false,
+        library_items: ObservedCount::Unknown,
+        synced_workshop_items: ObservedCount::Unknown,
+        connected_monitors: ObservedCount::Unknown,
+    })
+}
+
+fn unavailable_workshop_app_shell() -> AppShellSnapshot {
+    shell_snapshot_from_summary(ShellSummary {
         steam_available: true,
-        library_count: None,
-        workshop_synced_count: None,
-        monitor_count: None,
+        library_items: ObservedCount::Unknown,
+        synced_workshop_items: ObservedCount::Unknown,
+        connected_monitors: ObservedCount::Unknown,
+    })
+}
+
+fn shell_summary_from_catalog(
+    steam_available: bool,
+    workshop_items: Vec<WorkshopCatalogEntry>,
+) -> ShellSummary {
+    let refresh = workshop_refresh_result(workshop_items.clone());
+    let library_projection = library_projection_from_entries(workshop_items);
+
+    ShellSummary {
+        steam_available,
+        library_items: ObservedCount::Known(library_projection.projected_items.len()),
+        synced_workshop_items: ObservedCount::Known(refresh.synced_entry_count()),
+        connected_monitors: ObservedCount::Unknown,
     }
 }
 
@@ -29,23 +59,7 @@ fn shell_snapshot_from_catalog(
     steam_available: bool,
     workshop_items: Vec<WorkshopCatalogEntry>,
 ) -> AppShellSnapshot {
-    let workshop_synced_count = workshop_items
-        .iter()
-        .filter(|entry| {
-            matches!(entry.sync_state, wayvid_library::WorkshopSyncState::Synced)
-                && entry.supported_first_release
-        })
-        .count();
-    let library_count = project_library_items(workshop_items).len();
-
-    AppShellSnapshot {
-        app_name: "LWE".to_string(),
-        code_name: crate::APP_CODE_NAME.to_string(),
-        steam_available,
-        library_count: Some(library_count),
-        workshop_synced_count: Some(workshop_synced_count),
-        monitor_count: None,
-    }
+    shell_snapshot_from_summary(shell_summary_from_catalog(steam_available, workshop_items))
 }
 
 fn shell_snapshot() -> Result<AppShellSnapshot, String> {
@@ -126,5 +140,31 @@ mod tests {
 
         assert_eq!(snapshot.library_count, Some(1));
         assert_eq!(snapshot.workshop_synced_count, Some(1));
+    }
+
+    #[test]
+    fn shared_policy_shell_snapshot_comes_from_result_summary() {
+        let summary = shell_summary_from_catalog(
+            true,
+            vec![WorkshopCatalogEntry {
+                workshop_id: 1,
+                title: "Synced Scene".to_string(),
+                project_type: WorkshopProjectType::Scene,
+                project_dir: std::path::PathBuf::from("/tmp/1"),
+                cover_path: None,
+                sync_state: WorkshopSyncState::Synced,
+                supported_first_release: true,
+                library_item_id: Some("scene-1".to_string()),
+            }],
+        );
+
+        assert!(matches!(
+            summary.library_items,
+            crate::results::app_shell::ObservedCount::Known(1)
+        ));
+        assert!(matches!(
+            summary.synced_workshop_items,
+            crate::results::app_shell::ObservedCount::Known(1)
+        ));
     }
 }

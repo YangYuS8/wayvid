@@ -3,6 +3,12 @@ use crate::models::{
     CompatibilityBadge, ItemType, WorkshopItemDetail, WorkshopItemSummary, WorkshopPageSnapshot,
     WorkshopSyncStatus,
 };
+use crate::policies::shared::compatibility_policy::{
+    compatibility_decision, CompatibilityLevel, CompatibilityReason,
+};
+use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
+use crate::policies::shared::invalidation_policy::pages_after_workshop_refresh;
+use crate::results::workshop::{WorkshopInspection, WorkshopRefreshResult};
 use wayvid_library::{
     SteamLibrary, WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner,
 };
@@ -48,57 +54,72 @@ fn sync_status(entry: &WorkshopCatalogEntry) -> WorkshopSyncStatus {
 }
 
 fn compatibility_badge(entry: &WorkshopCatalogEntry) -> CompatibilityBadge {
-    if entry.supported_first_release {
-        CompatibilityBadge::FullySupported
-    } else if matches!(
-        entry.sync_state,
-        wayvid_library::WorkshopSyncState::MissingProjectFile
-            | wayvid_library::WorkshopSyncState::UnsupportedType
-    ) || matches!(entry.project_type, WorkshopProjectType::Web)
-    {
-        CompatibilityBadge::Unsupported
-    } else {
-        CompatibilityBadge::PartiallySupported
+    match compatibility_decision(entry).level {
+        CompatibilityLevel::FullySupported => CompatibilityBadge::FullySupported,
+        CompatibilityLevel::PartiallySupported => CompatibilityBadge::PartiallySupported,
+        CompatibilityLevel::Unsupported => CompatibilityBadge::Unsupported,
     }
 }
 
 fn compatibility_note(entry: &WorkshopCatalogEntry) -> Option<String> {
-    if entry.supported_first_release {
-        Some("This item is synchronized locally and available in the Library page.".to_string())
-    } else {
-        if matches!(
-            entry.sync_state,
-            wayvid_library::WorkshopSyncState::MissingProjectFile
-        ) {
-            return Some(
-                "The local Workshop folder is missing valid project metadata, so LWE cannot classify or import this item yet."
-                    .to_string(),
-            );
+    match compatibility_decision(entry).reason {
+        CompatibilityReason::ReadyForLibrary => {
+            Some("This item is synchronized locally and available in the Library page.".to_string())
         }
+        CompatibilityReason::MissingProjectMetadata => Some(
+            "The local Workshop folder is missing valid project metadata, so LWE cannot classify or import this item yet."
+                .to_string(),
+        ),
+        CompatibilityReason::MissingPrimaryAsset => Some(
+            "The project metadata was found, but the primary local asset is missing, so it cannot be projected into Library yet."
+                .to_string(),
+        ),
+        CompatibilityReason::UnsupportedWebItem => Some(
+            "Web Workshop items are visible here, but the first release only supports video and scene imports."
+                .to_string(),
+        ),
+        CompatibilityReason::UnsupportedProjectType => Some(
+            "This Workshop item uses a project type that the first release does not import yet."
+                .to_string(),
+        ),
+    }
+}
 
-        match entry.project_type {
-            WorkshopProjectType::Web => Some(
-                "Web Workshop items are visible here, but the first release only supports video and scene imports."
-                    .to_string(),
-            ),
-            WorkshopProjectType::Other => Some(
-                "This Workshop item uses a project type that the first release does not import yet."
-                    .to_string(),
-            ),
-            WorkshopProjectType::Video | WorkshopProjectType::Scene => Some(
-                "The project metadata was found, but the primary local asset is missing, so it cannot be projected into Library yet."
-                    .to_string(),
-            ),
-        }
+fn cover_path(entry: &WorkshopCatalogEntry) -> Option<String> {
+    let bundled_cover_path = entry
+        .cover_path
+        .as_ref()
+        .map(|path| path.to_string_lossy().into_owned());
+
+    match cover_art_source(bundled_cover_path) {
+        CoverArtSource::Bundled(path) => Some(path),
+        CoverArtSource::Placeholder => None,
+    }
+}
+
+pub(crate) fn workshop_refresh_result(
+    catalog_entries: Vec<WorkshopCatalogEntry>,
+) -> WorkshopRefreshResult {
+    let library_refresh_required = pages_after_workshop_refresh()
+        .iter()
+        .any(|page| matches!(page, InvalidatedPage::Library));
+
+    WorkshopRefreshResult {
+        catalog_entries,
+        library_refresh_required,
+    }
+}
+
+fn workshop_inspection(entry: WorkshopCatalogEntry) -> WorkshopInspection {
+    WorkshopInspection {
+        requested_workshop_id: entry.workshop_id.to_string(),
+        entry,
     }
 }
 
 fn summary_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemSummary {
     let item_type = item_type_from_project_type(entry.project_type);
-    let cover_path = entry
-        .cover_path
-        .as_ref()
-        .map(|path| path.to_string_lossy().into_owned());
+    let cover_path = cover_path(&entry);
     let sync_status = sync_status(&entry);
     let compatibility_badge = compatibility_badge(&entry);
 
@@ -112,17 +133,15 @@ fn summary_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemSummary {
     }
 }
 
-fn detail_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemDetail {
+fn detail_from_inspection(inspection: WorkshopInspection) -> WorkshopItemDetail {
+    let entry = inspection.entry;
     let project = WeProject::load(&entry.project_dir).ok();
     let description = project
         .as_ref()
         .and_then(|project| project.description.clone());
     let tags = project.map(|project| project.tags).unwrap_or_default();
     let item_type = item_type_from_project_type(entry.project_type);
-    let cover_path = entry
-        .cover_path
-        .as_ref()
-        .map(|path| path.to_string_lossy().into_owned());
+    let cover_path = cover_path(&entry);
     let sync_status = sync_status(&entry);
     let compatibility_badge = compatibility_badge(&entry);
     let compatibility_note = compatibility_note(&entry);
@@ -143,8 +162,14 @@ fn detail_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemDetail {
 fn workshop_page_from_scan_result(
     scan_result: Result<Vec<WorkshopCatalogEntry>, String>,
 ) -> Result<WorkshopPageSnapshot, String> {
+    let refresh = workshop_refresh_result(scan_result?);
+
     Ok(WorkshopPageSnapshot {
-        items: scan_result?.into_iter().map(summary_from_entry).collect(),
+        items: refresh
+            .catalog_entries
+            .into_iter()
+            .map(summary_from_entry)
+            .collect(),
         selected_item_id: None,
         stale: false,
     })
@@ -153,12 +178,18 @@ fn workshop_page_from_scan_result(
 fn refresh_outcome_from_scan_result(
     scan_result: Result<Vec<WorkshopCatalogEntry>, String>,
 ) -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
-    let page = workshop_page_from_scan_result(scan_result)?;
-    let workshop_synced_count = page
-        .items
-        .iter()
-        .filter(|item| item.sync_status == WorkshopSyncStatus::Synced)
-        .count();
+    let refresh = workshop_refresh_result(scan_result?);
+    let workshop_synced_count = refresh.synced_entry_count();
+    let page = WorkshopPageSnapshot {
+        items: refresh
+            .catalog_entries
+            .clone()
+            .into_iter()
+            .map(summary_from_entry)
+            .collect(),
+        selected_item_id: None,
+        stale: false,
+    };
 
     Ok(ActionOutcome {
         ok: true,
@@ -169,7 +200,7 @@ fn refresh_outcome_from_scan_result(
             monitor_count: None,
         }),
         current_update: Some(page),
-        invalidations: vec![InvalidatedPage::Library],
+        invalidations: pages_after_workshop_refresh(),
     })
 }
 
@@ -185,7 +216,7 @@ pub fn load_workshop_item_detail(workshop_id: String) -> Result<WorkshopItemDeta
         .find(|entry| entry.workshop_id.to_string() == workshop_id)
         .ok_or_else(|| format!("Workshop item {workshop_id} not found"))?;
 
-    Ok(detail_from_entry(entry))
+    Ok(detail_from_inspection(workshop_inspection(entry)))
 }
 
 #[tauri::command]
@@ -274,5 +305,22 @@ mod tests {
 
         assert_eq!(sync_status(&entry), WorkshopSyncStatus::UnsupportedType);
         assert_eq!(compatibility_badge(&entry), CompatibilityBadge::Unsupported);
+    }
+
+    #[test]
+    fn shared_policy_workshop_refresh_result_drives_outcome_counts() {
+        let refresh = workshop_refresh_result(vec![WorkshopCatalogEntry {
+            workshop_id: 11,
+            title: "Synced Scene".to_string(),
+            project_type: WorkshopProjectType::Scene,
+            project_dir: std::path::PathBuf::from("/tmp/11"),
+            cover_path: None,
+            sync_state: WorkshopSyncState::Synced,
+            supported_first_release: true,
+            library_item_id: Some("scene-11".to_string()),
+        }]);
+
+        assert!(refresh.library_refresh_required);
+        assert_eq!(refresh.synced_entry_count(), 1);
     }
 }
