@@ -5,10 +5,10 @@ pub struct SettingsService;
 impl SettingsService {
     pub fn load_page() -> Result<SettingsPageResult, String> {
         Ok(SettingsPageResult {
-            language: "en".to_string(),
+            language: "system".to_string(),
             theme: "system".to_string(),
             steam_required: true,
-            stale: false,
+            stale: true,
         })
     }
 }
@@ -21,9 +21,9 @@ mod tests {
     fn settings_service_returns_placeholder_result() {
         let result = SettingsService::load_page().unwrap();
 
-        assert_eq!(result.language, "en");
+        assert_eq!(result.language, "system");
         assert_eq!(result.theme, "system");
         assert!(result.steam_required);
-        assert!(!result.stale);
+        assert!(result.stale);
     }
 }

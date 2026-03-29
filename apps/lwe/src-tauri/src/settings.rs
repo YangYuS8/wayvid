@@ -15,9 +15,9 @@ mod tests {
     fn placeholder_settings_snapshot_preserves_current_values() {
         let snapshot = load_settings_page().unwrap();
 
-        assert_eq!(snapshot.language, "en");
+        assert_eq!(snapshot.language, "system");
         assert_eq!(snapshot.theme, "system");
         assert!(snapshot.steam_required);
-        assert!(!snapshot.stale);
+        assert!(snapshot.stale);
     }
 }
