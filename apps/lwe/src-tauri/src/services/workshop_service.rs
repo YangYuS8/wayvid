@@ -1,12 +1,28 @@
 use crate::results::workshop::{WorkshopInspection, WorkshopRefreshResult};
-use crate::workshop::scan_workshop_catalog;
+use wayvid_library::{SteamLibrary, WorkshopCatalogEntry, WorkshopScanner};
 
 pub struct WorkshopService;
 
 impl WorkshopService {
+    fn scan_catalog() -> Result<Vec<WorkshopCatalogEntry>, String> {
+        let steam = SteamLibrary::discover()
+            .map_err(|error| format!("Steam Workshop is unavailable: {error}"))?;
+        if !steam.has_wallpaper_engine() {
+            return Err(
+                "Wallpaper Engine Workshop content is unavailable on this machine".to_string(),
+            );
+        }
+
+        let mut scanner = WorkshopScanner::new(steam);
+
+        scanner
+            .scan_catalog()
+            .map_err(|error| format!("Failed to scan the Steam Workshop catalog: {error}"))
+    }
+
     pub fn refresh_catalog() -> Result<WorkshopRefreshResult, String> {
         Ok(WorkshopRefreshResult {
-            catalog_entries: scan_workshop_catalog()?,
+            catalog_entries: Self::scan_catalog()?,
             library_refresh_required: true,
         })
     }

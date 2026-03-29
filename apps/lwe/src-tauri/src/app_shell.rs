@@ -1,7 +1,7 @@
-use crate::library::library_projection_from_entries;
 use crate::models::AppShellSnapshot;
 use crate::results::app_shell::{ObservedCount, ShellSummary};
-use crate::workshop::{scan_workshop_catalog, workshop_refresh_result};
+use crate::services::library_service::LibraryService;
+use crate::services::workshop_service::WorkshopService;
 use wayvid_library::WorkshopCatalogEntry;
 
 fn observed_count_to_option(count: ObservedCount) -> Option<usize> {
@@ -44,13 +44,28 @@ fn shell_summary_from_catalog(
     steam_available: bool,
     workshop_items: Vec<WorkshopCatalogEntry>,
 ) -> ShellSummary {
-    let refresh = workshop_refresh_result(workshop_items.clone());
-    let library_projection = library_projection_from_entries(workshop_items);
+    let synced_workshop_items = workshop_items
+        .iter()
+        .filter(|entry| entry.sync_state == wayvid_library::WorkshopSyncState::Synced)
+        .count();
+    let source_catalog_count = workshop_items.len();
+    let projected_items = workshop_items
+        .into_iter()
+        .filter(|entry| {
+            matches!(entry.sync_state, wayvid_library::WorkshopSyncState::Synced)
+                && matches!(
+                    entry.project_type,
+                    wayvid_library::WorkshopProjectType::Video
+                        | wayvid_library::WorkshopProjectType::Scene
+                )
+                && entry.library_item_id.is_some()
+        })
+        .count();
 
     ShellSummary {
         steam_available,
-        library_items: ObservedCount::Known(library_projection.projected_items.len()),
-        synced_workshop_items: ObservedCount::Known(refresh.synced_entry_count()),
+        library_items: ObservedCount::Known(projected_items.min(source_catalog_count)),
+        synced_workshop_items: ObservedCount::Known(synced_workshop_items),
         connected_monitors: ObservedCount::Unknown,
     }
 }
@@ -72,12 +87,15 @@ fn shell_snapshot() -> Result<AppShellSnapshot, String> {
         return Ok(unavailable_workshop_app_shell());
     }
 
-    let workshop_items = scan_workshop_catalog()?;
+    let refresh = WorkshopService::refresh_catalog()?;
+    let library_projection = LibraryService::load_projection()?;
 
-    Ok(shell_snapshot_from_catalog(
-        steam.has_wallpaper_engine(),
-        workshop_items,
-    ))
+    Ok(shell_snapshot_from_summary(ShellSummary {
+        steam_available: steam.has_wallpaper_engine(),
+        library_items: ObservedCount::Known(library_projection.projected_items.len()),
+        synced_workshop_items: ObservedCount::Known(refresh.synced_entry_count()),
+        connected_monitors: ObservedCount::Unknown,
+    }))
 }
 
 #[tauri::command]

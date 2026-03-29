@@ -10,9 +10,7 @@ use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::policies::shared::invalidation_policy::pages_after_workshop_refresh;
 use crate::results::workshop::{WorkshopInspection, WorkshopRefreshResult};
 use crate::services::workshop_service::WorkshopService;
-use wayvid_library::{
-    SteamLibrary, WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner,
-};
+use wayvid_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType};
 
 pub(crate) fn workshop_item_url(workshop_id: &str) -> String {
     format!("https://steamcommunity.com/sharedfiles/filedetails/?id={workshop_id}")
@@ -20,20 +18,6 @@ pub(crate) fn workshop_item_url(workshop_id: &str) -> String {
 
 pub(crate) fn steam_openurl(workshop_id: &str) -> String {
     format!("steam://openurl/{}", workshop_item_url(workshop_id))
-}
-
-pub(crate) fn scan_workshop_catalog() -> Result<Vec<WorkshopCatalogEntry>, String> {
-    let steam = SteamLibrary::discover()
-        .map_err(|error| format!("Steam Workshop is unavailable: {error}"))?;
-    if !steam.has_wallpaper_engine() {
-        return Err("Wallpaper Engine Workshop content is unavailable on this machine".to_string());
-    }
-
-    let mut scanner = WorkshopScanner::new(steam);
-
-    scanner
-        .scan_catalog()
-        .map_err(|error| format!("Failed to scan the Steam Workshop catalog: {error}"))
 }
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -95,15 +79,6 @@ fn cover_path(entry: &WorkshopCatalogEntry) -> Option<String> {
     match cover_art_source(bundled_cover_path) {
         CoverArtSource::Bundled(path) => Some(path),
         CoverArtSource::Placeholder => None,
-    }
-}
-
-pub(crate) fn workshop_refresh_result(
-    catalog_entries: Vec<WorkshopCatalogEntry>,
-) -> WorkshopRefreshResult {
-    WorkshopRefreshResult {
-        catalog_entries,
-        library_refresh_required: true,
     }
 }
 
@@ -287,16 +262,19 @@ mod tests {
 
     #[test]
     fn shared_policy_workshop_refresh_result_drives_outcome_counts() {
-        let refresh = workshop_refresh_result(vec![WorkshopCatalogEntry {
-            workshop_id: 11,
-            title: "Synced Scene".to_string(),
-            project_type: WorkshopProjectType::Scene,
-            project_dir: std::path::PathBuf::from("/tmp/11"),
-            cover_path: None,
-            sync_state: WorkshopSyncState::Synced,
-            supported_first_release: true,
-            library_item_id: Some("scene-11".to_string()),
-        }]);
+        let refresh = WorkshopRefreshResult {
+            catalog_entries: vec![WorkshopCatalogEntry {
+                workshop_id: 11,
+                title: "Synced Scene".to_string(),
+                project_type: WorkshopProjectType::Scene,
+                project_dir: std::path::PathBuf::from("/tmp/11"),
+                cover_path: None,
+                sync_state: WorkshopSyncState::Synced,
+                supported_first_release: true,
+                library_item_id: Some("scene-11".to_string()),
+            }],
+            library_refresh_required: true,
+        };
 
         assert!(refresh.library_refresh_required);
         assert_eq!(refresh.synced_entry_count(), 1);
