@@ -1,67 +1,34 @@
-use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
 use crate::models::{LibraryItemDetail, LibraryPageSnapshot};
-use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
-use crate::policies::shared::support_policy::supports_first_release;
 use crate::results::library::LibraryProjection;
+use crate::results::workshop::WorkshopRefreshResult;
+use crate::services::catalog_mapper::{
+    includes_library_item, library_detail_from_entry, library_summary_from_entry,
+};
 use crate::services::workshop_service::WorkshopService;
-use wayvid_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+use wayvid_library::WorkshopCatalogEntry;
 
 pub struct LibraryService;
 
 impl LibraryService {
-    fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
-        match project_type {
-            WorkshopProjectType::Video => ItemType::Video,
-            WorkshopProjectType::Scene => ItemType::Scene,
-            WorkshopProjectType::Web => ItemType::Web,
-            WorkshopProjectType::Other => ItemType::Other,
-        }
-    }
-
-    fn cover_path(entry: &WorkshopCatalogEntry) -> Option<String> {
-        let bundled_cover_path = entry
-            .cover_path
-            .as_ref()
-            .map(|path| path.to_string_lossy().into_owned());
-
-        match cover_art_source(bundled_cover_path) {
-            CoverArtSource::Bundled(path) => Some(path),
-            CoverArtSource::Placeholder => None,
-        }
-    }
-
-    fn includes_library_item(entry: &WorkshopCatalogEntry) -> bool {
-        matches!(entry.sync_state, WorkshopSyncState::Synced)
-            && supports_first_release(entry.project_type)
-            && entry.library_item_id.is_some()
-    }
-
-    pub fn load_projection() -> Result<LibraryProjection, String> {
-        let refresh = WorkshopService::refresh_catalog()?;
+    pub fn projection_from_refresh(refresh: WorkshopRefreshResult) -> LibraryProjection {
         let source_catalog_count = refresh.catalog_entries.len();
         let projected_items = refresh
             .catalog_entries
             .into_iter()
-            .filter(Self::includes_library_item)
-            .map(|entry| {
-                let item_type = Self::item_type_from_project_type(entry.project_type);
-                let cover_path = Self::cover_path(&entry);
-
-                LibraryItemSummary {
-                    id: entry.library_item_id.unwrap_or_default(),
-                    title: entry.title,
-                    item_type,
-                    cover_path,
-                    source: LibrarySource::Workshop,
-                    favorite: false,
-                }
-            })
+            .filter(includes_library_item)
+            .map(library_summary_from_entry)
             .collect();
 
-        Ok(LibraryProjection {
+        LibraryProjection {
             projected_items,
             source_catalog_count,
-        })
+        }
+    }
+
+    pub fn load_projection() -> Result<LibraryProjection, String> {
+        Ok(Self::projection_from_refresh(
+            WorkshopService::refresh_catalog()?,
+        ))
     }
 
     pub fn inspect_item(item_id: &str) -> Result<WorkshopCatalogEntry, String> {
@@ -69,8 +36,7 @@ impl LibraryService {
             .catalog_entries
             .into_iter()
             .find(|entry| {
-                Self::includes_library_item(entry)
-                    && entry.library_item_id.as_deref() == Some(item_id)
+                includes_library_item(entry) && entry.library_item_id.as_deref() == Some(item_id)
             })
             .ok_or_else(|| format!("Library item {item_id} not found"))
     }
@@ -86,24 +52,7 @@ impl LibraryService {
     }
 
     pub fn load_item_detail(item_id: &str) -> Result<LibraryItemDetail, String> {
-        let entry = Self::inspect_item(item_id)?;
-        let item_type = Self::item_type_from_project_type(entry.project_type);
-        let cover_path = Self::cover_path(&entry);
-        let project = WeProject::load(&entry.project_dir).ok();
-        let description = project
-            .as_ref()
-            .and_then(|project| project.description.clone());
-        let tags = project.map(|project| project.tags).unwrap_or_default();
-
-        Ok(LibraryItemDetail {
-            id: entry.library_item_id.unwrap_or_default(),
-            title: entry.title,
-            item_type,
-            cover_path,
-            source: LibrarySource::Workshop,
-            description,
-            tags,
-        })
+        Ok(library_detail_from_entry(Self::inspect_item(item_id)?))
     }
 }
 

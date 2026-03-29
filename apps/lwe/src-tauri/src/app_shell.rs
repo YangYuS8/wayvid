@@ -2,7 +2,6 @@ use crate::models::AppShellSnapshot;
 use crate::results::app_shell::{ObservedCount, ShellSummary};
 use crate::services::library_service::LibraryService;
 use crate::services::workshop_service::WorkshopService;
-use wayvid_library::WorkshopCatalogEntry;
 
 fn observed_count_to_option(count: ObservedCount) -> Option<usize> {
     match count {
@@ -40,41 +39,19 @@ fn unavailable_workshop_app_shell() -> AppShellSnapshot {
     })
 }
 
-fn shell_summary_from_catalog(
+fn shell_summary_from_refresh(
     steam_available: bool,
-    workshop_items: Vec<WorkshopCatalogEntry>,
+    refresh: crate::results::workshop::WorkshopRefreshResult,
 ) -> ShellSummary {
-    let synced_workshop_items = workshop_items
-        .iter()
-        .filter(|entry| entry.sync_state == wayvid_library::WorkshopSyncState::Synced)
-        .count();
-    let source_catalog_count = workshop_items.len();
-    let projected_items = workshop_items
-        .into_iter()
-        .filter(|entry| {
-            matches!(entry.sync_state, wayvid_library::WorkshopSyncState::Synced)
-                && matches!(
-                    entry.project_type,
-                    wayvid_library::WorkshopProjectType::Video
-                        | wayvid_library::WorkshopProjectType::Scene
-                )
-                && entry.library_item_id.is_some()
-        })
-        .count();
+    let synced_workshop_items = refresh.synced_entry_count();
+    let library_projection = LibraryService::projection_from_refresh(refresh);
 
     ShellSummary {
         steam_available,
-        library_items: ObservedCount::Known(projected_items.min(source_catalog_count)),
+        library_items: ObservedCount::Known(library_projection.projected_items.len()),
         synced_workshop_items: ObservedCount::Known(synced_workshop_items),
         connected_monitors: ObservedCount::Unknown,
     }
-}
-
-fn shell_snapshot_from_catalog(
-    steam_available: bool,
-    workshop_items: Vec<WorkshopCatalogEntry>,
-) -> AppShellSnapshot {
-    shell_snapshot_from_summary(shell_summary_from_catalog(steam_available, workshop_items))
 }
 
 fn shell_snapshot() -> Result<AppShellSnapshot, String> {
@@ -87,15 +64,10 @@ fn shell_snapshot() -> Result<AppShellSnapshot, String> {
         return Ok(unavailable_workshop_app_shell());
     }
 
-    let refresh = WorkshopService::refresh_catalog()?;
-    let library_projection = LibraryService::load_projection()?;
-
-    Ok(shell_snapshot_from_summary(ShellSummary {
-        steam_available: steam.has_wallpaper_engine(),
-        library_items: ObservedCount::Known(library_projection.projected_items.len()),
-        synced_workshop_items: ObservedCount::Known(refresh.synced_entry_count()),
-        connected_monitors: ObservedCount::Unknown,
-    }))
+    Ok(shell_snapshot_from_summary(shell_summary_from_refresh(
+        steam.has_wallpaper_engine(),
+        WorkshopService::refresh_catalog()?,
+    )))
 }
 
 #[tauri::command]
@@ -106,6 +78,7 @@ pub fn load_app_shell() -> Result<AppShellSnapshot, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::results::workshop::WorkshopRefreshResult;
     use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     #[test]
@@ -129,11 +102,46 @@ mod tests {
     }
 
     #[test]
-    fn shell_counts_come_from_one_catalog_view() {
-        let snapshot = shell_snapshot_from_catalog(
+    fn shell_counts_come_from_one_refresh_result() {
+        let snapshot = shell_snapshot_from_summary(shell_summary_from_refresh(
             true,
-            vec![
-                WorkshopCatalogEntry {
+            WorkshopRefreshResult {
+                catalog_entries: vec![
+                    WorkshopCatalogEntry {
+                        workshop_id: 1,
+                        title: "Synced Scene".to_string(),
+                        project_type: WorkshopProjectType::Scene,
+                        project_dir: std::path::PathBuf::from("/tmp/1"),
+                        cover_path: None,
+                        sync_state: WorkshopSyncState::Synced,
+                        supported_first_release: true,
+                        library_item_id: Some("scene-1".to_string()),
+                    },
+                    WorkshopCatalogEntry {
+                        workshop_id: 2,
+                        title: "Unsupported App".to_string(),
+                        project_type: WorkshopProjectType::Other,
+                        project_dir: std::path::PathBuf::from("/tmp/2"),
+                        cover_path: None,
+                        sync_state: WorkshopSyncState::UnsupportedType,
+                        supported_first_release: false,
+                        library_item_id: None,
+                    },
+                ],
+                library_refresh_required: true,
+            },
+        ));
+
+        assert_eq!(snapshot.library_count, Some(1));
+        assert_eq!(snapshot.workshop_synced_count, Some(1));
+    }
+
+    #[test]
+    fn shared_policy_shell_snapshot_comes_from_result_summary() {
+        let summary = shell_summary_from_refresh(
+            true,
+            WorkshopRefreshResult {
+                catalog_entries: vec![WorkshopCatalogEntry {
                     workshop_id: 1,
                     title: "Synced Scene".to_string(),
                     project_type: WorkshopProjectType::Scene,
@@ -142,38 +150,9 @@ mod tests {
                     sync_state: WorkshopSyncState::Synced,
                     supported_first_release: true,
                     library_item_id: Some("scene-1".to_string()),
-                },
-                WorkshopCatalogEntry {
-                    workshop_id: 2,
-                    title: "Unsupported App".to_string(),
-                    project_type: WorkshopProjectType::Other,
-                    project_dir: std::path::PathBuf::from("/tmp/2"),
-                    cover_path: None,
-                    sync_state: WorkshopSyncState::UnsupportedType,
-                    supported_first_release: false,
-                    library_item_id: None,
-                },
-            ],
-        );
-
-        assert_eq!(snapshot.library_count, Some(1));
-        assert_eq!(snapshot.workshop_synced_count, Some(1));
-    }
-
-    #[test]
-    fn shared_policy_shell_snapshot_comes_from_result_summary() {
-        let summary = shell_summary_from_catalog(
-            true,
-            vec![WorkshopCatalogEntry {
-                workshop_id: 1,
-                title: "Synced Scene".to_string(),
-                project_type: WorkshopProjectType::Scene,
-                project_dir: std::path::PathBuf::from("/tmp/1"),
-                cover_path: None,
-                sync_state: WorkshopSyncState::Synced,
-                supported_first_release: true,
-                library_item_id: Some("scene-1".to_string()),
-            }],
+                }],
+                library_refresh_required: true,
+            },
         );
 
         assert!(matches!(
