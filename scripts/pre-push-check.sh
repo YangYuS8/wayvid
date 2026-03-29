@@ -60,7 +60,7 @@ fi
 
 # 3. Cargo check (workspace)
 print_section "Checking compilation (workspace)..."
-if cargo check --workspace --quiet 2>&1 | tail -1 | grep -q "Finished"; then
+if cargo check --workspace --quiet >/dev/null 2>&1; then
 	print_success "Workspace compiles"
 else
 	print_error "Workspace failed to compile"
@@ -70,7 +70,7 @@ fi
 # 4. Tests (workspace)
 if [ "${SKIP_TESTS:-0}" = "0" ]; then
 	print_section "Running tests (workspace)..."
-	if cargo test --workspace --quiet 2>&1 | tail -1 | grep -q "test result"; then
+	if cargo test --workspace --quiet >/dev/null 2>&1; then
 		print_success "Tests passed"
 	else
 		print_error "Tests failed"
