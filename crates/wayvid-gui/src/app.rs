@@ -1290,7 +1290,7 @@ pub fn run() -> Result<()> {
 
 // Async helper functions
 async fn load_library() -> Result<Vec<lwe_core::WallpaperItem>, String> {
-    // TODO: Load from wayvid-library database
+    // TODO: Load from lwe-library database
     Ok(vec![])
 }
 
