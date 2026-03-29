@@ -9,9 +9,14 @@ The repository reset repositions `wayvid` as a Linux dynamic wallpaper platform 
 - `crates/wayvid-core` as a migration candidate for shared models, configuration, and cross-cutting types.
 - `crates/wayvid-engine` as a migration candidate for Linux wallpaper playback, rendering, and runtime integration knowledge.
 - `crates/wayvid-library` as a migration candidate for library indexing, metadata handling, and local asset management.
-- `crates/wayvid-gui` as a migration candidate for desktop application shell patterns that still fit a library-first Linux experience.
-- `crates/wayvid-ctl` as a migration candidate for automation hooks, diagnostics, and operational control surfaces.
 - Supporting technical knowledge such as packaging lessons, runtime constraints, and platform integration notes when they help the new Linux dynamic wallpaper platform.
+
+## Retired Legacy Crates
+
+- `crates/wayvid-gui` is a retired legacy GUI shell superseded by the LWE Tauri + Svelte application shell.
+- `crates/wayvid-ctl` is a retired legacy CLI surface that is no longer part of the active LWE workspace.
+
+Both directories remain temporarily in the repository for reference only and should not be treated as active product components.
 
 ## Retire or Re-Evaluate
 
