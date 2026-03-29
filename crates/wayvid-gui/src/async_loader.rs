@@ -149,7 +149,7 @@ async fn load_thumbnail(request: &ThumbnailRequest, cache_dir: &Path) -> Result<
     let height = request.height;
 
     let result = tokio::task::spawn_blocking(move || {
-        let generator = wayvid_library::ThumbnailGenerator::with_size(width, height);
+        let generator = lwe_library::ThumbnailGenerator::with_size(width, height);
         generator.generate(&path)
     })
     .await
@@ -202,10 +202,10 @@ async fn load_library(db_path: &Path) -> Result<Vec<WallpaperItem>, String> {
     let path = db_path.to_path_buf();
 
     tokio::task::spawn_blocking(move || {
-        let db = wayvid_library::LibraryDatabase::open(&path)
+        let db = lwe_library::LibraryDatabase::open(&path)
             .map_err(|e| format!("Failed to open database: {}", e))?;
 
-        let filter = wayvid_library::WallpaperFilter::default();
+        let filter = lwe_library::WallpaperFilter::default();
         db.list_wallpapers(&filter)
             .map_err(|e| format!("Failed to load wallpapers: {}", e))
     })

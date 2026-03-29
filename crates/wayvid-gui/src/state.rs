@@ -120,7 +120,7 @@ impl AppState {
     /// Create a new application state
     pub fn new() -> (Self, Task<Message>) {
         // Check if Workshop is available
-        let workshop_available = wayvid_library::SteamLibrary::try_discover().is_some();
+        let workshop_available = lwe_library::SteamLibrary::try_discover().is_some();
 
         // Initialize async loader (creates cache dir)
         let async_loader = AsyncLoader::new();

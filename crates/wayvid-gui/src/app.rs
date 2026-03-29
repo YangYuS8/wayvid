@@ -1300,7 +1300,7 @@ async fn apply_wallpaper(id: &str) -> Result<(), String> {
 }
 
 async fn scan_folder(path: &std::path::Path) -> Result<Vec<lwe_core::WallpaperItem>, String> {
-    use wayvid_library::FolderScanner;
+    use lwe_library::FolderScanner;
 
     let scanner = FolderScanner::new();
     scanner.scan_folder(path, true).map_err(|e| e.to_string())
@@ -1327,7 +1327,7 @@ async fn clear_monitor_wallpaper(output: &str) -> Result<(), String> {
 
 /// Scan Steam Workshop for Wallpaper Engine wallpapers
 async fn scan_workshop() -> Result<Vec<lwe_core::WallpaperItem>, String> {
-    use wayvid_library::WorkshopScanner;
+    use lwe_library::WorkshopScanner;
 
     let mut scanner = WorkshopScanner::discover().map_err(|e| e.to_string())?;
 

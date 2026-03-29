@@ -17,7 +17,7 @@ path = "src/main.rs"
 # Internal crates
 lwe-core = { path = "../lwe-core" }
 wayvid-engine = { path = "../wayvid-engine" }
-wayvid-library = { path = "../wayvid-library" }
+lwe-library = { path = "../lwe-library" }
 
 # GUI framework
 iced = { version = "0.13", features = ["tokio", "image", "lazy", "advanced", "svg"] }
