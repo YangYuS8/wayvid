@@ -9,6 +9,7 @@ use crate::policies::shared::compatibility_policy::{
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::policies::shared::invalidation_policy::pages_after_workshop_refresh;
 use crate::results::workshop::{WorkshopInspection, WorkshopRefreshResult};
+use crate::services::workshop_service::WorkshopService;
 use wayvid_library::{
     SteamLibrary, WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopScanner,
 };
@@ -139,13 +140,6 @@ fn refresh_outcome_from_refresh_result(
     })
 }
 
-fn workshop_inspection(entry: WorkshopCatalogEntry) -> WorkshopInspection {
-    WorkshopInspection {
-        requested_workshop_id: entry.workshop_id.to_string(),
-        entry,
-    }
-}
-
 fn summary_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemSummary {
     let item_type = item_type_from_project_type(entry.project_type);
     let cover_path = cover_path(&entry);
@@ -162,8 +156,7 @@ fn summary_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemSummary {
     }
 }
 
-fn detail_from_inspection(inspection: WorkshopInspection) -> WorkshopItemDetail {
-    let entry = inspection.entry;
+fn detail_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemDetail {
     let project = WeProject::load(&entry.project_dir).ok();
     let description = project
         .as_ref()
@@ -188,12 +181,12 @@ fn detail_from_inspection(inspection: WorkshopInspection) -> WorkshopItemDetail 
     }
 }
 
-fn workshop_page_from_scan_result(
-    scan_result: Result<Vec<WorkshopCatalogEntry>, String>,
-) -> Result<WorkshopPageSnapshot, String> {
-    let refresh = workshop_refresh_result(scan_result?);
+fn detail_from_inspection(inspection: WorkshopInspection) -> WorkshopItemDetail {
+    detail_from_entry(inspection.entry)
+}
 
-    Ok(WorkshopPageSnapshot {
+fn workshop_page_from_refresh_result(refresh: WorkshopRefreshResult) -> WorkshopPageSnapshot {
+    WorkshopPageSnapshot {
         items: refresh
             .catalog_entries
             .into_iter()
@@ -201,33 +194,26 @@ fn workshop_page_from_scan_result(
             .collect(),
         selected_item_id: None,
         stale: false,
-    })
-}
-
-fn refresh_outcome_from_scan_result(
-    scan_result: Result<Vec<WorkshopCatalogEntry>, String>,
-) -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
-    refresh_outcome_from_refresh_result(workshop_refresh_result(scan_result?))
+    }
 }
 
 #[tauri::command]
 pub fn load_workshop_page() -> Result<WorkshopPageSnapshot, String> {
-    workshop_page_from_scan_result(scan_workshop_catalog())
+    Ok(workshop_page_from_refresh_result(
+        WorkshopService::refresh_catalog()?,
+    ))
 }
 
 #[tauri::command]
 pub fn load_workshop_item_detail(workshop_id: String) -> Result<WorkshopItemDetail, String> {
-    let entry = scan_workshop_catalog()?
-        .into_iter()
-        .find(|entry| entry.workshop_id.to_string() == workshop_id)
-        .ok_or_else(|| format!("Workshop item {workshop_id} not found"))?;
-
-    Ok(detail_from_inspection(workshop_inspection(entry)))
+    Ok(detail_from_inspection(WorkshopService::inspect_item(
+        &workshop_id,
+    )?))
 }
 
 #[tauri::command]
 pub fn refresh_workshop_catalog() -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
-    refresh_outcome_from_scan_result(scan_workshop_catalog())
+    refresh_outcome_from_refresh_result(WorkshopService::refresh_catalog()?)
 }
 
 #[tauri::command]
@@ -262,20 +248,6 @@ mod tests {
             steam_openurl("12345"),
             "steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id=12345"
         );
-    }
-
-    #[test]
-    fn workshop_page_from_scan_result_propagates_failures() {
-        let error = workshop_page_from_scan_result(Err("scan failed".to_string())).unwrap_err();
-
-        assert_eq!(error, "scan failed");
-    }
-
-    #[test]
-    fn refresh_outcome_from_scan_result_propagates_failures() {
-        let error = refresh_outcome_from_scan_result(Err("scan failed".to_string())).unwrap_err();
-
-        assert_eq!(error, "scan failed");
     }
 
     #[test]
