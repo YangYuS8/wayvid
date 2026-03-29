@@ -1,4 +1,4 @@
-use crate::action_outcome::{ActionOutcome, AppShellPatch, InvalidatedPage};
+use crate::action_outcome::{ActionOutcome, AppShellPatch};
 use crate::models::{
     CompatibilityBadge, ItemType, WorkshopItemDetail, WorkshopItemSummary, WorkshopPageSnapshot,
     WorkshopSyncStatus,
@@ -100,14 +100,43 @@ fn cover_path(entry: &WorkshopCatalogEntry) -> Option<String> {
 pub(crate) fn workshop_refresh_result(
     catalog_entries: Vec<WorkshopCatalogEntry>,
 ) -> WorkshopRefreshResult {
-    let library_refresh_required = pages_after_workshop_refresh()
-        .iter()
-        .any(|page| matches!(page, InvalidatedPage::Library));
-
     WorkshopRefreshResult {
         catalog_entries,
-        library_refresh_required,
+        library_refresh_required: true,
     }
+}
+
+fn refresh_outcome_from_refresh_result(
+    refresh: WorkshopRefreshResult,
+) -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
+    let workshop_synced_count = refresh.synced_entry_count();
+    let page = WorkshopPageSnapshot {
+        items: refresh
+            .catalog_entries
+            .clone()
+            .into_iter()
+            .map(summary_from_entry)
+            .collect(),
+        selected_item_id: None,
+        stale: false,
+    };
+    let invalidations = if refresh.library_refresh_required {
+        pages_after_workshop_refresh()
+    } else {
+        Vec::new()
+    };
+
+    Ok(ActionOutcome {
+        ok: true,
+        message: Some("Workshop catalog refreshed".to_string()),
+        shell_patch: Some(AppShellPatch {
+            workshop_synced_count: Some(workshop_synced_count),
+            library_count: None,
+            monitor_count: None,
+        }),
+        current_update: Some(page),
+        invalidations,
+    })
 }
 
 fn workshop_inspection(entry: WorkshopCatalogEntry) -> WorkshopInspection {
@@ -178,30 +207,7 @@ fn workshop_page_from_scan_result(
 fn refresh_outcome_from_scan_result(
     scan_result: Result<Vec<WorkshopCatalogEntry>, String>,
 ) -> Result<ActionOutcome<WorkshopPageSnapshot>, String> {
-    let refresh = workshop_refresh_result(scan_result?);
-    let workshop_synced_count = refresh.synced_entry_count();
-    let page = WorkshopPageSnapshot {
-        items: refresh
-            .catalog_entries
-            .clone()
-            .into_iter()
-            .map(summary_from_entry)
-            .collect(),
-        selected_item_id: None,
-        stale: false,
-    };
-
-    Ok(ActionOutcome {
-        ok: true,
-        message: Some("Workshop catalog refreshed".to_string()),
-        shell_patch: Some(AppShellPatch {
-            workshop_synced_count: Some(workshop_synced_count),
-            library_count: None,
-            monitor_count: None,
-        }),
-        current_update: Some(page),
-        invalidations: pages_after_workshop_refresh(),
-    })
+    refresh_outcome_from_refresh_result(workshop_refresh_result(scan_result?))
 }
 
 #[tauri::command]
@@ -322,5 +328,16 @@ mod tests {
 
         assert!(refresh.library_refresh_required);
         assert_eq!(refresh.synced_entry_count(), 1);
+    }
+
+    #[test]
+    fn shared_policy_refresh_outcome_uses_result_invalidation_effect() {
+        let outcome = refresh_outcome_from_refresh_result(WorkshopRefreshResult {
+            catalog_entries: Vec::new(),
+            library_refresh_required: false,
+        })
+        .unwrap();
+
+        assert!(outcome.invalidations.is_empty());
     }
 }

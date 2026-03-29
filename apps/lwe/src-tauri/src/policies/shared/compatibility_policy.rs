@@ -1,3 +1,4 @@
+use crate::policies::shared::support_policy::supports_first_release;
 use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,8 +24,10 @@ pub struct CompatibilityDecision {
 }
 
 pub fn compatibility_decision(entry: &WorkshopCatalogEntry) -> CompatibilityDecision {
+    let supported_first_release = supports_first_release(entry.project_type);
+
     match (
-        entry.supported_first_release,
+        supported_first_release,
         entry.sync_state,
         entry.project_type,
     ) {
@@ -81,5 +84,24 @@ mod tests {
 
         assert_eq!(decision.level, CompatibilityLevel::Unsupported);
         assert_eq!(decision.reason, CompatibilityReason::UnsupportedWebItem);
+    }
+
+    #[test]
+    fn shared_policy_support_matrix_is_authoritative_for_synced_items() {
+        let entry = WorkshopCatalogEntry {
+            workshop_id: 77,
+            title: "Unexpected Type".to_string(),
+            project_type: WorkshopProjectType::Other,
+            project_dir: PathBuf::from("/tmp/77"),
+            cover_path: None,
+            sync_state: WorkshopSyncState::Synced,
+            supported_first_release: true,
+            library_item_id: None,
+        };
+
+        let decision = compatibility_decision(&entry);
+
+        assert_eq!(decision.level, CompatibilityLevel::Unsupported);
+        assert_eq!(decision.reason, CompatibilityReason::UnsupportedProjectType);
     }
 }
