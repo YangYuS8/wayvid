@@ -1,26 +1,28 @@
-use crate::models::{LibraryItemDetail, LibraryPageSnapshot};
+use crate::policies::shared::support_policy::supports_first_release;
 use crate::results::library::LibraryProjection;
 use crate::results::workshop::WorkshopRefreshResult;
-use crate::services::catalog_mapper::{
-    includes_library_item, library_detail_from_entry, library_summary_from_entry,
-};
 use crate::services::workshop_service::WorkshopService;
-use wayvid_library::WorkshopCatalogEntry;
+use wayvid_library::{WorkshopCatalogEntry, WorkshopSyncState};
+
+fn includes_library_item(entry: &WorkshopCatalogEntry) -> bool {
+    matches!(entry.sync_state, WorkshopSyncState::Synced)
+        && supports_first_release(entry.project_type)
+        && entry.library_item_id.is_some()
+}
 
 pub struct LibraryService;
 
 impl LibraryService {
     pub fn projection_from_refresh(refresh: WorkshopRefreshResult) -> LibraryProjection {
         let source_catalog_count = refresh.catalog_entries.len();
-        let projected_items = refresh
+        let entries = refresh
             .catalog_entries
             .into_iter()
             .filter(includes_library_item)
-            .map(library_summary_from_entry)
             .collect();
 
         LibraryProjection {
-            projected_items,
+            entries,
             source_catalog_count,
         }
     }
@@ -40,20 +42,6 @@ impl LibraryService {
             })
             .ok_or_else(|| format!("Library item {item_id} not found"))
     }
-
-    pub fn load_page() -> Result<LibraryPageSnapshot, String> {
-        let projection = Self::load_projection()?;
-
-        Ok(LibraryPageSnapshot {
-            items: projection.projected_items,
-            selected_item_id: None,
-            stale: false,
-        })
-    }
-
-    pub fn load_item_detail(item_id: &str) -> Result<LibraryItemDetail, String> {
-        Ok(library_detail_from_entry(Self::inspect_item(item_id)?))
-    }
 }
 
 #[cfg(test)]
@@ -63,11 +51,11 @@ mod tests {
     #[test]
     fn service_layer_library_service_uses_application_projection_result() {
         let result = LibraryProjection {
-            projected_items: Vec::new(),
+            entries: Vec::new(),
             source_catalog_count: 0,
         };
 
-        assert!(result.projected_items.is_empty());
+        assert!(result.entries.is_empty());
         assert_eq!(result.source_catalog_count, 0);
     }
 }

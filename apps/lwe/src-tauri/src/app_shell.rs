@@ -31,7 +31,7 @@ fn shell_summary_from_refresh(
 
     ShellSummary {
         steam_available,
-        library_items: ObservedCount::Known(library_projection.projected_items.len()),
+        library_items: ObservedCount::Known(library_projection.entries.len()),
         synced_workshop_items: ObservedCount::Known(synced_workshop_items),
         connected_monitors: ObservedCount::Unknown,
     }

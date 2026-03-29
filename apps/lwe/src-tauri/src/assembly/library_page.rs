@@ -1,9 +1,48 @@
 use crate::models::LibraryPageSnapshot;
+use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
+use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::library::LibraryProjection;
+use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType};
+
+fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
+    match project_type {
+        WorkshopProjectType::Video => ItemType::Video,
+        WorkshopProjectType::Scene => ItemType::Scene,
+        WorkshopProjectType::Web => ItemType::Web,
+        WorkshopProjectType::Other => ItemType::Other,
+    }
+}
+
+fn cover_path(entry: &WorkshopCatalogEntry) -> Option<String> {
+    let bundled_cover_path = entry
+        .cover_path
+        .as_ref()
+        .map(|path| path.to_string_lossy().into_owned());
+
+    match cover_art_source(bundled_cover_path) {
+        CoverArtSource::Bundled(path) => Some(path),
+        CoverArtSource::Placeholder => None,
+    }
+}
+
+fn assemble_library_summary(entry: WorkshopCatalogEntry) -> LibraryItemSummary {
+    LibraryItemSummary {
+        id: entry.library_item_id.clone().unwrap_or_default(),
+        title: entry.title.clone(),
+        item_type: item_type_from_project_type(entry.project_type),
+        cover_path: cover_path(&entry),
+        source: LibrarySource::Workshop,
+        favorite: false,
+    }
+}
 
 pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
     LibraryPageSnapshot {
-        items: result.projected_items,
+        items: result
+            .entries
+            .into_iter()
+            .map(assemble_library_summary)
+            .collect(),
         selected_item_id: None,
         stale: false,
     }
@@ -13,14 +52,26 @@ pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
 mod tests {
     use super::*;
     use crate::results::library::LibraryProjection;
+    use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     #[test]
-    fn assembler_turns_library_projection_into_page_snapshot() {
+    fn assembler_turns_library_projection_entries_into_page_snapshot() {
         let snapshot = assemble_library_page(LibraryProjection {
-            projected_items: Vec::new(),
-            source_catalog_count: 0,
+            entries: vec![WorkshopCatalogEntry {
+                workshop_id: 7,
+                title: "Forest Scene".to_string(),
+                project_type: WorkshopProjectType::Scene,
+                project_dir: std::path::PathBuf::from("/tmp/7"),
+                cover_path: None,
+                sync_state: WorkshopSyncState::Synced,
+                supported_first_release: true,
+                library_item_id: Some("scene-7".to_string()),
+            }],
+            source_catalog_count: 1,
         });
 
-        assert!(snapshot.items.is_empty());
+        assert_eq!(snapshot.items.len(), 1);
+        assert_eq!(snapshot.items[0].id, "scene-7");
+        assert_eq!(snapshot.items[0].title, "Forest Scene");
     }
 }
