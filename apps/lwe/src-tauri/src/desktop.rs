@@ -1,15 +1,10 @@
+use crate::assembly::desktop_page::assemble_desktop_page;
 use crate::models::DesktopPageSnapshot;
-
-fn placeholder_desktop_page() -> DesktopPageSnapshot {
-    DesktopPageSnapshot {
-        monitors: Vec::new(),
-        stale: true,
-    }
-}
+use crate::services::desktop_service::DesktopService;
 
 #[tauri::command]
-pub fn load_desktop_page() -> DesktopPageSnapshot {
-    placeholder_desktop_page()
+pub fn load_desktop_page() -> Result<DesktopPageSnapshot, String> {
+    DesktopService::load_page().map(assemble_desktop_page)
 }
 
 #[cfg(test)]
@@ -18,7 +13,7 @@ mod tests {
 
     #[test]
     fn placeholder_desktop_snapshot_is_marked_stale() {
-        let snapshot = placeholder_desktop_page();
+        let snapshot = load_desktop_page().unwrap();
 
         assert!(snapshot.monitors.is_empty());
         assert!(snapshot.stale);
