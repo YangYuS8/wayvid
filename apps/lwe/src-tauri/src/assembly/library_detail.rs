@@ -1,0 +1,46 @@
+use crate::models::{ItemType, LibraryItemDetail, LibrarySource};
+use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
+use wayvid_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType};
+
+fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
+    match project_type {
+        WorkshopProjectType::Video => ItemType::Video,
+        WorkshopProjectType::Scene => ItemType::Scene,
+        WorkshopProjectType::Web => ItemType::Web,
+        WorkshopProjectType::Other => ItemType::Other,
+    }
+}
+
+fn cover_path(entry: &WorkshopCatalogEntry) -> Option<String> {
+    let bundled_cover_path = entry
+        .cover_path
+        .as_ref()
+        .map(|path| path.to_string_lossy().into_owned());
+
+    match cover_art_source(bundled_cover_path) {
+        CoverArtSource::Bundled(path) => Some(path),
+        CoverArtSource::Placeholder => None,
+    }
+}
+
+pub fn assemble_library_detail(entry: WorkshopCatalogEntry) -> LibraryItemDetail {
+    let project = WeProject::load(&entry.project_dir).ok();
+    let description = project
+        .as_ref()
+        .and_then(|project| project.description.clone());
+    let tags = project.map(|project| project.tags).unwrap_or_default();
+    let id = entry.library_item_id.clone().unwrap_or_default();
+    let title = entry.title.clone();
+    let item_type = item_type_from_project_type(entry.project_type);
+    let cover_path = cover_path(&entry);
+
+    LibraryItemDetail {
+        id,
+        title,
+        item_type,
+        cover_path,
+        source: LibrarySource::Workshop,
+        description,
+        tags,
+    }
+}
