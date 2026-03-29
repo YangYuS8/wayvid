@@ -80,7 +80,7 @@ This plan does **not** implement:
 - `crates/wayvid-gui/locales/en.toml`
 - `crates/wayvid-gui/locales/zh-CN.toml`
 
-Those locale files are legacy wording references only. Reuse copy where it still fits, but do not treat `wayvid-gui` or `wayvid-ctl` as active workspace dependencies or shell targets.
+Legacy GUI locale files may be inspected only as wording references. Reuse copy where it still fits, but do not treat `wayvid-gui` or `wayvid-ctl` as active workspace dependencies or shell targets.
 
 ## Task 1: Create the New `lwe` Tauri + Svelte Shell
 
