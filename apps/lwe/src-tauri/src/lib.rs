@@ -3,6 +3,8 @@ pub mod app_shell;
 pub mod desktop;
 pub mod library;
 pub mod models;
+pub mod policies;
+pub mod results;
 pub mod settings;
 pub mod workshop;
 
