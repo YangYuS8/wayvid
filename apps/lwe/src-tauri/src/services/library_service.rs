@@ -1,9 +1,10 @@
 use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
+use crate::models::{LibraryItemDetail, LibraryPageSnapshot};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::policies::shared::support_policy::supports_first_release;
 use crate::results::library::LibraryProjection;
 use crate::services::workshop_service::WorkshopService;
-use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+use wayvid_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 pub struct LibraryService;
 
@@ -72,6 +73,37 @@ impl LibraryService {
                     && entry.library_item_id.as_deref() == Some(item_id)
             })
             .ok_or_else(|| format!("Library item {item_id} not found"))
+    }
+
+    pub fn load_page() -> Result<LibraryPageSnapshot, String> {
+        let projection = Self::load_projection()?;
+
+        Ok(LibraryPageSnapshot {
+            items: projection.projected_items,
+            selected_item_id: None,
+            stale: false,
+        })
+    }
+
+    pub fn load_item_detail(item_id: &str) -> Result<LibraryItemDetail, String> {
+        let entry = Self::inspect_item(item_id)?;
+        let item_type = Self::item_type_from_project_type(entry.project_type);
+        let cover_path = Self::cover_path(&entry);
+        let project = WeProject::load(&entry.project_dir).ok();
+        let description = project
+            .as_ref()
+            .and_then(|project| project.description.clone());
+        let tags = project.map(|project| project.tags).unwrap_or_default();
+
+        Ok(LibraryItemDetail {
+            id: entry.library_item_id.unwrap_or_default(),
+            title: entry.title,
+            item_type,
+            cover_path,
+            source: LibrarySource::Workshop,
+            description,
+            tags,
+        })
     }
 }
 
