@@ -4,10 +4,7 @@ pub struct DesktopService;
 
 impl DesktopService {
     pub fn load_page() -> Result<DesktopPageResult, String> {
-        Ok(DesktopPageResult {
-            monitor_count: None,
-            stale: true,
-        })
+        Ok(DesktopPageResult { stale: true })
     }
 }
 
@@ -18,8 +15,8 @@ mod tests {
     #[test]
     fn desktop_service_returns_stale_placeholder_result() {
         let result = DesktopService::load_page().unwrap();
+        let DesktopPageResult { stale } = result;
 
-        assert_eq!(result.monitor_count, None);
-        assert!(result.stale);
+        assert!(stale);
     }
 }
