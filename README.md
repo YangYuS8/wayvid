@@ -39,7 +39,7 @@ The active LWE product path is now limited to:
 - `apps/lwe/src-tauri`
 - retained core crates for shared models, library/workshop logic, and runtime behavior
 
-The legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` are no longer active workspace components. They remain in the repository temporarily as retired reference material only.
+The legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` are no longer active workspace components. They remain in the repository as retired reference material only unless a later change explicitly revives some portion of their functionality.
 
 ## What Is Changing
 
