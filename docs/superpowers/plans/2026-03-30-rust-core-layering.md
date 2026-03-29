@@ -4,7 +4,7 @@
 
 **Goal:** Refactor `apps/lwe/src-tauri` into a layered Rust application core where commands, services, policies, application results, and assemblers are clearly separated without introducing new crates yet.
 
-**Architecture:** Keep the hard crate boundaries as `lwe-app-shell`, `wayvid-library`, `wayvid-core`, and `wayvid-engine` for now, but restructure `lwe-app-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads.
+**Architecture:** Keep the active crate boundaries as `lwe-app-shell`, `wayvid-library`, `wayvid-core`, and `wayvid-engine` for now, with `apps/lwe/src-tauri` as the shell entrypoint, but restructure `lwe-app-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads. Legacy `wayvid-gui` and `wayvid-ctl` crates are outside the active workspace path.
 
 **Tech Stack:** Rust workspace, Tauri, `wayvid-library`, `wayvid-core`, serde, Cargo tests
 
@@ -12,7 +12,7 @@
 
 ## Scope Note
 
-This plan is intentionally about **internal Rust architecture**, not new end-user features. It should preserve current behavior for the LWE shell and Workshop loop while replacing the current command-heavy organization with a stable module structure inside `apps/lwe/src-tauri`.
+This plan is intentionally about **internal Rust architecture**, not new end-user features. It should preserve current behavior for the active LWE shell and Workshop loop while replacing the current command-heavy organization with a stable module structure inside `apps/lwe/src-tauri`.
 
 This plan does **not**:
 
@@ -68,6 +68,8 @@ This plan does **not**:
 - `apps/lwe/src-tauri/src/settings.rs` - remove or move old command-heavy logic into layered modules
 - `apps/lwe/src-tauri/src/models.rs` - keep frontend-facing contracts only, no business classification logic
 - `apps/lwe/src-tauri/src/action_outcome.rs` - keep frontend-facing outcome structs only, no action-decision logic
+
+The active layering surface in this plan stops at the `lwe-app-shell` <-> `wayvid-library` <-> `wayvid-core` <-> `wayvid-engine` boundaries. Legacy GUI and CLI peers stay outside the active workspace path.
 
 ### Files to inspect while implementing
 

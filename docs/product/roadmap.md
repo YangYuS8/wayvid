@@ -14,13 +14,18 @@
 
 ## Phase 3: First-Release Application
 
-- deliver a library-first desktop application shell
+- deliver a library-first desktop application shell at `apps/lwe/src-tauri`
 - add Linux desktop integration and daily-use controls
 - ship strong `video` and `scene` runtime support
 - provide Chinese and English product surfaces
 
+## Active Workspace Decision
+
+- `apps/lwe/src-tauri` is the active desktop shell path for current product work
+- `wayvid-gui` and `wayvid-ctl` are retired from the active workspace and remain legacy migration references only
+
 ## Next Planning Tracks
 
-- `workshop-browsing-and-acquisition`: build the first `LWE` Workshop loop in the new `lwe` Tauri + Svelte library-first desktop shell using Rust-owned page snapshots, detail payloads, official Steam handoff actions, and Library projection for synchronized items
+- `workshop-browsing-and-acquisition`: build the first `LWE` Workshop loop in the active `apps/lwe/src-tauri` + `apps/lwe` shell using Rust-owned page snapshots, detail payloads, official Steam handoff actions, and Library projection for synchronized items while treating `wayvid-gui`/`wayvid-ctl` as retired workspace history
 - `compatibility-evaluation-and-reporting`: define the import pipeline plan for content-type recognition, compatibility levels, and user-facing explanations
 - `desktop-shell-and-library-flow`: define the application shell plan for library management, playback controls, and Linux desktop integration

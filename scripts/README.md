@@ -1,6 +1,6 @@
 # Development Scripts
 
-Useful development and testing scripts for wayvid v0.5 workspace.
+Useful development and testing scripts for the active LWE workspace.
 
 ## Available Scripts
 
@@ -34,18 +34,26 @@ SKIP_TESTS=1 ./scripts/pre-push-check.sh
 
 ## Testing
 
-The project uses Rust's built-in test framework across the workspace:
+The active product path uses Rust's built-in test framework across the LWE shell and retained core crates:
 
 ```bash
 # Run all workspace tests
 cargo test --workspace
 
 # Run tests for a specific crate
+cargo test -p lwe-app-shell
 cargo test -p wayvid-core
 cargo test -p wayvid-library
-cargo test -p wayvid-gui
-cargo test -p wayvid-ctl
 cargo test -p wayvid-engine
+```
+
+Retired reference crates:
+
+```bash
+# Legacy crates remain in the repository for reference only and are not part of
+# the active workspace verification path.
+# cargo test --manifest-path crates/wayvid-gui/Cargo.toml
+# cargo test --manifest-path crates/wayvid-ctl/Cargo.toml
 ```
 
 ## Building
@@ -57,9 +65,8 @@ cargo build --workspace
 # Release build
 cargo build --release --workspace
 
-# Run GUI
-./target/release/wayvid-gui
-
-# Run CLI
-./target/release/wayvid-ctl status
+# Run the active shell from the workspace root
+cargo run -p lwe-app-shell
 ```
+
+Legacy binaries such as `wayvid-gui` and `wayvid-ctl` are retired reference surfaces and should not be treated as normal active workspace run targets.

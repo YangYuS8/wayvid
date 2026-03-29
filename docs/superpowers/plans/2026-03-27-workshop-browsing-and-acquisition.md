@@ -4,7 +4,7 @@
 
 **Goal:** Build the first reset-era LWE Workshop loop with a Tauri + Svelte thin frontend, a Rust-owned Workshop page snapshot model, official Steam handoff actions, and Library projection for locally synchronized items.
 
-**Architecture:** This plan replaces the old `wayvid-gui`/`iced` Workshop direction with a new `lwe` application shell. Rust remains the product brain: it discovers Steam libraries, scans locally synchronized Wallpaper Engine items, resolves bundled covers, produces page snapshots and item details, and returns `ActionOutcome` results for state-changing commands. The Svelte frontend stays thin: it renders `Library / Workshop / Desktop / Settings`, caches page snapshots by page, requests details on selection, and obeys stale-page invalidation instead of maintaining its own business truth.
+**Architecture:** This plan replaces the old `wayvid-gui`/`iced` Workshop direction with the active `lwe` application shell rooted at `apps/lwe/src-tauri` and `apps/lwe`. Rust remains the product brain: it discovers Steam libraries, scans locally synchronized Wallpaper Engine items, resolves bundled covers, produces page snapshots and item details, and returns `ActionOutcome` results for state-changing commands. The Svelte frontend stays thin: it renders `Library / Workshop / Desktop / Settings`, caches page snapshots by page, requests details on selection, and obeys stale-page invalidation instead of maintaining its own business truth.
 
 **Tech Stack:** Rust workspace, Tauri, Svelte, TypeScript, `wayvid-library`, `wayvid-core`, Steam local filesystem discovery, `open` crate, Cargo tests, Vitest
 
@@ -64,7 +64,7 @@ This plan does **not** implement:
 
 ### Files to modify
 
-- `Cargo.toml` - add `apps/lwe/src-tauri` to the Rust workspace members
+- `Cargo.toml` - keep `apps/lwe/src-tauri` as the active Rust workspace shell member
 - `README.md` - add a short note that the reset-era app shell is now `LWE` / `lwe`
 - `docs/product/roadmap.md` - align the Workshop planning track with the new Tauri + Svelte direction if wording still mentions only generic browsing
 - `crates/wayvid-library/src/lib.rs` - export new Workshop catalog types
@@ -80,7 +80,7 @@ This plan does **not** implement:
 - `crates/wayvid-gui/locales/en.toml`
 - `crates/wayvid-gui/locales/zh-CN.toml`
 
-Those locale files are the nearest existing source for bilingual product wording. Reuse wording where it still fits, but do not depend on `wayvid-gui` as the new shell.
+Legacy GUI locale files may be inspected only as wording references. Reuse copy where it still fits, but do not treat `wayvid-gui` or `wayvid-ctl` as active workspace dependencies or shell targets.
 
 ## Task 1: Create the New `lwe` Tauri + Svelte Shell
 
@@ -204,8 +204,6 @@ members = [
     "crates/wayvid-core",
     "crates/wayvid-engine",
     "crates/wayvid-library",
-    "crates/wayvid-gui",
-    "crates/wayvid-ctl",
     "apps/lwe/src-tauri",
 ]
 ```
