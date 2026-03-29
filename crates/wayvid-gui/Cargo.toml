@@ -15,7 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Internal crates
-wayvid-core = { path = "../wayvid-core" }
+lwe-core = { path = "../lwe-core" }
 wayvid-engine = { path = "../wayvid-engine" }
 wayvid-library = { path = "../wayvid-library" }
 

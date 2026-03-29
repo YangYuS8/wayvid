@@ -7,7 +7,7 @@
 
 use iced::widget::{button, column, container, row, text, Space};
 use iced::{Element, Length};
-use wayvid_core::{WallpaperItem, WallpaperType};
+use lwe_core::{WallpaperItem, WallpaperType};
 
 /// Message types for WallpaperCard interactions
 #[derive(Debug, Clone)]

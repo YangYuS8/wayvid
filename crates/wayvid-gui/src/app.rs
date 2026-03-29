@@ -1289,7 +1289,7 @@ pub fn run() -> Result<()> {
 }
 
 // Async helper functions
-async fn load_library() -> Result<Vec<wayvid_core::WallpaperItem>, String> {
+async fn load_library() -> Result<Vec<lwe_core::WallpaperItem>, String> {
     // TODO: Load from wayvid-library database
     Ok(vec![])
 }
@@ -1299,7 +1299,7 @@ async fn apply_wallpaper(id: &str) -> Result<(), String> {
     ipc::apply_wallpaper_ipc(id, None).await
 }
 
-async fn scan_folder(path: &std::path::Path) -> Result<Vec<wayvid_core::WallpaperItem>, String> {
+async fn scan_folder(path: &std::path::Path) -> Result<Vec<lwe_core::WallpaperItem>, String> {
     use wayvid_library::FolderScanner;
 
     let scanner = FolderScanner::new();
@@ -1326,7 +1326,7 @@ async fn clear_monitor_wallpaper(output: &str) -> Result<(), String> {
 }
 
 /// Scan Steam Workshop for Wallpaper Engine wallpapers
-async fn scan_workshop() -> Result<Vec<wayvid_core::WallpaperItem>, String> {
+async fn scan_workshop() -> Result<Vec<lwe_core::WallpaperItem>, String> {
     use wayvid_library::WorkshopScanner;
 
     let mut scanner = WorkshopScanner::discover().map_err(|e| e.to_string())?;

@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use iced::Task;
-use wayvid_core::{WallpaperItem, WallpaperType};
+use lwe_core::{WallpaperItem, WallpaperType};
 
 use crate::async_loader::{AsyncLoader, ThumbnailRequest};
 use crate::i18n::{self, Language};
@@ -311,13 +311,12 @@ impl AppState {
                 let source_match = match self.source_filter {
                     SourceFilter::All => true,
                     SourceFilter::Workshop => {
-                        matches!(wp.source_type, wayvid_core::SourceType::SteamWorkshop)
+                        matches!(wp.source_type, lwe_core::SourceType::SteamWorkshop)
                     }
                     SourceFilter::Local => {
                         matches!(
                             wp.source_type,
-                            wayvid_core::SourceType::LocalFile
-                                | wayvid_core::SourceType::LocalDirectory
+                            lwe_core::SourceType::LocalFile | lwe_core::SourceType::LocalDirectory
                         )
                     }
                 };
@@ -475,8 +474,8 @@ pub struct MonitorInfo {
 }
 
 impl MonitorInfo {
-    /// Create MonitorInfo from wayvid_core::OutputInfo
-    pub fn from_output_info(info: &wayvid_core::OutputInfo) -> Self {
+    /// Create MonitorInfo from lwe_core::OutputInfo
+    pub fn from_output_info(info: &lwe_core::OutputInfo) -> Self {
         Self {
             name: info.name.clone(),
             width: info.width as u32,

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use iced::Subscription;
 use tokio::sync::RwLock;
-use wayvid_core::WallpaperItem;
+use lwe_core::WallpaperItem;
 
 /// Thumbnail load request
 #[derive(Debug, Clone)]

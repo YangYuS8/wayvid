@@ -53,7 +53,7 @@ Deletion should happen only after the replacement docs above exist.
 - `openspec/changes/**`
 - `crates/wayvid-engine/**`
 - `crates/wayvid-library/**`
-- `crates/wayvid-core/**`
+- `crates/lwe-core/**`
 
 These are the primary sources for deciding what is migrated vs retired.
 
@@ -307,7 +307,7 @@ Write this content structure:
 
 - `crates/wayvid-engine/` - low-level playback/runtime knowledge
 - `crates/wayvid-library/` - Workshop parsing/import knowledge and library mechanics
-- `crates/wayvid-core/` - only shared domain or protocol pieces still useful after review
+- `crates/lwe-core/` - only shared domain or protocol pieces still useful after review
 
 ## Retire or Re-evaluate Aggressively
 

@@ -2,8 +2,8 @@
 //!
 //! All user interactions and async events are represented as messages.
 
+use lwe_core::WallpaperItem;
 use std::path::PathBuf;
-use wayvid_core::WallpaperItem;
 
 use crate::async_loader::ThumbnailRequest;
 use crate::i18n::Language;
