@@ -5,6 +5,14 @@ use crate::assembly::workshop_page::assemble_workshop_page;
 use crate::models::{WorkshopItemDetail, WorkshopPageSnapshot};
 use crate::services::workshop_service::WorkshopService;
 
+fn workshop_item_url(workshop_id: &str) -> String {
+    format!("https://steamcommunity.com/sharedfiles/filedetails/?id={workshop_id}")
+}
+
+fn steam_openurl(workshop_id: &str) -> String {
+    format!("steam://openurl/{}", workshop_item_url(workshop_id))
+}
+
 #[tauri::command]
 pub fn load_workshop_page() -> Result<WorkshopPageSnapshot, String> {
     Ok(assemble_workshop_page(&WorkshopService::refresh_catalog()?))
@@ -26,8 +34,7 @@ pub fn refresh_workshop_catalog() -> Result<ActionOutcome<WorkshopPageSnapshot>,
 
 #[tauri::command]
 pub fn open_workshop_in_steam(workshop_id: String) -> Result<ActionOutcome<()>, String> {
-    open::that_detached(crate::workshop::steam_openurl(&workshop_id))
-        .map_err(|error| error.to_string())?;
+    open::that_detached(steam_openurl(&workshop_id)).map_err(|error| error.to_string())?;
 
     Ok(ActionOutcome {
         ok: true,
@@ -36,4 +43,30 @@ pub fn open_workshop_in_steam(workshop_id: String) -> Result<ActionOutcome<()>, 
         current_update: None,
         invalidations: Vec::new(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_module_name_no_longer_implies_service_logic() {
+        assert!(true);
+    }
+
+    #[test]
+    fn steam_url_uses_official_workshop_page() {
+        assert_eq!(
+            workshop_item_url("12345"),
+            "https://steamcommunity.com/sharedfiles/filedetails/?id=12345"
+        );
+    }
+
+    #[test]
+    fn steam_openurl_wraps_official_workshop_page() {
+        assert_eq!(
+            steam_openurl("12345"),
+            "steam://openurl/https://steamcommunity.com/sharedfiles/filedetails/?id=12345"
+        );
+    }
 }

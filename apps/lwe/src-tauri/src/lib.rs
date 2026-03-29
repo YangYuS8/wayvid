@@ -1,4 +1,4 @@
-// Frontend-facing contracts and layered application core.
+// Layered application core for the Tauri shell.
 pub mod action_outcome;
 pub mod assembly;
 pub mod commands;
@@ -6,13 +6,6 @@ pub mod models;
 pub mod policies;
 pub mod results;
 pub mod services;
-
-// Legacy command-module compatibility shims and page modules.
-mod app_shell;
-mod desktop;
-mod library;
-mod settings;
-mod workshop;
 
 pub const APP_CODE_NAME: &str = "lwe";
 
