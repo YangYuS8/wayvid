@@ -23,15 +23,26 @@ impl JsonFilePersistenceBackend {
     }
 }
 
-fn desktop_state_path_from_env(xdg_config_home: Option<PathBuf>, home: Option<PathBuf>) -> PathBuf {
-    let base = xdg_config_home
-        .or_else(|| home.map(|home| home.join(".config")))
-        .unwrap_or_else(|| PathBuf::from("."));
+fn desktop_state_path_from_env(
+    xdg_config_home: Option<PathBuf>,
+    home: Option<PathBuf>,
+) -> Result<PathBuf, String> {
+    let base = xdg_config_home.or_else(|| home.map(|home| home.join(".config")));
 
-    base.join("wayvid").join("desktop-state.json")
+    match base {
+        Some(path) if path.is_absolute() => Ok(path.join("wayvid").join("desktop-state.json")),
+        Some(path) => Err(format!(
+            "Unable to resolve desktop persistence path from non-absolute config root {}",
+            path.display()
+        )),
+        None => Err(
+            "Unable to resolve desktop persistence path because XDG_CONFIG_HOME and HOME are unset"
+                .to_string(),
+        ),
+    }
 }
 
-pub fn desktop_state_path() -> PathBuf {
+pub fn desktop_state_path() -> Result<PathBuf, String> {
     desktop_state_path_from_env(
         std::env::var_os("XDG_CONFIG_HOME")
             .filter(|value| !value.is_empty())
@@ -113,12 +124,25 @@ mod tests {
     use super::desktop_state_path_from_env;
 
     #[test]
-    fn desktop_state_path_falls_back_to_local_path_when_env_is_missing() {
+    fn desktop_state_path_returns_unavailable_when_env_is_missing() {
         let path = desktop_state_path_from_env(None, None);
 
-        assert_eq!(
-            path,
-            PathBuf::from(".").join("wayvid").join("desktop-state.json")
+        assert!(
+            matches!(path, Err(reason) if reason.contains("XDG_CONFIG_HOME and HOME are unset"))
         );
+    }
+
+    #[test]
+    fn desktop_state_path_returns_unavailable_for_relative_config_root() {
+        let path = desktop_state_path_from_env(Some(PathBuf::from("relative-config")), None);
+
+        assert!(matches!(path, Err(reason) if reason.contains("non-absolute config root")));
+    }
+
+    #[test]
+    fn desktop_state_path_uses_absolute_config_root() {
+        let path = desktop_state_path_from_env(Some(PathBuf::from("/tmp/config")), None).unwrap();
+
+        assert_eq!(path, PathBuf::from("/tmp/config/wayvid/desktop-state.json"));
     }
 }
