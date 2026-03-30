@@ -1,5 +1,6 @@
 pub mod action_outcome;
 pub mod app_shell;
+pub mod compatibility;
 pub mod desktop_page;
 pub mod library_detail;
 pub mod library_page;

@@ -12,6 +12,20 @@ import {
   setSelectedItem
 } from './ui';
 
+const compatibilitySummary = {
+  badge: 'fully_supported' as const,
+  reasonCode: 'ready_for_library',
+  summaryCopy: 'Ready to use'
+};
+
+const compatibilityDetail = {
+  ...compatibilitySummary,
+  headline: 'Ready to use',
+  detail: 'This item is synchronized locally and available for Library and desktop use.',
+  nextStep: 'none' as const,
+  nextStepCopy: null
+};
+
 const resetCache = () => {
   pageCache.set({
     library: { snapshot: null, detail: null, stale: false },
@@ -63,8 +77,24 @@ describe('ui page cache', () => {
   it('ignores stale detail responses for a previous library selection', () => {
     setLibrarySnapshot({
       items: [
-        { id: 'a', title: 'A', itemType: 'scene', coverPath: null, source: 'workshop', favorite: false },
-        { id: 'b', title: 'B', itemType: 'scene', coverPath: null, source: 'workshop', favorite: false }
+        {
+          id: 'a',
+          title: 'A',
+          itemType: 'scene',
+          coverPath: null,
+          source: 'workshop',
+          compatibility: compatibilitySummary,
+          favorite: false
+        },
+        {
+          id: 'b',
+          title: 'B',
+          itemType: 'scene',
+          coverPath: null,
+          source: 'workshop',
+          compatibility: compatibilitySummary,
+          favorite: false
+        }
       ],
       selectedItemId: null,
       stale: false
@@ -79,6 +109,7 @@ describe('ui page cache', () => {
         itemType: 'scene',
         coverPath: null,
         source: 'workshop',
+        compatibility: compatibilityDetail,
         description: null,
         tags: []
       },

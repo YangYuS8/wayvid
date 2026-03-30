@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CompatibilityPanel from '$lib/components/CompatibilityPanel.svelte';
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import type { WorkshopItemDetail } from '$lib/types';
@@ -22,15 +23,13 @@
         <h2>{detail.title}</h2>
 
         <div class="badges">
-          <StatusBadge label={detail.compatibilityBadge} />
+          <StatusBadge label={detail.compatibility.badge} />
           <StatusBadge label={detail.syncStatus} />
         </div>
 
         <p class="meta">{detail.itemType}</p>
 
-        {#if detail.compatibilityNote}
-          <p>{detail.compatibilityNote}</p>
-        {/if}
+        <CompatibilityPanel compatibility={detail.compatibility} />
 
         {#if detail.description}
           <p>{detail.description}</p>

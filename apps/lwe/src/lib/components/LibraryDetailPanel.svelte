@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CompatibilityPanel from '$lib/components/CompatibilityPanel.svelte';
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import type { LibraryItemDetail } from '$lib/types';
@@ -20,9 +21,12 @@
       <div class="copy">
         <h2>{detail.title}</h2>
         <div class="badges">
+          <StatusBadge label={detail.compatibility.badge} />
           <StatusBadge label={detail.source} />
           <StatusBadge label={detail.itemType} />
         </div>
+
+        <CompatibilityPanel compatibility={detail.compatibility} />
 
         {#if detail.description}
           <p>{detail.description}</p>

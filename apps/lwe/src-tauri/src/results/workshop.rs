@@ -1,8 +1,22 @@
+use crate::results::compatibility::CompatibilityAssessment;
 use lwe_library::{WorkshopCatalogEntry, WorkshopSyncState};
+
+#[derive(Debug, Clone, Default)]
+pub struct WorkshopProjectMetadata {
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AssessedWorkshopCatalogEntry {
+    pub entry: WorkshopCatalogEntry,
+    pub compatibility: CompatibilityAssessment,
+    pub project_metadata: WorkshopProjectMetadata,
+}
 
 #[derive(Debug, Clone)]
 pub struct WorkshopRefreshResult {
-    pub catalog_entries: Vec<WorkshopCatalogEntry>,
+    pub catalog_entries: Vec<AssessedWorkshopCatalogEntry>,
     pub library_refresh_required: bool,
 }
 
@@ -10,7 +24,7 @@ impl WorkshopRefreshResult {
     pub fn synced_entry_count(&self) -> usize {
         self.catalog_entries
             .iter()
-            .filter(|entry| entry.sync_state == WorkshopSyncState::Synced)
+            .filter(|entry| entry.entry.sync_state == WorkshopSyncState::Synced)
             .count()
     }
 }
@@ -18,7 +32,7 @@ impl WorkshopRefreshResult {
 #[derive(Debug, Clone)]
 pub struct WorkshopInspection {
     pub requested_workshop_id: String,
-    pub entry: WorkshopCatalogEntry,
+    pub entry: AssessedWorkshopCatalogEntry,
 }
 
 #[cfg(test)]

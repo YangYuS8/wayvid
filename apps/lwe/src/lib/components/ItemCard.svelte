@@ -1,26 +1,30 @@
 <script lang="ts">
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import type { CompatibilitySummaryModel } from '$lib/types';
 
   export let title: string;
   export let itemType: string;
   export let coverPath: string | null = null;
-  export let primaryBadge: string;
+  export let compatibility: CompatibilitySummaryModel;
   export let selected = false;
 </script>
 
-<div class:selected>
+<div class="item-card" class:selected>
   <CoverImage {coverPath} label={title} />
 
   <div class="copy">
     <h3>{title}</h3>
     <p>{itemType}</p>
-    <StatusBadge label={primaryBadge} />
+    <div class="summary">
+      <StatusBadge label={compatibility.badge} />
+      <p class="summary-copy">{compatibility.summaryCopy}</p>
+    </div>
   </div>
 </div>
 
 <style>
-  div {
+  .item-card {
     display: grid;
     gap: 0.8rem;
     border: 1px solid rgba(33, 52, 72, 0.12);
@@ -31,7 +35,7 @@
     transition: border-color 0.18s ease, transform 0.18s ease;
   }
 
-  div.selected {
+  .item-card.selected {
     border-color: #23456e;
     transform: translateY(-1px);
   }
@@ -40,6 +44,11 @@
     display: grid;
     gap: 0.35rem;
     min-width: 0;
+  }
+
+  .summary {
+    display: grid;
+    gap: 0.3rem;
   }
 
   h3,
@@ -61,5 +70,10 @@
   p {
     color: #5a6978;
     text-transform: capitalize;
+  }
+
+  .summary-copy {
+    font-size: 0.8rem;
+    text-transform: none;
   }
 </style>

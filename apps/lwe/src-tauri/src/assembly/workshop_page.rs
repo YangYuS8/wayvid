@@ -1,9 +1,7 @@
-use crate::models::{
-    CompatibilityBadge, ItemType, WorkshopItemSummary, WorkshopPageSnapshot, WorkshopSyncStatus,
-};
-use crate::policies::shared::compatibility_policy::{compatibility_decision, CompatibilityLevel};
+use crate::assembly::compatibility::compatibility_summary;
+use crate::models::{ItemType, WorkshopItemSummary, WorkshopPageSnapshot, WorkshopSyncStatus};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
-use crate::results::workshop::WorkshopRefreshResult;
+use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopRefreshResult};
 use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -36,21 +34,15 @@ fn sync_status(entry: &WorkshopCatalogEntry) -> WorkshopSyncStatus {
     }
 }
 
-fn compatibility_badge(entry: &WorkshopCatalogEntry) -> CompatibilityBadge {
-    match compatibility_decision(entry).level {
-        CompatibilityLevel::FullySupported => CompatibilityBadge::FullySupported,
-        CompatibilityLevel::PartiallySupported => CompatibilityBadge::PartiallySupported,
-        CompatibilityLevel::Unsupported => CompatibilityBadge::Unsupported,
-    }
-}
-
-fn workshop_summary_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemSummary {
-    let workshop_id = entry.workshop_id.to_string();
-    let title = entry.title.clone();
-    let item_type = item_type_from_project_type(entry.project_type);
-    let cover_path = cover_path(&entry);
-    let sync_status = sync_status(&entry);
-    let compatibility_badge = compatibility_badge(&entry);
+fn workshop_summary_from_entry(
+    assessed_entry: AssessedWorkshopCatalogEntry,
+) -> WorkshopItemSummary {
+    let workshop_id = assessed_entry.entry.workshop_id.to_string();
+    let title = assessed_entry.entry.title.clone();
+    let item_type = item_type_from_project_type(assessed_entry.entry.project_type);
+    let cover_path = cover_path(&assessed_entry.entry);
+    let sync_status = sync_status(&assessed_entry.entry);
+    let compatibility = compatibility_summary(&assessed_entry.compatibility);
 
     WorkshopItemSummary {
         id: workshop_id,
@@ -58,7 +50,7 @@ fn workshop_summary_from_entry(entry: WorkshopCatalogEntry) -> WorkshopItemSumma
         item_type,
         cover_path,
         sync_status,
-        compatibility_badge,
+        compatibility,
     }
 }
 
