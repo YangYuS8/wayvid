@@ -27,7 +27,7 @@
   export let selected = false;
 </script>
 
-<div class:selected>
+<div class:item-card class:selected>
   <CoverImage {coverPath} label={title} />
 
   <div class="copy">
@@ -41,7 +41,7 @@
 </div>
 
 <style>
-  div {
+  .item-card {
     display: grid;
     gap: 0.8rem;
     border: 1px solid rgba(33, 52, 72, 0.12);
@@ -52,7 +52,7 @@
     transition: border-color 0.18s ease, transform 0.18s ease;
   }
 
-  div.selected {
+  .item-card.selected {
     border-color: #23456e;
     transform: translateY(-1px);
   }
