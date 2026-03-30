@@ -1,4 +1,5 @@
 use crate::policies::shared::support_policy::supports_first_release;
+use crate::results::compatibility::CompatibilityNextStep;
 use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +22,7 @@ pub enum CompatibilityReason {
 pub struct CompatibilityDecision {
     pub level: CompatibilityLevel,
     pub reason: CompatibilityReason,
+    pub next_step: CompatibilityNextStep,
 }
 
 pub fn compatibility_decision(entry: &WorkshopCatalogEntry) -> CompatibilityDecision {
@@ -34,10 +36,12 @@ pub fn compatibility_decision(entry: &WorkshopCatalogEntry) -> CompatibilityDeci
         (true, WorkshopSyncState::Synced, _) => CompatibilityDecision {
             level: CompatibilityLevel::FullySupported,
             reason: CompatibilityReason::ReadyForLibrary,
+            next_step: CompatibilityNextStep::None,
         },
         (_, WorkshopSyncState::MissingProjectFile, _) => CompatibilityDecision {
             level: CompatibilityLevel::Unsupported,
             reason: CompatibilityReason::MissingProjectMetadata,
+            next_step: CompatibilityNextStep::ResyncWorkshopItem,
         },
         (
             _,
@@ -46,16 +50,19 @@ pub fn compatibility_decision(entry: &WorkshopCatalogEntry) -> CompatibilityDeci
         ) => CompatibilityDecision {
             level: CompatibilityLevel::PartiallySupported,
             reason: CompatibilityReason::MissingPrimaryAsset,
+            next_step: CompatibilityNextStep::ResyncWorkshopItem,
         },
         (_, WorkshopSyncState::UnsupportedType, WorkshopProjectType::Web) => {
             CompatibilityDecision {
                 level: CompatibilityLevel::Unsupported,
                 reason: CompatibilityReason::UnsupportedWebItem,
+                next_step: CompatibilityNextStep::WaitForFutureSupport,
             }
         }
         _ => CompatibilityDecision {
             level: CompatibilityLevel::Unsupported,
             reason: CompatibilityReason::UnsupportedProjectType,
+            next_step: CompatibilityNextStep::WaitForFutureSupport,
         },
     }
 }
@@ -63,6 +70,7 @@ pub fn compatibility_decision(entry: &WorkshopCatalogEntry) -> CompatibilityDeci
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::results::compatibility::CompatibilityNextStep;
     use std::path::PathBuf;
 
     fn unsupported_web_entry() -> WorkshopCatalogEntry {
@@ -103,5 +111,28 @@ mod tests {
 
         assert_eq!(decision.level, CompatibilityLevel::Unsupported);
         assert_eq!(decision.reason, CompatibilityReason::UnsupportedProjectType);
+    }
+
+    #[test]
+    fn compatibility_decision_exposes_structured_reason_and_guidance() {
+        let entry = WorkshopCatalogEntry {
+            workshop_id: 9,
+            title: "Broken Scene".to_string(),
+            project_type: WorkshopProjectType::Scene,
+            project_dir: std::path::PathBuf::from("/tmp/9"),
+            cover_path: None,
+            sync_state: WorkshopSyncState::MissingPrimaryAsset,
+            supported_first_release: false,
+            library_item_id: None,
+        };
+
+        let decision = compatibility_decision(&entry);
+
+        assert_eq!(decision.level, CompatibilityLevel::PartiallySupported);
+        assert_eq!(decision.reason, CompatibilityReason::MissingPrimaryAsset);
+        assert_eq!(
+            decision.next_step,
+            CompatibilityNextStep::ResyncWorkshopItem
+        );
     }
 }
