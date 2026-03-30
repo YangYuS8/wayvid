@@ -53,4 +53,10 @@ export const openWorkshopInSteam = (workshopId: string) =>
 
 export const loadDesktopPage = () => invokeCommand<DesktopPageSnapshot>('load_desktop_page');
 
+export const applyLibraryItemToMonitor = (monitorId: string, itemId: string) =>
+  invokeCommand<ActionOutcome<null>>('apply_library_item_to_monitor', { monitorId, itemId });
+
+export const clearLibraryItemFromMonitor = (monitorId: string) =>
+  invokeCommand<ActionOutcome<null>>('clear_library_item_from_monitor', { monitorId });
+
 export const loadSettingsPage = () => invokeCommand<SettingsPageSnapshot>('load_settings_page');
