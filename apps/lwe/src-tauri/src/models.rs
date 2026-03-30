@@ -26,6 +26,23 @@ pub enum CompatibilityBadge {
     Unsupported,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompatibilitySummaryModel {
+    pub badge: CompatibilityBadge,
+    pub reason_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompatibilityExplanationModel {
+    pub badge: CompatibilityBadge,
+    pub reason_code: String,
+    pub headline: String,
+    pub detail: String,
+    pub next_step: crate::policies::shared::compatibility_policy::CompatibilityNextStep,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LibrarySource {
@@ -63,7 +80,7 @@ pub struct WorkshopItemSummary {
     pub item_type: ItemType,
     pub cover_path: Option<String>,
     pub sync_status: WorkshopSyncStatus,
-    pub compatibility_badge: CompatibilityBadge,
+    pub compatibility: CompatibilitySummaryModel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,8 +99,7 @@ pub struct WorkshopItemDetail {
     pub item_type: ItemType,
     pub cover_path: Option<String>,
     pub sync_status: WorkshopSyncStatus,
-    pub compatibility_badge: CompatibilityBadge,
-    pub compatibility_note: Option<String>,
+    pub compatibility: CompatibilityExplanationModel,
     pub tags: Vec<String>,
     pub description: Option<String>,
 }
@@ -96,6 +112,7 @@ pub struct LibraryItemSummary {
     pub item_type: ItemType,
     pub cover_path: Option<String>,
     pub source: LibrarySource,
+    pub compatibility: CompatibilitySummaryModel,
     pub favorite: bool,
 }
 
@@ -115,6 +132,7 @@ pub struct LibraryItemDetail {
     pub item_type: ItemType,
     pub cover_path: Option<String>,
     pub source: LibrarySource,
+    pub compatibility: CompatibilityExplanationModel,
     pub description: Option<String>,
     pub tags: Vec<String>,
 }
@@ -150,6 +168,14 @@ pub struct SettingsPageSnapshot {
 mod tests {
     use super::*;
     use crate::action_outcome::AppShellPatch;
+    use crate::policies::shared::compatibility_policy::CompatibilityNextStep;
+
+    fn summary_compatibility() -> CompatibilitySummaryModel {
+        CompatibilitySummaryModel {
+            badge: CompatibilityBadge::FullySupported,
+            reason_code: "ready_for_library".to_string(),
+        }
+    }
 
     #[test]
     fn workshop_item_summary_uses_cover_or_placeholder_shape() {
@@ -159,7 +185,7 @@ mod tests {
             item_type: ItemType::Scene,
             cover_path: None,
             sync_status: WorkshopSyncStatus::Synced,
-            compatibility_badge: CompatibilityBadge::FullySupported,
+            compatibility: summary_compatibility(),
         };
 
         assert_eq!(item.id, "42");
@@ -175,7 +201,7 @@ mod tests {
             item_type: ItemType::Scene,
             cover_path: None,
             sync_status: WorkshopSyncStatus::Synced,
-            compatibility_badge: CompatibilityBadge::FullySupported,
+            compatibility: summary_compatibility(),
         };
 
         let value = serde_json::to_value(&item).unwrap();
@@ -183,7 +209,35 @@ mod tests {
         assert_eq!(value["id"], "9007199254740993");
         assert_eq!(value["itemType"], "scene");
         assert_eq!(value["syncStatus"], "synced");
-        assert_eq!(value["compatibilityBadge"], "fully_supported");
+        assert_eq!(value["compatibility"]["badge"], "fully_supported");
+        assert_eq!(value["compatibility"]["reasonCode"], "ready_for_library");
+    }
+
+    #[test]
+    fn compatibility_models_serialize_explanation_payload() {
+        let item = WorkshopItemDetail {
+            id: "42".to_string(),
+            title: "Forest Scene".to_string(),
+            item_type: ItemType::Scene,
+            cover_path: None,
+            sync_status: WorkshopSyncStatus::Synced,
+            compatibility: CompatibilityExplanationModel {
+                badge: CompatibilityBadge::FullySupported,
+                reason_code: "ready_for_library".to_string(),
+                headline: "Ready to use".to_string(),
+                detail:
+                    "This item is synchronized locally and available for Library and desktop use."
+                        .to_string(),
+                next_step: CompatibilityNextStep::None,
+            },
+            tags: Vec::new(),
+            description: None,
+        };
+
+        let value = serde_json::to_value(&item).unwrap();
+
+        assert_eq!(value["compatibility"]["headline"], "Ready to use");
+        assert_eq!(value["compatibility"]["nextStep"], "none");
     }
 
     #[test]

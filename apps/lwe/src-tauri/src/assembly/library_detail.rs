@@ -1,3 +1,4 @@
+use crate::assembly::compatibility::compatibility_explanation;
 use crate::models::{ItemType, LibraryItemDetail, LibrarySource};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::workshop::AssessedWorkshopCatalogEntry;
@@ -41,6 +42,7 @@ pub fn assemble_library_detail(entry: AssessedWorkshopCatalogEntry) -> LibraryIt
         item_type,
         cover_path,
         source: LibrarySource::Workshop,
+        compatibility: compatibility_explanation(&entry.compatibility),
         description,
         tags,
     }

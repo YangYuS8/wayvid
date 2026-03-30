@@ -1,8 +1,7 @@
-use crate::models::{CompatibilityBadge, ItemType, WorkshopItemDetail, WorkshopSyncStatus};
-use crate::policies::shared::compatibility_policy::CompatibilityLevel;
+use crate::assembly::compatibility::compatibility_explanation;
+use crate::models::{ItemType, WorkshopItemDetail, WorkshopSyncStatus};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
-use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopInspection};
-use crate::services::compatibility_service::CompatibilityService;
+use crate::results::workshop::WorkshopInspection;
 use lwe_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -35,14 +34,6 @@ fn sync_status(entry: &WorkshopCatalogEntry) -> WorkshopSyncStatus {
     }
 }
 
-fn compatibility_badge(entry: &AssessedWorkshopCatalogEntry) -> CompatibilityBadge {
-    match entry.compatibility.level {
-        CompatibilityLevel::FullySupported => CompatibilityBadge::FullySupported,
-        CompatibilityLevel::PartiallySupported => CompatibilityBadge::PartiallySupported,
-        CompatibilityLevel::Unsupported => CompatibilityBadge::Unsupported,
-    }
-}
-
 pub fn assemble_workshop_detail(result: WorkshopInspection) -> WorkshopItemDetail {
     let entry = result.entry;
     let project = WeProject::load(&entry.entry.project_dir).ok();
@@ -55,8 +46,7 @@ pub fn assemble_workshop_detail(result: WorkshopInspection) -> WorkshopItemDetai
     let item_type = item_type_from_project_type(entry.entry.project_type);
     let cover_path = cover_path(&entry.entry);
     let sync_status = sync_status(&entry.entry);
-    let compatibility_badge = compatibility_badge(&entry);
-    let compatibility_note = CompatibilityService::compatibility_note(entry.compatibility);
+    let compatibility = compatibility_explanation(&entry.compatibility);
 
     WorkshopItemDetail {
         id,
@@ -64,8 +54,7 @@ pub fn assemble_workshop_detail(result: WorkshopInspection) -> WorkshopItemDetai
         item_type,
         cover_path,
         sync_status,
-        compatibility_badge,
-        compatibility_note,
+        compatibility,
         tags,
         description,
     }

@@ -1,3 +1,4 @@
+use crate::assembly::compatibility::compatibility_summary;
 use crate::models::LibraryPageSnapshot;
 use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
@@ -33,6 +34,7 @@ fn assemble_library_summary(entry: AssessedWorkshopCatalogEntry) -> LibraryItemS
         item_type: item_type_from_project_type(entry.entry.project_type),
         cover_path: cover_path(&entry.entry),
         source: LibrarySource::Workshop,
+        compatibility: compatibility_summary(&entry.compatibility),
         favorite: false,
     }
 }
