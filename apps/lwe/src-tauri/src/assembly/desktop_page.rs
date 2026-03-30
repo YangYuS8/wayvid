@@ -5,8 +5,10 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
     let DesktopPageResult {
         monitors,
         assignments,
+        monitor_discovery_issue,
+        persistence_issue,
+        assignments_available,
         stale,
-        ..
     } = result;
 
     DesktopPageSnapshot {
@@ -21,6 +23,9 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                 runtime_status: RuntimeStatus::Unsupported,
             })
             .collect(),
+        monitor_discovery_issue,
+        persistence_issue,
+        assignments_available,
         stale,
     }
 }
@@ -56,5 +61,8 @@ mod tests {
             Some("Forest Scene")
         );
         assert!(!snapshot.stale);
+        assert!(snapshot.assignments_available);
+        assert!(snapshot.monitor_discovery_issue.is_none());
+        assert!(snapshot.persistence_issue.is_none());
     }
 }

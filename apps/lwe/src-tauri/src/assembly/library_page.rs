@@ -2,9 +2,9 @@ use crate::assembly::compatibility::compatibility_summary;
 use crate::models::LibraryPageSnapshot;
 use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
+use crate::results::desktop::DesktopPageResult;
 use crate::results::library::LibraryProjection;
 use crate::results::workshop::AssessedWorkshopCatalogEntry;
-use crate::services::library_service::LibraryService;
 use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -40,7 +40,12 @@ fn assemble_library_summary(entry: AssessedWorkshopCatalogEntry) -> LibraryItemS
     }
 }
 
-pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
+pub fn assemble_library_page(
+    result: LibraryProjection,
+    desktop: &DesktopPageResult,
+) -> LibraryPageSnapshot {
+    let stale = (result.entries.is_empty() && result.source_catalog_count == 0) || desktop.stale;
+
     LibraryPageSnapshot {
         items: result
             .entries
@@ -48,7 +53,9 @@ pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
             .map(assemble_library_summary)
             .collect(),
         selected_item_id: None,
-        stale: !LibraryService::desktop_assignments_available(),
+        desktop_assignment_issue: desktop.persistence_issue.clone(),
+        desktop_assignments_available: desktop.assignments_available,
+        stale,
     }
 }
 
@@ -59,6 +66,7 @@ mod tests {
         CompatibilityDecision, CompatibilityLevel, CompatibilityReason,
     };
     use crate::results::compatibility::CompatibilityNextStep;
+    use crate::results::desktop::DesktopPageResult;
     use crate::results::library::LibraryProjection;
     use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopProjectMetadata};
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
@@ -86,14 +94,29 @@ mod tests {
 
     #[test]
     fn assembler_turns_library_projection_entries_into_page_snapshot() {
-        let snapshot = assemble_library_page(LibraryProjection {
-            entries: vec![assessed_entry()],
-            source_catalog_count: 1,
-        });
+        let snapshot = assemble_library_page(
+            LibraryProjection {
+                entries: vec![assessed_entry()],
+                source_catalog_count: 1,
+            },
+            &DesktopPageResult {
+                monitors: Vec::new(),
+                assignments: std::collections::BTreeMap::new(),
+                monitor_discovery_issue: None,
+                persistence_issue: Some("Desktop persistence is not available yet".to_string()),
+                assignments_available: false,
+                stale: true,
+            },
+        );
 
         assert_eq!(snapshot.items.len(), 1);
         assert_eq!(snapshot.items[0].id, "scene-7");
         assert_eq!(snapshot.items[0].title, "Forest Scene");
+        assert!(!snapshot.desktop_assignments_available);
+        assert_eq!(
+            snapshot.desktop_assignment_issue.as_deref(),
+            Some("Desktop persistence is not available yet")
+        );
         assert!(snapshot.stale);
     }
 }
