@@ -35,6 +35,7 @@ mod tests {
         let snapshot = load_desktop_page().unwrap();
 
         assert!(snapshot.monitors.is_empty());
+        assert!(!snapshot.monitors_available);
         assert!(snapshot.stale);
         assert_eq!(
             snapshot.monitor_discovery_issue.as_deref(),

@@ -56,6 +56,7 @@ pub fn assemble_library_page(
             .map(assemble_library_summary)
             .collect(),
         selected_item_id: None,
+        monitors_available: desktop_status.monitors_available,
         monitor_discovery_issue: desktop_status.monitor_discovery_issue,
         desktop_assignment_issue: desktop_status.desktop_assignment_issue,
         desktop_assignments_available: desktop_status.desktop_assignments_available,

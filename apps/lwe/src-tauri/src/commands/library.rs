@@ -32,6 +32,7 @@ mod tests {
     fn desktop_apply_flow_library_page_reuses_desktop_state_in_snapshot() {
         let snapshot = load_library_page().unwrap();
 
+        assert!(!snapshot.monitors_available);
         assert!(!snapshot.desktop_assignments_available);
         assert_eq!(
             snapshot.desktop_assignment_issue.as_deref(),

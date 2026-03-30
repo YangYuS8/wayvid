@@ -124,6 +124,7 @@ pub struct LibraryItemSummary {
 pub struct LibraryPageSnapshot {
     pub items: Vec<LibraryItemSummary>,
     pub selected_item_id: Option<String>,
+    pub monitors_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor_discovery_issue: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -141,6 +142,7 @@ pub struct LibraryItemDetail {
     pub cover_path: Option<String>,
     pub source: LibrarySource,
     pub compatibility: CompatibilityExplanationModel,
+    pub monitors_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor_discovery_issue: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -165,6 +167,7 @@ pub struct DesktopMonitorSummary {
 #[serde(rename_all = "camelCase")]
 pub struct DesktopPageSnapshot {
     pub monitors: Vec<DesktopMonitorSummary>,
+    pub monitors_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor_discovery_issue: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

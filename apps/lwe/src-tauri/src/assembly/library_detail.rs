@@ -56,6 +56,7 @@ pub fn assemble_library_detail(
         cover_path,
         source: LibrarySource::Workshop,
         compatibility,
+        monitors_available: desktop_status.monitors_available,
         monitor_discovery_issue,
         desktop_assignment_issue: assignment_issue,
         desktop_assignments_available: desktop_status.desktop_assignments_available,

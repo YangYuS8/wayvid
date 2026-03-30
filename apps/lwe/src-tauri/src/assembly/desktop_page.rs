@@ -5,7 +5,7 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
     let DesktopPageResult {
         monitors,
         assignments,
-        monitors_available: _,
+        monitors_available,
         monitor_discovery_issue,
         persistence_issue,
         assignments_available,
@@ -21,13 +21,10 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                 display_name: monitor.name,
                 monitor_id: monitor.id,
                 resolution: "Unknown".to_string(),
-                runtime_status: if assignments_available {
-                    RuntimeStatus::Unsupported
-                } else {
-                    RuntimeStatus::Error
-                },
+                runtime_status: RuntimeStatus::Unsupported,
             })
             .collect(),
+        monitors_available,
         monitor_discovery_issue,
         persistence_issue,
         assignments_available,
@@ -40,6 +37,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
+    use crate::models::RuntimeStatus;
     use crate::services::monitor_service::MonitorDescriptor;
 
     #[test]
@@ -70,5 +68,28 @@ mod tests {
         assert!(snapshot.assignments_available);
         assert!(snapshot.monitor_discovery_issue.is_none());
         assert!(snapshot.persistence_issue.is_none());
+    }
+
+    #[test]
+    fn desktop_apply_flow_assembler_keeps_runtime_status_unsupported_when_only_assignments_are_unavailable(
+    ) {
+        let snapshot = assemble_desktop_page(DesktopPageResult {
+            monitors: vec![MonitorDescriptor {
+                id: "DISPLAY-1".to_string(),
+                name: "Primary".to_string(),
+            }],
+            assignments: BTreeMap::new(),
+            monitors_available: true,
+            monitor_discovery_issue: None,
+            persistence_issue: Some("Desktop persistence is not available yet".to_string()),
+            assignments_available: false,
+            stale: true,
+        });
+
+        assert_eq!(snapshot.monitors.len(), 1);
+        assert_eq!(
+            snapshot.monitors[0].runtime_status,
+            RuntimeStatus::Unsupported
+        );
     }
 }
