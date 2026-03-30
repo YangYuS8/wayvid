@@ -22,15 +22,13 @@
         <h2>{detail.title}</h2>
 
         <div class="badges">
-          <StatusBadge label={detail.compatibilityBadge} />
+          <StatusBadge label={detail.compatibility.badge} />
           <StatusBadge label={detail.syncStatus} />
         </div>
 
         <p class="meta">{detail.itemType}</p>
 
-        {#if detail.compatibilityNote}
-          <p>{detail.compatibilityNote}</p>
-        {/if}
+        <p>{detail.compatibility.detail}</p>
 
         {#if detail.description}
           <p>{detail.description}</p>

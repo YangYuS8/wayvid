@@ -185,7 +185,7 @@
                 title={item.title}
                 itemType={item.itemType}
                 coverPath={item.coverPath}
-                primaryBadge={item.compatibilityBadge}
+                primaryBadge={item.compatibility.badge}
                 selected={$pageCache.workshop.snapshot.selectedItemId === item.id}
               />
             </button>

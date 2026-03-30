@@ -20,9 +20,12 @@
       <div class="copy">
         <h2>{detail.title}</h2>
         <div class="badges">
+          <StatusBadge label={detail.compatibility.badge} />
           <StatusBadge label={detail.source} />
           <StatusBadge label={detail.itemType} />
         </div>
+
+        <p>{detail.compatibility.detail}</p>
 
         {#if detail.description}
           <p>{detail.description}</p>

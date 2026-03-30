@@ -2,8 +2,26 @@ export type InvalidatedPage = 'library' | 'workshop' | 'desktop' | 'settings';
 export type ItemType = 'video' | 'scene' | 'web' | 'other';
 export type WorkshopSyncStatus = 'synced' | 'missing_project' | 'missing_asset' | 'unsupported_type';
 export type CompatibilityBadge = 'fully_supported' | 'partially_supported' | 'unsupported';
+export type CompatibilityNextStep =
+  | 'none'
+  | 'open_in_steam'
+  | 'resync_workshop_item'
+  | 'wait_for_future_support';
 export type LibrarySource = 'local' | 'workshop' | 'core' | 'other';
 export type RuntimeStatus = 'running' | 'idle' | 'unsupported' | 'error';
+
+export interface CompatibilitySummaryModel {
+  badge: CompatibilityBadge;
+  reasonCode: string;
+}
+
+export interface CompatibilityExplanationModel {
+  badge: CompatibilityBadge;
+  reasonCode: string;
+  headline: string;
+  detail: string;
+  nextStep: CompatibilityNextStep;
+}
 
 export interface AppShellSnapshot {
   appName: string;
@@ -20,7 +38,7 @@ export interface WorkshopItemSummary {
   itemType: ItemType;
   coverPath: string | null;
   syncStatus: WorkshopSyncStatus;
-  compatibilityBadge: CompatibilityBadge;
+  compatibility: CompatibilitySummaryModel;
 }
 
 export interface WorkshopPageSnapshot {
@@ -35,8 +53,7 @@ export interface WorkshopItemDetail {
   itemType: ItemType;
   coverPath: string | null;
   syncStatus: WorkshopSyncStatus;
-  compatibilityBadge: CompatibilityBadge;
-  compatibilityNote: string | null;
+  compatibility: CompatibilityExplanationModel;
   tags: string[];
   description: string | null;
 }
@@ -47,6 +64,7 @@ export interface LibraryItemSummary {
   itemType: ItemType;
   coverPath: string | null;
   source: LibrarySource;
+  compatibility: CompatibilitySummaryModel;
   favorite: boolean;
 }
 
@@ -62,6 +80,7 @@ export interface LibraryItemDetail {
   itemType: ItemType;
   coverPath: string | null;
   source: LibrarySource;
+  compatibility: CompatibilityExplanationModel;
   description: string | null;
   tags: string[];
 }

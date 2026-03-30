@@ -107,7 +107,7 @@
                 title={item.title}
                 itemType={item.itemType}
                 coverPath={item.coverPath}
-                primaryBadge={item.source}
+                primaryBadge={item.compatibility.badge}
                 selected={$pageCache.library.snapshot.selectedItemId === item.id}
               />
             </button>
