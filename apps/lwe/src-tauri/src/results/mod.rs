@@ -1,6 +1,8 @@
 pub mod app_shell;
 pub mod compatibility;
 pub mod desktop;
+pub mod desktop_persistence;
 pub mod library;
+pub mod monitor_discovery;
 pub mod settings;
 pub mod workshop;
