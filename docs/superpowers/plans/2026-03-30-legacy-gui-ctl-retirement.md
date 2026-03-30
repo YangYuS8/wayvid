@@ -16,7 +16,7 @@ This plan is about **retiring legacy crates from the active workspace**, not ren
 
 It does **not**:
 
-- rename `wayvid-core`, `wayvid-library`, or `wayvid-engine`
+- rename `lwe-core`, `lwe-library`, or `lwe-engine`
 - move `crates/wayvid-gui` or `crates/wayvid-ctl` into a `legacy/` directory yet
 - delete the old GUI/CLI source trees from git history
 - rewrite archived OpenSpec material that truthfully references past GUI/CLI work
@@ -73,9 +73,9 @@ Edit `Cargo.toml` so the `members` list becomes:
 
 ```toml
 members = [
-    "crates/wayvid-core",
-    "crates/wayvid-engine",
-    "crates/wayvid-library",
+    "crates/lwe-core",
+    "crates/lwe-engine",
+    "crates/lwe-library",
     "apps/lwe/src-tauri",
 ]
 ```
@@ -164,9 +164,9 @@ The legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` are no longer acti
 In `docs/product/repository-reset.md`, change the `Retained Migration Candidates` list so it keeps only:
 
 ```md
-- `crates/wayvid-core` as a migration candidate for shared models, configuration, and cross-cutting types.
-- `crates/wayvid-engine` as a migration candidate for Linux wallpaper playback, rendering, and runtime integration knowledge.
-- `crates/wayvid-library` as a migration candidate for library indexing, metadata handling, and local asset management.
+- `crates/lwe-core` as a migration candidate for shared models, configuration, and cross-cutting types.
+- `crates/lwe-engine` as a migration candidate for Linux wallpaper playback, rendering, and runtime integration knowledge.
+- `crates/lwe-library` as a migration candidate for library indexing, metadata handling, and local asset management.
 ```
 
 Then add a new section:
@@ -274,7 +274,7 @@ Legacy GUI locale files may be inspected only as wording references; they are no
 In `docs/superpowers/plans/2026-03-30-rust-core-layering.md`, update the architecture wording so the hard active crate boundaries are described as:
 
 ```md
-Keep the active crate boundaries as `lwe-app-shell`, `wayvid-library`, `wayvid-core`, and `wayvid-engine` for now. The retired legacy crates `wayvid-gui` and `wayvid-ctl` are outside the active workspace path.
+Keep the active crate boundaries as `lwe-app-shell`, `lwe-library`, `lwe-core`, and `lwe-engine` for now. The retired legacy crates `wayvid-gui` and `wayvid-ctl` are outside the active workspace path.
 ```
 
 Do not imply that `wayvid-gui` or `wayvid-ctl` are still active workspace peers.

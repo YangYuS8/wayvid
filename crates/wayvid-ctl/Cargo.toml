@@ -9,7 +9,7 @@ description = "Command-line control tool for wayvid"
 repository = "https://github.com/YangYuS8/wayvid"
 
 [dependencies]
-wayvid-core = { path = "../wayvid-core" }
+lwe-core = { path = "../lwe-core" }
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }

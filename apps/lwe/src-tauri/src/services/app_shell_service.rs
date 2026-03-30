@@ -31,7 +31,7 @@ impl AppShellService {
     }
 
     pub fn load_summary() -> Result<ShellSummary, String> {
-        let steam = match wayvid_library::SteamLibrary::try_discover() {
+        let steam = match lwe_library::SteamLibrary::try_discover() {
             Some(steam) => steam,
             None => return Ok(Self::unavailable_summary(false)),
         };
@@ -51,7 +51,7 @@ impl AppShellService {
 mod tests {
     use super::*;
     use crate::assembly::app_shell::assemble_app_shell;
-    use wayvid_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+    use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     #[test]
     fn unavailable_steam_leaves_shell_counts_unknown() {

@@ -34,7 +34,7 @@ SKIP_TESTS=1 ./scripts/pre-push-check.sh
 
 ## Testing
 
-The active product path uses Rust's built-in test framework across the LWE shell and retained core crates:
+The active product path uses Rust's built-in test framework across the LWE shell and the retained crates `lwe-core`, `lwe-library`, and `lwe-engine`:
 
 ```bash
 # Run all workspace tests
@@ -42,9 +42,9 @@ cargo test --workspace
 
 # Run tests for a specific crate
 cargo test -p lwe-app-shell
-cargo test -p wayvid-core
-cargo test -p wayvid-library
-cargo test -p wayvid-engine
+cargo test -p lwe-core
+cargo test -p lwe-library
+cargo test -p lwe-engine
 ```
 
 Retired reference crates:

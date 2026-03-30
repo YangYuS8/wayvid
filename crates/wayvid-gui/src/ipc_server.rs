@@ -16,8 +16,8 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-use wayvid_core::ipc::{default_socket_path, IpcRequest, IpcResponse, OutputInfo, OutputStatus};
-use wayvid_engine::EngineCommand;
+use lwe_core::ipc::{default_socket_path, IpcRequest, IpcResponse, OutputInfo, OutputStatus};
+use lwe_engine::EngineCommand;
 
 /// Cached engine status for IPC queries
 #[derive(Debug, Clone, Default)]

@@ -3,12 +3,13 @@
 #
 # This repository is in repository-reset mode for the Linux dynamic wallpaper
 # platform. The active workspace path is limited to apps/lwe/src-tauri plus
-# retained core crates that remain under evaluation for selective migration.
-# Retired legacy GUI/CLI crates stay in the repository temporarily for
-# reference only and are not active workspace members.
-# - wayvid-core: retained shared models and configuration candidate
-# - wayvid-engine: retained playback and rendering candidate
-# - wayvid-library: retained local library and metadata candidate
+# the retained crates lwe-core, lwe-library, and lwe-engine, which remain
+# under evaluation for selective migration. Retired legacy GUI/CLI crates stay
+# in the repository temporarily for reference only and are not active workspace
+# members.
+# - lwe-core: retained shared models and configuration candidate
+# - lwe-engine: retained playback and rendering candidate
+# - lwe-library: retained local library and metadata candidate
 # - apps/lwe/src-tauri: active LWE application shell
 # - wayvid-gui: retired legacy GUI shell kept temporarily for reference only
 # - wayvid-ctl: retired legacy CLI surface kept temporarily for reference only
@@ -16,9 +17,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/wayvid-core",
-    "crates/wayvid-engine",
-    "crates/wayvid-library",
+    "crates/lwe-core",
+    "crates/lwe-engine",
+    "crates/lwe-library",
     "apps/lwe/src-tauri",
 ]
 

@@ -1,6 +1,6 @@
-//! wayvid-library: Wallpaper library management for wayvid
+//! lwe-library: Wallpaper library management for LWE
 //!
-//! This crate provides wallpaper library functionality:
+//! This crate provides LWE wallpaper library functionality:
 //! - SQLite database for wallpaper indexing and metadata
 //! - Folder scanning and change detection
 //! - Thumbnail generation and caching
@@ -9,7 +9,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use wayvid_library::{LibraryDatabase, FolderScanner, ThumbnailGenerator};
+//! use lwe_library::{LibraryDatabase, FolderScanner, ThumbnailGenerator};
 //! use std::path::Path;
 //!
 //! // Open or create the library database
@@ -53,8 +53,8 @@ pub use thumbnail::{
 };
 pub use workshop_catalog::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
-// Re-exports from wayvid-core
-pub use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+// Re-exports from lwe-core
+pub use lwe_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 // Workshop exports
 pub use workshop::{

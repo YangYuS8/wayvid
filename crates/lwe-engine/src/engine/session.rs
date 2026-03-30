@@ -9,7 +9,7 @@ use anyhow::Result;
 use tracing::{debug, info, warn};
 use wayland_client::protocol::wl_surface::WlSurface;
 
-use wayvid_core::OutputInfo;
+use lwe_core::OutputInfo;
 
 use crate::egl::{EglContext, EglWindow};
 use crate::mpv::{MpvPlayer, VideoConfig};

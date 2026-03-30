@@ -2,8 +2,8 @@
 //!
 //! All user interactions and async events are represented as messages.
 
+use lwe_core::WallpaperItem;
 use std::path::PathBuf;
-use wayvid_core::WallpaperItem;
 
 use crate::async_loader::ThumbnailRequest;
 use crate::i18n::Language;
@@ -153,7 +153,7 @@ pub enum Message {
     /// Poll for engine events (timer-driven)
     PollEngineEvents,
     /// Engine event received
-    EngineEvent(wayvid_engine::engine::EngineEvent),
+    EngineEvent(lwe_engine::engine::EngineEvent),
 
     // IPC communication
     /// IPC connection state changed

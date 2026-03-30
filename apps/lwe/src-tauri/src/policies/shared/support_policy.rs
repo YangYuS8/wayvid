@@ -1,4 +1,4 @@
-use wayvid_library::WorkshopProjectType;
+use lwe_library::WorkshopProjectType;
 
 pub fn supports_first_release(project_type: WorkshopProjectType) -> bool {
     matches!(
@@ -10,7 +10,7 @@ pub fn supports_first_release(project_type: WorkshopProjectType) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wayvid_library::WorkshopProjectType;
+    use lwe_library::WorkshopProjectType;
 
     #[test]
     fn first_release_support_only_includes_video_and_scene() {

@@ -843,7 +843,7 @@ impl App {
             }
             Message::EngineEvent(event) => {
                 // Handle engine event
-                use wayvid_engine::EngineEvent;
+                use lwe_engine::EngineEvent;
                 match event {
                     EngineEvent::Started => {
                         self.state.engine_running = true;
@@ -851,7 +851,7 @@ impl App {
                         // Request outputs when engine starts
                         if let Err(e) = self
                             .engine
-                            .send_command(wayvid_engine::EngineCommand::GetOutputs)
+                            .send_command(lwe_engine::EngineCommand::GetOutputs)
                         {
                             tracing::warn!("Failed to request outputs: {}", e);
                         }
@@ -1289,8 +1289,8 @@ pub fn run() -> Result<()> {
 }
 
 // Async helper functions
-async fn load_library() -> Result<Vec<wayvid_core::WallpaperItem>, String> {
-    // TODO: Load from wayvid-library database
+async fn load_library() -> Result<Vec<lwe_core::WallpaperItem>, String> {
+    // TODO: Load from lwe-library database
     Ok(vec![])
 }
 
@@ -1299,8 +1299,8 @@ async fn apply_wallpaper(id: &str) -> Result<(), String> {
     ipc::apply_wallpaper_ipc(id, None).await
 }
 
-async fn scan_folder(path: &std::path::Path) -> Result<Vec<wayvid_core::WallpaperItem>, String> {
-    use wayvid_library::FolderScanner;
+async fn scan_folder(path: &std::path::Path) -> Result<Vec<lwe_core::WallpaperItem>, String> {
+    use lwe_library::FolderScanner;
 
     let scanner = FolderScanner::new();
     scanner.scan_folder(path, true).map_err(|e| e.to_string())
@@ -1326,8 +1326,8 @@ async fn clear_monitor_wallpaper(output: &str) -> Result<(), String> {
 }
 
 /// Scan Steam Workshop for Wallpaper Engine wallpapers
-async fn scan_workshop() -> Result<Vec<wayvid_core::WallpaperItem>, String> {
-    use wayvid_library::WorkshopScanner;
+async fn scan_workshop() -> Result<Vec<lwe_core::WallpaperItem>, String> {
+    use lwe_library::WorkshopScanner;
 
     let mut scanner = WorkshopScanner::discover().map_err(|e| e.to_string())?;
 

@@ -167,7 +167,7 @@ fn view_grid(state: &AppState) -> Element<'_, Message> {
 
 /// Single wallpaper card (compact version for grid)
 fn wallpaper_card<'a>(
-    wallpaper: &'a wayvid_core::WallpaperItem,
+    wallpaper: &'a lwe_core::WallpaperItem,
     state: &'a AppState,
 ) -> Element<'a, Message> {
     let id = wallpaper.id.clone();
@@ -299,8 +299,8 @@ fn view_detail_panel(state: &AppState) -> Element<'_, Message> {
 
         // Source badge
         let source_name = match wallpaper.source_type {
-            wayvid_core::SourceType::SteamWorkshop => "Steam Workshop",
-            wayvid_core::SourceType::LocalFile | wayvid_core::SourceType::LocalDirectory => "Local",
+            lwe_core::SourceType::SteamWorkshop => "Steam Workshop",
+            lwe_core::SourceType::LocalFile | lwe_core::SourceType::LocalDirectory => "Local",
         };
         let source_row = row![
             text(t!("detail.source")).size(12),

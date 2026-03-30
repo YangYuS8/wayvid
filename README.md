@@ -37,7 +37,9 @@ The old `wayvid` name remains only where legacy crates or migration-candidate as
 The active LWE product path is now limited to:
 
 - `apps/lwe/src-tauri`
-- retained core crates for shared models, library/workshop logic, and runtime behavior
+- `crates/lwe-core` for shared models and configuration
+- `crates/lwe-library` for library and Workshop logic
+- `crates/lwe-engine` for runtime and rendering behavior
 
 The legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` are no longer active workspace components. They remain in the repository as retired reference material only unless a later change explicitly revives some portion of their functionality.
 

@@ -3,10 +3,10 @@
 //! Ensures only one instance of wayvid-gui runs at a time.
 //! If another instance is detected, sends a ShowWindow request to bring it to front.
 
+use lwe_core::ipc::{default_socket_path, IpcRequest, IpcResponse};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
-use wayvid_core::ipc::{default_socket_path, IpcRequest, IpcResponse};
 
 /// Check if another instance of wayvid-gui is running
 ///

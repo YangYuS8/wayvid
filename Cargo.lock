@@ -2373,12 +2373,81 @@ checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 name = "lwe-app-shell"
 version = "0.1.0"
 dependencies = [
+ "lwe-library",
  "open",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
- "wayvid-library",
+]
+
+[[package]]
+name = "lwe-core"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs 5.0.1",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "sys-locale",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "lwe-engine"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "ash",
+ "ash-window",
+ "bitflags 2.10.0",
+ "calloop 0.14.3",
+ "calloop-wayland-source 0.4.1",
+ "gl",
+ "khronos-egl",
+ "libc",
+ "libmpv-sys",
+ "lwe-core",
+ "lz4_flex",
+ "raw-window-handle",
+ "smithay-client-toolkit",
+ "thiserror 1.0.69",
+ "tracing",
+ "wayland-client",
+ "wayland-egl",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
+name = "lwe-library"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs 5.0.1",
+ "hex",
+ "image",
+ "lwe-core",
+ "notify",
+ "notify-debouncer-mini",
+ "parking_lot",
+ "rayon",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "walkdir",
+ "zip",
 ]
 
 [[package]]
@@ -5464,75 +5533,6 @@ dependencies = [
  "dlib",
  "log",
  "pkg-config",
-]
-
-[[package]]
-name = "wayvid-core"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs 5.0.1",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "sys-locale",
- "tempfile",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "wayvid-engine"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "ash",
- "ash-window",
- "bitflags 2.10.0",
- "calloop 0.14.3",
- "calloop-wayland-source 0.4.1",
- "gl",
- "khronos-egl",
- "libc",
- "libmpv-sys",
- "lz4_flex",
- "raw-window-handle",
- "smithay-client-toolkit",
- "thiserror 1.0.69",
- "tracing",
- "wayland-client",
- "wayland-egl",
- "wayland-protocols",
- "wayland-protocols-wlr",
- "wayvid-core",
-]
-
-[[package]]
-name = "wayvid-library"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs 5.0.1",
- "hex",
- "image",
- "notify",
- "notify-debouncer-mini",
- "parking_lot",
- "rayon",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
- "walkdir",
- "wayvid-core",
- "zip",
 ]
 
 [[package]]

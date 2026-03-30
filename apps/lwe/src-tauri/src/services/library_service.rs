@@ -2,7 +2,7 @@ use crate::policies::shared::support_policy::supports_first_release;
 use crate::results::library::LibraryProjection;
 use crate::results::workshop::WorkshopRefreshResult;
 use crate::services::workshop_service::WorkshopService;
-use wayvid_library::{WorkshopCatalogEntry, WorkshopSyncState};
+use lwe_library::{WorkshopCatalogEntry, WorkshopSyncState};
 
 fn includes_library_item(entry: &WorkshopCatalogEntry) -> bool {
     matches!(entry.sync_state, WorkshopSyncState::Synced)

@@ -9,7 +9,7 @@
 ///
 /// # Examples
 /// ```
-/// use wayvid_core::config::matches_pattern;
+/// use lwe_core::config::matches_pattern;
 ///
 /// assert!(matches_pattern("HDMI-A-1", "HDMI-*"));
 /// assert!(matches_pattern("HDMI-A-1", "HDMI-A-?"));

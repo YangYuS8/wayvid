@@ -6,8 +6,8 @@
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 
+use lwe_engine::{spawn_engine, EngineCommand, EngineConfig, EngineEvent, EngineHandle};
 use tracing::info;
-use wayvid_engine::{spawn_engine, EngineCommand, EngineConfig, EngineEvent, EngineHandle};
 
 use crate::ipc_server::{IpcServer, SharedStatusCache, ShowWindowFlag};
 
@@ -212,7 +212,7 @@ pub fn engine_subscription(running: bool) -> iced::Subscription<crate::messages:
 
 /// Default engine configuration from app settings
 pub fn default_engine_config(settings: &crate::settings::AppSettings) -> EngineConfig {
-    use wayvid_engine::VideoConfig;
+    use lwe_engine::VideoConfig;
 
     EngineConfig {
         video: VideoConfig {

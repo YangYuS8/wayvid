@@ -1,6 +1,6 @@
-//! wayvid-core: Core types and configuration for wayvid
+//! lwe-core: Core types and configuration for LWE
 //!
-//! This crate provides the foundational types used across all wayvid components:
+//! This crate provides the foundational types used across all LWE components:
 //! - `VideoSource`: Defines various video/wallpaper source types
 //! - `WallpaperItem`: Wallpaper metadata for the library
 //! - `AppSettings`: Application settings (GUI managed)

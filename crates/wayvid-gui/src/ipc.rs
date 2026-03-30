@@ -19,7 +19,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::sync::RwLock;
 
-use wayvid_core::ipc::{
+use lwe_core::ipc::{
     default_socket_path, IpcRequest, IpcResponse, OutputInfo, OutputStatus as CoreOutputStatus,
 };
 

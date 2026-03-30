@@ -4,8 +4,8 @@
 
 use std::collections::HashMap;
 
+use lwe_core::{OutputHdrCapabilities, OutputInfo};
 use wayland_client::protocol::wl_output::WlOutput;
-use wayvid_core::{OutputHdrCapabilities, OutputInfo};
 
 /// Output manager for tracking Wayland outputs
 pub struct OutputManager {
