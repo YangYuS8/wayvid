@@ -28,4 +28,4 @@
 
 - `workshop-browsing-and-acquisition`: build the first `LWE` Workshop loop in the active `apps/lwe/src-tauri` + `apps/lwe` shell using Rust-owned page snapshots, detail payloads, official Steam handoff actions, and Library projection for synchronized items while treating `wayvid-gui`/`wayvid-ctl` as retired workspace history
 - `compatibility-evaluation-and-reporting`: implemented in the active `apps/lwe/src-tauri` + `apps/lwe` shell with structured compatibility levels, supporting reasons, and next-step guidance across Workshop and Library surfaces, with follow-on work focused on extending that reporting foundation without promising runtime support beyond reported compatibility
-- `desktop-shell-and-library-flow`: define the application shell plan for library management, playback controls, and Linux desktop integration
+- `desktop-shell-and-library-flow`: the active `LWE` shell now has a monitor-aware apply/clear contract and truthful degraded-state handling, while follow-on work is still needed to replace the current unavailable monitor discovery and persistence placeholders with real system-backed implementations
