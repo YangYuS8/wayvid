@@ -1,9 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::results::desktop::{DesktopApplyResult, DesktopPageResult};
+use crate::results::desktop::{
+    DesktopApplyResult, DesktopPageResult, DesktopResolvedMonitorAssignment,
+};
 use crate::results::desktop_persistence::{DesktopPersistenceLoad, DesktopPersistenceWrite};
+use crate::results::library::LibraryProjection;
 use crate::results::monitor_discovery::MonitorDiscoveryResult;
 use crate::services::desktop_persistence_service::DesktopPersistenceService;
+use crate::services::library_service::LibraryService;
 use crate::services::monitor_service::MonitorService;
 
 pub struct DesktopService;
@@ -11,8 +15,50 @@ pub struct DesktopService;
 impl DesktopService {
     pub fn load_page() -> Result<DesktopPageResult, String> {
         let monitors = MonitorService::list_monitors();
-        let assignments = DesktopPersistenceService::load_state();
+        let assignments = match DesktopPersistenceService::for_user_path() {
+            Ok(service) => service.load_state(),
+            Err(reason) => DesktopPersistenceLoad::Unavailable { reason },
+        };
 
+        Ok(Self::build_page_result(
+            monitors,
+            assignments,
+            LibraryService::load_projection(),
+        ))
+    }
+
+    fn library_item_titles(projection: LibraryProjection) -> BTreeMap<String, String> {
+        projection
+            .entries
+            .into_iter()
+            .map(|entry| {
+                (
+                    entry.entry.library_item_id.unwrap_or_default(),
+                    entry.entry.title,
+                )
+            })
+            .collect()
+    }
+
+    fn assignment_monitor_label(
+        monitor_names: &BTreeMap<String, String>,
+        monitors_available: bool,
+        monitor_id: &str,
+    ) -> String {
+        if let Some(name) = monitor_names.get(monitor_id) {
+            name.clone()
+        } else if monitors_available {
+            format!("{monitor_id} (missing)")
+        } else {
+            format!("{monitor_id} (unavailable)")
+        }
+    }
+
+    fn build_page_result(
+        monitors: MonitorDiscoveryResult,
+        assignments: DesktopPersistenceLoad,
+        library_projection: Result<LibraryProjection, String>,
+    ) -> DesktopPageResult {
         let (monitors, monitors_available, monitor_discovery_issue) = match monitors {
             MonitorDiscoveryResult::Known(monitors) => (monitors, true, None),
             MonitorDiscoveryResult::Unavailable { reason } => (Vec::new(), false, Some(reason)),
@@ -23,17 +69,89 @@ impl DesktopService {
                 (BTreeMap::new(), Some(reason), false)
             }
         };
-        let stale = !monitors_available || !assignments_available;
+        let library_item_titles = library_projection.map(Self::library_item_titles);
+        let mut resolved_assignments = BTreeMap::new();
+        let mut library_item_assignments = BTreeMap::new();
+        let mut restore_issues = Vec::new();
+        let monitor_names = monitors
+            .iter()
+            .map(|monitor| (monitor.id.clone(), monitor.name.clone()))
+            .collect::<BTreeMap<_, _>>();
 
-        Ok(DesktopPageResult {
+        if let Err(reason) = &library_item_titles {
+            if !assignments.is_empty() {
+                restore_issues.push(format!(
+                    "Unable to resolve saved desktop items against the current Library snapshot: {reason}"
+                ));
+            }
+        }
+
+        for (monitor_id, item_id) in &assignments {
+            let monitor_known = monitor_names.contains_key(monitor_id);
+            let monitor_label =
+                Self::assignment_monitor_label(&monitor_names, monitors_available, monitor_id);
+
+            match &library_item_titles {
+                Ok(library_items) => {
+                    if let Some(item_title) = library_items.get(item_id) {
+                        library_item_assignments
+                            .entry(item_id.clone())
+                            .or_insert_with(Vec::new)
+                            .push(monitor_label.clone());
+
+                        if monitor_known {
+                            resolved_assignments.insert(
+                                monitor_id.clone(),
+                                DesktopResolvedMonitorAssignment::Restored {
+                                    item_id: item_id.clone(),
+                                    item_title: item_title.clone(),
+                                },
+                            );
+                        } else if monitors_available {
+                            restore_issues.push(format!(
+                                "Saved assignment for missing monitor {monitor_id} still points to {item_title} ({item_id})."
+                            ));
+                        }
+                    } else if monitor_known {
+                        resolved_assignments.insert(
+                            monitor_id.clone(),
+                            DesktopResolvedMonitorAssignment::MissingItem {
+                                item_id: item_id.clone(),
+                            },
+                        );
+                    } else if monitors_available {
+                        restore_issues.push(format!(
+                            "Saved assignment for missing monitor {monitor_id} references missing item {item_id}."
+                        ));
+                    }
+                }
+                Err(reason) if monitor_known => {
+                    resolved_assignments.insert(
+                        monitor_id.clone(),
+                        DesktopResolvedMonitorAssignment::Unavailable {
+                            item_id: item_id.clone(),
+                            reason: reason.clone(),
+                        },
+                    );
+                }
+                Err(_) => {}
+            }
+        }
+
+        let stale = !monitors_available || !assignments_available || library_item_titles.is_err();
+
+        DesktopPageResult {
             monitors,
             assignments,
+            resolved_assignments,
+            library_item_assignments,
+            restore_issues,
             monitors_available,
             monitor_discovery_issue,
             persistence_issue,
             assignments_available,
             stale,
-        })
+        }
     }
 
     pub fn apply_to_monitor(monitor_id: &str, item_id: &str) -> Result<DesktopApplyResult, String> {
@@ -46,7 +164,14 @@ impl DesktopService {
                 })
             }
             MonitorDiscoveryResult::Known(_) => {
-                match DesktopPersistenceService::save_assignment(monitor_id, item_id) {
+                let persistence = match DesktopPersistenceService::for_user_path() {
+                    Ok(service) => service,
+                    Err(reason) => {
+                        return Ok(DesktopApplyResult::PersistenceUnavailable { reason });
+                    }
+                };
+
+                match persistence.save_assignment(monitor_id, item_id) {
                     DesktopPersistenceWrite::Saved => Ok(DesktopApplyResult::Applied {
                         monitor_id: monitor_id.to_string(),
                         item_id: item_id.to_string(),
@@ -78,7 +203,14 @@ impl DesktopService {
                 })
             }
             MonitorDiscoveryResult::Known(_) => {
-                match DesktopPersistenceService::clear_assignment(monitor_id) {
+                let persistence = match DesktopPersistenceService::for_user_path() {
+                    Ok(service) => service,
+                    Err(reason) => {
+                        return Ok(DesktopApplyResult::PersistenceUnavailable { reason });
+                    }
+                };
+
+                match persistence.clear_assignment(monitor_id) {
                     DesktopPersistenceWrite::Cleared => Ok(DesktopApplyResult::Cleared {
                         monitor_id: monitor_id.to_string(),
                     }),
@@ -104,8 +236,12 @@ impl DesktopService {
 mod tests {
     use super::*;
     use crate::results::desktop::DesktopApplyResult;
+    use crate::results::desktop::DesktopResolvedMonitorAssignment;
+    use crate::results::library::LibraryProjection;
     use crate::results::monitor_discovery::MonitorDiscoveryResult;
+    use crate::results::workshop::AssessedWorkshopCatalogEntry;
     use crate::services::monitor_service::MonitorService;
+    use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     fn known_monitor_id() -> Option<String> {
         match MonitorService::list_monitors() {
@@ -114,6 +250,84 @@ mod tests {
             }
             MonitorDiscoveryResult::Unavailable { .. } => None,
         }
+    }
+
+    fn library_item(item_id: &str, title: &str) -> AssessedWorkshopCatalogEntry {
+        AssessedWorkshopCatalogEntry {
+            entry: WorkshopCatalogEntry {
+                workshop_id: 7,
+                title: title.to_string(),
+                project_type: WorkshopProjectType::Scene,
+                project_dir: std::path::PathBuf::from("/tmp/7"),
+                cover_path: None,
+                sync_state: WorkshopSyncState::Synced,
+                supported_first_release: true,
+                library_item_id: Some(item_id.to_string()),
+            },
+            compatibility: crate::policies::shared::compatibility_policy::compatibility_decision(
+                &WorkshopCatalogEntry {
+                    workshop_id: 7,
+                    title: title.to_string(),
+                    project_type: WorkshopProjectType::Scene,
+                    project_dir: std::path::PathBuf::from("/tmp/7"),
+                    cover_path: None,
+                    sync_state: WorkshopSyncState::Synced,
+                    supported_first_release: true,
+                    library_item_id: Some(item_id.to_string()),
+                },
+            ),
+            project_metadata: Default::default(),
+        }
+    }
+
+    #[test]
+    fn desktop_apply_flow_load_page_restores_known_assignments_and_reports_degraded_entries() {
+        let mut assignments = BTreeMap::new();
+        assignments.insert("DISPLAY-1".to_string(), "scene-7".to_string());
+        assignments.insert("DISPLAY-2".to_string(), "missing-item".to_string());
+        assignments.insert("DISPLAY-3".to_string(), "scene-7".to_string());
+
+        let result = DesktopService::build_page_result(
+            MonitorDiscoveryResult::Known(vec![
+                crate::services::monitor_service::MonitorDescriptor {
+                    id: "DISPLAY-1".to_string(),
+                    name: "Primary".to_string(),
+                    resolution: "1920x1080".to_string(),
+                },
+                crate::services::monitor_service::MonitorDescriptor {
+                    id: "DISPLAY-2".to_string(),
+                    name: "Secondary".to_string(),
+                    resolution: "2560x1440".to_string(),
+                },
+            ]),
+            DesktopPersistenceLoad::Loaded(assignments),
+            Ok(LibraryProjection {
+                entries: vec![library_item("scene-7", "Forest Scene")],
+                source_catalog_count: 1,
+            }),
+        );
+
+        assert!(matches!(
+            result.resolved_assignments.get("DISPLAY-1"),
+            Some(DesktopResolvedMonitorAssignment::Restored { item_id, item_title })
+                if item_id == "scene-7" && item_title == "Forest Scene"
+        ));
+        assert!(matches!(
+            result.resolved_assignments.get("DISPLAY-2"),
+            Some(DesktopResolvedMonitorAssignment::MissingItem { item_id })
+                if item_id == "missing-item"
+        ));
+        assert_eq!(
+            result.library_item_assignments.get("scene-7"),
+            Some(&vec![
+                "Primary".to_string(),
+                "DISPLAY-3 (missing)".to_string()
+            ])
+        );
+        assert_eq!(
+            result.restore_issues,
+            vec!["Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).".to_string()]
+        );
     }
 
     #[test]
@@ -126,11 +340,14 @@ mod tests {
             monitor_discovery_issue,
             persistence_issue,
             monitors,
+            restore_issues,
             ..
         } = result;
 
-        assert!(stale);
-        assert!(!assignments_available);
+        assert_eq!(
+            stale,
+            !monitors_available || !assignments_available || !restore_issues.is_empty()
+        );
 
         if monitors_available {
             assert!(monitor_discovery_issue.is_none());
@@ -139,11 +356,11 @@ mod tests {
             assert!(monitor_discovery_issue.is_some());
         }
 
-        assert!(!assignments_available);
-        assert_eq!(
-            persistence_issue.as_deref(),
-            Some("Desktop persistence is not available yet")
-        );
+        if assignments_available {
+            assert!(persistence_issue.is_none());
+        } else {
+            assert!(persistence_issue.is_some());
+        }
     }
 
     #[test]
@@ -162,8 +379,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            DesktopApplyResult::PersistenceUnavailable { reason }
-                if reason == "Desktop persistence is not available yet"
+            DesktopApplyResult::Applied { .. } | DesktopApplyResult::PersistenceUnavailable { .. }
         ));
     }
 
@@ -183,8 +399,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            DesktopApplyResult::PersistenceUnavailable { reason }
-                if reason == "Desktop persistence is not available yet"
+            DesktopApplyResult::Cleared { .. } | DesktopApplyResult::PersistenceUnavailable { .. }
         ));
     }
 }

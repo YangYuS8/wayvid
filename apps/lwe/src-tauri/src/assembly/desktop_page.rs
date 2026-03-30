@@ -1,10 +1,15 @@
-use crate::models::{DesktopMonitorSummary, DesktopPageSnapshot, RuntimeStatus};
-use crate::results::desktop::DesktopPageResult;
+use crate::models::{
+    DesktopMonitorSummary, DesktopPageSnapshot, DesktopRestoreState, RuntimeStatus,
+};
+use crate::results::desktop::{DesktopPageResult, DesktopResolvedMonitorAssignment};
 
 pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
     let DesktopPageResult {
         monitors,
         assignments,
+        resolved_assignments,
+        library_item_assignments: _,
+        restore_issues,
         monitors_available,
         monitor_discovery_issue,
         persistence_issue,
@@ -15,19 +20,64 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
     DesktopPageSnapshot {
         monitors: monitors
             .into_iter()
-            .map(|monitor| DesktopMonitorSummary {
-                current_wallpaper_title: assignments.get(&monitor.id).cloned(),
-                current_cover_path: None,
-                display_name: monitor.name,
-                monitor_id: monitor.id,
-                resolution: monitor.resolution,
-                runtime_status: RuntimeStatus::Unsupported,
+            .map(|monitor| {
+                let monitor_id = monitor.id;
+
+                DesktopMonitorSummary {
+                    current_wallpaper_title: match resolved_assignments.get(&monitor_id) {
+                        Some(DesktopResolvedMonitorAssignment::Restored { item_title, .. }) => {
+                            Some(item_title.clone())
+                        }
+                        _ => assignments.get(&monitor_id).cloned(),
+                    },
+                    current_cover_path: None,
+                    current_item_id: resolved_assignments.get(&monitor_id).map(|assignment| {
+                        match assignment {
+                            DesktopResolvedMonitorAssignment::Restored { item_id, .. }
+                            | DesktopResolvedMonitorAssignment::MissingItem { item_id }
+                            | DesktopResolvedMonitorAssignment::Unavailable { item_id, .. } => {
+                                item_id.clone()
+                            }
+                        }
+                    }),
+                    display_name: monitor.name,
+                    monitor_id: monitor_id.clone(),
+                    resolution: monitor.resolution,
+                    restore_state: resolved_assignments.get(&monitor_id).map(|assignment| {
+                        match assignment {
+                            DesktopResolvedMonitorAssignment::Restored { .. } => {
+                                DesktopRestoreState::Restored
+                            }
+                            DesktopResolvedMonitorAssignment::MissingItem { .. } => {
+                                DesktopRestoreState::MissingItem
+                            }
+                            DesktopResolvedMonitorAssignment::Unavailable { .. } => {
+                                DesktopRestoreState::Unavailable
+                            }
+                        }
+                    }),
+                    restore_issue: resolved_assignments
+                        .get(&monitor_id)
+                        .and_then(|assignment| match assignment {
+                            DesktopResolvedMonitorAssignment::Restored { .. } => None,
+                            DesktopResolvedMonitorAssignment::MissingItem { item_id } => {
+                                Some(format!(
+                                    "Saved assignment references missing Library item {item_id}."
+                                ))
+                            }
+                            DesktopResolvedMonitorAssignment::Unavailable { reason, .. } => {
+                                Some(reason.clone())
+                            }
+                        }),
+                    runtime_status: RuntimeStatus::Unsupported,
+                }
             })
             .collect(),
         monitors_available,
         monitor_discovery_issue,
         persistence_issue,
         assignments_available,
+        restore_issues,
         stale,
     }
 }
@@ -52,6 +102,15 @@ mod tests {
                 resolution: "1920x1080".to_string(),
             }],
             assignments,
+            resolved_assignments: BTreeMap::from([(
+                "DISPLAY-1".to_string(),
+                DesktopResolvedMonitorAssignment::Restored {
+                    item_id: "Forest Scene".to_string(),
+                    item_title: "Forest Scene".to_string(),
+                },
+            )]),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
             monitors_available: true,
             monitor_discovery_issue: None,
             persistence_issue: None,
@@ -82,6 +141,9 @@ mod tests {
                 resolution: "1920x1080".to_string(),
             }],
             assignments: BTreeMap::new(),
+            resolved_assignments: BTreeMap::new(),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
             monitors_available: true,
             monitor_discovery_issue: None,
             persistence_issue: Some("Desktop persistence is not available yet".to_string()),
@@ -94,5 +156,46 @@ mod tests {
             snapshot.monitors[0].runtime_status,
             RuntimeStatus::Unsupported
         );
+    }
+
+    #[test]
+    fn desktop_apply_flow_assembler_preserves_restore_state_and_page_issues() {
+        let mut resolved_assignments = BTreeMap::new();
+        resolved_assignments.insert(
+            "DISPLAY-1".to_string(),
+            crate::results::desktop::DesktopResolvedMonitorAssignment::MissingItem {
+                item_id: "missing-item".to_string(),
+            },
+        );
+
+        let snapshot = assemble_desktop_page(DesktopPageResult {
+            monitors: vec![MonitorDescriptor {
+                id: "DISPLAY-1".to_string(),
+                name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
+            }],
+            assignments: BTreeMap::new(),
+            resolved_assignments,
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: vec![
+                "Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7)."
+                    .to_string(),
+            ],
+            monitors_available: true,
+            monitor_discovery_issue: None,
+            persistence_issue: None,
+            assignments_available: true,
+            stale: false,
+        });
+
+        assert_eq!(
+            snapshot.monitors[0].current_item_id.as_deref(),
+            Some("missing-item")
+        );
+        assert_eq!(
+            snapshot.monitors[0].restore_state,
+            Some(crate::models::DesktopRestoreState::MissingItem)
+        );
+        assert_eq!(snapshot.restore_issues.len(), 1);
     }
 }

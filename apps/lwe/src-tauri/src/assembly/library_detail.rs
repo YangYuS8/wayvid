@@ -40,6 +40,7 @@ pub fn assemble_library_detail(
     let cover_path = cover_path(&entry.entry);
     let description = entry.project_metadata.description.clone();
     let tags = entry.project_metadata.tags.clone();
+    let assigned_monitor_labels = LibraryService::assigned_monitor_labels(desktop, &id);
     let mut compatibility = compatibility_explanation(&entry.compatibility);
 
     if let Some(reason) = assignment_issue.as_deref() {
@@ -60,6 +61,7 @@ pub fn assemble_library_detail(
         monitor_discovery_issue,
         desktop_assignment_issue: assignment_issue,
         desktop_assignments_available: desktop_status.desktop_assignments_available,
+        assigned_monitor_labels,
         description,
         tags,
     }
@@ -100,6 +102,9 @@ mod tests {
             &DesktopPageResult {
                 monitors: Vec::new(),
                 assignments: std::collections::BTreeMap::new(),
+                resolved_assignments: std::collections::BTreeMap::new(),
+                library_item_assignments: std::collections::BTreeMap::new(),
+                restore_issues: Vec::new(),
                 monitors_available: false,
                 monitor_discovery_issue: Some("Monitor discovery is not available yet".to_string()),
                 persistence_issue: Some("Desktop persistence is not available yet".to_string()),
@@ -121,5 +126,46 @@ mod tests {
             detail.monitor_discovery_issue.as_deref(),
             Some("Monitor discovery is not available yet")
         );
+    }
+
+    #[test]
+    fn desktop_apply_flow_library_detail_includes_assigned_monitor_labels() {
+        let mut library_item_assignments = std::collections::BTreeMap::new();
+        library_item_assignments.insert("scene-7".to_string(), vec!["Primary".to_string()]);
+
+        let detail = assemble_library_detail(
+            AssessedWorkshopCatalogEntry {
+                entry: WorkshopCatalogEntry {
+                    workshop_id: 7,
+                    title: "Forest Scene".to_string(),
+                    project_type: WorkshopProjectType::Scene,
+                    project_dir: std::path::PathBuf::from("/tmp/7"),
+                    cover_path: None,
+                    sync_state: WorkshopSyncState::Synced,
+                    supported_first_release: true,
+                    library_item_id: Some("scene-7".to_string()),
+                },
+                compatibility: CompatibilityDecision {
+                    level: CompatibilityLevel::FullySupported,
+                    reason: CompatibilityReason::ReadyForLibrary,
+                    next_step: CompatibilityNextStep::None,
+                },
+                project_metadata: WorkshopProjectMetadata::default(),
+            },
+            &DesktopPageResult {
+                monitors: Vec::new(),
+                assignments: std::collections::BTreeMap::new(),
+                resolved_assignments: std::collections::BTreeMap::new(),
+                library_item_assignments,
+                restore_issues: Vec::new(),
+                monitors_available: true,
+                monitor_discovery_issue: None,
+                persistence_issue: None,
+                assignments_available: true,
+                stale: false,
+            },
+        );
+
+        assert_eq!(detail.assigned_monitor_labels, vec!["Primary".to_string()]);
     }
 }

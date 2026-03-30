@@ -32,11 +32,8 @@ mod tests {
     fn desktop_apply_flow_library_page_reuses_desktop_state_in_snapshot() {
         let snapshot = load_library_page().unwrap();
 
-        assert!(!snapshot.desktop_assignments_available);
-        assert_eq!(
-            snapshot.desktop_assignment_issue.as_deref(),
-            Some("Desktop persistence is not available yet")
-        );
+        assert!(snapshot.desktop_assignment_issue.is_none());
+        assert!(snapshot.desktop_assignments_available);
 
         if snapshot.monitors_available {
             assert!(snapshot.monitor_discovery_issue.is_none());

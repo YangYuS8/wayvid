@@ -61,6 +61,14 @@ impl LibraryService {
             stale: desktop.stale,
         }
     }
+
+    pub fn assigned_monitor_labels(desktop: &DesktopPageResult, item_id: &str) -> Vec<String> {
+        desktop
+            .library_item_assignments
+            .get(item_id)
+            .cloned()
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]
@@ -88,6 +96,9 @@ mod tests {
         let status = LibraryService::desktop_status(&DesktopPageResult {
             monitors: Vec::new(),
             assignments: BTreeMap::new(),
+            resolved_assignments: BTreeMap::new(),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
             monitors_available: false,
             monitor_discovery_issue: Some("Monitor discovery is not available yet".to_string()),
             persistence_issue: Some("Desktop persistence is not available yet".to_string()),
@@ -106,5 +117,32 @@ mod tests {
         );
         assert!(!status.desktop_assignments_available);
         assert!(status.stale);
+    }
+
+    #[test]
+    fn desktop_apply_flow_library_service_reads_assigned_monitor_labels_from_desktop_state() {
+        let status = LibraryService::assigned_monitor_labels(
+            &DesktopPageResult {
+                monitors: Vec::new(),
+                assignments: BTreeMap::new(),
+                resolved_assignments: BTreeMap::new(),
+                library_item_assignments: BTreeMap::from([(
+                    "scene-7".to_string(),
+                    vec!["Primary".to_string(), "DISPLAY-2 (missing)".to_string()],
+                )]),
+                restore_issues: Vec::new(),
+                monitors_available: true,
+                monitor_discovery_issue: None,
+                persistence_issue: None,
+                assignments_available: true,
+                stale: false,
+            },
+            "scene-7",
+        );
+
+        assert_eq!(
+            status,
+            vec!["Primary".to_string(), "DISPLAY-2 (missing)".to_string()]
+        );
     }
 }

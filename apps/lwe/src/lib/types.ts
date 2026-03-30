@@ -9,6 +9,7 @@ export type CompatibilityNextStep =
   | 'wait_for_future_support';
 export type LibrarySource = 'local' | 'workshop' | 'core' | 'other';
 export type RuntimeStatus = 'running' | 'idle' | 'unsupported' | 'error';
+export type DesktopRestoreState = 'restored' | 'missing_item' | 'unavailable';
 
 export interface CompatibilityBaseModel {
   badge: CompatibilityBadge;
@@ -70,6 +71,7 @@ export interface LibraryItemSummary {
   source: LibrarySource;
   compatibility: CompatibilitySummaryModel;
   favorite: boolean;
+  assignedMonitorLabels?: string[];
 }
 
 export interface LibraryPageSnapshot {
@@ -93,6 +95,7 @@ export interface LibraryItemDetail {
   monitorDiscoveryIssue?: string | null;
   desktopAssignmentIssue?: string | null;
   desktopAssignmentsAvailable: boolean;
+  assignedMonitorLabels?: string[];
   description: string | null;
   tags: string[];
 }
@@ -103,6 +106,9 @@ export interface DesktopMonitorSummary {
   resolution: string;
   currentWallpaperTitle: string | null;
   currentCoverPath: string | null;
+  currentItemId?: string | null;
+  restoreState?: DesktopRestoreState | null;
+  restoreIssue?: string | null;
   runtimeStatus: RuntimeStatus;
 }
 
@@ -112,6 +118,7 @@ export interface DesktopPageSnapshot {
   monitorDiscoveryIssue?: string | null;
   persistenceIssue?: string | null;
   assignmentsAvailable: boolean;
+  restoreIssues?: string[];
   stale: boolean;
 }
 

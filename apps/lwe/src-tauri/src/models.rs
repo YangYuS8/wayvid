@@ -64,6 +64,14 @@ pub enum RuntimeStatus {
     Error,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DesktopRestoreState {
+    Restored,
+    MissingItem,
+    Unavailable,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppShellSnapshot {
@@ -117,6 +125,7 @@ pub struct LibraryItemSummary {
     pub source: LibrarySource,
     pub compatibility: CompatibilitySummaryModel,
     pub favorite: bool,
+    pub assigned_monitor_labels: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,6 +157,7 @@ pub struct LibraryItemDetail {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub desktop_assignment_issue: Option<String>,
     pub desktop_assignments_available: bool,
+    pub assigned_monitor_labels: Vec<String>,
     pub description: Option<String>,
     pub tags: Vec<String>,
 }
@@ -160,6 +170,11 @@ pub struct DesktopMonitorSummary {
     pub resolution: String,
     pub current_wallpaper_title: Option<String>,
     pub current_cover_path: Option<String>,
+    pub current_item_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restore_state: Option<DesktopRestoreState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restore_issue: Option<String>,
     pub runtime_status: RuntimeStatus,
 }
 
@@ -173,6 +188,7 @@ pub struct DesktopPageSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub persistence_issue: Option<String>,
     pub assignments_available: bool,
+    pub restore_issues: Vec<String>,
     pub stale: bool,
 }
 
@@ -297,5 +313,49 @@ mod tests {
         assert!(value["libraryCount"].is_null());
         assert!(value["workshopSyncedCount"].is_null());
         assert!(value["monitorCount"].is_null());
+    }
+
+    #[test]
+    fn desktop_apply_flow_models_serialize_restore_state_and_assignment_labels() {
+        let snapshot = DesktopPageSnapshot {
+            monitors: vec![DesktopMonitorSummary {
+                monitor_id: "DISPLAY-1".to_string(),
+                display_name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
+                current_wallpaper_title: None,
+                current_cover_path: None,
+                current_item_id: Some("scene-7".to_string()),
+                restore_state: Some(DesktopRestoreState::Restored),
+                restore_issue: None,
+                runtime_status: RuntimeStatus::Unsupported,
+            }],
+            monitors_available: true,
+            monitor_discovery_issue: None,
+            persistence_issue: None,
+            assignments_available: true,
+            restore_issues: vec![
+                "Saved assignment for missing monitor DISPLAY-2 still points to Forest Scene (scene-7)."
+                    .to_string(),
+            ],
+            stale: false,
+        };
+
+        let library_item = LibraryItemSummary {
+            id: "scene-7".to_string(),
+            title: "Forest Scene".to_string(),
+            item_type: ItemType::Scene,
+            cover_path: None,
+            source: LibrarySource::Workshop,
+            compatibility: summary_compatibility(),
+            favorite: false,
+            assigned_monitor_labels: vec!["Primary".to_string()],
+        };
+
+        let desktop_value = serde_json::to_value(&snapshot).unwrap();
+        let library_value = serde_json::to_value(&library_item).unwrap();
+
+        assert_eq!(desktop_value["monitors"][0]["restoreState"], "restored");
+        assert_eq!(desktop_value["restoreIssues"][0], "Saved assignment for missing monitor DISPLAY-2 still points to Forest Scene (scene-7).");
+        assert_eq!(library_value["assignedMonitorLabels"][0], "Primary");
     }
 }

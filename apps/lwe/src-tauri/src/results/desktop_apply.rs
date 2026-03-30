@@ -13,6 +13,10 @@ mod tests {
 
     #[test]
     fn desktop_apply_result_distinguishes_unavailable_from_known_failures() {
+        let applied = DesktopApplyResult::Applied {
+            monitor_id: "DISPLAY-1".to_string(),
+            item_id: "scene-7".to_string(),
+        };
         let discovery_unavailable = DesktopApplyResult::MonitorDiscoveryUnavailable {
             reason: "Desktop persistence is not available yet".to_string(),
         };
@@ -23,6 +27,7 @@ mod tests {
             monitor_id: "DISPLAY-2".to_string(),
         };
 
+        assert!(matches!(applied, DesktopApplyResult::Applied { .. }));
         assert!(matches!(
             discovery_unavailable,
             DesktopApplyResult::MonitorDiscoveryUnavailable { .. }

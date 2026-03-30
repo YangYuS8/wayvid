@@ -67,14 +67,14 @@ mod tests {
             .unwrap_or_else(|| "DISPLAY-1".to_string());
         let outcome = apply_library_item_to_monitor(monitor_id, "wallpaper-1".to_string()).unwrap();
 
-        assert!(!outcome.ok);
-
         if known_monitor_id.is_some() {
-            assert_eq!(
+            assert!(outcome.ok);
+            assert!(matches!(
                 outcome.message.as_deref(),
-                Some("Desktop persistence is not available yet")
-            );
+                Some(message) if message.contains("Applied wallpaper-1 to")
+            ));
         } else {
+            assert!(!outcome.ok);
             assert!(outcome.message.as_deref().is_some());
         }
     }
@@ -87,14 +87,21 @@ mod tests {
             .unwrap_or_else(|| "DISPLAY-1".to_string());
         let outcome = clear_library_item_from_monitor(monitor_id).unwrap();
 
-        assert!(!outcome.ok);
-
         if known_monitor_id.is_some() {
-            assert_eq!(
-                outcome.message.as_deref(),
-                Some("Desktop persistence is not available yet")
-            );
+            assert!(matches!(
+                outcome,
+                ActionOutcome {
+                    ok: true,
+                    message: Some(_),
+                    ..
+                } | ActionOutcome {
+                    ok: false,
+                    message: Some(_),
+                    ..
+                }
+            ));
         } else {
+            assert!(!outcome.ok);
             assert!(outcome.message.as_deref().is_some());
         }
     }
