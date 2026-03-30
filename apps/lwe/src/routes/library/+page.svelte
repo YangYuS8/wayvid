@@ -12,6 +12,7 @@
     setLibrarySnapshot,
     setSelectedItem
   } from '$lib/stores/ui';
+  import { resolveLibraryPageState } from './page-state';
 
   const readError = (error: unknown) =>
     error instanceof Error ? error.message : 'Unable to load the Library request.';
@@ -21,6 +22,9 @@
   let pageError: string | null = null;
   let detailError: string | null = null;
   let detailRequestToken = 0;
+
+  $: snapshot = $pageCache.library.snapshot;
+  $: pageState = snapshot ? resolveLibraryPageState(snapshot) : null;
 
   const ensurePage = async () => {
     if (!needsPageLoad('library')) {
@@ -92,15 +96,23 @@
 
   <div class="layout">
     <section>
+      {#if pageState?.issueMessages.length}
+        <div class="state-messages" aria-live="polite">
+          {#each pageState.issueMessages as issue}
+            <p class="message warning">{issue}</p>
+          {/each}
+        </div>
+      {/if}
+
       {#if loading && !$pageCache.library.snapshot}
         <p role="status" aria-live="polite">Loading Library snapshot…</p>
-      {:else if $pageCache.library.snapshot?.items.length}
+      {:else if snapshot?.items.length}
         <div class="item-grid">
-          {#each $pageCache.library.snapshot.items as item}
+          {#each snapshot.items as item}
             <button
               type="button"
               class="item-button"
-              aria-pressed={$pageCache.library.snapshot.selectedItemId === item.id}
+              aria-pressed={snapshot.selectedItemId === item.id}
               on:click={() => selectItem(item.id)}
             >
               <ItemCard
@@ -108,17 +120,22 @@
                 itemType={item.itemType}
                 coverPath={item.coverPath}
                 compatibility={item.compatibility}
-                selected={$pageCache.library.snapshot.selectedItemId === item.id}
+                selected={snapshot.selectedItemId === item.id}
               />
             </button>
           {/each}
         </div>
       {:else}
-        <p>No Library items are available in the current snapshot.</p>
+        <p>{pageState?.emptyMessage ?? 'No Library items are available in the current snapshot.'}</p>
       {/if}
     </section>
 
-    <LibraryDetailPanel detail={$pageCache.library.detail} loading={detailLoading} error={detailError} />
+    <LibraryDetailPanel
+      detail={$pageCache.library.detail}
+      snapshot={snapshot}
+      loading={detailLoading}
+      error={detailError}
+    />
   </div>
 </section>
 
@@ -126,7 +143,8 @@
   .page-shell,
   header,
   .layout,
-  .item-grid {
+  .item-grid,
+  .state-messages {
     display: grid;
     gap: 1.1rem;
   }
@@ -187,6 +205,10 @@
 
   .message.error {
     background: rgba(160, 98, 23, 0.12);
+  }
+
+  .message.warning {
+    background: rgba(15, 95, 154, 0.12);
   }
 
   @media (max-width: 900px) {

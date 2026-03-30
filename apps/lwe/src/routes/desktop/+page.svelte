@@ -2,12 +2,16 @@
   import { onMount } from 'svelte';
   import { loadDesktopPage } from '$lib/ipc';
   import { needsPageLoad, pageCache, setCurrentPage, setDesktopSnapshot } from '$lib/stores/ui';
+  import { resolveDesktopPageState } from './page-state';
 
   const readError = (error: unknown) =>
     error instanceof Error ? error.message : 'Unable to load the Desktop snapshot.';
 
   let loading = false;
   let pageError: string | null = null;
+
+  $: snapshot = $pageCache.desktop.snapshot;
+  $: pageState = snapshot ? resolveDesktopPageState(snapshot) : null;
 
   const ensurePage = async () => {
     if (!needsPageLoad('desktop')) {
@@ -43,10 +47,25 @@
     <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !$pageCache.desktop.snapshot}
     <p role="status" aria-live="polite">Loading Desktop snapshot…</p>
-  {:else if $pageCache.desktop.snapshot}
+  {:else if snapshot}
     <section class="panel">
-      <p>Monitors discovered: {$pageCache.desktop.snapshot.monitors.length}</p>
-      <p>Snapshot stale: {$pageCache.desktop.snapshot.stale ? 'yes' : 'no'}</p>
+      <p>Monitors discovered: {snapshot.monitors.length}</p>
+      <p>Monitor discovery available: {pageState?.monitorAvailabilityLabel ?? 'no'}</p>
+      <p>Assignment persistence available: {pageState?.assignmentAvailabilityLabel ?? 'no'}</p>
+      <p>Snapshot stale: {snapshot.stale ? 'yes' : 'no'}</p>
+
+      {#if pageState?.issueMessages.length}
+        <div class="issues" aria-live="polite">
+          {#each pageState.issueMessages as issue}
+            <p class="message warning">{issue}</p>
+          {/each}
+        </div>
+      {/if}
+
+      {#if pageState?.emptyMessage}
+        <p>{pageState.emptyMessage}</p>
+      {/if}
+
       <p>The runtime control surface stays deferred until a later task exposes real commands.</p>
     </section>
   {/if}
@@ -55,7 +74,8 @@
 <style>
   .page-shell,
   header,
-  .panel {
+  .panel,
+  .issues {
     display: grid;
     gap: 1rem;
   }
@@ -88,5 +108,11 @@
     padding: 0.85rem 1rem;
     border-radius: 14px;
     background: rgba(160, 98, 23, 0.12);
+  }
+
+  .message.warning {
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    background: rgba(15, 95, 154, 0.12);
   }
 </style>

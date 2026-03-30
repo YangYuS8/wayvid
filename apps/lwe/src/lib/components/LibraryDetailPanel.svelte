@@ -2,11 +2,16 @@
   import CompatibilityPanel from '$lib/components/CompatibilityPanel.svelte';
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
-  import type { LibraryItemDetail } from '$lib/types';
+  import type { LibraryItemDetail, LibraryPageSnapshot } from '$lib/types';
+  import { resolveLibraryAvailabilityIssues } from '../../routes/library/page-state';
 
   export let detail: LibraryItemDetail | null = null;
+  export let snapshot: LibraryPageSnapshot | null = null;
   export let loading = false;
   export let error: string | null = null;
+
+  $: availabilitySource = detail ?? snapshot;
+  $: issueMessages = availabilitySource ? resolveLibraryAvailabilityIssues(availabilitySource) : [];
 </script>
 
 <section class="panel">
@@ -26,6 +31,14 @@
           <StatusBadge label={detail.itemType} />
         </div>
 
+        {#if issueMessages.length}
+          <div class="issues" aria-live="polite">
+            {#each issueMessages as issue}
+              <p class="message warning">{issue}</p>
+            {/each}
+          </div>
+        {/if}
+
         <CompatibilityPanel compatibility={detail.compatibility} />
 
         {#if detail.description}
@@ -38,7 +51,17 @@
       </div>
     </div>
   {:else}
-    <p>Select a Library item to inspect its current detail payload.</p>
+    <div class="copy">
+      {#if issueMessages.length}
+        <div class="issues" aria-live="polite">
+          {#each issueMessages as issue}
+            <p class="message warning">{issue}</p>
+          {/each}
+        </div>
+      {/if}
+
+      <p>Select a Library item to inspect its current detail payload.</p>
+    </div>
   {/if}
 </section>
 
@@ -53,7 +76,8 @@
 
   .panel-body,
   .copy,
-  .badges {
+  .badges,
+  .issues {
     display: grid;
     gap: 0.9rem;
   }
@@ -74,5 +98,12 @@
 
   .tags {
     color: #5a6978;
+  }
+
+  .message.warning {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    background: rgba(15, 95, 154, 0.12);
   }
 </style>
