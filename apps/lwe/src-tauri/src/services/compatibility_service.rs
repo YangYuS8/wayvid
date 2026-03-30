@@ -1,7 +1,4 @@
-use crate::policies::shared::compatibility_policy::{
-    compatibility_decision, CompatibilityLevel, CompatibilityReason,
-};
-use crate::results::compatibility::CompatibilityAssessment;
+use crate::policies::shared::compatibility_policy::{compatibility_decision, CompatibilityLevel};
 use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopProjectMetadata};
 use lwe_library::{WeProject, WorkshopCatalogEntry};
 
@@ -41,34 +38,12 @@ impl CompatibilityService {
         entry.compatibility.level == CompatibilityLevel::FullySupported
             && entry.entry.library_item_id.is_some()
     }
-
-    pub fn compatibility_note(assessment: CompatibilityAssessment) -> Option<String> {
-        match assessment.reason {
-            CompatibilityReason::ReadyForLibrary => {
-                Some("This item is synchronized locally and available in the Library page.".to_string())
-            }
-            CompatibilityReason::MissingProjectMetadata => Some(
-                "The local Workshop folder is missing valid project metadata, so LWE cannot classify or import this item yet."
-                    .to_string(),
-            ),
-            CompatibilityReason::MissingPrimaryAsset => Some(
-                "The project metadata was found, but the primary local asset is missing, so it cannot be projected into Library yet."
-                    .to_string(),
-            ),
-            CompatibilityReason::UnsupportedWebItem => Some(
-                "Web Workshop items are visible here, but the first release only supports video and scene imports."
-                    .to_string(),
-            ),
-            CompatibilityReason::UnsupportedProjectType => Some(
-                "This Workshop item uses a project type that the first release does not import yet.".to_string(),
-            ),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::policies::shared::compatibility_policy::CompatibilityReason;
     use lwe_library::{WorkshopProjectType, WorkshopSyncState};
     use std::path::PathBuf;
 
