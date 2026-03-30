@@ -4,6 +4,7 @@ use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::library::LibraryProjection;
 use crate::results::workshop::AssessedWorkshopCatalogEntry;
+use crate::services::library_service::LibraryService;
 use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -47,7 +48,7 @@ pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
             .map(assemble_library_summary)
             .collect(),
         selected_item_id: None,
-        stale: false,
+        stale: !LibraryService::desktop_assignments_available(),
     }
 }
 
@@ -93,5 +94,6 @@ mod tests {
         assert_eq!(snapshot.items.len(), 1);
         assert_eq!(snapshot.items[0].id, "scene-7");
         assert_eq!(snapshot.items[0].title, "Forest Scene");
+        assert!(snapshot.stale);
     }
 }
