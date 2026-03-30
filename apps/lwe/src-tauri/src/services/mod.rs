@@ -1,4 +1,5 @@
 pub mod app_shell_service;
+pub mod backends;
 pub mod compatibility_service;
 pub mod desktop_persistence_service;
 pub mod desktop_service;
