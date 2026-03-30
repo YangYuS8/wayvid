@@ -1,6 +1,6 @@
 use crate::models::{CompatibilityBadge, CompatibilityExplanationModel, CompatibilitySummaryModel};
 use crate::policies::shared::compatibility_policy::{CompatibilityLevel, CompatibilityReason};
-use crate::results::compatibility::CompatibilityAssessment;
+use crate::results::compatibility::{CompatibilityAssessment, CompatibilityNextStep};
 
 fn badge(level: CompatibilityLevel) -> CompatibilityBadge {
     match level {
@@ -20,10 +20,34 @@ fn reason_code(reason: CompatibilityReason) -> String {
     }
 }
 
+fn summary_copy(reason: CompatibilityReason) -> String {
+    match reason {
+        CompatibilityReason::ReadyForLibrary => "Ready to use".to_string(),
+        CompatibilityReason::MissingProjectMetadata => "Needs project metadata".to_string(),
+        CompatibilityReason::MissingPrimaryAsset => "Needs primary asset".to_string(),
+        CompatibilityReason::UnsupportedWebItem => "Web support coming later".to_string(),
+        CompatibilityReason::UnsupportedProjectType => "Project type not supported yet".to_string(),
+    }
+}
+
+fn next_step_copy(next_step: CompatibilityNextStep) -> Option<String> {
+    match next_step {
+        CompatibilityNextStep::None => None,
+        CompatibilityNextStep::OpenInSteam => Some("Open this item in Steam.".to_string()),
+        CompatibilityNextStep::ResyncWorkshopItem => {
+            Some("Resync this Workshop item to restore the missing files.".to_string())
+        }
+        CompatibilityNextStep::WaitForFutureSupport => {
+            Some("Support for this item is planned for a future update.".to_string())
+        }
+    }
+}
+
 pub fn compatibility_summary(assessment: &CompatibilityAssessment) -> CompatibilitySummaryModel {
     CompatibilitySummaryModel {
         badge: badge(assessment.level),
         reason_code: reason_code(assessment.reason),
+        summary_copy: summary_copy(assessment.reason),
     }
 }
 
@@ -61,9 +85,11 @@ pub fn compatibility_explanation(
     CompatibilityExplanationModel {
         badge: badge(assessment.level),
         reason_code: reason_code(assessment.reason),
+        summary_copy: summary_copy(assessment.reason),
         headline,
         detail,
         next_step: assessment.next_step,
+        next_step_copy: next_step_copy(assessment.next_step),
     }
 }
 
@@ -85,9 +111,14 @@ mod tests {
         let explanation = compatibility_explanation(&assessment);
 
         assert_eq!(summary.reason_code, "unsupported_web_item");
+        assert_eq!(summary.summary_copy, "Web support coming later");
         assert_eq!(
             explanation.next_step,
             CompatibilityNextStep::WaitForFutureSupport
+        );
+        assert_eq!(
+            explanation.next_step_copy.as_deref(),
+            Some("Support for this item is planned for a future update.")
         );
     }
 }

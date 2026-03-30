@@ -14,14 +14,16 @@ import {
 
 const compatibilitySummary = {
   badge: 'fully_supported' as const,
-  reasonCode: 'ready_for_library'
+  reasonCode: 'ready_for_library',
+  summaryCopy: 'Ready to use'
 };
 
 const compatibilityDetail = {
   ...compatibilitySummary,
   headline: 'Ready to use',
   detail: 'This item is synchronized locally and available for Library and desktop use.',
-  nextStep: 'none' as const
+  nextStep: 'none' as const,
+  nextStepCopy: null
 };
 
 const resetCache = () => {

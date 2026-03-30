@@ -31,6 +31,7 @@ pub enum CompatibilityBadge {
 pub struct CompatibilitySummaryModel {
     pub badge: CompatibilityBadge,
     pub reason_code: String,
+    pub summary_copy: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,9 +39,11 @@ pub struct CompatibilitySummaryModel {
 pub struct CompatibilityExplanationModel {
     pub badge: CompatibilityBadge,
     pub reason_code: String,
+    pub summary_copy: String,
     pub headline: String,
     pub detail: String,
     pub next_step: crate::results::compatibility::CompatibilityNextStep,
+    pub next_step_copy: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,6 +177,7 @@ mod tests {
         CompatibilitySummaryModel {
             badge: CompatibilityBadge::FullySupported,
             reason_code: "ready_for_library".to_string(),
+            summary_copy: "Ready to use".to_string(),
         }
     }
 
@@ -224,11 +228,13 @@ mod tests {
             compatibility: CompatibilityExplanationModel {
                 badge: CompatibilityBadge::FullySupported,
                 reason_code: "ready_for_library".to_string(),
+                summary_copy: "Ready to use".to_string(),
                 headline: "Ready to use".to_string(),
                 detail:
                     "This item is synchronized locally and available for Library and desktop use."
                         .to_string(),
                 next_step: CompatibilityNextStep::None,
+                next_step_copy: None,
             },
             tags: Vec::new(),
             description: None,
@@ -237,7 +243,9 @@ mod tests {
         let value = serde_json::to_value(&item).unwrap();
 
         assert_eq!(value["compatibility"]["headline"], "Ready to use");
+        assert_eq!(value["compatibility"]["summaryCopy"], "Ready to use");
         assert_eq!(value["compatibility"]["nextStep"], "none");
+        assert!(value["compatibility"]["nextStepCopy"].is_null());
     }
 
     #[test]

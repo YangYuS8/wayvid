@@ -15,12 +15,16 @@ export interface CompatibilityBaseModel {
   reasonCode: string;
 }
 
-export interface CompatibilitySummaryModel extends CompatibilityBaseModel {}
+export interface CompatibilitySummaryModel extends CompatibilityBaseModel {
+  summaryCopy: string;
+}
 
 export interface CompatibilityExplanationModel extends CompatibilityBaseModel {
+  summaryCopy: string;
   headline: string;
   detail: string;
   nextStep: CompatibilityNextStep;
+  nextStepCopy: string | null;
 }
 
 export interface AppShellSnapshot {
