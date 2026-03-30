@@ -59,7 +59,7 @@ mod tests {
     };
     use crate::results::compatibility::CompatibilityNextStep;
     use crate::results::library::LibraryProjection;
-    use crate::results::workshop::AssessedWorkshopCatalogEntry;
+    use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopProjectMetadata};
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     fn assessed_entry() -> AssessedWorkshopCatalogEntry {
@@ -79,6 +79,7 @@ mod tests {
                 reason: CompatibilityReason::ReadyForLibrary,
                 next_step: CompatibilityNextStep::None,
             },
+            project_metadata: WorkshopProjectMetadata::default(),
         }
     }
 

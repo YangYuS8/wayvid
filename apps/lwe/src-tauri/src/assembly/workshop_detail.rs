@@ -2,7 +2,7 @@ use crate::assembly::compatibility::compatibility_explanation;
 use crate::models::{ItemType, WorkshopItemDetail, WorkshopSyncStatus};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::workshop::WorkshopInspection;
-use lwe_library::{WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
     match project_type {
@@ -36,17 +36,14 @@ fn sync_status(entry: &WorkshopCatalogEntry) -> WorkshopSyncStatus {
 
 pub fn assemble_workshop_detail(result: WorkshopInspection) -> WorkshopItemDetail {
     let entry = result.entry;
-    let project = WeProject::load(&entry.entry.project_dir).ok();
-    let description = project
-        .as_ref()
-        .and_then(|project| project.description.clone());
-    let tags = project.map(|project| project.tags).unwrap_or_default();
     let id = entry.entry.workshop_id.to_string();
     let title = entry.entry.title.clone();
     let item_type = item_type_from_project_type(entry.entry.project_type);
     let cover_path = cover_path(&entry.entry);
     let sync_status = sync_status(&entry.entry);
     let compatibility = compatibility_explanation(&entry.compatibility);
+    let description = entry.project_metadata.description.clone();
+    let tags = entry.project_metadata.tags.clone();
 
     WorkshopItemDetail {
         id,

@@ -1,10 +1,17 @@
 use crate::results::compatibility::CompatibilityAssessment;
 use lwe_library::{WorkshopCatalogEntry, WorkshopSyncState};
 
+#[derive(Debug, Clone, Default)]
+pub struct WorkshopProjectMetadata {
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct AssessedWorkshopCatalogEntry {
     pub entry: WorkshopCatalogEntry,
     pub compatibility: CompatibilityAssessment,
+    pub project_metadata: WorkshopProjectMetadata,
 }
 
 #[derive(Debug, Clone)]

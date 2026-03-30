@@ -54,7 +54,7 @@ mod tests {
     use crate::policies::shared::compatibility_policy::{
         CompatibilityDecision, CompatibilityLevel, CompatibilityNextStep, CompatibilityReason,
     };
-    use crate::results::workshop::AssessedWorkshopCatalogEntry;
+    use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopProjectMetadata};
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     fn assessed_entry(
@@ -77,6 +77,7 @@ mod tests {
                 library_item_id: library_item_id.map(str::to_string),
             },
             compatibility,
+            project_metadata: WorkshopProjectMetadata::default(),
         }
     }
 

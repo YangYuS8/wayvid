@@ -2,18 +2,29 @@ use crate::policies::shared::compatibility_policy::{
     compatibility_decision, CompatibilityLevel, CompatibilityReason,
 };
 use crate::results::compatibility::CompatibilityAssessment;
-use crate::results::workshop::AssessedWorkshopCatalogEntry;
-use lwe_library::WorkshopCatalogEntry;
+use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopProjectMetadata};
+use lwe_library::{WeProject, WorkshopCatalogEntry};
 
 pub struct CompatibilityService;
 
 impl CompatibilityService {
+    fn project_metadata(entry: &WorkshopCatalogEntry) -> WorkshopProjectMetadata {
+        WeProject::load(&entry.project_dir)
+            .map(|project| WorkshopProjectMetadata {
+                description: project.description,
+                tags: project.tags,
+            })
+            .unwrap_or_default()
+    }
+
     pub fn assess_catalog_entry(entry: WorkshopCatalogEntry) -> AssessedWorkshopCatalogEntry {
         let compatibility = compatibility_decision(&entry);
+        let project_metadata = Self::project_metadata(&entry);
 
         AssessedWorkshopCatalogEntry {
             entry,
             compatibility,
+            project_metadata,
         }
     }
 
