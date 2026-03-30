@@ -3,6 +3,23 @@
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import type { CompatibilitySummaryModel } from '$lib/types';
 
+  const summaryLabel = (reasonCode: CompatibilitySummaryModel['reasonCode']) => {
+    switch (reasonCode) {
+      case 'ready_for_library':
+        return 'Ready to use';
+      case 'missing_project_metadata':
+        return 'Needs project metadata';
+      case 'missing_primary_asset':
+        return 'Needs primary asset';
+      case 'unsupported_web_item':
+        return 'Web support coming later';
+      case 'unsupported_project_type':
+        return 'Project type not supported yet';
+      default:
+        return 'Compatibility details available';
+    }
+  };
+
   export let title: string;
   export let itemType: string;
   export let coverPath: string | null = null;
@@ -18,7 +35,7 @@
     <p>{itemType}</p>
     <div class="summary">
       <StatusBadge label={compatibility.badge} />
-      <p class="reason-code">{compatibility.reasonCode}</p>
+      <p class="summary-copy">{summaryLabel(compatibility.reasonCode)}</p>
     </div>
   </div>
 </div>
@@ -72,7 +89,7 @@
     text-transform: capitalize;
   }
 
-  .reason-code {
+  .summary-copy {
     font-size: 0.8rem;
     text-transform: none;
   }

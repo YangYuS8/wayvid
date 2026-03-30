@@ -2,13 +2,29 @@
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import type { CompatibilityExplanationModel } from '$lib/types';
 
+  const nextStepLabel = (nextStep: CompatibilityExplanationModel['nextStep']) => {
+    switch (nextStep) {
+      case 'none':
+        return null;
+      case 'open_in_steam':
+        return 'Open this item in Steam.';
+      case 'resync_workshop_item':
+        return 'Resync this Workshop item to restore the missing files.';
+      case 'wait_for_future_support':
+        return 'Support for this item is planned for a future update.';
+      default:
+        return 'Check the item source for the next required action.';
+    }
+  };
+
   export let compatibility: CompatibilityExplanationModel;
+
+  $: nextStep = nextStepLabel(compatibility.nextStep);
 </script>
 
 <section class="compatibility-panel" aria-label="Compatibility explanation">
   <div class="header">
     <StatusBadge label={compatibility.badge} />
-    <p class="reason-code">{compatibility.reasonCode}</p>
   </div>
 
   <div class="copy">
@@ -16,7 +32,9 @@
     <p>{compatibility.detail}</p>
   </div>
 
-  <p class="next-step">Next step: <code>{compatibility.nextStep}</code></p>
+  {#if nextStep}
+    <p class="next-step">Next step: {nextStep}</p>
+  {/if}
 </section>
 
 <style>
@@ -45,12 +63,7 @@
     overflow-wrap: anywhere;
   }
 
-  .reason-code,
   .next-step {
     color: #5a6978;
-  }
-
-  code {
-    font-size: 0.92em;
   }
 </style>
