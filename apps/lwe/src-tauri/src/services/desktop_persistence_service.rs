@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::results::desktop_persistence::{DesktopPersistenceLoad, DesktopPersistenceWrite};
 
 const PERSISTENCE_UNAVAILABLE_REASON: &str = "Desktop persistence is not available yet";
@@ -7,13 +5,19 @@ const PERSISTENCE_UNAVAILABLE_REASON: &str = "Desktop persistence is not availab
 pub struct DesktopPersistenceService;
 
 impl DesktopPersistenceService {
-    pub fn load() -> DesktopPersistenceLoad {
+    pub fn load_state() -> DesktopPersistenceLoad {
         DesktopPersistenceLoad::Unavailable {
             reason: PERSISTENCE_UNAVAILABLE_REASON.to_string(),
         }
     }
 
-    pub fn write(_assignments: &BTreeMap<String, String>) -> DesktopPersistenceWrite {
+    pub fn save_assignment(_monitor_id: &str, _item_id: &str) -> DesktopPersistenceWrite {
+        DesktopPersistenceWrite::Unavailable {
+            reason: PERSISTENCE_UNAVAILABLE_REASON.to_string(),
+        }
+    }
+
+    pub fn clear_assignment(_monitor_id: &str) -> DesktopPersistenceWrite {
         DesktopPersistenceWrite::Unavailable {
             reason: PERSISTENCE_UNAVAILABLE_REASON.to_string(),
         }
@@ -22,15 +26,13 @@ impl DesktopPersistenceService {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use crate::results::desktop_persistence::{DesktopPersistenceLoad, DesktopPersistenceWrite};
 
     use super::DesktopPersistenceService;
 
     #[test]
-    fn load_returns_unavailable_until_real_persistence_is_implemented() {
-        let result = DesktopPersistenceService::load();
+    fn load_state_returns_unavailable_until_real_persistence_is_implemented() {
+        let result = DesktopPersistenceService::load_state();
 
         assert!(matches!(
             result,
@@ -40,10 +42,19 @@ mod tests {
     }
 
     #[test]
-    fn write_returns_unavailable_until_real_persistence_is_implemented() {
-        let assignments = BTreeMap::from([("DISPLAY-1".to_string(), "wallpaper-1".to_string())]);
+    fn save_assignment_returns_unavailable_until_real_persistence_is_implemented() {
+        let result = DesktopPersistenceService::save_assignment("DISPLAY-1", "wallpaper-1");
 
-        let result = DesktopPersistenceService::write(&assignments);
+        assert!(matches!(
+            result,
+            DesktopPersistenceWrite::Unavailable { reason }
+                if reason == "Desktop persistence is not available yet"
+        ));
+    }
+
+    #[test]
+    fn clear_assignment_returns_unavailable_until_real_persistence_is_implemented() {
+        let result = DesktopPersistenceService::clear_assignment("DISPLAY-1");
 
         assert!(matches!(
             result,
