@@ -10,14 +10,14 @@ export type CompatibilityNextStep =
 export type LibrarySource = 'local' | 'workshop' | 'core' | 'other';
 export type RuntimeStatus = 'running' | 'idle' | 'unsupported' | 'error';
 
-export interface CompatibilitySummaryModel {
+export interface CompatibilityBaseModel {
   badge: CompatibilityBadge;
   reasonCode: string;
 }
 
-export interface CompatibilityExplanationModel {
-  badge: CompatibilityBadge;
-  reasonCode: string;
+export interface CompatibilitySummaryModel extends CompatibilityBaseModel {}
+
+export interface CompatibilityExplanationModel extends CompatibilityBaseModel {
   headline: string;
   detail: string;
   nextStep: CompatibilityNextStep;
