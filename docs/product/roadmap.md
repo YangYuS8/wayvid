@@ -27,5 +27,5 @@
 ## Next Planning Tracks
 
 - `workshop-browsing-and-acquisition`: build the first `LWE` Workshop loop in the active `apps/lwe/src-tauri` + `apps/lwe` shell using Rust-owned page snapshots, detail payloads, official Steam handoff actions, and Library projection for synchronized items while treating `wayvid-gui`/`wayvid-ctl` as retired workspace history
-- `compatibility-evaluation-and-reporting`: implemented in the active `apps/lwe/src-tauri` + `apps/lwe` shell with structured compatibility levels, reasons, and next-step guidance for imported Wallpaper Engine content, without promising runtime support beyond reported compatibility
+- `compatibility-evaluation-and-reporting`: implemented in the active `apps/lwe/src-tauri` + `apps/lwe` shell with structured compatibility levels, supporting reasons, and next-step guidance for imported Wallpaper Engine content, without promising runtime support beyond reported compatibility
 - `desktop-shell-and-library-flow`: define the application shell plan for library management, playback controls, and Linux desktop integration
