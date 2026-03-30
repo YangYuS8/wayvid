@@ -40,7 +40,7 @@ pub struct CompatibilityExplanationModel {
     pub reason_code: String,
     pub headline: String,
     pub detail: String,
-    pub next_step: crate::policies::shared::compatibility_policy::CompatibilityNextStep,
+    pub next_step: crate::results::compatibility::CompatibilityNextStep,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -168,7 +168,7 @@ pub struct SettingsPageSnapshot {
 mod tests {
     use super::*;
     use crate::action_outcome::AppShellPatch;
-    use crate::policies::shared::compatibility_policy::CompatibilityNextStep;
+    use crate::results::compatibility::CompatibilityNextStep;
 
     fn summary_compatibility() -> CompatibilitySummaryModel {
         CompatibilitySummaryModel {

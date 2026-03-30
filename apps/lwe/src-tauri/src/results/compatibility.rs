@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::models::CompatibilityBadge;
-use crate::policies::shared::compatibility_policy::{
-    CompatibilityDecision, CompatibilityNextStep, CompatibilityReason,
-};
+use crate::policies::shared::compatibility_policy::{CompatibilityDecision, CompatibilityReason};
+
+pub use crate::policies::shared::compatibility_policy::CompatibilityNextStep;
 
 pub type CompatibilityAssessment = CompatibilityDecision;
 pub type CompatibilityReasonCode = CompatibilityReason;

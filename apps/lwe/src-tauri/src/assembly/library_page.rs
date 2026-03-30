@@ -55,8 +55,9 @@ pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
 mod tests {
     use super::*;
     use crate::policies::shared::compatibility_policy::{
-        CompatibilityDecision, CompatibilityLevel, CompatibilityNextStep, CompatibilityReason,
+        CompatibilityDecision, CompatibilityLevel, CompatibilityReason,
     };
+    use crate::results::compatibility::CompatibilityNextStep;
     use crate::results::library::LibraryProjection;
     use crate::results::workshop::AssessedWorkshopCatalogEntry;
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};

@@ -70,10 +70,8 @@ pub fn compatibility_explanation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policies::shared::compatibility_policy::{
-        CompatibilityLevel, CompatibilityNextStep, CompatibilityReason,
-    };
-    use crate::results::compatibility::CompatibilityAssessment;
+    use crate::policies::shared::compatibility_policy::{CompatibilityLevel, CompatibilityReason};
+    use crate::results::compatibility::{CompatibilityAssessment, CompatibilityNextStep};
 
     #[test]
     fn compatibility_assembly_turns_assessment_into_summary_and_explanation() {
