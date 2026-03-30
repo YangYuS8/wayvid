@@ -15,11 +15,22 @@ impl MonitorService {
         }
     }
 
-    pub fn resolve_specific_monitor<'a>(
-        monitors: &'a [MonitorDescriptor],
+    pub fn resolve_specific_monitor(
+        monitors: &MonitorDiscoveryResult,
         monitor_id: &str,
-    ) -> Option<&'a MonitorDescriptor> {
-        monitors.iter().find(|monitor| monitor.id == monitor_id)
+    ) -> MonitorDiscoveryResult {
+        match monitors {
+            MonitorDiscoveryResult::Known(monitors) => MonitorDiscoveryResult::Known(
+                monitors
+                    .iter()
+                    .filter(|monitor| monitor.id == monitor_id)
+                    .cloned()
+                    .collect(),
+            ),
+            MonitorDiscoveryResult::Unavailable { reason } => MonitorDiscoveryResult::Unavailable {
+                reason: reason.clone(),
+            },
+        }
     }
 }
 
@@ -28,18 +39,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn list_monitors_returns_structured_result() {
+    fn list_monitors_reports_placeholder_unavailable_state() {
         let result = MonitorService::list_monitors();
 
         assert!(matches!(
             result,
-            MonitorDiscoveryResult::Known(_) | MonitorDiscoveryResult::Unavailable { .. }
+            MonitorDiscoveryResult::Unavailable { reason }
+                if reason == "Monitor discovery is not available yet"
         ));
     }
 
     #[test]
-    fn resolve_specific_monitor_uses_known_monitor_slice() {
-        let monitors = vec![
+    fn resolve_specific_monitor_preserves_discovery_state() {
+        let known_monitors = MonitorDiscoveryResult::Known(vec![
             MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
@@ -48,11 +60,26 @@ mod tests {
                 id: "DISPLAY-2".to_string(),
                 name: "Secondary".to_string(),
             },
-        ];
+        ]);
 
-        let resolved = MonitorService::resolve_specific_monitor(&monitors, "DISPLAY-2");
+        let unavailable = MonitorDiscoveryResult::Unavailable {
+            reason: "Monitor discovery is not available yet".to_string(),
+        };
 
-        assert!(matches!(resolved, Some(monitor) if monitor.name == "Secondary"));
-        assert!(MonitorService::resolve_specific_monitor(&monitors, "DISPLAY-3").is_none());
+        let resolved = MonitorService::resolve_specific_monitor(&known_monitors, "DISPLAY-2");
+        let missing = MonitorService::resolve_specific_monitor(&known_monitors, "DISPLAY-3");
+        let unresolved = MonitorService::resolve_specific_monitor(&unavailable, "DISPLAY-2");
+
+        assert!(matches!(
+            resolved,
+            MonitorDiscoveryResult::Known(monitors)
+                if monitors.len() == 1 && monitors[0].name == "Secondary"
+        ));
+        assert!(matches!(missing, MonitorDiscoveryResult::Known(monitors) if monitors.is_empty()));
+        assert!(matches!(
+            unresolved,
+            MonitorDiscoveryResult::Unavailable { reason }
+                if reason == "Monitor discovery is not available yet"
+        ));
     }
 }
