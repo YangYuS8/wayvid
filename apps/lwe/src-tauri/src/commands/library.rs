@@ -37,5 +37,9 @@ mod tests {
             snapshot.desktop_assignment_issue.as_deref(),
             Some("Desktop persistence is not available yet")
         );
+        assert_eq!(
+            snapshot.monitor_discovery_issue.as_deref(),
+            Some("Monitor discovery is not available yet")
+        );
     }
 }

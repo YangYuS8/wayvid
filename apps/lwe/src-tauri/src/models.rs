@@ -125,6 +125,8 @@ pub struct LibraryPageSnapshot {
     pub items: Vec<LibraryItemSummary>,
     pub selected_item_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub monitor_discovery_issue: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub desktop_assignment_issue: Option<String>,
     pub desktop_assignments_available: bool,
     pub stale: bool,
@@ -139,6 +141,8 @@ pub struct LibraryItemDetail {
     pub cover_path: Option<String>,
     pub source: LibrarySource,
     pub compatibility: CompatibilityExplanationModel,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monitor_discovery_issue: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub desktop_assignment_issue: Option<String>,
     pub desktop_assignments_available: bool,

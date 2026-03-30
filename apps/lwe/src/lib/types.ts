@@ -75,6 +75,7 @@ export interface LibraryItemSummary {
 export interface LibraryPageSnapshot {
   items: LibraryItemSummary[];
   selectedItemId: string | null;
+  monitorDiscoveryIssue?: string | null;
   desktopAssignmentIssue?: string | null;
   desktopAssignmentsAvailable: boolean;
   stale: boolean;
@@ -87,6 +88,7 @@ export interface LibraryItemDetail {
   coverPath: string | null;
   source: LibrarySource;
   compatibility: CompatibilityExplanationModel;
+  monitorDiscoveryIssue?: string | null;
   desktopAssignmentIssue?: string | null;
   desktopAssignmentsAvailable: boolean;
   description: string | null;

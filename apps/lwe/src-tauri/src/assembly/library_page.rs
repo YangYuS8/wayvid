@@ -53,6 +53,7 @@ pub fn assemble_library_page(
             .map(assemble_library_summary)
             .collect(),
         selected_item_id: None,
+        monitor_discovery_issue: desktop.monitor_discovery_issue.clone(),
         desktop_assignment_issue: desktop.persistence_issue.clone(),
         desktop_assignments_available: desktop.assignments_available,
         stale,
@@ -102,7 +103,7 @@ mod tests {
             &DesktopPageResult {
                 monitors: Vec::new(),
                 assignments: std::collections::BTreeMap::new(),
-                monitor_discovery_issue: None,
+                monitor_discovery_issue: Some("Monitor discovery is not available yet".to_string()),
                 persistence_issue: Some("Desktop persistence is not available yet".to_string()),
                 assignments_available: false,
                 stale: true,
@@ -116,6 +117,10 @@ mod tests {
         assert_eq!(
             snapshot.desktop_assignment_issue.as_deref(),
             Some("Desktop persistence is not available yet")
+        );
+        assert_eq!(
+            snapshot.monitor_discovery_issue.as_deref(),
+            Some("Monitor discovery is not available yet")
         );
         assert!(snapshot.stale);
     }

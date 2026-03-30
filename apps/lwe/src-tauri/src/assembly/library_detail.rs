@@ -31,6 +31,7 @@ pub fn assemble_library_detail(
     desktop: &DesktopPageResult,
 ) -> LibraryItemDetail {
     let assignment_issue = desktop.persistence_issue.clone();
+    let monitor_discovery_issue = desktop.monitor_discovery_issue.clone();
     let id = entry.entry.library_item_id.clone().unwrap_or_default();
     let title = entry.entry.title.clone();
     let item_type = item_type_from_project_type(entry.entry.project_type);
@@ -53,6 +54,7 @@ pub fn assemble_library_detail(
         cover_path,
         source: LibrarySource::Workshop,
         compatibility,
+        monitor_discovery_issue,
         desktop_assignment_issue: assignment_issue,
         desktop_assignments_available: desktop.assignments_available,
         description,
@@ -95,7 +97,7 @@ mod tests {
             &DesktopPageResult {
                 monitors: Vec::new(),
                 assignments: std::collections::BTreeMap::new(),
-                monitor_discovery_issue: None,
+                monitor_discovery_issue: Some("Monitor discovery is not available yet".to_string()),
                 persistence_issue: Some("Desktop persistence is not available yet".to_string()),
                 assignments_available: false,
                 stale: true,
@@ -110,6 +112,10 @@ mod tests {
         assert_eq!(
             detail.desktop_assignment_issue.as_deref(),
             Some("Desktop persistence is not available yet")
+        );
+        assert_eq!(
+            detail.monitor_discovery_issue.as_deref(),
+            Some("Monitor discovery is not available yet")
         );
     }
 }
