@@ -3,7 +3,8 @@ pub enum DesktopApplyResult {
     Applied { monitor_id: String, item_id: String },
     Cleared { monitor_id: String },
     MonitorNotFound { monitor_id: String },
-    Unavailable { reason: String },
+    MonitorDiscoveryUnavailable { reason: String },
+    PersistenceUnavailable { reason: String },
 }
 
 #[cfg(test)]
@@ -12,7 +13,10 @@ mod tests {
 
     #[test]
     fn desktop_apply_result_distinguishes_unavailable_from_known_failures() {
-        let unavailable = DesktopApplyResult::Unavailable {
+        let discovery_unavailable = DesktopApplyResult::MonitorDiscoveryUnavailable {
+            reason: "Desktop persistence is not available yet".to_string(),
+        };
+        let persistence_unavailable = DesktopApplyResult::PersistenceUnavailable {
             reason: "Desktop persistence is not available yet".to_string(),
         };
         let missing = DesktopApplyResult::MonitorNotFound {
@@ -20,8 +24,12 @@ mod tests {
         };
 
         assert!(matches!(
-            unavailable,
-            DesktopApplyResult::Unavailable { .. }
+            discovery_unavailable,
+            DesktopApplyResult::MonitorDiscoveryUnavailable { .. }
+        ));
+        assert!(matches!(
+            persistence_unavailable,
+            DesktopApplyResult::PersistenceUnavailable { .. }
         ));
         assert!(matches!(
             missing,

@@ -5,6 +5,7 @@ use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::desktop::DesktopPageResult;
 use crate::results::library::LibraryProjection;
 use crate::results::workshop::AssessedWorkshopCatalogEntry;
+use crate::services::library_service::LibraryService;
 use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -44,7 +45,9 @@ pub fn assemble_library_page(
     result: LibraryProjection,
     desktop: &DesktopPageResult,
 ) -> LibraryPageSnapshot {
-    let stale = (result.entries.is_empty() && result.source_catalog_count == 0) || desktop.stale;
+    let desktop_status = LibraryService::desktop_status(desktop);
+    let stale =
+        (result.entries.is_empty() && result.source_catalog_count == 0) || desktop_status.stale;
 
     LibraryPageSnapshot {
         items: result
@@ -53,9 +56,9 @@ pub fn assemble_library_page(
             .map(assemble_library_summary)
             .collect(),
         selected_item_id: None,
-        monitor_discovery_issue: desktop.monitor_discovery_issue.clone(),
-        desktop_assignment_issue: desktop.persistence_issue.clone(),
-        desktop_assignments_available: desktop.assignments_available,
+        monitor_discovery_issue: desktop_status.monitor_discovery_issue,
+        desktop_assignment_issue: desktop_status.desktop_assignment_issue,
+        desktop_assignments_available: desktop_status.desktop_assignments_available,
         stale,
     }
 }
@@ -103,6 +106,7 @@ mod tests {
             &DesktopPageResult {
                 monitors: Vec::new(),
                 assignments: std::collections::BTreeMap::new(),
+                monitors_available: false,
                 monitor_discovery_issue: Some("Monitor discovery is not available yet".to_string()),
                 persistence_issue: Some("Desktop persistence is not available yet".to_string()),
                 assignments_available: false,

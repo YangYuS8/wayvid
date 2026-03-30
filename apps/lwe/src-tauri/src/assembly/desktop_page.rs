@@ -5,6 +5,7 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
     let DesktopPageResult {
         monitors,
         assignments,
+        monitors_available: _,
         monitor_discovery_issue,
         persistence_issue,
         assignments_available,
@@ -20,7 +21,11 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                 display_name: monitor.name,
                 monitor_id: monitor.id,
                 resolution: "Unknown".to_string(),
-                runtime_status: RuntimeStatus::Unsupported,
+                runtime_status: if assignments_available {
+                    RuntimeStatus::Unsupported
+                } else {
+                    RuntimeStatus::Error
+                },
             })
             .collect(),
         monitor_discovery_issue,
@@ -48,6 +53,7 @@ mod tests {
                 name: "Primary".to_string(),
             }],
             assignments,
+            monitors_available: true,
             monitor_discovery_issue: None,
             persistence_issue: None,
             assignments_available: true,

@@ -52,7 +52,8 @@ pub fn assemble_desktop_apply_outcome(result: DesktopApplyResult) -> ActionOutco
             current_update: None,
             invalidations: Vec::new(),
         },
-        DesktopApplyResult::Unavailable { reason } => ActionOutcome {
+        DesktopApplyResult::MonitorDiscoveryUnavailable { reason }
+        | DesktopApplyResult::PersistenceUnavailable { reason } => ActionOutcome {
             ok: false,
             message: Some(reason),
             shell_patch: None,
@@ -81,7 +82,7 @@ mod tests {
 
     #[test]
     fn desktop_apply_flow_action_outcome_marks_unavailable_apply_as_failure() {
-        let outcome = assemble_desktop_apply_outcome(DesktopApplyResult::Unavailable {
+        let outcome = assemble_desktop_apply_outcome(DesktopApplyResult::PersistenceUnavailable {
             reason: "Desktop persistence is not available yet".to_string(),
         });
 

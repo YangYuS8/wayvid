@@ -11,6 +11,7 @@ pub use desktop_apply_result::DesktopApplyResult;
 pub struct DesktopPageResult {
     pub monitors: Vec<MonitorDescriptor>,
     pub assignments: BTreeMap<String, String>,
+    pub monitors_available: bool,
     pub monitor_discovery_issue: Option<String>,
     pub persistence_issue: Option<String>,
     pub assignments_available: bool,
@@ -26,6 +27,7 @@ mod tests {
         let result = DesktopPageResult {
             monitors: Vec::new(),
             assignments: BTreeMap::new(),
+            monitors_available: false,
             monitor_discovery_issue: None,
             persistence_issue: Some("Desktop persistence is not available yet".to_string()),
             assignments_available: false,
@@ -33,6 +35,7 @@ mod tests {
         };
 
         assert!(result.monitors.is_empty());
+        assert!(!result.monitors_available);
         assert!(!result.assignments_available);
         assert!(result.persistence_issue.is_some());
         assert!(result.monitor_discovery_issue.is_none());

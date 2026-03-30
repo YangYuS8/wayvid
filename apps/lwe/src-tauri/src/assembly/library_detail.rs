@@ -3,6 +3,7 @@ use crate::models::{ItemType, LibraryItemDetail, LibrarySource};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::desktop::DesktopPageResult;
 use crate::results::workshop::AssessedWorkshopCatalogEntry;
+use crate::services::library_service::LibraryService;
 use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType};
 
 fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
@@ -30,8 +31,9 @@ pub fn assemble_library_detail(
     entry: AssessedWorkshopCatalogEntry,
     desktop: &DesktopPageResult,
 ) -> LibraryItemDetail {
-    let assignment_issue = desktop.persistence_issue.clone();
-    let monitor_discovery_issue = desktop.monitor_discovery_issue.clone();
+    let desktop_status = LibraryService::desktop_status(desktop);
+    let assignment_issue = desktop_status.desktop_assignment_issue.clone();
+    let monitor_discovery_issue = desktop_status.monitor_discovery_issue.clone();
     let id = entry.entry.library_item_id.clone().unwrap_or_default();
     let title = entry.entry.title.clone();
     let item_type = item_type_from_project_type(entry.entry.project_type);
@@ -56,7 +58,7 @@ pub fn assemble_library_detail(
         compatibility,
         monitor_discovery_issue,
         desktop_assignment_issue: assignment_issue,
-        desktop_assignments_available: desktop.assignments_available,
+        desktop_assignments_available: desktop_status.desktop_assignments_available,
         description,
         tags,
     }
@@ -97,6 +99,7 @@ mod tests {
             &DesktopPageResult {
                 monitors: Vec::new(),
                 assignments: std::collections::BTreeMap::new(),
+                monitors_available: false,
                 monitor_discovery_issue: Some("Monitor discovery is not available yet".to_string()),
                 persistence_issue: Some("Desktop persistence is not available yet".to_string()),
                 assignments_available: false,
