@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PersistedDesktopAssignments {
     pub assignments: BTreeMap<String, String>,
 }
 
-pub fn desktop_state_path() -> PathBuf {
-    PathBuf::from("desktop-state.json")
+pub trait PersistenceBackend {
+    fn load_assignments(&self) -> Result<PersistedDesktopAssignments, String>;
+
+    fn save_assignments(&self, assignments: &PersistedDesktopAssignments) -> Result<(), String>;
+
+    fn clear_assignments(&self) -> Result<(), String>;
 }

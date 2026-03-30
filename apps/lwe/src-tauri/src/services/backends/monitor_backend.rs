@@ -11,7 +11,7 @@ pub enum BackendMonitorDiscovery {
 }
 
 pub trait MonitorBackend {
-    fn list_monitors() -> BackendMonitorDiscovery;
+    fn list_monitors(&self) -> BackendMonitorDiscovery;
 }
 
 #[cfg(test)]
