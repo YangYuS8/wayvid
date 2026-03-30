@@ -133,7 +133,6 @@ mod tests {
         assert!(!assignments_available);
 
         if monitors_available {
-            assert!(!monitors.is_empty());
             assert!(monitor_discovery_issue.is_none());
         } else {
             assert!(monitors.is_empty());

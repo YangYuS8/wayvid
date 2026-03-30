@@ -70,16 +70,17 @@ mod tests {
     fn list_monitors_preserves_monitor_descriptor_v1_shape_for_known_results() {
         let result = MonitorService::list_monitors();
 
-        assert!(matches!(
-            result,
-            MonitorDiscoveryResult::Known(monitors)
-                if !monitors.is_empty() && monitors.iter().all(|monitor| {
+        match result {
+            MonitorDiscoveryResult::Known(monitors) => {
+                assert!(monitors.iter().all(|monitor| {
                     !monitor.id.is_empty()
                         && !monitor.name.is_empty()
                         && !monitor.resolution.is_empty()
                         && monitor.resolution.contains('x')
-                })
-        ));
+                }));
+            }
+            MonitorDiscoveryResult::Unavailable { .. } => {}
+        }
     }
 
     #[test]

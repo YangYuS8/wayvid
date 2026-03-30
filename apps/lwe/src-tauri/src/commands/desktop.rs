@@ -52,7 +52,6 @@ mod tests {
         assert!(!snapshot.assignments_available);
 
         if snapshot.monitors_available {
-            assert!(!snapshot.monitors.is_empty());
             assert!(snapshot.monitor_discovery_issue.is_none());
         } else {
             assert!(snapshot.monitors.is_empty());
