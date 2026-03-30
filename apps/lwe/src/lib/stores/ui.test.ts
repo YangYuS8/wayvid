@@ -44,6 +44,8 @@ describe('ui page cache', () => {
     const snapshot = {
       items: [],
       selectedItemId: null,
+      desktopAssignmentIssue: null,
+      desktopAssignmentsAvailable: false,
       stale: false
     };
 
@@ -61,6 +63,8 @@ describe('ui page cache', () => {
     const snapshot = {
       items: [],
       selectedItemId: null,
+      desktopAssignmentIssue: null,
+      desktopAssignmentsAvailable: false,
       stale: false
     };
 
@@ -97,6 +101,8 @@ describe('ui page cache', () => {
         }
       ],
       selectedItemId: null,
+      desktopAssignmentIssue: null,
+      desktopAssignmentsAvailable: false,
       stale: false
     });
 
@@ -110,6 +116,8 @@ describe('ui page cache', () => {
         coverPath: null,
         source: 'workshop',
         compatibility: compatibilityDetail,
+        desktopAssignmentIssue: null,
+        desktopAssignmentsAvailable: false,
         description: null,
         tags: []
       },
