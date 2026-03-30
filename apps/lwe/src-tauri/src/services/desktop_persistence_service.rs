@@ -5,6 +5,8 @@ use crate::services::backends::persistence_backend::{
     desktop_state_path, JsonFilePersistenceBackend, PersistenceBackend,
 };
 
+const PERSISTENCE_UNAVAILABLE_REASON: &str = "Desktop persistence is not available yet";
+
 pub struct DesktopPersistenceService;
 
 pub struct ScopedDesktopPersistenceService {
@@ -13,34 +15,39 @@ pub struct ScopedDesktopPersistenceService {
 
 impl DesktopPersistenceService {
     pub fn load_state() -> DesktopPersistenceLoad {
-        match desktop_state_path() {
-            Ok(path) => Self::load_with_backend(&JsonFilePersistenceBackend::new(path)),
-            Err(reason) => DesktopPersistenceLoad::Unavailable { reason },
+        DesktopPersistenceLoad::Unavailable {
+            reason: PERSISTENCE_UNAVAILABLE_REASON.to_string(),
         }
     }
 
     pub fn save_assignment(monitor_id: &str, item_id: &str) -> DesktopPersistenceWrite {
-        match desktop_state_path() {
-            Ok(path) => {
-                Self::save_with_backend(&JsonFilePersistenceBackend::new(path), monitor_id, item_id)
-            }
-            Err(reason) => DesktopPersistenceWrite::Unavailable { reason },
+        let _ = (monitor_id, item_id);
+
+        DesktopPersistenceWrite::Unavailable {
+            reason: PERSISTENCE_UNAVAILABLE_REASON.to_string(),
         }
     }
 
     pub fn clear_assignment(monitor_id: &str) -> DesktopPersistenceWrite {
-        match desktop_state_path() {
-            Ok(path) => {
-                Self::clear_with_backend(&JsonFilePersistenceBackend::new(path), monitor_id)
-            }
-            Err(reason) => DesktopPersistenceWrite::Unavailable { reason },
+        let _ = monitor_id;
+
+        DesktopPersistenceWrite::Unavailable {
+            reason: PERSISTENCE_UNAVAILABLE_REASON.to_string(),
+        }
+    }
+
+    pub fn for_user_path() -> Result<ScopedDesktopPersistenceService, String> {
+        desktop_state_path().map(Self::for_path)
+    }
+
+    pub fn for_path(path: PathBuf) -> ScopedDesktopPersistenceService {
+        ScopedDesktopPersistenceService {
+            backend: JsonFilePersistenceBackend::new(path),
         }
     }
 
     pub fn for_test(path: PathBuf) -> ScopedDesktopPersistenceService {
-        ScopedDesktopPersistenceService {
-            backend: JsonFilePersistenceBackend::new(path),
-        }
+        Self::for_path(path)
     }
 
     fn load_with_backend(backend: &impl PersistenceBackend) -> DesktopPersistenceLoad {
@@ -153,6 +160,27 @@ mod tests {
             }
             _ => panic!("expected loaded assignments"),
         }
+    }
+
+    #[test]
+    fn default_service_methods_remain_unavailable_until_activation_is_threaded() {
+        assert!(matches!(
+            DesktopPersistenceService::load_state(),
+            DesktopPersistenceLoad::Unavailable { reason }
+                if reason == "Desktop persistence is not available yet"
+        ));
+
+        assert!(matches!(
+            DesktopPersistenceService::save_assignment("eDP-1", "item-1"),
+            DesktopPersistenceWrite::Unavailable { reason }
+                if reason == "Desktop persistence is not available yet"
+        ));
+
+        assert!(matches!(
+            DesktopPersistenceService::clear_assignment("eDP-1"),
+            DesktopPersistenceWrite::Unavailable { reason }
+                if reason == "Desktop persistence is not available yet"
+        ));
     }
 
     #[test]
