@@ -1,15 +1,17 @@
 use crate::policies::shared::support_policy::supports_first_release;
-use crate::results::compatibility::CompatibilityNextStep;
 use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CompatibilityLevel {
     FullySupported,
     PartiallySupported,
     Unsupported,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CompatibilityReason {
     ReadyForLibrary,
     MissingProjectMetadata,
@@ -18,7 +20,17 @@ pub enum CompatibilityReason {
     UnsupportedProjectType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CompatibilityNextStep {
+    None,
+    OpenInSteam,
+    ResyncWorkshopItem,
+    WaitForFutureSupport,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompatibilityDecision {
     pub level: CompatibilityLevel,
     pub reason: CompatibilityReason,
@@ -70,7 +82,6 @@ pub fn compatibility_decision(entry: &WorkshopCatalogEntry) -> CompatibilityDeci
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::results::compatibility::CompatibilityNextStep;
     use std::path::PathBuf;
 
     fn unsupported_web_entry() -> WorkshopCatalogEntry {
@@ -133,6 +144,18 @@ mod tests {
         assert_eq!(
             decision.next_step,
             CompatibilityNextStep::ResyncWorkshopItem
+        );
+    }
+
+    #[test]
+    fn compatibility_policy_reason_and_guidance_codes_are_serializable() {
+        assert_eq!(
+            serde_json::to_string(&CompatibilityReason::MissingPrimaryAsset).unwrap(),
+            "\"missing_primary_asset\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CompatibilityNextStep::WaitForFutureSupport).unwrap(),
+            "\"wait_for_future_support\""
         );
     }
 }
