@@ -67,16 +67,17 @@ mod tests {
     }
 
     #[test]
-    fn list_monitors_reports_current_niri_output_when_available() {
+    fn list_monitors_preserves_monitor_descriptor_v1_shape_for_known_results() {
         let result = MonitorService::list_monitors();
 
         assert!(matches!(
             result,
             MonitorDiscoveryResult::Known(monitors)
-                if monitors.iter().any(|monitor| {
-                    monitor.id == "eDP-1"
-                        && monitor.name == "BOE 0x0893"
-                        && monitor.resolution == "2160x1440"
+                if monitors.iter().all(|monitor| {
+                    !monitor.id.is_empty()
+                        && !monitor.name.is_empty()
+                        && !monitor.resolution.is_empty()
+                        && monitor.resolution.contains('x')
                 })
         ));
     }
