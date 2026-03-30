@@ -27,7 +27,7 @@
   export let selected = false;
 </script>
 
-<div class:item-card class:selected>
+<div class="item-card" class:selected>
   <CoverImage {coverPath} label={title} />
 
   <div class="copy">
