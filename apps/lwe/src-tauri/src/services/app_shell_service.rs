@@ -1,17 +1,26 @@
 use crate::results::app_shell::{ObservedCount, ShellSummary};
+use crate::results::monitor_discovery::MonitorDiscoveryResult;
 use crate::results::workshop::WorkshopRefreshResult;
 use crate::services::library_service::LibraryService;
+use crate::services::monitor_service::MonitorService;
 use crate::services::workshop_service::WorkshopService;
 
 pub struct AppShellService;
 
 impl AppShellService {
+    fn connected_monitor_count() -> ObservedCount {
+        match MonitorService::list_monitors() {
+            MonitorDiscoveryResult::Known(monitors) => ObservedCount::Known(monitors.len()),
+            MonitorDiscoveryResult::Unavailable { .. } => ObservedCount::Unknown,
+        }
+    }
+
     fn unavailable_summary(steam_available: bool) -> ShellSummary {
         ShellSummary {
             steam_available,
             library_items: ObservedCount::Unknown,
             synced_workshop_items: ObservedCount::Unknown,
-            connected_monitors: ObservedCount::Unknown,
+            connected_monitors: Self::connected_monitor_count(),
         }
     }
 
@@ -26,7 +35,7 @@ impl AppShellService {
             steam_available,
             library_items: ObservedCount::Known(library_projection.entries.len()),
             synced_workshop_items: ObservedCount::Known(synced_workshop_items),
-            connected_monitors: ObservedCount::Unknown,
+            connected_monitors: Self::connected_monitor_count(),
         }
     }
 
@@ -54,7 +63,9 @@ mod tests {
     use crate::policies::shared::compatibility_policy::{
         CompatibilityDecision, CompatibilityLevel, CompatibilityNextStep, CompatibilityReason,
     };
+    use crate::results::monitor_discovery::MonitorDiscoveryResult;
     use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopProjectMetadata};
+    use crate::services::monitor_service::MonitorService;
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     fn assessed_entry(
@@ -81,24 +92,31 @@ mod tests {
         }
     }
 
+    fn expected_monitor_count() -> Option<usize> {
+        match MonitorService::list_monitors() {
+            MonitorDiscoveryResult::Known(monitors) => Some(monitors.len()),
+            MonitorDiscoveryResult::Unavailable { .. } => None,
+        }
+    }
+
     #[test]
-    fn unavailable_steam_leaves_shell_counts_unknown() {
+    fn unavailable_steam_leaves_library_and_workshop_counts_unknown() {
         let snapshot = assemble_app_shell(AppShellService::unavailable_summary(false));
 
         assert!(!snapshot.steam_available);
         assert_eq!(snapshot.library_count, None);
         assert_eq!(snapshot.workshop_synced_count, None);
-        assert_eq!(snapshot.monitor_count, None);
+        assert_eq!(snapshot.monitor_count, expected_monitor_count());
     }
 
     #[test]
-    fn steam_without_wallpaper_engine_content_keeps_counts_unknown() {
+    fn steam_without_wallpaper_engine_content_keeps_library_and_workshop_counts_unknown() {
         let snapshot = assemble_app_shell(AppShellService::unavailable_summary(true));
 
         assert!(snapshot.steam_available);
         assert_eq!(snapshot.library_count, None);
         assert_eq!(snapshot.workshop_synced_count, None);
-        assert_eq!(snapshot.monitor_count, None);
+        assert_eq!(snapshot.monitor_count, expected_monitor_count());
     }
 
     #[test]
@@ -138,6 +156,29 @@ mod tests {
 
         assert_eq!(snapshot.library_count, Some(1));
         assert_eq!(snapshot.workshop_synced_count, Some(1));
+    }
+
+    #[test]
+    fn shell_summary_reflects_monitor_discovery_result() {
+        let summary = AppShellService::summary_from_refresh(
+            true,
+            WorkshopRefreshResult {
+                catalog_entries: Vec::new(),
+                library_refresh_required: false,
+            },
+        );
+
+        match MonitorService::list_monitors() {
+            MonitorDiscoveryResult::Known(monitors) => {
+                assert!(matches!(
+                    summary.connected_monitors,
+                    ObservedCount::Known(count) if count == monitors.len()
+                ));
+            }
+            MonitorDiscoveryResult::Unavailable { .. } => {
+                assert_eq!(summary.connected_monitors, ObservedCount::Unknown);
+            }
+        }
     }
 
     #[test]
