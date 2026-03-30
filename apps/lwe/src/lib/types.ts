@@ -75,6 +75,7 @@ export interface LibraryItemSummary {
 export interface LibraryPageSnapshot {
   items: LibraryItemSummary[];
   selectedItemId: string | null;
+  monitorsAvailable: boolean;
   monitorDiscoveryIssue?: string | null;
   desktopAssignmentIssue?: string | null;
   desktopAssignmentsAvailable: boolean;
@@ -88,6 +89,7 @@ export interface LibraryItemDetail {
   coverPath: string | null;
   source: LibrarySource;
   compatibility: CompatibilityExplanationModel;
+  monitorsAvailable: boolean;
   monitorDiscoveryIssue?: string | null;
   desktopAssignmentIssue?: string | null;
   desktopAssignmentsAvailable: boolean;
@@ -106,6 +108,7 @@ export interface DesktopMonitorSummary {
 
 export interface DesktopPageSnapshot {
   monitors: DesktopMonitorSummary[];
+  monitorsAvailable: boolean;
   monitorDiscoveryIssue?: string | null;
   persistenceIssue?: string | null;
   assignmentsAvailable: boolean;
