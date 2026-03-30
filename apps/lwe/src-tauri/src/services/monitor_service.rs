@@ -73,7 +73,7 @@ mod tests {
         assert!(matches!(
             result,
             MonitorDiscoveryResult::Known(monitors)
-                if monitors.iter().all(|monitor| {
+                if !monitors.is_empty() && monitors.iter().all(|monitor| {
                     !monitor.id.is_empty()
                         && !monitor.name.is_empty()
                         && !monitor.resolution.is_empty()
