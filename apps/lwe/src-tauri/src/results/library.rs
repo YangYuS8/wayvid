@@ -1,8 +1,8 @@
-use lwe_library::WorkshopCatalogEntry;
+use crate::results::workshop::AssessedWorkshopCatalogEntry;
 
 #[derive(Debug, Clone)]
 pub struct LibraryProjection {
-    pub entries: Vec<WorkshopCatalogEntry>,
+    pub entries: Vec<AssessedWorkshopCatalogEntry>,
     pub source_catalog_count: usize,
 }
 

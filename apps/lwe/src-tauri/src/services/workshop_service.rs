@@ -1,4 +1,5 @@
 use crate::results::workshop::{WorkshopInspection, WorkshopRefreshResult};
+use crate::services::compatibility_service::CompatibilityService;
 use lwe_library::{SteamLibrary, WorkshopCatalogEntry, WorkshopScanner};
 
 pub struct WorkshopService;
@@ -22,7 +23,7 @@ impl WorkshopService {
 
     pub fn refresh_catalog() -> Result<WorkshopRefreshResult, String> {
         Ok(WorkshopRefreshResult {
-            catalog_entries: Self::scan_catalog()?,
+            catalog_entries: CompatibilityService::assess_catalog_entries(Self::scan_catalog()?),
             library_refresh_required: true,
         })
     }
@@ -31,7 +32,7 @@ impl WorkshopService {
         let entry = Self::refresh_catalog()?
             .catalog_entries
             .into_iter()
-            .find(|entry| entry.workshop_id.to_string() == workshop_id)
+            .find(|entry| entry.entry.workshop_id.to_string() == workshop_id)
             .ok_or_else(|| format!("Workshop item {workshop_id} not found"))?;
 
         Ok(WorkshopInspection {

@@ -51,7 +51,34 @@ impl AppShellService {
 mod tests {
     use super::*;
     use crate::assembly::app_shell::assemble_app_shell;
+    use crate::policies::shared::compatibility_policy::{
+        CompatibilityDecision, CompatibilityLevel, CompatibilityNextStep, CompatibilityReason,
+    };
+    use crate::results::workshop::AssessedWorkshopCatalogEntry;
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+
+    fn assessed_entry(
+        workshop_id: u64,
+        title: &str,
+        project_type: WorkshopProjectType,
+        sync_state: WorkshopSyncState,
+        library_item_id: Option<&str>,
+        compatibility: CompatibilityDecision,
+    ) -> AssessedWorkshopCatalogEntry {
+        AssessedWorkshopCatalogEntry {
+            entry: WorkshopCatalogEntry {
+                workshop_id,
+                title: title.to_string(),
+                project_type,
+                project_dir: std::path::PathBuf::from(format!("/tmp/{workshop_id}")),
+                cover_path: None,
+                sync_state,
+                supported_first_release: compatibility.level == CompatibilityLevel::FullySupported,
+                library_item_id: library_item_id.map(str::to_string),
+            },
+            compatibility,
+        }
+    }
 
     #[test]
     fn unavailable_steam_leaves_shell_counts_unknown() {
@@ -79,26 +106,30 @@ mod tests {
             true,
             WorkshopRefreshResult {
                 catalog_entries: vec![
-                    WorkshopCatalogEntry {
-                        workshop_id: 1,
-                        title: "Synced Scene".to_string(),
-                        project_type: WorkshopProjectType::Scene,
-                        project_dir: std::path::PathBuf::from("/tmp/1"),
-                        cover_path: None,
-                        sync_state: WorkshopSyncState::Synced,
-                        supported_first_release: true,
-                        library_item_id: Some("scene-1".to_string()),
-                    },
-                    WorkshopCatalogEntry {
-                        workshop_id: 2,
-                        title: "Unsupported App".to_string(),
-                        project_type: WorkshopProjectType::Other,
-                        project_dir: std::path::PathBuf::from("/tmp/2"),
-                        cover_path: None,
-                        sync_state: WorkshopSyncState::UnsupportedType,
-                        supported_first_release: false,
-                        library_item_id: None,
-                    },
+                    assessed_entry(
+                        1,
+                        "Synced Scene",
+                        WorkshopProjectType::Scene,
+                        WorkshopSyncState::Synced,
+                        Some("scene-1"),
+                        CompatibilityDecision {
+                            level: CompatibilityLevel::FullySupported,
+                            reason: CompatibilityReason::ReadyForLibrary,
+                            next_step: CompatibilityNextStep::None,
+                        },
+                    ),
+                    assessed_entry(
+                        2,
+                        "Unsupported App",
+                        WorkshopProjectType::Other,
+                        WorkshopSyncState::UnsupportedType,
+                        None,
+                        CompatibilityDecision {
+                            level: CompatibilityLevel::Unsupported,
+                            reason: CompatibilityReason::UnsupportedProjectType,
+                            next_step: CompatibilityNextStep::WaitForFutureSupport,
+                        },
+                    ),
                 ],
                 library_refresh_required: true,
             },
@@ -113,16 +144,18 @@ mod tests {
         let summary = AppShellService::summary_from_refresh(
             true,
             WorkshopRefreshResult {
-                catalog_entries: vec![WorkshopCatalogEntry {
-                    workshop_id: 1,
-                    title: "Synced Scene".to_string(),
-                    project_type: WorkshopProjectType::Scene,
-                    project_dir: std::path::PathBuf::from("/tmp/1"),
-                    cover_path: None,
-                    sync_state: WorkshopSyncState::Synced,
-                    supported_first_release: true,
-                    library_item_id: Some("scene-1".to_string()),
-                }],
+                catalog_entries: vec![assessed_entry(
+                    1,
+                    "Synced Scene",
+                    WorkshopProjectType::Scene,
+                    WorkshopSyncState::Synced,
+                    Some("scene-1"),
+                    CompatibilityDecision {
+                        level: CompatibilityLevel::FullySupported,
+                        reason: CompatibilityReason::ReadyForLibrary,
+                        next_step: CompatibilityNextStep::None,
+                    },
+                )],
                 library_refresh_required: true,
             },
         );

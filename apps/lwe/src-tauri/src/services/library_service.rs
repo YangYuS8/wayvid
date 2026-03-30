@@ -1,13 +1,11 @@
-use crate::policies::shared::support_policy::supports_first_release;
 use crate::results::library::LibraryProjection;
+use crate::results::workshop::AssessedWorkshopCatalogEntry;
 use crate::results::workshop::WorkshopRefreshResult;
+use crate::services::compatibility_service::CompatibilityService;
 use crate::services::workshop_service::WorkshopService;
-use lwe_library::{WorkshopCatalogEntry, WorkshopSyncState};
 
-fn includes_library_item(entry: &WorkshopCatalogEntry) -> bool {
-    matches!(entry.sync_state, WorkshopSyncState::Synced)
-        && supports_first_release(entry.project_type)
-        && entry.library_item_id.is_some()
+fn includes_library_item(entry: &AssessedWorkshopCatalogEntry) -> bool {
+    CompatibilityService::supports_library_projection(entry)
 }
 
 pub struct LibraryService;
@@ -33,12 +31,13 @@ impl LibraryService {
         ))
     }
 
-    pub fn inspect_item(item_id: &str) -> Result<WorkshopCatalogEntry, String> {
+    pub fn inspect_item(item_id: &str) -> Result<AssessedWorkshopCatalogEntry, String> {
         WorkshopService::refresh_catalog()?
             .catalog_entries
             .into_iter()
             .find(|entry| {
-                includes_library_item(entry) && entry.library_item_id.as_deref() == Some(item_id)
+                includes_library_item(entry)
+                    && entry.entry.library_item_id.as_deref() == Some(item_id)
             })
             .ok_or_else(|| format!("Library item {item_id} not found"))
     }
