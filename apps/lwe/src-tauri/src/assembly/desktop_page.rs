@@ -49,6 +49,7 @@ mod tests {
             monitors: vec![MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
             }],
             assignments,
             monitors_available: true,
@@ -77,6 +78,7 @@ mod tests {
             monitors: vec![MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
             }],
             assignments: BTreeMap::new(),
             monitors_available: true,

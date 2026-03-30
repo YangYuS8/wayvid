@@ -29,6 +29,7 @@ mod tests {
         let descriptor = crate::services::monitor_service::MonitorDescriptor {
             id: "DISPLAY-1".to_string(),
             name: "Primary".to_string(),
+            resolution: "1920x1080".to_string(),
         };
 
         let result = MonitorDiscoveryResult::Known(vec![descriptor]);
