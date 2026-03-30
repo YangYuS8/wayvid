@@ -13,28 +13,22 @@ pub struct ScopedDesktopPersistenceService {
 
 impl DesktopPersistenceService {
     pub fn load_state() -> DesktopPersistenceLoad {
-        match desktop_state_path() {
-            Ok(path) => Self::load_with_backend(&JsonFilePersistenceBackend::new(path)),
-            Err(reason) => DesktopPersistenceLoad::Unavailable { reason },
-        }
+        Self::load_with_backend(&JsonFilePersistenceBackend::new(desktop_state_path()))
     }
 
     pub fn save_assignment(monitor_id: &str, item_id: &str) -> DesktopPersistenceWrite {
-        match desktop_state_path() {
-            Ok(path) => {
-                Self::save_with_backend(&JsonFilePersistenceBackend::new(path), monitor_id, item_id)
-            }
-            Err(reason) => DesktopPersistenceWrite::Unavailable { reason },
-        }
+        Self::save_with_backend(
+            &JsonFilePersistenceBackend::new(desktop_state_path()),
+            monitor_id,
+            item_id,
+        )
     }
 
     pub fn clear_assignment(monitor_id: &str) -> DesktopPersistenceWrite {
-        match desktop_state_path() {
-            Ok(path) => {
-                Self::clear_with_backend(&JsonFilePersistenceBackend::new(path), monitor_id)
-            }
-            Err(reason) => DesktopPersistenceWrite::Unavailable { reason },
-        }
+        Self::clear_with_backend(
+            &JsonFilePersistenceBackend::new(desktop_state_path()),
+            monitor_id,
+        )
     }
 
     pub fn for_test(path: PathBuf) -> ScopedDesktopPersistenceService {

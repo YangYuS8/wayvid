@@ -23,22 +23,23 @@ impl JsonFilePersistenceBackend {
     }
 }
 
-pub fn desktop_state_path() -> Result<PathBuf, String> {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME")
-                .filter(|value| !value.is_empty())
-                .map(PathBuf::from)
-                .map(|home| home.join(".config"))
-        })
-        .ok_or_else(|| {
-            "Unable to resolve desktop persistence path because XDG_CONFIG_HOME and HOME are unset"
-                .to_string()
-        })?;
+fn desktop_state_path_from_env(xdg_config_home: Option<PathBuf>, home: Option<PathBuf>) -> PathBuf {
+    let base = xdg_config_home
+        .or_else(|| home.map(|home| home.join(".config")))
+        .unwrap_or_else(|| PathBuf::from("."));
 
-    Ok(base.join("wayvid").join("desktop-state.json"))
+    base.join("wayvid").join("desktop-state.json")
+}
+
+pub fn desktop_state_path() -> PathBuf {
+    desktop_state_path_from_env(
+        std::env::var_os("XDG_CONFIG_HOME")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from),
+        std::env::var_os("HOME")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from),
+    )
 }
 
 pub trait PersistenceBackend {
@@ -102,5 +103,22 @@ impl PersistenceBackend for JsonFilePersistenceBackend {
                 self.path().display()
             )),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::desktop_state_path_from_env;
+
+    #[test]
+    fn desktop_state_path_falls_back_to_local_path_when_env_is_missing() {
+        let path = desktop_state_path_from_env(None, None);
+
+        assert_eq!(
+            path,
+            PathBuf::from(".").join("wayvid").join("desktop-state.json")
+        );
     }
 }
