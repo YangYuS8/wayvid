@@ -20,7 +20,7 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                 current_cover_path: None,
                 display_name: monitor.name,
                 monitor_id: monitor.id,
-                resolution: "Unknown".to_string(),
+                resolution: monitor.resolution,
                 runtime_status: RuntimeStatus::Unsupported,
             })
             .collect(),
@@ -61,6 +61,7 @@ mod tests {
 
         assert_eq!(snapshot.monitors.len(), 1);
         assert_eq!(snapshot.monitors[0].display_name, "Primary");
+        assert_eq!(snapshot.monitors[0].resolution, "1920x1080");
         assert_eq!(
             snapshot.monitors[0].current_wallpaper_title.as_deref(),
             Some("Forest Scene")

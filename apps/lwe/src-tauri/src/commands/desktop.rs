@@ -29,46 +29,74 @@ pub fn clear_library_item_from_monitor(monitor_id: String) -> Result<ActionOutco
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::monitor_service::MonitorService;
+
+    fn known_monitor_id() -> Option<String> {
+        match MonitorService::list_monitors() {
+            crate::results::monitor_discovery::MonitorDiscoveryResult::Known(monitors) => {
+                monitors.into_iter().next().map(|monitor| monitor.id)
+            }
+            crate::results::monitor_discovery::MonitorDiscoveryResult::Unavailable { .. } => None,
+        }
+    }
 
     #[test]
-    fn placeholder_desktop_snapshot_is_marked_stale() {
+    fn desktop_snapshot_reflects_real_monitor_discovery_state() {
         let snapshot = load_desktop_page().unwrap();
 
-        assert!(snapshot.monitors.is_empty());
-        assert!(!snapshot.monitors_available);
         assert!(snapshot.stale);
-        assert_eq!(
-            snapshot.monitor_discovery_issue.as_deref(),
-            Some("Monitor discovery is not available yet")
-        );
         assert_eq!(
             snapshot.persistence_issue.as_deref(),
             Some("Desktop persistence is not available yet")
         );
         assert!(!snapshot.assignments_available);
+
+        if snapshot.monitors_available {
+            assert!(!snapshot.monitors.is_empty());
+            assert!(snapshot.monitor_discovery_issue.is_none());
+        } else {
+            assert!(snapshot.monitors.is_empty());
+            assert!(snapshot.monitor_discovery_issue.is_some());
+        }
     }
 
     #[test]
-    fn desktop_apply_flow_command_returns_failure_outcome_for_unavailable_apply() {
-        let outcome =
-            apply_library_item_to_monitor("DISPLAY-1".to_string(), "wallpaper-1".to_string())
-                .unwrap();
+    fn desktop_apply_flow_command_returns_failure_outcome_for_current_dependency_state() {
+        let known_monitor_id = known_monitor_id();
+        let monitor_id = known_monitor_id
+            .clone()
+            .unwrap_or_else(|| "DISPLAY-1".to_string());
+        let outcome = apply_library_item_to_monitor(monitor_id, "wallpaper-1".to_string()).unwrap();
 
         assert!(!outcome.ok);
-        assert_eq!(
-            outcome.message.as_deref(),
-            Some("Monitor discovery is not available yet")
-        );
+
+        if known_monitor_id.is_some() {
+            assert_eq!(
+                outcome.message.as_deref(),
+                Some("Desktop persistence is not available yet")
+            );
+        } else {
+            assert!(outcome.message.as_deref().is_some());
+        }
     }
 
     #[test]
-    fn desktop_apply_flow_command_returns_failure_outcome_for_unavailable_clear() {
-        let outcome = clear_library_item_from_monitor("DISPLAY-1".to_string()).unwrap();
+    fn desktop_apply_flow_command_returns_failure_outcome_for_current_clear_state() {
+        let known_monitor_id = known_monitor_id();
+        let monitor_id = known_monitor_id
+            .clone()
+            .unwrap_or_else(|| "DISPLAY-1".to_string());
+        let outcome = clear_library_item_from_monitor(monitor_id).unwrap();
 
         assert!(!outcome.ok);
-        assert_eq!(
-            outcome.message.as_deref(),
-            Some("Monitor discovery is not available yet")
-        );
+
+        if known_monitor_id.is_some() {
+            assert_eq!(
+                outcome.message.as_deref(),
+                Some("Desktop persistence is not available yet")
+            );
+        } else {
+            assert!(outcome.message.as_deref().is_some());
+        }
     }
 }

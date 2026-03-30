@@ -104,40 +104,88 @@ impl DesktopService {
 mod tests {
     use super::*;
     use crate::results::desktop::DesktopApplyResult;
+    use crate::results::monitor_discovery::MonitorDiscoveryResult;
+    use crate::services::monitor_service::MonitorService;
+
+    fn known_monitor_id() -> Option<String> {
+        match MonitorService::list_monitors() {
+            MonitorDiscoveryResult::Known(monitors) => {
+                monitors.into_iter().next().map(|monitor| monitor.id)
+            }
+            MonitorDiscoveryResult::Unavailable { .. } => None,
+        }
+    }
 
     #[test]
-    fn desktop_apply_flow_load_page_marks_state_unavailable_when_monitor_or_persistence_is_unavailable(
-    ) {
+    fn desktop_apply_flow_load_page_reflects_real_monitor_and_persistence_availability() {
         let result = DesktopService::load_page().unwrap();
         let DesktopPageResult {
             monitors_available,
             stale,
             assignments_available,
+            monitor_discovery_issue,
+            persistence_issue,
+            monitors,
             ..
         } = result;
 
         assert!(stale);
-        assert!(!monitors_available);
         assert!(!assignments_available);
+
+        if monitors_available {
+            assert!(!monitors.is_empty());
+            assert!(monitor_discovery_issue.is_none());
+        } else {
+            assert!(monitors.is_empty());
+            assert!(monitor_discovery_issue.is_some());
+        }
+
+        assert!(!assignments_available);
+        assert_eq!(
+            persistence_issue.as_deref(),
+            Some("Desktop persistence is not available yet")
+        );
     }
 
     #[test]
-    fn desktop_apply_flow_apply_to_monitor_returns_unavailable_when_dependencies_are_unavailable() {
-        let result = DesktopService::apply_to_monitor("DISPLAY-1", "wallpaper-1").unwrap();
+    fn desktop_apply_flow_apply_to_monitor_reflects_current_monitor_discovery_state() {
+        let Some(monitor_id) = known_monitor_id() else {
+            let result = DesktopService::apply_to_monitor("DISPLAY-1", "wallpaper-1").unwrap();
+
+            assert!(matches!(
+                result,
+                DesktopApplyResult::MonitorDiscoveryUnavailable { .. }
+            ));
+            return;
+        };
+
+        let result = DesktopService::apply_to_monitor(&monitor_id, "wallpaper-1").unwrap();
 
         assert!(matches!(
             result,
-            DesktopApplyResult::MonitorDiscoveryUnavailable { .. }
+            DesktopApplyResult::PersistenceUnavailable { reason }
+                if reason == "Desktop persistence is not available yet"
         ));
     }
 
     #[test]
-    fn desktop_apply_flow_clear_monitor_returns_unavailable_when_dependencies_are_unavailable() {
-        let result = DesktopService::clear_monitor("DISPLAY-1").unwrap();
+    fn desktop_apply_flow_clear_monitor_reflects_current_monitor_discovery_state() {
+        let Some(monitor_id) = known_monitor_id() else {
+            let result = DesktopService::clear_monitor("DISPLAY-1").unwrap();
+
+            assert!(matches!(
+                result,
+                DesktopApplyResult::MonitorDiscoveryUnavailable { .. }
+            ));
+            return;
+        };
+
+        let result = DesktopService::clear_monitor(&monitor_id).unwrap();
 
         assert!(matches!(
             result,
-            DesktopApplyResult::MonitorDiscoveryUnavailable { .. }
+            DesktopApplyResult::PersistenceUnavailable { reason }
+                if reason == "Desktop persistence is not available yet"
         ));
     }
 }
