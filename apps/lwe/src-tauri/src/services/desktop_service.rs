@@ -152,7 +152,10 @@ impl DesktopService {
             }
         }
 
-        let stale = !monitors_available || !assignments_available || library_item_titles.is_err();
+        let stale = !monitors_available
+            || !assignments_available
+            || library_item_titles.is_err()
+            || !restore_issues.is_empty();
 
         DesktopPageResult {
             monitors,
@@ -343,6 +346,7 @@ mod tests {
             Some(DesktopResolvedMonitorAssignment::MissingMonitor { item_id, item_title })
                 if item_id == "scene-7" && item_title.as_deref() == Some("Forest Scene")
         ));
+        assert!(result.stale);
         assert_eq!(
             result.restore_issues,
             vec!["Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).".to_string()]
