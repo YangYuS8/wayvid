@@ -22,6 +22,7 @@ pub enum DesktopResolvedMonitorAssignment {
     },
     Unavailable {
         item_id: String,
+        item_title: Option<String>,
         reason: String,
     },
 }

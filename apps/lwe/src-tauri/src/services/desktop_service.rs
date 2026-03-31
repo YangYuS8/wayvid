@@ -116,6 +116,20 @@ impl DesktopService {
                                     item_title: item_title.clone(),
                                 },
                             );
+                        } else if !monitors_available {
+                            resolved_assignments.insert(
+                                monitor_id.clone(),
+                                DesktopResolvedMonitorAssignment::Unavailable {
+                                    item_id: item_id.clone(),
+                                    item_title: Some(item_title.clone()),
+                                    reason: format!(
+                                        "Saved assignment for monitor {monitor_id} could not be verified because monitor discovery is unavailable: {}.",
+                                        monitor_discovery_issue
+                                            .as_deref()
+                                            .unwrap_or("Unknown monitor discovery failure")
+                                    ),
+                                },
+                            );
                         } else if monitors_available {
                             resolved_assignments.insert(
                                 monitor_id.clone(),
@@ -133,6 +147,20 @@ impl DesktopService {
                             monitor_id.clone(),
                             DesktopResolvedMonitorAssignment::MissingItem {
                                 item_id: item_id.clone(),
+                            },
+                        );
+                    } else if !monitors_available {
+                        resolved_assignments.insert(
+                            monitor_id.clone(),
+                            DesktopResolvedMonitorAssignment::Unavailable {
+                                item_id: item_id.clone(),
+                                item_title: None,
+                                reason: format!(
+                                    "Saved assignment for monitor {monitor_id} could not be verified because monitor discovery is unavailable and the referenced Library item {item_id} is missing: {}.",
+                                    monitor_discovery_issue
+                                        .as_deref()
+                                        .unwrap_or("Unknown monitor discovery failure")
+                                ),
                             },
                         );
                     } else if monitors_available {
@@ -153,7 +181,20 @@ impl DesktopService {
                         monitor_id.clone(),
                         DesktopResolvedMonitorAssignment::Unavailable {
                             item_id: item_id.clone(),
+                            item_title: None,
                             reason: reason.clone(),
+                        },
+                    );
+                }
+                Err(reason) if !monitors_available => {
+                    resolved_assignments.insert(
+                        monitor_id.clone(),
+                        DesktopResolvedMonitorAssignment::Unavailable {
+                            item_id: item_id.clone(),
+                            item_title: None,
+                            reason: format!(
+                                "Saved assignment for monitor {monitor_id} could not be verified because monitor discovery is unavailable while the Library snapshot could not be resolved: {reason}"
+                            ),
                         },
                     );
                 }
@@ -378,6 +419,42 @@ mod tests {
                     .to_string()
             ]
         );
+    }
+
+    #[test]
+    fn desktop_apply_flow_load_page_keeps_assignments_when_monitor_discovery_is_unavailable() {
+        let result = DesktopService::build_page_result(
+            MonitorDiscoveryResult::Unavailable {
+                reason: "niri unavailable".to_string(),
+            },
+            DesktopPersistenceLoad::Loaded(BTreeMap::from([(
+                "DISPLAY-9".to_string(),
+                "scene-7".to_string(),
+            )])),
+            Ok(LibraryProjection {
+                entries: vec![library_item("scene-7", "Forest Scene")],
+                source_catalog_count: 1,
+            }),
+        );
+
+        assert!(!result.monitors_available);
+        assert_eq!(
+            result.monitor_discovery_issue.as_deref(),
+            Some("niri unavailable")
+        );
+        assert_eq!(
+            result.library_item_assignments.get("scene-7"),
+            Some(&vec!["DISPLAY-9 (unavailable)".to_string()])
+        );
+        assert!(matches!(
+            result.resolved_assignments.get("DISPLAY-9"),
+            Some(DesktopResolvedMonitorAssignment::Unavailable { item_id, item_title, reason })
+                if item_id == "scene-7"
+                    && item_title.as_deref() == Some("Forest Scene")
+                    && reason.contains("DISPLAY-9")
+                    && reason.contains("niri unavailable")
+        ));
+        assert!(result.stale);
     }
 
     #[test]

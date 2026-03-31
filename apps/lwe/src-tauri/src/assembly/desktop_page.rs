@@ -106,6 +106,17 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                             .to_string(),
                     ),
                 }),
+                DesktopResolvedMonitorAssignment::Unavailable {
+                    item_id,
+                    item_title,
+                    reason,
+                } => Some(DesktopMissingMonitorRestore {
+                    monitor_id: monitor_id.clone(),
+                    current_item_id: item_id.clone(),
+                    current_wallpaper_title: item_title.clone(),
+                    restore_state: DesktopRestoreState::Unavailable,
+                    restore_issue: Some(reason.clone()),
+                }),
                 _ => None,
             })
             .collect(),
@@ -277,6 +288,52 @@ mod tests {
                 .current_wallpaper_title
                 .as_deref(),
             Some("Forest Scene")
+        );
+    }
+
+    #[test]
+    fn desktop_apply_flow_assembler_exposes_unavailable_monitor_restores_structurally() {
+        let snapshot = assemble_desktop_page(DesktopPageResult {
+            monitors: vec![],
+            assignments: BTreeMap::from([("DISPLAY-9".to_string(), "scene-7".to_string())]),
+            resolved_assignments: BTreeMap::from([(
+                "DISPLAY-9".to_string(),
+                crate::results::desktop::DesktopResolvedMonitorAssignment::Unavailable {
+                    item_id: "scene-7".to_string(),
+                    item_title: Some("Forest Scene".to_string()),
+                    reason: "Monitor discovery unavailable for DISPLAY-9".to_string(),
+                },
+            )]),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
+            monitors_available: false,
+            monitor_discovery_issue: Some("niri unavailable".to_string()),
+            persistence_issue: None,
+            assignments_available: true,
+            stale: true,
+        });
+
+        assert_eq!(snapshot.missing_monitor_restores.len(), 1);
+        assert_eq!(snapshot.missing_monitor_restores[0].monitor_id, "DISPLAY-9");
+        assert_eq!(
+            snapshot.missing_monitor_restores[0].restore_state,
+            crate::models::DesktopRestoreState::Unavailable
+        );
+        assert_eq!(
+            snapshot.missing_monitor_restores[0].current_item_id,
+            "scene-7"
+        );
+        assert_eq!(
+            snapshot.missing_monitor_restores[0]
+                .current_wallpaper_title
+                .as_deref(),
+            Some("Forest Scene")
+        );
+        assert_eq!(
+            snapshot.missing_monitor_restores[0]
+                .restore_issue
+                .as_deref(),
+            Some("Monitor discovery unavailable for DISPLAY-9")
         );
     }
 }

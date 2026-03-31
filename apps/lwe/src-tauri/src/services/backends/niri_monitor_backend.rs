@@ -54,7 +54,8 @@ fn parse_outputs(parsed: Value) -> BackendMonitorDiscovery {
 
     for (output_id, output) in outputs {
         let monitor = match parse_output(output_id, output) {
-            Ok(monitor) => monitor,
+            Ok(Some(monitor)) => monitor,
+            Ok(None) => continue,
             Err(reason) => return BackendMonitorDiscovery::Unavailable { reason },
         };
 
@@ -64,7 +65,10 @@ fn parse_outputs(parsed: Value) -> BackendMonitorDiscovery {
     BackendMonitorDiscovery::Known(monitors)
 }
 
-fn parse_output(output_id: &str, output: &Value) -> Result<BackendMonitorDescriptor, String> {
+fn parse_output(
+    output_id: &str,
+    output: &Value,
+) -> Result<Option<BackendMonitorDescriptor>, String> {
     let object = output
         .as_object()
         .ok_or_else(|| format!("Output `{output_id}` was not an object"))?;
@@ -77,13 +81,15 @@ fn parse_output(output_id: &str, output: &Value) -> Result<BackendMonitorDescrip
     let model = object.get("model").and_then(Value::as_str).unwrap_or("");
     let serial = object.get("serial").and_then(Value::as_str).unwrap_or("");
     let display_name = format_display_name(make, model, &name);
-    let resolution = current_resolution(output_id, object)?;
+    let Some(resolution) = current_resolution(output_id, object)? else {
+        return Ok(None);
+    };
 
-    Ok(BackendMonitorDescriptor {
+    Ok(Some(BackendMonitorDescriptor {
         id: stable_monitor_id(make, model, serial, &name),
         name: display_name,
         resolution,
-    })
+    }))
 }
 
 fn stable_monitor_id(make: &str, model: &str, serial: &str, connector: &str) -> String {
@@ -127,16 +133,19 @@ fn format_display_name(make: &str, model: &str, fallback: &str) -> String {
 fn current_resolution(
     output_id: &str,
     output: &serde_json::Map<String, Value>,
-) -> Result<String, String> {
+) -> Result<Option<String>, String> {
     let modes = output
         .get("modes")
         .and_then(Value::as_array)
         .ok_or_else(|| format!("Output `{output_id}` is missing modes"))?;
-    let current_mode = output
-        .get("current_mode")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| format!("Output `{output_id}` is missing current_mode"))?
-        as usize;
+    let current_mode = match output.get("current_mode") {
+        Some(Value::Null) => return Ok(None),
+        Some(value) => value
+            .as_u64()
+            .ok_or_else(|| format!("Output `{output_id}` has an invalid current_mode"))?
+            as usize,
+        None => return Err(format!("Output `{output_id}` is missing current_mode")),
+    };
     let mode = modes
         .get(current_mode)
         .and_then(Value::as_object)
@@ -150,7 +159,7 @@ fn current_resolution(
         .and_then(Value::as_u64)
         .ok_or_else(|| format!("Output `{output_id}` is missing resolution height"))?;
 
-    Ok(format!("{width}x{height}"))
+    Ok(Some(format!("{width}x{height}")))
 }
 
 #[cfg(test)]
@@ -185,6 +194,40 @@ mod tests {
             result,
             BackendMonitorDiscovery::Unavailable { reason }
                 if reason.contains("HDMI-A-1") && reason.contains("resolution")
+        ));
+    }
+
+    #[test]
+    fn parse_outputs_skips_disabled_outputs_with_null_current_mode() {
+        let result = parse_outputs(json!({
+            "eDP-1": {
+                "name": "eDP-1",
+                "make": "BOE",
+                "model": "0x0893",
+                "serial": null,
+                "modes": [
+                    { "width": 2160, "height": 1440 }
+                ],
+                "current_mode": 0
+            },
+            "HDMI-A-1": {
+                "name": "HDMI-A-1",
+                "make": "Dell",
+                "model": "U2720Q",
+                "serial": null,
+                "modes": [
+                    { "width": 3840, "height": 2160 }
+                ],
+                "current_mode": null
+            }
+        }));
+
+        assert!(matches!(
+            result,
+            BackendMonitorDiscovery::Known(monitors)
+                if monitors.len() == 1
+                    && monitors[0].id == "niri:BOE:0x0893:eDP-1"
+                    && monitors[0].resolution == "2160x1440"
         ));
     }
 
