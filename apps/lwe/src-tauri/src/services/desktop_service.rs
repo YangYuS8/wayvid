@@ -10,10 +10,23 @@ use crate::services::desktop_persistence_service::DesktopPersistenceService;
 use crate::services::library_service::LibraryService;
 use crate::services::monitor_service::MonitorService;
 
+pub(crate) const LIBRARY_RESOLUTION_ISSUE_PREFIX: &str =
+    "Unable to resolve desktop items against the current Library snapshot:";
+
 pub struct DesktopService;
 
 impl DesktopService {
+    pub(crate) fn library_resolution_issue(reason: &str) -> String {
+        format!("{LIBRARY_RESOLUTION_ISSUE_PREFIX} {reason}")
+    }
+
     pub fn load_page() -> Result<DesktopPageResult, String> {
+        Self::load_page_with_projection(LibraryService::load_projection())
+    }
+
+    pub(crate) fn load_page_with_projection(
+        library_projection: Result<LibraryProjection, String>,
+    ) -> Result<DesktopPageResult, String> {
         let monitors = MonitorService::list_monitors();
         let assignments = match DesktopPersistenceService::for_user_path() {
             Ok(service) => service.load_state(),
@@ -23,7 +36,7 @@ impl DesktopService {
         Ok(Self::build_page_result(
             monitors,
             assignments,
-            LibraryService::load_projection(),
+            library_projection,
         ))
     }
 
@@ -79,11 +92,7 @@ impl DesktopService {
             .collect::<BTreeMap<_, _>>();
 
         if let Err(reason) = &library_item_titles {
-            if !assignments.is_empty() {
-                restore_issues.push(format!(
-                    "Unable to resolve saved desktop items against the current Library snapshot: {reason}"
-                ));
-            }
+            restore_issues.push(Self::library_resolution_issue(reason));
         }
 
         for (monitor_id, item_id) in &assignments {
@@ -350,6 +359,24 @@ mod tests {
         assert_eq!(
             result.restore_issues,
             vec!["Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).".to_string()]
+        );
+    }
+
+    #[test]
+    fn desktop_apply_flow_load_page_reports_library_resolution_issue_without_assignments() {
+        let result = DesktopService::build_page_result(
+            MonitorDiscoveryResult::Known(vec![]),
+            DesktopPersistenceLoad::Loaded(BTreeMap::new()),
+            Err("Library refresh failed".to_string()),
+        );
+
+        assert!(result.stale);
+        assert_eq!(
+            result.restore_issues,
+            vec![
+                "Unable to resolve desktop items against the current Library snapshot: Library refresh failed"
+                    .to_string()
+            ]
         );
     }
 
