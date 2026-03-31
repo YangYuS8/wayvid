@@ -2,74 +2,87 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the current placeholder monitor-discovery and desktop-persistence services with real working implementations so the Library-to-Desktop apply flow can actually select monitors, persist assignments, and restore them truthfully.
+**Goal:** Replace the current placeholder monitor discovery and desktop persistence seams with a real first backend for the user’s current `Wayland + niri` environment, while keeping the public Desktop/Library contract thin, truthful, and future-ready.
 
-**Architecture:** This plan is a focused follow-up to the `desktop-shell-and-library-flow` work. It does not redesign the existing apply/clear UI or the layered Rust architecture; instead it fills in the two missing infrastructure-backed service seams underneath that flow: real monitor discovery and real persisted assignment storage. The result should make the current Desktop and Library flow operational instead of merely wired.
+**Architecture:** The implementation keeps the monitor/persistence interface generic but supplies a first concrete backend for the current environment. `MonitorDescriptor v1` stays intentionally small (`id`, `name`, `resolution`). Desktop persistence remains a tiny assignment store (`monitor_id -> item_id`) in a standalone JSON state file rather than moving into SQLite. Restore follows a “best effort + explicit degraded reporting” policy: recover what still maps cleanly, and surface monitor-missing or item-missing conditions without silently pretending success.
 
-**Tech Stack:** Rust workspace, Tauri, `lwe-engine`, `lwe-library`, `lwe-core`, serde, filesystem persistence, Cargo tests
+**Tech Stack:** Rust workspace, Tauri, Wayland/niri environment, serde/JSON persistence, `lwe-core`, `lwe-library`, `lwe-engine`, Cargo tests, pnpm frontend checks
 
 ---
 
 ## Scope Note
 
-This plan covers only the two blocked lower layers:
+This plan is specifically about making the existing desktop flow real in the current environment.
 
-- monitor discovery
-- persisted desktop assignment storage
+It includes:
 
-It does **not**:
+- a real monitor discovery backend for the current `Wayland + niri` environment
+- a real JSON-backed persisted assignment store
+- truthful restore handling for missing monitor / missing item cases
+- propagation of that state through Desktop and Library snapshots
 
-- redesign the frontend apply/clear UI again
-- add new multi-monitor policy complexity
-- add preview mode or batch apply
-- deepen runtime rendering features beyond what the existing flow already expects
+It does **not** include:
+
+- multi-compositor support beyond the initial backend
+- advanced multi-monitor rules/templates
+- preview mode or all-monitor apply
+- redesigning the frontend flow already in place
 
 ## File Map
 
 ### Files to create
 
-- `apps/lwe/src-tauri/src/results/monitor_discovery.rs` - service/result types for monitor availability, known monitor lists, and degraded discovery states
-- `apps/lwe/src-tauri/src/results/desktop_persistence.rs` - persistence result types for load/save/clear operations and restore status
+- `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs` - backend trait and shared backend-facing monitor types
+- `apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs` - first concrete monitor backend for the current Wayland/niri environment
+- `apps/lwe/src-tauri/src/services/backends/mod.rs` - backend exports
+- `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs` - JSON persistence helpers and path resolution for desktop state
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/services/monitor_service.rs` - replace placeholder monitor discovery with a real monitor enumeration path and explicit degraded-state modeling
-- `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` - replace placeholder no-op persistence with real load/save/clear behavior
-- `apps/lwe/src-tauri/src/services/desktop_service.rs` - consume the real monitor/persistence services and surface truthful degraded/apply/restore behavior
-- `apps/lwe/src-tauri/src/services/library_service.rs` - consume the same desktop assignment state without masking unavailable persistence as empty usage
-- `apps/lwe/src-tauri/src/results/mod.rs` - export the new monitor/persistence result modules
-- `apps/lwe/src-tauri/src/results/desktop.rs` - refine desktop snapshot source result types if needed to reflect real monitor discovery state
-- `apps/lwe/src-tauri/src/results/desktop_apply.rs` - refine apply/clear/restore result types if needed to carry real persistence outcomes
-- `apps/lwe/src-tauri/src/assembly/desktop_page.rs` - render truthful monitor-state output from real discovery/persistence results
-- `apps/lwe/src-tauri/src/assembly/library_page.rs` - keep quick-status aligned with the real persisted assignment state
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs` - same as above for detail payloads
-- `apps/lwe/src-tauri/src/assembly/action_outcome.rs` - ensure action results remain truthful when persistence or monitor discovery fails
-- `apps/lwe/src-tauri/src/services/mod.rs` - export any new result/service helpers if necessary
-- `docs/product/roadmap.md` - update wording once the flow becomes truly persistence-backed and monitor-aware
+- `apps/lwe/src-tauri/src/services/monitor_service.rs` - switch from placeholder unavailable contract to real backend-backed monitor discovery
+- `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` - replace placeholder unavailable results with real JSON load/save/clear operations
+- `apps/lwe/src-tauri/src/services/desktop_service.rs` - consume the real monitor backend and persistence backend; implement truthful best-effort restore
+- `apps/lwe/src-tauri/src/services/library_service.rs` - derive desktop assignment status from the same real assignment snapshot
+- `apps/lwe/src-tauri/src/results/monitor_discovery.rs` - keep result types but adjust as needed for real backend output
+- `apps/lwe/src-tauri/src/results/desktop_persistence.rs` - keep result types but adjust as needed for real load/save/clear details
+- `apps/lwe/src-tauri/src/results/desktop_apply.rs` - add restore skip/failure detail if needed
+- `apps/lwe/src-tauri/src/results/desktop.rs` - surface known monitor state, assignment availability, and restore issues cleanly
+- `apps/lwe/src-tauri/src/assembly/desktop_page.rs` - render explicit restored/missing state, not fake empty state
+- `apps/lwe/src-tauri/src/assembly/library_page.rs` - project current assignment state from the real persistence snapshot
+- `apps/lwe/src-tauri/src/assembly/library_detail.rs` - same for Library detail
+- `apps/lwe/src-tauri/src/assembly/action_outcome.rs` - ensure apply/clear outcomes reflect real persistence results
+- `apps/lwe/src-tauri/src/models.rs` - extend frontend-facing monitor/assignment models only as needed for truthful restore-state rendering
+- `apps/lwe/src/lib/types.ts` - align TS contracts with any added monitor/restore state fields
+- `apps/lwe/src/routes/desktop/+page.svelte` - surface restore failures/missing monitor/missing item states clearly
+- `apps/lwe/src/routes/library/+page.svelte` - surface current desktop assignment state truthfully
+- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - show assignment availability / degradation info when relevant
+- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte` - show restore/degraded status when relevant
+- `docs/product/roadmap.md` - update roadmap wording once the placeholder backend is replaced with a real first implementation
 
 ### Files to inspect while implementing
 
 - `apps/lwe/src-tauri/src/services/monitor_service.rs`
 - `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs`
 - `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- `apps/lwe/src-tauri/src/services/library_service.rs`
-- `apps/lwe/src-tauri/src/results/desktop.rs`
-- `apps/lwe/src-tauri/src/results/desktop_apply.rs`
 - `apps/lwe/src-tauri/src/assembly/desktop_page.rs`
 - `apps/lwe/src-tauri/src/assembly/library_page.rs`
 - `apps/lwe/src-tauri/src/assembly/library_detail.rs`
+- `apps/lwe/src/lib/types.ts`
+- `apps/lwe/src/routes/desktop/+page.svelte`
+- `apps/lwe/src/routes/library/+page.svelte`
 
-## Task 1: Introduce Structured Result Types for Monitor Discovery and Persistence
+## Task 1: Introduce Backend Seams for Monitor Discovery and JSON Persistence
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/results/monitor_discovery.rs`
-- Create: `apps/lwe/src-tauri/src/results/desktop_persistence.rs`
-- Modify: `apps/lwe/src-tauri/src/results/mod.rs`
-- Test: `cargo test -p lwe-app-shell monitor_discovery -- --nocapture`
+- Create: `apps/lwe/src-tauri/src/services/backends/mod.rs`
+- Create: `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs`
+- Create: `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs`
+- Modify: `apps/lwe/src-tauri/src/services/mod.rs`
+- Test: `cargo test -p lwe-app-shell monitor_backend -- --nocapture`
 
-- [ ] **Step 1: Write the failing monitor-discovery result test**
+- [ ] **Step 1: Write the failing backend-seam test**
 
-Create `apps/lwe/src-tauri/src/results/monitor_discovery.rs` with this test first:
+Create `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -77,34 +90,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn monitor_discovery_result_distinguishes_known_empty_from_unavailable() {
-        let known_empty = MonitorDiscoveryResult::Known(Vec::new());
-        let unavailable = MonitorDiscoveryResult::Unavailable {
-            reason: "discovery unavailable".to_string(),
+    fn monitor_descriptor_v1_stays_small_and_stable() {
+        let monitor = BackendMonitorDescriptor {
+            id: "eDP-1".to_string(),
+            name: "Built-in".to_string(),
+            resolution: "2160x1440".to_string(),
         };
 
-        assert!(matches!(known_empty, MonitorDiscoveryResult::Known(_)));
-        assert!(matches!(unavailable, MonitorDiscoveryResult::Unavailable { .. }));
+        assert_eq!(monitor.id, "eDP-1");
+        assert_eq!(monitor.name, "Built-in");
+        assert_eq!(monitor.resolution, "2160x1440");
     }
 }
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell monitor_discovery -- --nocapture`
-Expected: FAIL because the result type does not exist yet.
+Run: `cargo test -p lwe-app-shell monitor_backend -- --nocapture`
+Expected: FAIL because the backend modules do not exist yet.
 
-- [ ] **Step 3: Create the result modules**
+- [ ] **Step 3: Create the monitor backend seam**
 
-Create `apps/lwe/src-tauri/src/results/monitor_discovery.rs` with:
+Create `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs` with:
 
 ```rust
-use crate::services::monitor_service::MonitorDescriptor;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackendMonitorDescriptor {
+    pub id: String,
+    pub name: String,
+    pub resolution: String,
+}
 
-#[derive(Debug, Clone)]
-pub enum MonitorDiscoveryResult {
-    Known(Vec<MonitorDescriptor>),
+pub enum BackendMonitorDiscovery {
+    Known(Vec<BackendMonitorDescriptor>),
     Unavailable { reason: String },
+}
+
+pub trait MonitorBackend {
+    fn list_monitors() -> BackendMonitorDiscovery;
 }
 
 #[cfg(test)]
@@ -112,71 +135,79 @@ mod tests {
     use super::*;
 
     #[test]
-    fn monitor_discovery_result_distinguishes_known_empty_from_unavailable() {
-        let known_empty = MonitorDiscoveryResult::Known(Vec::new());
-        let unavailable = MonitorDiscoveryResult::Unavailable {
-            reason: "discovery unavailable".to_string(),
+    fn monitor_descriptor_v1_stays_small_and_stable() {
+        let monitor = BackendMonitorDescriptor {
+            id: "eDP-1".to_string(),
+            name: "Built-in".to_string(),
+            resolution: "2160x1440".to_string(),
         };
 
-        assert!(matches!(known_empty, MonitorDiscoveryResult::Known(_)));
-        assert!(matches!(unavailable, MonitorDiscoveryResult::Unavailable { .. }));
+        assert_eq!(monitor.id, "eDP-1");
+        assert_eq!(monitor.name, "Built-in");
+        assert_eq!(monitor.resolution, "2160x1440");
     }
 }
 ```
 
-Create `apps/lwe/src-tauri/src/results/desktop_persistence.rs` with:
+- [ ] **Step 4: Create the JSON persistence backend seam**
+
+Create `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs` with:
 
 ```rust
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
-pub enum DesktopPersistenceLoad {
-    Loaded(BTreeMap<String, String>),
-    Unavailable { reason: String },
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct PersistedDesktopAssignments {
+    pub assignments: BTreeMap<String, String>,
 }
 
-#[derive(Debug, Clone)]
-pub enum DesktopPersistenceWrite {
-    Saved,
-    Cleared,
-    Unavailable { reason: String },
+pub fn desktop_state_path() -> PathBuf {
+    PathBuf::from("desktop-state.json")
 }
 ```
 
-Export both in `apps/lwe/src-tauri/src/results/mod.rs`:
+Create `apps/lwe/src-tauri/src/services/backends/mod.rs` with:
 
 ```rust
-pub mod desktop_persistence;
-pub mod monitor_discovery;
+pub mod monitor_backend;
+pub mod persistence_backend;
 ```
 
-- [ ] **Step 4: Run tests and commit**
+And export it from `apps/lwe/src-tauri/src/services/mod.rs`:
 
-Run: `cargo test -p lwe-app-shell monitor_discovery -- --nocapture`
+```rust
+pub mod backends;
+```
+
+- [ ] **Step 5: Run tests and commit**
+
+Run: `cargo test -p lwe-app-shell monitor_backend -- --nocapture`
 Expected: PASS
 
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/results/monitor_discovery.rs apps/lwe/src-tauri/src/results/desktop_persistence.rs apps/lwe/src-tauri/src/results/mod.rs
-git commit -m "feat: add structured monitor and persistence results"
+git add apps/lwe/src-tauri/src/services/mod.rs apps/lwe/src-tauri/src/services/backends
+git commit -m "refactor: add monitor and persistence backend seams"
 ```
 
-## Task 2: Replace Placeholder Monitor Discovery With a Real Service Contract
+## Task 2: Implement the First Real Monitor Backend for Wayland + niri
 
 **Files:**
+- Create: `apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs`
+- Modify: `apps/lwe/src-tauri/src/services/backends/mod.rs`
 - Modify: `apps/lwe/src-tauri/src/services/monitor_service.rs`
 - Test: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
 
-- [ ] **Step 1: Write the failing discovery-behavior test**
+- [ ] **Step 1: Write the failing backend-selection test**
 
 Add this test to `apps/lwe/src-tauri/src/services/monitor_service.rs` first:
 
 ```rust
 #[test]
-fn list_monitors_returns_structured_result() {
+fn monitor_service_uses_real_backend_result_type() {
     let result = MonitorService::list_monitors();
-
     assert!(matches!(
         result,
         crate::results::monitor_discovery::MonitorDiscoveryResult::Known(_)
@@ -185,30 +216,38 @@ fn list_monitors_returns_structured_result() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 2: Run the test to verify current behavior fails to provide a backend-backed path**
 
 Run: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
-Expected: FAIL because `MonitorService::list_monitors()` still returns the old placeholder shape.
+Expected: existing placeholder behavior still passes old tests but there is no backend module. Confirm the new test fails or requires the backend path to be introduced.
 
-- [ ] **Step 3: Update monitor discovery to return structured results**
+- [ ] **Step 3: Implement the niri backend**
 
-Modify `apps/lwe/src-tauri/src/services/monitor_service.rs` so it uses the new result type:
+Create `apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs` with the first concrete backend. Keep it minimal and truthful; the implementation can use the smallest reliable mechanism available in the current environment to enumerate outputs and basic resolution. The result must be expressed as:
 
 ```rust
-use crate::results::monitor_discovery::MonitorDiscoveryResult;
-
-impl MonitorService {
-    pub fn list_monitors() -> MonitorDiscoveryResult {
-        MonitorDiscoveryResult::Unavailable {
-            reason: "Monitor discovery is not available yet".to_string(),
-        }
-    }
-}
+BackendMonitorDiscovery::Known(vec![BackendMonitorDescriptor { id, name, resolution }, ...])
 ```
 
-Also update `resolve_specific_monitor()` to accept a resolved monitor slice only after the caller has handled `MonitorDiscoveryResult::Known(...)`, rather than hiding unavailable state behind an empty vector.
+or:
 
-- [ ] **Step 4: Run tests and commit**
+```rust
+BackendMonitorDiscovery::Unavailable { reason }
+```
+
+Export it in `apps/lwe/src-tauri/src/services/backends/mod.rs`:
+
+```rust
+pub mod niri_monitor_backend;
+```
+
+Update `apps/lwe/src-tauri/src/services/monitor_service.rs` so `MonitorService::list_monitors()` delegates to this backend and converts `BackendMonitorDiscovery` into `MonitorDiscoveryResult`.
+
+- [ ] **Step 4: Keep `resolve_specific_monitor()` aligned with the new backend-backed result**
+
+Make sure it still preserves `Known(...)` vs `Unavailable { .. }` and resolves by the stable backend `id` only.
+
+- [ ] **Step 5: Run tests and commit**
 
 Run: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
 Expected: PASS
@@ -216,79 +255,68 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/monitor_service.rs
-git commit -m "refactor: return structured monitor discovery results"
+git add apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs apps/lwe/src-tauri/src/services/backends/mod.rs apps/lwe/src-tauri/src/services/monitor_service.rs
+git commit -m "feat: add first real monitor discovery backend"
 ```
 
-## Task 3: Replace Placeholder Persistence With a Real Persistence Contract
+## Task 3: Implement Real JSON Desktop Assignment Persistence
 
 **Files:**
+- Modify: `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs`
 - Modify: `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs`
 - Test: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
 
-- [ ] **Step 1: Write the failing persistence-contract test**
+- [ ] **Step 1: Write the failing persistence-roundtrip test**
 
 Add this test to `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` first:
 
 ```rust
 #[test]
-fn persistence_service_returns_structured_load_and_write_results() {
-    let load = DesktopPersistenceService::load_state();
-    let save = DesktopPersistenceService::save_assignment("DP-1", "item-1");
-    let clear = DesktopPersistenceService::clear_assignment("DP-1");
+fn persistence_service_round_trips_assignments() {
+    let path = tempfile::tempdir().unwrap().path().join("desktop-state.json");
+    let service = DesktopPersistenceService::for_test(path.clone());
+
+    assert!(matches!(service.load_state(), crate::results::desktop_persistence::DesktopPersistenceLoad::Loaded(_)));
 
     assert!(matches!(
-        load,
-        crate::results::desktop_persistence::DesktopPersistenceLoad::Loaded(_)
-            | crate::results::desktop_persistence::DesktopPersistenceLoad::Unavailable { .. }
-    ));
-    assert!(matches!(
-        save,
+        service.save_assignment("eDP-1", "item-1"),
         crate::results::desktop_persistence::DesktopPersistenceWrite::Saved
-            | crate::results::desktop_persistence::DesktopPersistenceWrite::Unavailable { .. }
     ));
-    assert!(matches!(
-        clear,
-        crate::results::desktop_persistence::DesktopPersistenceWrite::Cleared
-            | crate::results::desktop_persistence::DesktopPersistenceWrite::Unavailable { .. }
-    ));
+
+    let loaded = service.load_state();
+    match loaded {
+        crate::results::desktop_persistence::DesktopPersistenceLoad::Loaded(assignments) => {
+            assert_eq!(assignments.get("eDP-1").unwrap(), "item-1");
+        }
+        _ => panic!("expected loaded assignments"),
+    }
 }
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
-Expected: FAIL because the service still returns the old placeholder shapes.
+Expected: FAIL because persistence still returns `Unavailable` and has no testable backend.
 
-- [ ] **Step 3: Update the persistence service to use structured results**
+- [ ] **Step 3: Implement JSON load/save/clear**
 
-Modify `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` so its API becomes:
+Update `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs` so it actually reads/writes a JSON file with:
 
-```rust
-use crate::results::desktop_persistence::{DesktopPersistenceLoad, DesktopPersistenceWrite};
-
-impl DesktopPersistenceService {
-    pub fn load_state() -> DesktopPersistenceLoad {
-        DesktopPersistenceLoad::Unavailable {
-            reason: "Desktop persistence is not available yet".to_string(),
-        }
-    }
-
-    pub fn save_assignment(_monitor_id: &str, _item_id: &str) -> DesktopPersistenceWrite {
-        DesktopPersistenceWrite::Unavailable {
-            reason: "Desktop persistence is not available yet".to_string(),
-        }
-    }
-
-    pub fn clear_assignment(_monitor_id: &str) -> DesktopPersistenceWrite {
-        DesktopPersistenceWrite::Unavailable {
-            reason: "Desktop persistence is not available yet".to_string(),
-        }
-    }
+```json
+{
+  "assignments": {
+    "monitor-id": "item-id"
+  }
 }
 ```
 
-The implementation may still return `Unavailable` for now if real storage is not being introduced in this focused follow-up, but the contract must be truthful and ready for real persistence.
+Then update `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` so it:
+
+- loads the file if present
+- returns `Loaded(empty map)` if the file does not exist yet
+- returns `Saved` / `Cleared` on success
+- returns `Unavailable { reason }` only on real I/O or parse failure
+- exposes a `for_test(path: PathBuf)` constructor so tests don’t touch the real config path
 
 - [ ] **Step 4: Run tests and commit**
 
@@ -298,11 +326,11 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_persistence_service.rs
-git commit -m "refactor: return structured desktop persistence results"
+git add apps/lwe/src-tauri/src/services/backends/persistence_backend.rs apps/lwe/src-tauri/src/services/desktop_persistence_service.rs
+git commit -m "feat: add json desktop assignment persistence"
 ```
 
-## Task 4: Thread Real Discovery/Persistence State Through Desktop and Library Flows
+## Task 4: Thread the Real Backends Through Desktop and Library Flows
 
 **Files:**
 - Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
@@ -313,70 +341,81 @@ git commit -m "refactor: return structured desktop persistence results"
 - Modify: `apps/lwe/src-tauri/src/assembly/library_page.rs`
 - Modify: `apps/lwe/src-tauri/src/assembly/library_detail.rs`
 - Modify: `apps/lwe/src-tauri/src/assembly/action_outcome.rs`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+- Modify: `apps/lwe/src-tauri/src/models.rs`
+- Modify: `apps/lwe/src/lib/types.ts`
+- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir apps/lwe check`
 
-- [ ] **Step 1: Add the failing degraded-state test**
+- [ ] **Step 1: Add the failing “real restore” test**
 
-Add this test to `apps/lwe/src-tauri/src/services/desktop_service.rs`:
+Add this test to `apps/lwe/src-tauri/src/services/desktop_service.rs` first:
 
 ```rust
 #[test]
-fn load_page_marks_state_unavailable_when_monitor_or_persistence_is_unavailable() {
+fn desktop_service_load_page_reports_restorable_assignments() {
+    // Use a test persistence service + known monitor list to confirm
+    // persisted assignments are surfaced as assignments_available.
     let result = DesktopService::load_page().unwrap();
-    assert!(result.stale);
-    assert!(!result.assignments_available);
+    assert!(result.assignments_available || result.persistence_issue.is_some());
 }
 ```
 
-- [ ] **Step 2: Run the test to verify current behavior fails**
+- [ ] **Step 2: Run the test to verify the old placeholder assumptions fail**
 
 Run: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
-Expected: FAIL if the current service/results still overstate desktop freshness or assignment availability.
+Expected: existing logic still partially assumes unavailable backends or placeholder monitor state.
 
-- [ ] **Step 3: Make Desktop and Library depend on the new result enums truthfully**
+- [ ] **Step 3: Wire real monitor + persistence state through services and assemblers**
 
-Update `apps/lwe/src-tauri/src/services/desktop_service.rs` so:
+Update Desktop and Library service/assembly flow so that:
 
-- `load_page()` consumes `MonitorDiscoveryResult` and `DesktopPersistenceLoad`
-- `assignments_available` is `true` only when persistence really loaded
-- `stale` stays `true` whenever discovery or persistence is unavailable
-- `apply_to_monitor()` and `clear_monitor()` return errors when discovery/persistence are unavailable, instead of degrading to false success or empty state
+- known discovered monitors become real `DesktopMonitorSummary` entries
+- persisted assignments become real quick-status data for matching Library items
+- restore follows the agreed policy:
+  - monitor exists + item exists -> restored
+  - monitor missing -> explicit unavailable/missing-monitor state
+  - item missing -> explicit missing-item state
+- apply/clear fail truthfully when monitor discovery or persistence genuinely fails
 
-Update `apps/lwe/src-tauri/src/services/library_service.rs` so Library quick-status uses the same desktop assignment availability source and never treats persistence-unavailable as “not applied.”
+- [ ] **Step 4: Keep the frontend contract truthful**
 
-Update results/assembly so Desktop page and Library quick-status surface:
+Update Rust models and TS types only as needed to represent:
 
-- known monitor cards when discovery is known
-- degraded/unavailable state when discovery/persistence is unavailable
-- truthful success/failure action outcomes
+- monitor availability
+- assignment availability
+- restore degradation reasons
 
-- [ ] **Step 4: Run tests and commit**
+Do not bloat the contract beyond what the current Desktop/Library UI can render.
 
-Run: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+- [ ] **Step 5: Run tests and commit**
+
+Run:
+
+```bash
+cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir apps/lwe check
+```
+
 Expected: PASS
 
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs apps/lwe/src-tauri/src/services/library_service.rs apps/lwe/src-tauri/src/results/desktop.rs apps/lwe/src-tauri/src/results/desktop_apply.rs apps/lwe/src-tauri/src/assembly/desktop_page.rs apps/lwe/src-tauri/src/assembly/library_page.rs apps/lwe/src-tauri/src/assembly/library_detail.rs apps/lwe/src-tauri/src/assembly/action_outcome.rs
-git commit -m "fix: thread monitor and persistence availability through desktop flow"
+git add apps/lwe/src-tauri/src/services/desktop_service.rs apps/lwe/src-tauri/src/services/library_service.rs apps/lwe/src-tauri/src/results/desktop.rs apps/lwe/src-tauri/src/results/desktop_apply.rs apps/lwe/src-tauri/src/assembly/desktop_page.rs apps/lwe/src-tauri/src/assembly/library_page.rs apps/lwe/src-tauri/src/assembly/library_detail.rs apps/lwe/src-tauri/src/assembly/action_outcome.rs apps/lwe/src-tauri/src/models.rs apps/lwe/src/lib/types.ts
+git commit -m "feat: wire real monitor and persistence state through desktop flow"
 ```
 
-## Task 5: Update Roadmap Wording to Match the Real Scope
+## Task 5: Update Roadmap Wording for the New Reality
 
 **Files:**
 - Modify: `docs/product/roadmap.md`
 - Test: `python3` assertion over the roadmap
 
-- [ ] **Step 1: Refine the roadmap wording**
+- [ ] **Step 1: Update the roadmap wording**
 
-Adjust `docs/product/roadmap.md` so the desktop/library flow track reflects the truthful state after this follow-up. For example:
+Adjust the `desktop-shell-and-library-flow` / monitor-persistence follow-up wording so it reflects the actual post-implementation state. If monitor discovery and JSON persistence are both real by this point, use wording like:
 
 ```md
-- `desktop-shell-and-library-flow`: the active LWE shell now has a monitor-aware apply/clear contract and truthful degraded-state handling, while follow-on work is still needed to replace the current unavailable monitor discovery and persistence placeholders with real system-backed implementations
+- `desktop-shell-and-library-flow`: the active LWE shell now supports monitor-aware Library apply, Desktop clear, and JSON-backed assignment restore on the current Wayland + niri path; follow-on work should generalize the backend and deepen runtime controls rather than establish the first real desktop state path
 ```
-
-If real monitor discovery and persistence do become implemented during this follow-up, update the line to say so explicitly instead.
 
 - [ ] **Step 2: Verify roadmap wording and commit**
 
@@ -386,43 +425,38 @@ Run:
 python3 - <<'PY'
 from pathlib import Path
 roadmap = Path('docs/product/roadmap.md').read_text()
-assert 'monitor-aware apply/clear contract' in roadmap or 'supports applying a Library item to a specific monitor' in roadmap
-print('monitor/persistence roadmap wording updated')
+assert 'monitor-aware Library apply' in roadmap
+print('real monitor/persistence roadmap wording updated')
 PY
 ```
 
-Expected: prints `monitor/persistence roadmap wording updated`.
+Expected: prints `real monitor/persistence roadmap wording updated`.
 
 Then:
 
 ```bash
 git add docs/product/roadmap.md
-git commit -m "docs: refine monitor and persistence roadmap wording"
+git commit -m "docs: update real monitor persistence roadmap wording"
 ```
 
 ## Self-Review Checklist
 
 - Spec coverage:
-  - real monitor discovery contract → Tasks 1, 2
-  - real persistence contract → Tasks 1, 3
-  - truthful Desktop/Library degraded-state propagation → Task 4
-  - roadmap updated to match the real scope → Task 5
+  - first real monitor backend → Tasks 1, 2
+  - first real JSON persistence backend → Tasks 1, 3
+  - Desktop / Library flow uses those real backends → Task 4
+  - roadmap updated to the true post-implementation state → Task 5
 - Placeholder scan: no `TODO`, `TBD`, or vague placeholders appear in the plan.
 - Type consistency:
-  - `MonitorDiscoveryResult`, `DesktopPersistenceLoad`, and `DesktopPersistenceWrite` are introduced before Desktop/Library flows consume them.
+  - `BackendMonitorDescriptor`, `MonitorDiscoveryResult`, `DesktopPersistenceLoad`, `DesktopPersistenceWrite`, and the Desktop/Library availability fields are introduced before the flow threads them through.
 
 ## Expected Output of This Plan
 
-When this plan is complete, the current Library-to-Desktop flow will stop depending on fake happy-path monitor/persistence services. Instead it will have:
-
-- a truthful monitor discovery contract
-- a truthful persistence contract
-- Desktop/Library flows that can distinguish unavailable state from real empty state
-- a clean next step toward either wiring real system monitor discovery/persistence backends or continuing to report degraded support honestly
+When this plan is complete, the Desktop flow will stop depending on placeholder monitor/persistence backends and will gain a first real environment-backed implementation for the current machine’s Wayland + niri setup, while keeping the contract generic enough for future backends.
 
 ## Follow-on Plans After This One
 
 The next plans after this file should cover:
 
-1. replacing the structured but unavailable monitor/persistence contracts with real system-backed implementations if that still remains after this work
-2. deeper runtime preview/apply flows once the Desktop shell foundation is no longer blocked by fake infrastructure seams
+1. expanding monitor discovery beyond the initial Wayland + niri backend
+2. deepening runtime preview/apply behavior once the desktop state path is truly real
