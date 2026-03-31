@@ -46,7 +46,7 @@ describe('desktop page render', () => {
       monitorDiscoveryIssue: null,
       persistenceIssue: null,
       assignmentsAvailable: true,
-      restoreIssues: [],
+      restoreIssues: ['Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).'],
       stale: false
     });
 
@@ -58,5 +58,8 @@ describe('desktop page render', () => {
     expect(body).toContain('Missing monitor restores');
     expect(body).toContain('DISPLAY-2');
     expect(body).toContain('Ocean Scene');
+    expect(body).toContain(
+      'Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).'
+    );
   });
 });

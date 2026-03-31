@@ -22,6 +22,8 @@ export const resolveDesktopPageState = (snapshot: DesktopPageSnapshot): DesktopP
     issueMessages.push('Desktop assignment persistence is currently unavailable.');
   }
 
+  issueMessages.push(...(snapshot.restoreIssues ?? []));
+
   return {
     monitorAvailabilityLabel: snapshot.monitorsAvailable ? 'yes' : 'no',
     assignmentAvailabilityLabel: snapshot.assignmentsAvailable ? 'yes' : 'no',

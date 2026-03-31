@@ -8,6 +8,7 @@ describe('desktop page state', () => {
       resolveDesktopPageState({
         monitors: [],
         missingMonitorRestores: [],
+        restoreIssues: [],
         monitorsAvailable: false,
         monitorDiscoveryIssue: 'Monitor discovery is unavailable.',
         persistenceIssue: 'Assignment persistence is unavailable.',
@@ -27,6 +28,7 @@ describe('desktop page state', () => {
       resolveDesktopPageState({
         monitors: [],
         missingMonitorRestores: [],
+        restoreIssues: [],
         monitorsAvailable: true,
         monitorDiscoveryIssue: null,
         persistenceIssue: null,
@@ -37,6 +39,26 @@ describe('desktop page state', () => {
       monitorAvailabilityLabel: 'yes',
       assignmentAvailabilityLabel: 'yes',
       issueMessages: [],
+      emptyMessage: 'No monitors are available in the current snapshot.'
+    });
+  });
+
+  it('includes restore issues in the visible desktop issue list', () => {
+    expect(
+      resolveDesktopPageState({
+        monitors: [],
+        missingMonitorRestores: [],
+        restoreIssues: ['Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).'],
+        monitorsAvailable: true,
+        monitorDiscoveryIssue: null,
+        persistenceIssue: null,
+        assignmentsAvailable: true,
+        stale: true
+      })
+    ).toEqual({
+      monitorAvailabilityLabel: 'yes',
+      assignmentAvailabilityLabel: 'yes',
+      issueMessages: ['Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).'],
       emptyMessage: 'No monitors are available in the current snapshot.'
     });
   });
