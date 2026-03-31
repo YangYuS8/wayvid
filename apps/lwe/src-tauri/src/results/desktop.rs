@@ -7,10 +7,33 @@ mod desktop_apply_result;
 
 pub use desktop_apply_result::DesktopApplyResult;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DesktopResolvedMonitorAssignment {
+    Restored {
+        item_id: String,
+        item_title: String,
+    },
+    MissingMonitor {
+        item_id: String,
+        item_title: Option<String>,
+    },
+    MissingItem {
+        item_id: String,
+    },
+    Unavailable {
+        item_id: String,
+        item_title: Option<String>,
+        reason: String,
+    },
+}
+
 #[derive(Debug, Clone)]
 pub struct DesktopPageResult {
     pub monitors: Vec<MonitorDescriptor>,
     pub assignments: BTreeMap<String, String>,
+    pub resolved_assignments: BTreeMap<String, DesktopResolvedMonitorAssignment>,
+    pub library_item_assignments: BTreeMap<String, Vec<String>>,
+    pub restore_issues: Vec<String>,
     pub monitors_available: bool,
     pub monitor_discovery_issue: Option<String>,
     pub persistence_issue: Option<String>,
@@ -27,6 +50,18 @@ mod tests {
         let result = DesktopPageResult {
             monitors: Vec::new(),
             assignments: BTreeMap::new(),
+            resolved_assignments: BTreeMap::from([(
+                "DISPLAY-2".to_string(),
+                DesktopResolvedMonitorAssignment::MissingMonitor {
+                    item_id: "scene-7".to_string(),
+                    item_title: Some("Forest Scene".to_string()),
+                },
+            )]),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: vec![
+                "Saved assignment for missing monitor DISPLAY-2 still points to scene-7."
+                    .to_string(),
+            ],
             monitors_available: false,
             monitor_discovery_issue: None,
             persistence_issue: Some("Desktop persistence is not available yet".to_string()),
@@ -39,5 +74,10 @@ mod tests {
         assert!(!result.assignments_available);
         assert!(result.persistence_issue.is_some());
         assert!(result.monitor_discovery_issue.is_none());
+        assert!(matches!(
+            result.resolved_assignments.get("DISPLAY-2"),
+            Some(DesktopResolvedMonitorAssignment::MissingMonitor { .. })
+        ));
+        assert_eq!(result.restore_issues.len(), 1);
     }
 }

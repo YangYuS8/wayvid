@@ -38,6 +38,7 @@ fn assemble_library_summary(entry: AssessedWorkshopCatalogEntry) -> LibraryItemS
         source: LibrarySource::Workshop,
         compatibility: compatibility_summary(&entry.compatibility),
         favorite: false,
+        assigned_monitor_labels: Vec::new(),
     }
 }
 
@@ -53,7 +54,13 @@ pub fn assemble_library_page(
         items: result
             .entries
             .into_iter()
-            .map(assemble_library_summary)
+            .map(|entry| {
+                let item_id = entry.entry.library_item_id.clone().unwrap_or_default();
+                let mut summary = assemble_library_summary(entry);
+                summary.assigned_monitor_labels =
+                    LibraryService::assigned_monitor_labels(desktop, &item_id);
+                summary
+            })
             .collect(),
         selected_item_id: None,
         monitors_available: desktop_status.monitors_available,
@@ -107,6 +114,9 @@ mod tests {
             &DesktopPageResult {
                 monitors: Vec::new(),
                 assignments: std::collections::BTreeMap::new(),
+                resolved_assignments: std::collections::BTreeMap::new(),
+                library_item_assignments: std::collections::BTreeMap::new(),
+                restore_issues: Vec::new(),
                 monitors_available: false,
                 monitor_discovery_issue: Some("Monitor discovery is not available yet".to_string()),
                 persistence_issue: Some("Desktop persistence is not available yet".to_string()),
@@ -128,5 +138,35 @@ mod tests {
             Some("Monitor discovery is not available yet")
         );
         assert!(snapshot.stale);
+    }
+
+    #[test]
+    fn desktop_apply_flow_library_page_includes_assigned_monitor_labels_for_matching_items() {
+        let mut assignments = std::collections::BTreeMap::new();
+        assignments.insert("scene-7".to_string(), vec!["Primary".to_string()]);
+
+        let snapshot = assemble_library_page(
+            LibraryProjection {
+                entries: vec![assessed_entry()],
+                source_catalog_count: 1,
+            },
+            &DesktopPageResult {
+                monitors: Vec::new(),
+                assignments: std::collections::BTreeMap::new(),
+                resolved_assignments: std::collections::BTreeMap::new(),
+                library_item_assignments: assignments,
+                restore_issues: Vec::new(),
+                monitors_available: true,
+                monitor_discovery_issue: None,
+                persistence_issue: None,
+                assignments_available: true,
+                stale: false,
+            },
+        );
+
+        assert_eq!(
+            snapshot.items[0].assigned_monitor_labels,
+            vec!["Primary".to_string()]
+        );
     }
 }

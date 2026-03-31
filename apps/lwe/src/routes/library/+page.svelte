@@ -121,6 +121,7 @@
                 coverPath={item.coverPath}
                 compatibility={item.compatibility}
                 selected={snapshot.selectedItemId === item.id}
+                assignedMonitorLabels={item.assignedMonitorLabels ?? []}
               />
             </button>
           {/each}

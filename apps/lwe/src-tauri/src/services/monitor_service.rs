@@ -1,17 +1,34 @@
 use crate::results::monitor_discovery::MonitorDiscoveryResult;
+use crate::services::backends::monitor_backend::{BackendMonitorDiscovery, MonitorBackend};
+use crate::services::backends::niri_monitor_backend::NiriMonitorBackend;
 
 #[derive(Debug, Clone)]
 pub struct MonitorDescriptor {
     pub id: String,
     pub name: String,
+    pub resolution: String,
 }
 
 pub struct MonitorService;
 
 impl MonitorService {
     pub fn list_monitors() -> MonitorDiscoveryResult {
-        MonitorDiscoveryResult::Unavailable {
-            reason: "Monitor discovery is not available yet".to_string(),
+        let backend = NiriMonitorBackend;
+
+        match backend.list_monitors() {
+            BackendMonitorDiscovery::Known(monitors) => MonitorDiscoveryResult::Known(
+                monitors
+                    .into_iter()
+                    .map(|monitor| MonitorDescriptor {
+                        id: monitor.id,
+                        name: monitor.name,
+                        resolution: monitor.resolution,
+                    })
+                    .collect(),
+            ),
+            BackendMonitorDiscovery::Unavailable { reason } => {
+                MonitorDiscoveryResult::Unavailable { reason }
+            }
         }
     }
 
@@ -39,13 +56,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn list_monitors_reports_placeholder_unavailable_state() {
+    fn monitor_service_uses_real_backend_result_type() {
         let result = MonitorService::list_monitors();
 
         assert!(matches!(
             result,
-            MonitorDiscoveryResult::Unavailable { reason }
-                if reason == "Monitor discovery is not available yet"
+            crate::results::monitor_discovery::MonitorDiscoveryResult::Known(_)
+                | crate::results::monitor_discovery::MonitorDiscoveryResult::Unavailable { .. }
+        ));
+    }
+
+    #[test]
+    fn list_monitors_preserves_monitor_descriptor_v1_shape_for_known_results() {
+        let result = MonitorService::list_monitors();
+
+        match result {
+            MonitorDiscoveryResult::Known(monitors) => {
+                assert!(monitors.iter().all(|monitor| {
+                    !monitor.id.is_empty()
+                        && !monitor.name.is_empty()
+                        && !monitor.resolution.is_empty()
+                        && monitor.resolution.contains('x')
+                }));
+            }
+            MonitorDiscoveryResult::Unavailable { .. } => {}
+        }
+    }
+
+    #[test]
+    fn list_monitors_returns_backend_result() {
+        let result = MonitorService::list_monitors();
+
+        assert!(matches!(
+            result,
+            MonitorDiscoveryResult::Known(_) | MonitorDiscoveryResult::Unavailable { .. }
         ));
     }
 
@@ -55,15 +99,17 @@ mod tests {
             MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
             },
             MonitorDescriptor {
                 id: "DISPLAY-2".to_string(),
                 name: "Secondary".to_string(),
+                resolution: "2560x1440".to_string(),
             },
         ]);
 
         let unavailable = MonitorDiscoveryResult::Unavailable {
-            reason: "Monitor discovery is not available yet".to_string(),
+            reason: "niri is unavailable".to_string(),
         };
 
         let resolved = MonitorService::resolve_specific_monitor(&known_monitors, "DISPLAY-2");
@@ -73,13 +119,16 @@ mod tests {
         assert!(matches!(
             resolved,
             MonitorDiscoveryResult::Known(monitors)
-                if monitors.len() == 1 && monitors[0].name == "Secondary"
+                if monitors.len() == 1
+                    && monitors[0].id == "DISPLAY-2"
+                    && monitors[0].name == "Secondary"
+                    && monitors[0].resolution == "2560x1440"
         ));
         assert!(matches!(missing, MonitorDiscoveryResult::Known(monitors) if monitors.is_empty()));
         assert!(matches!(
             unresolved,
             MonitorDiscoveryResult::Unavailable { reason }
-                if reason == "Monitor discovery is not available yet"
+                if reason == "niri is unavailable"
         ));
     }
 }

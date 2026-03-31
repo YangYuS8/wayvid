@@ -12,6 +12,7 @@
 
   $: availabilitySource = detail ?? snapshot;
   $: issueMessages = availabilitySource ? resolveLibraryAvailabilityIssues(availabilitySource) : [];
+  $: assignedMonitorLabels = detail?.assignedMonitorLabels ?? [];
 </script>
 
 <section class="panel">
@@ -36,6 +37,13 @@
             {#each issueMessages as issue}
               <p class="message warning">{issue}</p>
             {/each}
+          </div>
+        {/if}
+
+        {#if assignedMonitorLabels.length > 0}
+          <div class="assignments" aria-live="polite">
+            <p class="assignment-label">Assigned monitors</p>
+            <p>{assignedMonitorLabels.join(' • ')}</p>
           </div>
         {/if}
 
@@ -77,7 +85,8 @@
   .panel-body,
   .copy,
   .badges,
-  .issues {
+   .issues,
+   .assignments {
     display: grid;
     gap: 0.9rem;
   }
@@ -105,5 +114,11 @@
     padding: 0.85rem 1rem;
     border-radius: 14px;
     background: rgba(15, 95, 154, 0.12);
+  }
+
+  .assignment-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #23456e;
   }
 </style>

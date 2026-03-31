@@ -1,3 +1,4 @@
+use crate::action_outcome::InvalidatedPage;
 use crate::action_outcome::{ActionOutcome, AppShellPatch};
 use crate::models::WorkshopPageSnapshot;
 use crate::policies::shared::invalidation_policy::pages_after_workshop_refresh;
@@ -36,14 +37,14 @@ pub fn assemble_desktop_apply_outcome(result: DesktopApplyResult) -> ActionOutco
             message: Some(format!("Applied {item_id} to {monitor_id}")),
             shell_patch: None,
             current_update: None,
-            invalidations: Vec::new(),
+            invalidations: vec![InvalidatedPage::Desktop, InvalidatedPage::Library],
         },
         DesktopApplyResult::Cleared { monitor_id } => ActionOutcome {
             ok: true,
             message: Some(format!("Cleared desktop assignment for {monitor_id}")),
             shell_patch: None,
             current_update: None,
-            invalidations: Vec::new(),
+            invalidations: vec![InvalidatedPage::Desktop, InvalidatedPage::Library],
         },
         DesktopApplyResult::MonitorNotFound { monitor_id } => ActionOutcome {
             ok: false,
@@ -66,7 +67,6 @@ pub fn assemble_desktop_apply_outcome(result: DesktopApplyResult) -> ActionOutco
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action_outcome::InvalidatedPage;
     use crate::results::workshop::WorkshopRefreshResult;
 
     #[test]
@@ -91,5 +91,18 @@ mod tests {
             outcome.message.as_deref(),
             Some("Desktop persistence is not available yet")
         );
+    }
+
+    #[test]
+    fn desktop_apply_flow_action_outcome_invalidates_library_and_desktop_after_apply() {
+        let outcome = assemble_desktop_apply_outcome(DesktopApplyResult::Applied {
+            monitor_id: "DISPLAY-1".to_string(),
+            item_id: "scene-7".to_string(),
+        });
+
+        assert!(outcome.ok);
+        assert_eq!(outcome.invalidations.len(), 2);
+        assert!(matches!(outcome.invalidations[0], InvalidatedPage::Desktop));
+        assert!(matches!(outcome.invalidations[1], InvalidatedPage::Library));
     }
 }

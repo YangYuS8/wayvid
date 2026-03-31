@@ -8,6 +8,7 @@
   export let coverPath: string | null = null;
   export let compatibility: CompatibilitySummaryModel;
   export let selected = false;
+  export let assignedMonitorLabels: string[] = [];
 </script>
 
 <div class="item-card" class:selected>
@@ -20,6 +21,13 @@
       <StatusBadge label={compatibility.badge} />
       <p class="summary-copy">{compatibility.summaryCopy}</p>
     </div>
+
+    {#if assignedMonitorLabels.length > 0}
+      <div class="assignment-status">
+        <p class="assignment-label">Assigned to</p>
+        <p class="assignment-copy">{assignedMonitorLabels.join(' • ')}</p>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -51,6 +59,11 @@
     gap: 0.3rem;
   }
 
+   .assignment-status {
+    display: grid;
+    gap: 0.2rem;
+  }
+
   h3,
   p {
     margin: 0;
@@ -75,5 +88,16 @@
   .summary-copy {
     font-size: 0.8rem;
     text-transform: none;
+  }
+
+  .assignment-label,
+  .assignment-copy {
+    font-size: 0.8rem;
+    text-transform: none;
+  }
+
+  .assignment-label {
+    color: #23456e;
+    font-weight: 600;
   }
 </style>
