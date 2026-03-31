@@ -15,11 +15,33 @@ describe('ItemCard', () => {
           reasonCode: 'unsupported_web_item',
           summaryCopy: 'Web support coming later'
         },
-        selected: false
+        selected: false,
+        assignedMonitorLabels: []
       }
     });
 
     expect(body).toContain('Web support coming later');
     expect(body).not.toContain('unsupported_web_item');
+  });
+
+  it('renders assigned monitor labels from the assembled library quick status', () => {
+    const { body } = render(ItemCard, {
+      props: {
+        title: 'Forest Scene',
+        itemType: 'scene',
+        coverPath: null,
+        compatibility: {
+          badge: 'fully_supported',
+          reasonCode: 'ready_for_library',
+          summaryCopy: 'Ready to use'
+        },
+        selected: true,
+        assignedMonitorLabels: ['Primary', 'DISPLAY-2 (missing)']
+      }
+    });
+
+    expect(body).toContain('Assigned to');
+    expect(body).toContain('Primary');
+    expect(body).toContain('DISPLAY-2 (missing)');
   });
 });
