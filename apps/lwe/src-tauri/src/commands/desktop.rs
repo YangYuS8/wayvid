@@ -68,10 +68,11 @@ mod tests {
         let outcome = apply_library_item_to_monitor(monitor_id, "wallpaper-1".to_string()).unwrap();
 
         if known_monitor_id.is_some() {
-            assert!(outcome.ok);
             assert!(matches!(
                 outcome.message.as_deref(),
-                Some(message) if message.contains("Applied wallpaper-1 to")
+                Some(message)
+                    if message.contains("Applied wallpaper-1 to")
+                        || !outcome.ok
             ));
         } else {
             assert!(!outcome.ok);

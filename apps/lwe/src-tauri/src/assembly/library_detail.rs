@@ -41,14 +41,7 @@ pub fn assemble_library_detail(
     let description = entry.project_metadata.description.clone();
     let tags = entry.project_metadata.tags.clone();
     let assigned_monitor_labels = LibraryService::assigned_monitor_labels(desktop, &id);
-    let mut compatibility = compatibility_explanation(&entry.compatibility);
-
-    if let Some(reason) = assignment_issue.as_deref() {
-        compatibility.detail = format!(
-            "{} Desktop assignment state unavailable: {reason}.",
-            compatibility.detail
-        );
-    }
+    let compatibility = compatibility_explanation(&entry.compatibility);
 
     LibraryItemDetail {
         id,
@@ -113,10 +106,10 @@ mod tests {
             },
         );
 
-        assert!(detail
-            .compatibility
-            .detail
-            .contains("Desktop assignment state unavailable"));
+        assert_eq!(
+            detail.compatibility.detail,
+            "This item is synchronized locally and available for Library and desktop use."
+        );
         assert!(!detail.desktop_assignments_available);
         assert_eq!(
             detail.desktop_assignment_issue.as_deref(),

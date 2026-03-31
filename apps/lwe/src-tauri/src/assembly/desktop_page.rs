@@ -7,7 +7,7 @@ use crate::results::desktop::{DesktopPageResult, DesktopResolvedMonitorAssignmen
 pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
     let DesktopPageResult {
         monitors,
-        assignments,
+        assignments: _,
         resolved_assignments,
         library_item_assignments: _,
         restore_issues,
@@ -34,7 +34,7 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                         Some(DesktopResolvedMonitorAssignment::Restored { item_title, .. }) => {
                             Some(item_title.clone())
                         }
-                        _ => assignments.get(&monitor_id).cloned(),
+                        _ => None,
                     },
                     current_cover_path: None,
                     current_item_id: resolved_assignments.get(&monitor_id).map(|assignment| {
@@ -211,7 +211,10 @@ mod tests {
                 name: "Primary".to_string(),
                 resolution: "1920x1080".to_string(),
             }],
-            assignments: BTreeMap::new(),
+            assignments: BTreeMap::from([(
+                "DISPLAY-1".to_string(),
+                "missing-item".to_string(),
+            )]),
             resolved_assignments,
             library_item_assignments: BTreeMap::new(),
             restore_issues: vec![
@@ -229,6 +232,7 @@ mod tests {
             snapshot.monitors[0].current_item_id.as_deref(),
             Some("missing-item")
         );
+        assert!(snapshot.monitors[0].current_wallpaper_title.is_none());
         assert_eq!(
             snapshot.monitors[0].restore_state,
             Some(crate::models::DesktopRestoreState::MissingItem)
