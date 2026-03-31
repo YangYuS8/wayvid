@@ -68,8 +68,20 @@ pub enum RuntimeStatus {
 #[serde(rename_all = "snake_case")]
 pub enum DesktopRestoreState {
     Restored,
+    MissingMonitor,
     MissingItem,
     Unavailable,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopMissingMonitorRestore {
+    pub monitor_id: String,
+    pub current_item_id: String,
+    pub current_wallpaper_title: Option<String>,
+    pub restore_state: DesktopRestoreState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restore_issue: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,6 +194,7 @@ pub struct DesktopMonitorSummary {
 #[serde(rename_all = "camelCase")]
 pub struct DesktopPageSnapshot {
     pub monitors: Vec<DesktopMonitorSummary>,
+    pub missing_monitor_restores: Vec<DesktopMissingMonitorRestore>,
     pub monitors_available: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor_discovery_issue: Option<String>,
@@ -329,6 +342,13 @@ mod tests {
                 restore_issue: None,
                 runtime_status: RuntimeStatus::Unsupported,
             }],
+            missing_monitor_restores: vec![DesktopMissingMonitorRestore {
+                monitor_id: "DISPLAY-2".to_string(),
+                current_item_id: "scene-8".to_string(),
+                current_wallpaper_title: Some("Ocean Scene".to_string()),
+                restore_state: DesktopRestoreState::MissingMonitor,
+                restore_issue: Some("Saved assignment targets a monitor that is not currently available.".to_string()),
+            }],
             monitors_available: true,
             monitor_discovery_issue: None,
             persistence_issue: None,
@@ -355,6 +375,10 @@ mod tests {
         let library_value = serde_json::to_value(&library_item).unwrap();
 
         assert_eq!(desktop_value["monitors"][0]["restoreState"], "restored");
+        assert_eq!(
+            desktop_value["missingMonitorRestores"][0]["restoreState"],
+            "missing_monitor"
+        );
         assert_eq!(desktop_value["restoreIssues"][0], "Saved assignment for missing monitor DISPLAY-2 still points to Forest Scene (scene-7).");
         assert_eq!(library_value["assignedMonitorLabels"][0], "Primary");
     }

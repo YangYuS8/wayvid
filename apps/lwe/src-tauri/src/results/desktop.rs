@@ -9,9 +9,21 @@ pub use desktop_apply_result::DesktopApplyResult;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DesktopResolvedMonitorAssignment {
-    Restored { item_id: String, item_title: String },
-    MissingItem { item_id: String },
-    Unavailable { item_id: String, reason: String },
+    Restored {
+        item_id: String,
+        item_title: String,
+    },
+    MissingMonitor {
+        item_id: String,
+        item_title: Option<String>,
+    },
+    MissingItem {
+        item_id: String,
+    },
+    Unavailable {
+        item_id: String,
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -37,7 +49,13 @@ mod tests {
         let result = DesktopPageResult {
             monitors: Vec::new(),
             assignments: BTreeMap::new(),
-            resolved_assignments: BTreeMap::new(),
+            resolved_assignments: BTreeMap::from([(
+                "DISPLAY-2".to_string(),
+                DesktopResolvedMonitorAssignment::MissingMonitor {
+                    item_id: "scene-7".to_string(),
+                    item_title: Some("Forest Scene".to_string()),
+                },
+            )]),
             library_item_assignments: BTreeMap::new(),
             restore_issues: vec![
                 "Saved assignment for missing monitor DISPLAY-2 still points to scene-7."
@@ -55,6 +73,10 @@ mod tests {
         assert!(!result.assignments_available);
         assert!(result.persistence_issue.is_some());
         assert!(result.monitor_discovery_issue.is_none());
+        assert!(matches!(
+            result.resolved_assignments.get("DISPLAY-2"),
+            Some(DesktopResolvedMonitorAssignment::MissingMonitor { .. })
+        ));
         assert_eq!(result.restore_issues.len(), 1);
     }
 }

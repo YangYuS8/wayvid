@@ -7,6 +7,7 @@ describe('desktop page state', () => {
     expect(
       resolveDesktopPageState({
         monitors: [],
+        missingMonitorRestores: [],
         monitorsAvailable: false,
         monitorDiscoveryIssue: 'Monitor discovery is unavailable.',
         persistenceIssue: 'Assignment persistence is unavailable.',
@@ -25,6 +26,7 @@ describe('desktop page state', () => {
     expect(
       resolveDesktopPageState({
         monitors: [],
+        missingMonitorRestores: [],
         monitorsAvailable: true,
         monitorDiscoveryIssue: null,
         persistenceIssue: null,

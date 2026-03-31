@@ -9,7 +9,15 @@ export type CompatibilityNextStep =
   | 'wait_for_future_support';
 export type LibrarySource = 'local' | 'workshop' | 'core' | 'other';
 export type RuntimeStatus = 'running' | 'idle' | 'unsupported' | 'error';
-export type DesktopRestoreState = 'restored' | 'missing_item' | 'unavailable';
+export type DesktopRestoreState = 'restored' | 'missing_monitor' | 'missing_item' | 'unavailable';
+
+export interface DesktopMissingMonitorRestore {
+  monitorId: string;
+  currentItemId: string;
+  currentWallpaperTitle: string | null;
+  restoreState: DesktopRestoreState;
+  restoreIssue?: string | null;
+}
 
 export interface CompatibilityBaseModel {
   badge: CompatibilityBadge;
@@ -114,6 +122,7 @@ export interface DesktopMonitorSummary {
 
 export interface DesktopPageSnapshot {
   monitors: DesktopMonitorSummary[];
+  missingMonitorRestores: DesktopMissingMonitorRestore[];
   monitorsAvailable: boolean;
   monitorDiscoveryIssue?: string | null;
   persistenceIssue?: string | null;

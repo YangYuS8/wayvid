@@ -1,5 +1,6 @@
 use crate::models::{
-    DesktopMonitorSummary, DesktopPageSnapshot, DesktopRestoreState, RuntimeStatus,
+    DesktopMissingMonitorRestore, DesktopMonitorSummary, DesktopPageSnapshot, DesktopRestoreState,
+    RuntimeStatus,
 };
 use crate::results::desktop::{DesktopPageResult, DesktopResolvedMonitorAssignment};
 
@@ -16,6 +17,11 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
         assignments_available,
         stale,
     } = result;
+
+    let known_monitor_ids = monitors
+        .iter()
+        .map(|monitor| monitor.id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
 
     DesktopPageSnapshot {
         monitors: monitors
@@ -34,6 +40,9 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                     current_item_id: resolved_assignments.get(&monitor_id).map(|assignment| {
                         match assignment {
                             DesktopResolvedMonitorAssignment::Restored { item_id, .. }
+                            | DesktopResolvedMonitorAssignment::MissingMonitor {
+                                item_id, ..
+                            }
                             | DesktopResolvedMonitorAssignment::MissingItem { item_id }
                             | DesktopResolvedMonitorAssignment::Unavailable { item_id, .. } => {
                                 item_id.clone()
@@ -48,6 +57,9 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                             DesktopResolvedMonitorAssignment::Restored { .. } => {
                                 DesktopRestoreState::Restored
                             }
+                            DesktopResolvedMonitorAssignment::MissingMonitor { .. } => {
+                                DesktopRestoreState::MissingMonitor
+                            }
                             DesktopResolvedMonitorAssignment::MissingItem { .. } => {
                                 DesktopRestoreState::MissingItem
                             }
@@ -60,6 +72,10 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                         .get(&monitor_id)
                         .and_then(|assignment| match assignment {
                             DesktopResolvedMonitorAssignment::Restored { .. } => None,
+                            DesktopResolvedMonitorAssignment::MissingMonitor { .. } => Some(
+                                "Saved assignment targets a monitor that is not currently available."
+                                    .to_string(),
+                            ),
                             DesktopResolvedMonitorAssignment::MissingItem { item_id } => {
                                 Some(format!(
                                     "Saved assignment references missing Library item {item_id}."
@@ -71,6 +87,26 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                         }),
                     runtime_status: RuntimeStatus::Unsupported,
                 }
+            })
+            .collect(),
+        missing_monitor_restores: resolved_assignments
+            .iter()
+            .filter(|(monitor_id, _)| !known_monitor_ids.contains(*monitor_id))
+            .filter_map(|(monitor_id, assignment)| match assignment {
+                DesktopResolvedMonitorAssignment::MissingMonitor {
+                    item_id,
+                    item_title,
+                } => Some(DesktopMissingMonitorRestore {
+                    monitor_id: monitor_id.clone(),
+                    current_item_id: item_id.clone(),
+                    current_wallpaper_title: item_title.clone(),
+                    restore_state: DesktopRestoreState::MissingMonitor,
+                    restore_issue: Some(
+                        "Saved assignment targets a monitor that is not currently available."
+                            .to_string(),
+                    ),
+                }),
+                _ => None,
             })
             .collect(),
         monitors_available,
@@ -125,6 +161,7 @@ mod tests {
             snapshot.monitors[0].current_wallpaper_title.as_deref(),
             Some("Forest Scene")
         );
+        assert!(snapshot.missing_monitor_restores.is_empty());
         assert!(!snapshot.stale);
         assert!(snapshot.assignments_available);
         assert!(snapshot.monitor_discovery_issue.is_none());
@@ -196,6 +233,46 @@ mod tests {
             snapshot.monitors[0].restore_state,
             Some(crate::models::DesktopRestoreState::MissingItem)
         );
+        assert!(snapshot.missing_monitor_restores.is_empty());
         assert_eq!(snapshot.restore_issues.len(), 1);
+    }
+
+    #[test]
+    fn desktop_apply_flow_assembler_exposes_missing_monitor_restores_structurally() {
+        let snapshot = assemble_desktop_page(DesktopPageResult {
+            monitors: vec![MonitorDescriptor {
+                id: "DISPLAY-1".to_string(),
+                name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
+            }],
+            assignments: BTreeMap::new(),
+            resolved_assignments: BTreeMap::from([(
+                "DISPLAY-9".to_string(),
+                crate::results::desktop::DesktopResolvedMonitorAssignment::MissingMonitor {
+                    item_id: "scene-7".to_string(),
+                    item_title: Some("Forest Scene".to_string()),
+                },
+            )]),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
+            monitors_available: true,
+            monitor_discovery_issue: None,
+            persistence_issue: None,
+            assignments_available: true,
+            stale: false,
+        });
+
+        assert_eq!(snapshot.missing_monitor_restores.len(), 1);
+        assert_eq!(snapshot.missing_monitor_restores[0].monitor_id, "DISPLAY-9");
+        assert_eq!(
+            snapshot.missing_monitor_restores[0].restore_state,
+            crate::models::DesktopRestoreState::MissingMonitor
+        );
+        assert_eq!(
+            snapshot.missing_monitor_restores[0]
+                .current_wallpaper_title
+                .as_deref(),
+            Some("Forest Scene")
+        );
     }
 }

@@ -108,6 +108,13 @@ impl DesktopService {
                                 },
                             );
                         } else if monitors_available {
+                            resolved_assignments.insert(
+                                monitor_id.clone(),
+                                DesktopResolvedMonitorAssignment::MissingMonitor {
+                                    item_id: item_id.clone(),
+                                    item_title: Some(item_title.clone()),
+                                },
+                            );
                             restore_issues.push(format!(
                                 "Saved assignment for missing monitor {monitor_id} still points to {item_title} ({item_id})."
                             ));
@@ -120,6 +127,13 @@ impl DesktopService {
                             },
                         );
                     } else if monitors_available {
+                        resolved_assignments.insert(
+                            monitor_id.clone(),
+                            DesktopResolvedMonitorAssignment::MissingMonitor {
+                                item_id: item_id.clone(),
+                                item_title: None,
+                            },
+                        );
                         restore_issues.push(format!(
                             "Saved assignment for missing monitor {monitor_id} references missing item {item_id}."
                         ));
@@ -324,6 +338,11 @@ mod tests {
                 "DISPLAY-3 (missing)".to_string()
             ])
         );
+        assert!(matches!(
+            result.resolved_assignments.get("DISPLAY-3"),
+            Some(DesktopResolvedMonitorAssignment::MissingMonitor { item_id, item_title })
+                if item_id == "scene-7" && item_title.as_deref() == Some("Forest Scene")
+        ));
         assert_eq!(
             result.restore_issues,
             vec!["Saved assignment for missing monitor DISPLAY-3 still points to Forest Scene (scene-7).".to_string()]
