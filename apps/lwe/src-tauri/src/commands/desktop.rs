@@ -44,18 +44,24 @@ mod tests {
     fn desktop_snapshot_reflects_real_monitor_discovery_state() {
         let snapshot = load_desktop_page().unwrap();
 
-        assert!(snapshot.stale);
         assert_eq!(
-            snapshot.persistence_issue.as_deref(),
-            Some("Desktop persistence is not available yet")
+            snapshot.stale,
+            !snapshot.monitors_available
+                || !snapshot.assignments_available
+                || !snapshot.missing_monitor_restores.is_empty()
         );
-        assert!(!snapshot.assignments_available);
 
         if snapshot.monitors_available {
             assert!(snapshot.monitor_discovery_issue.is_none());
         } else {
             assert!(snapshot.monitors.is_empty());
             assert!(snapshot.monitor_discovery_issue.is_some());
+        }
+
+        if snapshot.assignments_available {
+            assert!(snapshot.persistence_issue.is_none());
+        } else {
+            assert!(snapshot.persistence_issue.is_some());
         }
     }
 
