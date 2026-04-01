@@ -38,10 +38,10 @@ impl ScopedAutostartService {
             .join(AUTOSTART_ENTRY_FILE_NAME)
     }
 
-    pub fn status(&self) -> AutostartStatus {
+    pub fn status(&self, launch_command: &str) -> AutostartStatus {
         let entry_path = self.entry_path();
         let enabled = fs::read_to_string(&entry_path)
-            .map(|contents| desktop_entry_is_active(&contents))
+            .map(|contents| desktop_entry_is_active(&contents, launch_command))
             .unwrap_or(false);
 
         AutostartStatus {
@@ -90,11 +90,11 @@ fn desktop_entry_contents(launch_command: &str) -> String {
     )
 }
 
-fn desktop_entry_is_active(contents: &str) -> bool {
+fn desktop_entry_is_active(contents: &str, launch_command: &str) -> bool {
     let mut has_desktop_header = false;
     let mut has_application_type = false;
     let mut has_expected_name = false;
-    let mut has_exec = false;
+    let mut has_expected_exec = false;
     let mut hidden = false;
 
     for line in contents.lines().map(str::trim) {
@@ -102,13 +102,13 @@ fn desktop_entry_is_active(contents: &str) -> bool {
             "[Desktop Entry]" => has_desktop_header = true,
             "Type=Application" => has_application_type = true,
             _ if line == format!("Name={AUTOSTART_ENTRY_NAME}") => has_expected_name = true,
-            _ if line.starts_with("Exec=") && line.len() > "Exec=".len() => has_exec = true,
+            _ if line == format!("Exec={launch_command}") => has_expected_exec = true,
             "Hidden=true" => hidden = true,
             _ => {}
         }
     }
 
-    has_desktop_header && has_application_type && has_expected_name && has_exec && !hidden
+    has_desktop_header && has_application_type && has_expected_name && has_expected_exec && !hidden
 }
 
 fn autostart_config_root() -> Result<PathBuf, String> {
@@ -172,7 +172,7 @@ mod tests {
             config_root.join("autostart").join("wayvid-lwe.desktop")
         );
         assert_eq!(
-            service.status(),
+            service.status(launch_command),
             super::AutostartStatus {
                 enabled: false,
                 entry_path: config_root.join("autostart").join("wayvid-lwe.desktop"),
@@ -186,12 +186,12 @@ mod tests {
         assert!(contents.contains("Type=Application"));
         assert!(contents.contains("Name=LWE"));
         assert!(contents.contains("Exec=/opt/lwe/bin/lwe --minimized"));
-        assert!(service.status().enabled);
+        assert!(service.status(launch_command).enabled);
 
         service.disable().unwrap();
 
         assert!(!service.entry_path().exists());
-        assert!(!service.status().enabled);
+        assert!(!service.status(launch_command).enabled);
     }
 
     #[test]
@@ -206,7 +206,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!service.status().enabled);
+        assert!(!service.status("/opt/lwe/bin/lwe --minimized").enabled);
     }
 
     #[test]
@@ -221,7 +221,22 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!service.status().enabled);
+        assert!(!service.status("/opt/lwe/bin/lwe --minimized").enabled);
+    }
+
+    #[test]
+    fn autostart_service_treats_wrong_exec_target_as_disabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nName=LWE\nExec=/usr/bin/other-app\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert!(!service.status("/opt/lwe/bin/lwe --minimized").enabled);
     }
 
     #[test]
