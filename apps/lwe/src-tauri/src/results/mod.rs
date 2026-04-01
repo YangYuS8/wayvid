@@ -5,4 +5,5 @@ pub mod desktop_persistence;
 pub mod library;
 pub mod monitor_discovery;
 pub mod settings;
+pub mod settings_persistence;
 pub mod workshop;
