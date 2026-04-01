@@ -22,6 +22,8 @@ describe('ItemCard', () => {
 
     expect(body).toContain('Web support coming later');
     expect(body).not.toContain('unsupported_web_item');
+    expect(body).toContain('data-slot="card"');
+    expect(body).toContain('data-slot="badge"');
   });
 
   it('renders assigned monitor labels from the assembled library quick status', () => {

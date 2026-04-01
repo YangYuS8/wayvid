@@ -1,16 +1,9 @@
 <script lang="ts">
-  const pages = [
-    { href: '/library', label: 'Library' },
-    { href: '/workshop', label: 'Workshop' },
-    { href: '/desktop', label: 'Desktop' },
-    { href: '/settings', label: 'Settings' }
-  ];
+  import { page } from '$app/state';
+
+  import AppShell from '$lib/layout/AppShell.svelte';
 </script>
 
-<nav>
-  {#each pages as page}
-    <a href={page.href}>{page.label}</a>
-  {/each}
-</nav>
-
-<slot />
+<AppShell currentPath={page.url.pathname}>
+  <slot />
+</AppShell>

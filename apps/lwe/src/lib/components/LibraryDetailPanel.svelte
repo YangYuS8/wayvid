@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Card } from '$lib/ui/card';
+  import { Separator } from '$lib/ui/separator';
   import CompatibilityPanel from '$lib/components/CompatibilityPanel.svelte';
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -15,110 +17,95 @@
   $: assignedMonitorLabels = detail?.assignedMonitorLabels ?? [];
 </script>
 
-<section class="panel">
+<Card class="grid gap-5 border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)] sm:p-6">
   {#if loading}
-    <p role="status" aria-live="polite">Loading item details…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading item details…</p>
   {:else if error}
-    <p role="alert" aria-live="assertive">{error}</p>
+    <p
+      class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      role="alert"
+      aria-live="assertive"
+    >
+      {error}
+    </p>
   {:else if detail}
-    <div class="panel-body">
+    <div class="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
       <CoverImage coverPath={detail.coverPath} label={detail.title} />
 
-      <div class="copy">
-        <h2>{detail.title}</h2>
-        <div class="badges">
-          <StatusBadge label={detail.compatibility.badge} />
-          <StatusBadge label={detail.source} />
-          <StatusBadge label={detail.itemType} />
+      <div class="grid min-w-0 gap-5">
+        <div class="grid gap-3">
+          <div class="grid gap-2">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Library item
+            </p>
+            <h2 class="text-2xl font-semibold text-slate-950">{detail.title}</h2>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <StatusBadge label={detail.compatibility.badge} />
+            <StatusBadge label={detail.source} />
+            <StatusBadge label={detail.itemType} />
+          </div>
         </div>
 
         {#if issueMessages.length}
-          <div class="issues" aria-live="polite">
+          <div class="grid gap-2" aria-live="polite">
             {#each issueMessages as issue}
-              <p class="message warning">{issue}</p>
+              <p class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                {issue}
+              </p>
             {/each}
           </div>
         {/if}
 
         {#if assignedMonitorLabels.length > 0}
-          <div class="assignments" aria-live="polite">
-            <p class="assignment-label">Assigned monitors</p>
-            <p>{assignedMonitorLabels.join(' • ')}</p>
+          <div class="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-4" aria-live="polite">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Assigned monitors
+            </p>
+            <p class="text-sm text-slate-700">{assignedMonitorLabels.join(' • ')}</p>
           </div>
         {/if}
 
         <CompatibilityPanel compatibility={detail.compatibility} />
 
-        {#if detail.description}
-          <p>{detail.description}</p>
-        {/if}
+        <Separator class="bg-slate-200/80" />
 
-        {#if detail.tags.length > 0}
-          <p class="tags">{detail.tags.join(' • ')}</p>
-        {/if}
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Description
+            </p>
+            <p class="text-sm leading-6 text-slate-700">
+              {detail.description ?? 'No description available for this item yet.'}
+            </p>
+          </div>
+
+          <div class="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Tags</p>
+            <p class="text-sm leading-6 text-slate-700">
+              {detail.tags.length > 0 ? detail.tags.join(' • ') : 'No tags are attached to this item.'}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   {:else}
-    <div class="copy">
+    <div class="grid gap-4">
       {#if issueMessages.length}
-        <div class="issues" aria-live="polite">
+        <div class="grid gap-2" aria-live="polite">
           {#each issueMessages as issue}
-            <p class="message warning">{issue}</p>
+            <p class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+              {issue}
+            </p>
           {/each}
         </div>
       {/if}
 
-      <p>Select a Library item to inspect its current detail payload.</p>
+      <div class="grid gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-sm text-slate-600">
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Library detail</p>
+        <p>Select a Library item to inspect its current detail payload.</p>
+      </div>
     </div>
   {/if}
-</section>
-
-<style>
-  .panel {
-    border: 1px solid rgba(33, 52, 72, 0.12);
-    border-radius: 22px;
-    padding: 1.1rem;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 16px 36px rgba(25, 42, 62, 0.08);
-  }
-
-  .panel-body,
-  .copy,
-  .badges,
-   .issues,
-   .assignments {
-    display: grid;
-    gap: 0.9rem;
-  }
-
-  .copy {
-    min-width: 0;
-  }
-
-  .badges {
-    grid-template-columns: repeat(auto-fit, minmax(0, max-content));
-  }
-
-  h2,
-  p {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .tags {
-    color: #5a6978;
-  }
-
-  .message.warning {
-    margin: 0;
-    padding: 0.85rem 1rem;
-    border-radius: 14px;
-    background: rgba(15, 95, 154, 0.12);
-  }
-
-  .assignment-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #23456e;
-  }
-</style>
+</Card>
