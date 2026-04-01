@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { Button } from '$lib/ui/button';
+  import { Card } from '$lib/ui/card';
+  import { Separator } from '$lib/ui/separator';
   import CompatibilityPanel from '$lib/components/CompatibilityPanel.svelte';
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -10,102 +13,68 @@
   export let openInSteam: (() => Promise<void>) | null = null;
 </script>
 
-<section class="panel">
+<Card class="grid gap-5 border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)] sm:p-6">
   {#if loading}
-    <p role="status" aria-live="polite">Loading item details…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading item details…</p>
   {:else if error}
-    <p role="alert" aria-live="assertive">{error}</p>
+    <p
+      class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      role="alert"
+      aria-live="assertive"
+    >
+      {error}
+    </p>
   {:else if detail}
-    <div class="panel-body">
+    <div class="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
       <CoverImage coverPath={detail.coverPath} label={detail.title} />
 
-      <div class="copy">
-        <h2>{detail.title}</h2>
+      <div class="grid min-w-0 gap-5">
+        <div class="grid gap-3">
+          <div class="grid gap-2">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Workshop item
+            </p>
+            <h2 class="text-2xl font-semibold text-slate-950">{detail.title}</h2>
+          </div>
 
-        <div class="badges">
-          <StatusBadge label={detail.compatibility.badge} />
-          <StatusBadge label={detail.syncStatus} />
+          <div class="flex flex-wrap gap-2">
+            <StatusBadge label={detail.compatibility.badge} />
+            <StatusBadge label={detail.syncStatus} />
+            <StatusBadge label={detail.itemType} />
+          </div>
         </div>
-
-        <p class="meta">{detail.itemType}</p>
 
         <CompatibilityPanel compatibility={detail.compatibility} />
 
-        {#if detail.description}
-          <p>{detail.description}</p>
-        {/if}
+        <Separator class="bg-slate-200/80" />
 
-        {#if detail.tags.length > 0}
-          <p class="tags">{detail.tags.join(' • ')}</p>
-        {/if}
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Description
+            </p>
+            <p class="text-sm leading-6 text-slate-700">
+              {detail.description ?? 'No description is available for this Workshop item yet.'}
+            </p>
+          </div>
 
-        <button type="button" on:click={() => openInSteam?.()} disabled={!openInSteam}>
+          <div class="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Tags</p>
+            <p class="text-sm leading-6 text-slate-700">
+              {detail.tags.length > 0 ? detail.tags.join(' • ') : 'No tags are attached to this item.'}
+            </p>
+          </div>
+        </div>
+
+        <Button class="w-fit" onclick={() => openInSteam?.()} disabled={!openInSteam}>
           Open In Steam
-        </button>
+        </Button>
       </div>
     </div>
   {:else}
-    <p>Select a Workshop item to inspect its current detail payload.</p>
+    <div class="grid gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-sm text-slate-600">
+      <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Workshop detail</p>
+      <p>Select a Workshop item to inspect its current detail payload.</p>
+    </div>
   {/if}
-</section>
-
-<style>
-  .panel {
-    border: 1px solid rgba(33, 52, 72, 0.12);
-    border-radius: 22px;
-    padding: 1.1rem;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 16px 36px rgba(25, 42, 62, 0.08);
-  }
-
-  .panel-body,
-  .copy,
-  .badges {
-    display: grid;
-    gap: 0.9rem;
-  }
-
-  .copy {
-    min-width: 0;
-  }
-
-  .badges {
-    grid-template-columns: repeat(auto-fit, minmax(0, max-content));
-  }
-
-  h2,
-  p {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .meta,
-  .tags {
-    color: #5a6978;
-    text-transform: capitalize;
-  }
-
-  button {
-    width: fit-content;
-    border: 0;
-    border-radius: 999px;
-    padding: 0.7rem 1rem;
-    background: #23456e;
-    color: #fff;
-    cursor: pointer;
-  }
-
-  button:focus-visible {
-    outline: 3px solid #0f5f9a;
-    outline-offset: 4px;
-  }
-
-  button:hover {
-    transform: translateY(-1px);
-  }
-
-  button:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-</style>
+</Card>

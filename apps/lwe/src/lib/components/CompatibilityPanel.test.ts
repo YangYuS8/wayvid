@@ -24,6 +24,8 @@ describe('CompatibilityPanel', () => {
     expect(body).toContain('Next step: Support for this item is planned for a future update.');
     expect(body).not.toContain('unsupported_web_item');
     expect(body).not.toContain('wait_for_future_support');
+    expect(body).toContain('data-slot="card"');
+    expect(body).toContain('data-slot="separator"');
   });
 
   it('omits the next-step block when no assembled guidance copy is provided', () => {

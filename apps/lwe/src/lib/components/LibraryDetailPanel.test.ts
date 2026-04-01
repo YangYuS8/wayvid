@@ -35,6 +35,8 @@ describe('LibraryDetailPanel', () => {
 
     expect(body).toContain('Monitor discovery is unavailable.');
     expect(body).toContain('Desktop assignments are unavailable.');
+    expect(body).toContain('data-slot="card"');
+    expect(body).toContain('Library item');
   });
 
   it('renders assigned monitor labels from the current detail payload', () => {
