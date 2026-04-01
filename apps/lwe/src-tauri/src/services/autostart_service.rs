@@ -4,8 +4,6 @@ use std::path::{Path, PathBuf};
 
 const AUTOSTART_ENTRY_FILE_NAME: &str = "wayvid-lwe.desktop";
 const AUTOSTART_ENTRY_NAME: &str = "LWE";
-const AUTOSTART_ENTRY_EXEC: &str = "lwe";
-
 pub struct AutostartService;
 
 pub struct ScopedAutostartService {
@@ -42,14 +40,17 @@ impl ScopedAutostartService {
 
     pub fn status(&self) -> AutostartStatus {
         let entry_path = self.entry_path();
+        let enabled = fs::read_to_string(&entry_path)
+            .map(|contents| desktop_entry_is_active(&contents))
+            .unwrap_or(false);
 
         AutostartStatus {
-            enabled: entry_path.is_file(),
+            enabled,
             entry_path,
         }
     }
 
-    pub fn enable(&self) -> Result<(), String> {
+    pub fn enable(&self, launch_command: &str) -> Result<(), String> {
         let entry_path = self.entry_path();
 
         if let Some(parent) = entry_path.parent() {
@@ -61,7 +62,7 @@ impl ScopedAutostartService {
             })?;
         }
 
-        fs::write(&entry_path, desktop_entry_contents()).map_err(|error| {
+        fs::write(&entry_path, desktop_entry_contents(launch_command)).map_err(|error| {
             format!(
                 "Failed to write autostart entry {}: {error}",
                 entry_path.display()
@@ -83,10 +84,31 @@ impl ScopedAutostartService {
     }
 }
 
-fn desktop_entry_contents() -> String {
+fn desktop_entry_contents(launch_command: &str) -> String {
     format!(
-        "[Desktop Entry]\nType=Application\nName={AUTOSTART_ENTRY_NAME}\nExec={AUTOSTART_ENTRY_EXEC}\nTerminal=false\n"
+        "[Desktop Entry]\nType=Application\nName={AUTOSTART_ENTRY_NAME}\nExec={launch_command}\nTerminal=false\n"
     )
+}
+
+fn desktop_entry_is_active(contents: &str) -> bool {
+    let mut has_desktop_header = false;
+    let mut has_application_type = false;
+    let mut has_expected_name = false;
+    let mut has_exec = false;
+    let mut hidden = false;
+
+    for line in contents.lines().map(str::trim) {
+        match line {
+            "[Desktop Entry]" => has_desktop_header = true,
+            "Type=Application" => has_application_type = true,
+            _ if line == format!("Name={AUTOSTART_ENTRY_NAME}") => has_expected_name = true,
+            _ if line.starts_with("Exec=") && line.len() > "Exec=".len() => has_exec = true,
+            "Hidden=true" => hidden = true,
+            _ => {}
+        }
+    }
+
+    has_desktop_header && has_application_type && has_expected_name && has_exec && !hidden
 }
 
 fn autostart_config_root() -> Result<PathBuf, String> {
@@ -143,6 +165,7 @@ mod tests {
     fn autostart_service_uses_graphical_session_desktop_entry_under_config_autostart() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root.clone());
+        let launch_command = "/opt/lwe/bin/lwe --minimized";
 
         assert_eq!(
             service.entry_path(),
@@ -156,18 +179,48 @@ mod tests {
             }
         );
 
-        service.enable().unwrap();
+        service.enable(launch_command).unwrap();
 
         let contents = std::fs::read_to_string(service.entry_path()).unwrap();
         assert!(contents.contains("[Desktop Entry]"));
         assert!(contents.contains("Type=Application"));
         assert!(contents.contains("Name=LWE"));
-        assert!(contents.contains("Exec=lwe"));
+        assert!(contents.contains("Exec=/opt/lwe/bin/lwe --minimized"));
         assert!(service.status().enabled);
 
         service.disable().unwrap();
 
         assert!(!service.entry_path().exists());
+        assert!(!service.status().enabled);
+    }
+
+    #[test]
+    fn autostart_service_treats_stale_desktop_entry_as_disabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nName=LWE\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert!(!service.status().enabled);
+    }
+
+    #[test]
+    fn autostart_service_treats_hidden_desktop_entry_as_disabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nName=LWE\nExec=/opt/lwe/bin/lwe\nHidden=true\nTerminal=false\n",
+        )
+        .unwrap();
+
         assert!(!service.status().enabled);
     }
 
