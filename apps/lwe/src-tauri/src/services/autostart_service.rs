@@ -12,8 +12,15 @@ pub struct ScopedAutostartService {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AutostartStatus {
-    pub enabled: bool,
+    pub state: AutostartState,
     pub entry_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AutostartState {
+    Enabled,
+    Disabled,
+    Unavailable { reason: String },
 }
 
 impl AutostartService {
@@ -38,19 +45,32 @@ impl ScopedAutostartService {
             .join(AUTOSTART_ENTRY_FILE_NAME)
     }
 
-    pub fn status(&self, launch_command: &str) -> AutostartStatus {
+    pub fn status(&self, launch_command: &[&str]) -> AutostartStatus {
         let entry_path = self.entry_path();
-        let enabled = fs::read_to_string(&entry_path)
-            .map(|contents| desktop_entry_is_active(&contents, launch_command))
-            .unwrap_or(false);
+        let state = match desktop_entry_exec_value(launch_command) {
+            Ok(expected_exec) => match fs::read_to_string(&entry_path) {
+                Ok(contents) => {
+                    if desktop_entry_is_active(&contents, &expected_exec) {
+                        AutostartState::Enabled
+                    } else {
+                        AutostartState::Disabled
+                    }
+                }
+                Err(error) if error.kind() == ErrorKind::NotFound => AutostartState::Disabled,
+                Err(error) => AutostartState::Unavailable {
+                    reason: format!(
+                        "Failed to read autostart entry {}: {error}",
+                        entry_path.display()
+                    ),
+                },
+            },
+            Err(reason) => AutostartState::Unavailable { reason },
+        };
 
-        AutostartStatus {
-            enabled,
-            entry_path,
-        }
+        AutostartStatus { state, entry_path }
     }
 
-    pub fn enable(&self, launch_command: &str) -> Result<(), String> {
+    pub fn enable(&self, launch_command: &[&str]) -> Result<(), String> {
         let entry_path = self.entry_path();
 
         if let Some(parent) = entry_path.parent() {
@@ -62,7 +82,9 @@ impl ScopedAutostartService {
             })?;
         }
 
-        fs::write(&entry_path, desktop_entry_contents(launch_command)).map_err(|error| {
+        let contents = desktop_entry_contents(launch_command)?;
+
+        fs::write(&entry_path, contents).map_err(|error| {
             format!(
                 "Failed to write autostart entry {}: {error}",
                 entry_path.display()
@@ -84,13 +106,54 @@ impl ScopedAutostartService {
     }
 }
 
-fn desktop_entry_contents(launch_command: &str) -> String {
-    format!(
-        "[Desktop Entry]\nType=Application\nName={AUTOSTART_ENTRY_NAME}\nExec={launch_command}\nTerminal=false\n"
-    )
+fn desktop_entry_contents(launch_command: &[&str]) -> Result<String, String> {
+    let exec_value = desktop_entry_exec_value(launch_command)?;
+
+    Ok(format!(
+        "[Desktop Entry]\nType=Application\nName={AUTOSTART_ENTRY_NAME}\nExec={exec_value}\nTerminal=false\n"
+    ))
 }
 
-fn desktop_entry_is_active(contents: &str, launch_command: &str) -> bool {
+fn desktop_entry_exec_value(launch_command: &[&str]) -> Result<String, String> {
+    if launch_command.is_empty() {
+        return Err(
+            "Unable to encode autostart exec line from an empty launch command".to_string(),
+        );
+    }
+
+    Ok(launch_command
+        .iter()
+        .map(|part| desktop_entry_exec_arg(part))
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+fn desktop_entry_exec_arg(argument: &str) -> String {
+    let needs_quotes = argument.is_empty()
+        || argument
+            .chars()
+            .any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\\' | '`' | '$'));
+
+    if !needs_quotes {
+        return argument.to_string();
+    }
+
+    let mut escaped = String::with_capacity(argument.len());
+
+    for ch in argument.chars() {
+        match ch {
+            '"' | '\\' | '`' | '$' => {
+                escaped.push('\\');
+                escaped.push(ch);
+            }
+            _ => escaped.push(ch),
+        }
+    }
+
+    format!("\"{escaped}\"")
+}
+
+fn desktop_entry_is_active(contents: &str, expected_exec: &str) -> bool {
     let mut has_desktop_header = false;
     let mut has_application_type = false;
     let mut has_expected_name = false;
@@ -102,7 +165,7 @@ fn desktop_entry_is_active(contents: &str, launch_command: &str) -> bool {
             "[Desktop Entry]" => has_desktop_header = true,
             "Type=Application" => has_application_type = true,
             _ if line == format!("Name={AUTOSTART_ENTRY_NAME}") => has_expected_name = true,
-            _ if line == format!("Exec={launch_command}") => has_expected_exec = true,
+            _ if line == format!("Exec={expected_exec}") => has_expected_exec = true,
             "Hidden=true" => hidden = true,
             _ => {}
         }
@@ -165,33 +228,41 @@ mod tests {
     fn autostart_service_uses_graphical_session_desktop_entry_under_config_autostart() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root.clone());
-        let launch_command = "/opt/lwe/bin/lwe --minimized";
+        let launch_command = ["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\""];
 
         assert_eq!(
             service.entry_path(),
             config_root.join("autostart").join("wayvid-lwe.desktop")
         );
         assert_eq!(
-            service.status(launch_command),
+            service.status(&launch_command),
             super::AutostartStatus {
-                enabled: false,
+                state: super::AutostartState::Disabled,
                 entry_path: config_root.join("autostart").join("wayvid-lwe.desktop"),
             }
         );
 
-        service.enable(launch_command).unwrap();
+        service.enable(&launch_command).unwrap();
 
         let contents = std::fs::read_to_string(service.entry_path()).unwrap();
         assert!(contents.contains("[Desktop Entry]"));
         assert!(contents.contains("Type=Application"));
         assert!(contents.contains("Name=LWE"));
-        assert!(contents.contains("Exec=/opt/lwe/bin/lwe --minimized"));
-        assert!(service.status(launch_command).enabled);
+        assert!(
+            contents.contains("Exec=/opt/lwe/bin/lwe --profile \"My Project\" \"say \\\"hi\\\"\"")
+        );
+        assert_eq!(
+            service.status(&launch_command).state,
+            super::AutostartState::Enabled
+        );
 
         service.disable().unwrap();
 
         assert!(!service.entry_path().exists());
-        assert!(!service.status(launch_command).enabled);
+        assert_eq!(
+            service.status(&launch_command).state,
+            super::AutostartState::Disabled
+        );
     }
 
     #[test]
@@ -206,7 +277,12 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!service.status("/opt/lwe/bin/lwe --minimized").enabled);
+        assert_eq!(
+            service
+                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .state,
+            super::AutostartState::Disabled
+        );
     }
 
     #[test]
@@ -221,7 +297,12 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!service.status("/opt/lwe/bin/lwe --minimized").enabled);
+        assert_eq!(
+            service
+                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .state,
+            super::AutostartState::Disabled
+        );
     }
 
     #[test]
@@ -236,7 +317,27 @@ mod tests {
         )
         .unwrap();
 
-        assert!(!service.status("/opt/lwe/bin/lwe --minimized").enabled);
+        assert_eq!(
+            service
+                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .state,
+            super::AutostartState::Disabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_reports_unavailable_when_entry_cannot_be_read() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path()).unwrap();
+
+        assert!(matches!(
+            service
+                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .state,
+            super::AutostartState::Unavailable { .. }
+        ));
     }
 
     #[test]
