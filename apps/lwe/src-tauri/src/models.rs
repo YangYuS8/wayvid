@@ -1,4 +1,3 @@
-use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -215,50 +214,16 @@ pub struct SettingsUpdateInput {
     pub launch_on_login: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SettingsPageSnapshot {
     pub language: String,
     pub theme: String,
+    pub launch_on_login: bool,
+    pub launch_on_login_available: bool,
     pub steam_required: bool,
+    pub steam_status_message: String,
     pub stale: bool,
-}
-
-impl SettingsPageSnapshot {
-    pub const fn default_launch_on_login(&self) -> bool {
-        false
-    }
-
-    pub const fn default_launch_on_login_available(&self) -> bool {
-        false
-    }
-
-    pub fn default_steam_status_message(&self) -> &'static str {
-        if self.steam_required {
-            "Steam is required for Workshop features"
-        } else {
-            "Steam is not required for current settings"
-        }
-    }
-}
-
-impl Serialize for SettingsPageSnapshot {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_struct("SettingsPageSnapshot", 7)?;
-        state.serialize_field("language", &self.language)?;
-        state.serialize_field("theme", &self.theme)?;
-        state.serialize_field("launchOnLogin", &self.default_launch_on_login())?;
-        state.serialize_field(
-            "launchOnLoginAvailable",
-            &self.default_launch_on_login_available(),
-        )?;
-        state.serialize_field("steamRequired", &self.steam_required)?;
-        state.serialize_field("steamStatusMessage", &self.default_steam_status_message())?;
-        state.serialize_field("stale", &self.stale)?;
-        state.end()
-    }
 }
 
 #[cfg(test)]
@@ -386,7 +351,10 @@ mod tests {
         let snapshot = SettingsPageSnapshot {
             language: "en".to_string(),
             theme: "system".to_string(),
+            launch_on_login: true,
+            launch_on_login_available: true,
             steam_required: true,
+            steam_status_message: "Steam is required for Workshop features".to_string(),
             stale: false,
         };
 
@@ -398,8 +366,8 @@ mod tests {
         assert_eq!(update_value["launchOnLogin"], true);
         assert_eq!(snapshot_value["language"], "en");
         assert_eq!(snapshot_value["theme"], "system");
-        assert_eq!(snapshot_value["launchOnLogin"], false);
-        assert_eq!(snapshot_value["launchOnLoginAvailable"], false);
+        assert_eq!(snapshot_value["launchOnLogin"], true);
+        assert_eq!(snapshot_value["launchOnLoginAvailable"], true);
         assert_eq!(snapshot_value["steamRequired"], true);
         assert_eq!(
             snapshot_value["steamStatusMessage"],
