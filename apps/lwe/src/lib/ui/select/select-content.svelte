@@ -22,7 +22,7 @@
 <SelectPrimitive.Portal disabled={portalDisabled}>
   <SelectPrimitive.Content
     class={cn(
-      'z-50 min-w-[8rem] overflow-hidden rounded-md border border-slate-200 bg-white text-slate-950 shadow-lg data-[state=closed]:animate-out data-[state=open]:animate-in',
+      'z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg',
       className
     )}
     data-slot="select-content"

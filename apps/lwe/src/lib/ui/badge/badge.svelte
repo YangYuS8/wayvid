@@ -10,10 +10,10 @@
     {
       variants: {
         variant: {
-          default: 'border-transparent bg-slate-900 text-slate-50',
-          secondary: 'border-transparent bg-slate-100 text-slate-900',
-          outline: 'border-slate-200 text-slate-900',
-          destructive: 'border-transparent bg-red-600 text-white'
+          default: 'border-transparent bg-primary text-primary-foreground',
+          secondary: 'border-transparent bg-secondary text-secondary-foreground',
+          outline: 'text-foreground',
+          destructive: 'border-transparent bg-destructive text-destructive-foreground'
         }
       },
       defaultVariants: {
