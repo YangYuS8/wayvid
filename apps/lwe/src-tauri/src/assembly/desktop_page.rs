@@ -4,6 +4,25 @@ use crate::models::{
 };
 use crate::results::desktop::{DesktopPageResult, DesktopResolvedMonitorAssignment};
 
+fn runtime_status_for_assignment(
+    assignment: Option<&DesktopResolvedMonitorAssignment>,
+    assignments_available: bool,
+) -> RuntimeStatus {
+    if !assignments_available {
+        return RuntimeStatus::Unsupported;
+    }
+
+    match assignment {
+        Some(DesktopResolvedMonitorAssignment::Restored { .. }) => RuntimeStatus::Running,
+        Some(
+            DesktopResolvedMonitorAssignment::MissingMonitor { .. }
+            | DesktopResolvedMonitorAssignment::MissingItem { .. }
+            | DesktopResolvedMonitorAssignment::Unavailable { .. },
+        ) => RuntimeStatus::Error,
+        None => RuntimeStatus::Idle,
+    }
+}
+
 pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
     let DesktopPageResult {
         monitors,
@@ -28,64 +47,58 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
             .into_iter()
             .map(|monitor| {
                 let monitor_id = monitor.id;
+                let assignment = resolved_assignments.get(&monitor_id);
 
                 DesktopMonitorSummary {
-                    current_wallpaper_title: match resolved_assignments.get(&monitor_id) {
+                    current_wallpaper_title: match assignment {
                         Some(DesktopResolvedMonitorAssignment::Restored { item_title, .. }) => {
                             Some(item_title.clone())
                         }
                         _ => None,
                     },
                     current_cover_path: None,
-                    current_item_id: resolved_assignments.get(&monitor_id).map(|assignment| {
-                        match assignment {
-                            DesktopResolvedMonitorAssignment::Restored { item_id, .. }
-                            | DesktopResolvedMonitorAssignment::MissingMonitor {
-                                item_id, ..
-                            }
-                            | DesktopResolvedMonitorAssignment::MissingItem { item_id }
-                            | DesktopResolvedMonitorAssignment::Unavailable { item_id, .. } => {
-                                item_id.clone()
-                            }
+                    current_item_id: assignment.map(|assignment| match assignment {
+                        DesktopResolvedMonitorAssignment::Restored { item_id, .. }
+                        | DesktopResolvedMonitorAssignment::MissingMonitor { item_id, .. }
+                        | DesktopResolvedMonitorAssignment::MissingItem { item_id }
+                        | DesktopResolvedMonitorAssignment::Unavailable { item_id, .. } => {
+                            item_id.clone()
                         }
                     }),
                     display_name: monitor.name,
                     monitor_id: monitor_id.clone(),
                     resolution: monitor.resolution,
-                    restore_state: resolved_assignments.get(&monitor_id).map(|assignment| {
-                        match assignment {
-                            DesktopResolvedMonitorAssignment::Restored { .. } => {
-                                DesktopRestoreState::Restored
-                            }
-                            DesktopResolvedMonitorAssignment::MissingMonitor { .. } => {
-                                DesktopRestoreState::MissingMonitor
-                            }
-                            DesktopResolvedMonitorAssignment::MissingItem { .. } => {
-                                DesktopRestoreState::MissingItem
-                            }
-                            DesktopResolvedMonitorAssignment::Unavailable { .. } => {
-                                DesktopRestoreState::Unavailable
-                            }
+                    restore_state: assignment.map(|assignment| match assignment {
+                        DesktopResolvedMonitorAssignment::Restored { .. } => {
+                            DesktopRestoreState::Restored
+                        }
+                        DesktopResolvedMonitorAssignment::MissingMonitor { .. } => {
+                            DesktopRestoreState::MissingMonitor
+                        }
+                        DesktopResolvedMonitorAssignment::MissingItem { .. } => {
+                            DesktopRestoreState::MissingItem
+                        }
+                        DesktopResolvedMonitorAssignment::Unavailable { .. } => {
+                            DesktopRestoreState::Unavailable
                         }
                     }),
-                    restore_issue: resolved_assignments
-                        .get(&monitor_id)
-                        .and_then(|assignment| match assignment {
-                            DesktopResolvedMonitorAssignment::Restored { .. } => None,
-                            DesktopResolvedMonitorAssignment::MissingMonitor { .. } => Some(
-                                "Saved assignment targets a monitor that is not currently available."
-                                    .to_string(),
-                            ),
-                            DesktopResolvedMonitorAssignment::MissingItem { item_id } => {
-                                Some(format!(
-                                    "Saved assignment references missing Library item {item_id}."
-                                ))
-                            }
-                            DesktopResolvedMonitorAssignment::Unavailable { reason, .. } => {
-                                Some(reason.clone())
-                            }
-                        }),
-                    runtime_status: RuntimeStatus::Unsupported,
+                    restore_issue: assignment.and_then(|assignment| match assignment {
+                        DesktopResolvedMonitorAssignment::Restored { .. } => None,
+                        DesktopResolvedMonitorAssignment::MissingMonitor { .. } => Some(
+                            "Saved assignment targets a monitor that is not currently available."
+                                .to_string(),
+                        ),
+                        DesktopResolvedMonitorAssignment::MissingItem { item_id } => Some(format!(
+                            "Saved assignment references missing Library item {item_id}."
+                        )),
+                        DesktopResolvedMonitorAssignment::Unavailable { reason, .. } => {
+                            Some(reason.clone())
+                        }
+                    }),
+                    runtime_status: runtime_status_for_assignment(
+                        assignment,
+                        assignments_available,
+                    ),
                 }
             })
             .collect(),
@@ -145,6 +158,7 @@ mod tests {
         let snapshot = assemble_desktop_page(DesktopPageResult {
             monitors: vec![MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
                 resolution: "1920x1080".to_string(),
             }],
@@ -177,6 +191,15 @@ mod tests {
         assert!(snapshot.assignments_available);
         assert!(snapshot.monitor_discovery_issue.is_none());
         assert!(snapshot.persistence_issue.is_none());
+        assert_eq!(
+            snapshot.monitors[0].current_item_id.as_deref(),
+            Some("Forest Scene")
+        );
+        assert_eq!(
+            snapshot.monitors[0].restore_state,
+            Some(DesktopRestoreState::Restored)
+        );
+        assert_eq!(snapshot.monitors[0].runtime_status, RuntimeStatus::Running);
     }
 
     #[test]
@@ -185,6 +208,7 @@ mod tests {
         let snapshot = assemble_desktop_page(DesktopPageResult {
             monitors: vec![MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
                 resolution: "1920x1080".to_string(),
             }],
@@ -207,6 +231,57 @@ mod tests {
     }
 
     #[test]
+    fn desktop_apply_flow_assembler_marks_idle_monitors_when_real_runtime_path_is_available() {
+        let snapshot = assemble_desktop_page(DesktopPageResult {
+            monitors: vec![MonitorDescriptor {
+                id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
+                name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
+            }],
+            assignments: BTreeMap::new(),
+            resolved_assignments: BTreeMap::new(),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
+            monitors_available: true,
+            monitor_discovery_issue: None,
+            persistence_issue: None,
+            assignments_available: true,
+            stale: false,
+        });
+
+        assert_eq!(snapshot.monitors[0].runtime_status, RuntimeStatus::Idle);
+    }
+
+    #[test]
+    fn desktop_apply_flow_assembler_marks_degraded_assignments_as_runtime_errors() {
+        let snapshot = assemble_desktop_page(DesktopPageResult {
+            monitors: vec![MonitorDescriptor {
+                id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
+                name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
+            }],
+            assignments: BTreeMap::from([("DISPLAY-1".to_string(), "missing-item".to_string())]),
+            resolved_assignments: BTreeMap::from([(
+                "DISPLAY-1".to_string(),
+                DesktopResolvedMonitorAssignment::MissingItem {
+                    item_id: "missing-item".to_string(),
+                },
+            )]),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
+            monitors_available: true,
+            monitor_discovery_issue: None,
+            persistence_issue: None,
+            assignments_available: true,
+            stale: true,
+        });
+
+        assert_eq!(snapshot.monitors[0].runtime_status, RuntimeStatus::Error);
+    }
+
+    #[test]
     fn desktop_apply_flow_assembler_preserves_restore_state_and_page_issues() {
         let mut resolved_assignments = BTreeMap::new();
         resolved_assignments.insert(
@@ -219,6 +294,7 @@ mod tests {
         let snapshot = assemble_desktop_page(DesktopPageResult {
             monitors: vec![MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
                 resolution: "1920x1080".to_string(),
             }],
@@ -257,6 +333,7 @@ mod tests {
         let snapshot = assemble_desktop_page(DesktopPageResult {
             monitors: vec![MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
                 resolution: "1920x1080".to_string(),
             }],

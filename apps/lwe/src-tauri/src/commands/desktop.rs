@@ -67,6 +67,7 @@ mod tests {
 
     #[test]
     fn desktop_apply_flow_command_returns_failure_outcome_for_current_dependency_state() {
+        let _guard = real_desktop_flow_test_guard();
         let known_monitor_id = known_monitor_id();
         let monitor_id = known_monitor_id
             .clone()
