@@ -47,24 +47,21 @@ impl ScopedAutostartService {
 
     pub fn status(&self, launch_command: &[&str]) -> AutostartStatus {
         let entry_path = self.entry_path();
-        let state = match desktop_entry_exec_value(launch_command) {
-            Ok(expected_exec) => match fs::read_to_string(&entry_path) {
-                Ok(contents) => {
-                    if desktop_entry_is_active(&contents, &expected_exec) {
-                        AutostartState::Enabled
-                    } else {
-                        AutostartState::Disabled
-                    }
+        let state = match fs::read_to_string(&entry_path) {
+            Ok(contents) => {
+                if desktop_entry_is_active(&contents, launch_command) {
+                    AutostartState::Enabled
+                } else {
+                    AutostartState::Disabled
                 }
-                Err(error) if error.kind() == ErrorKind::NotFound => AutostartState::Disabled,
-                Err(error) => AutostartState::Unavailable {
-                    reason: format!(
-                        "Failed to read autostart entry {}: {error}",
-                        entry_path.display()
-                    ),
-                },
+            }
+            Err(error) if error.kind() == ErrorKind::NotFound => AutostartState::Disabled,
+            Err(error) => AutostartState::Unavailable {
+                reason: format!(
+                    "Failed to read autostart entry {}: {error}",
+                    entry_path.display()
+                ),
             },
-            Err(reason) => AutostartState::Unavailable { reason },
         };
 
         AutostartStatus { state, entry_path }
@@ -154,25 +151,81 @@ fn desktop_entry_exec_arg(argument: &str) -> String {
     format!("\"{escaped}\"")
 }
 
-fn desktop_entry_is_active(contents: &str, expected_exec: &str) -> bool {
+fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> bool {
     let mut has_desktop_header = false;
     let mut has_application_type = false;
-    let mut has_expected_name = false;
-    let mut has_expected_exec = false;
+    let mut exec_matches = false;
     let mut hidden = false;
 
     for line in contents.lines().map(str::trim) {
         match line {
             "[Desktop Entry]" => has_desktop_header = true,
             "Type=Application" => has_application_type = true,
-            _ if line == format!("Name={AUTOSTART_ENTRY_NAME}") => has_expected_name = true,
-            _ if line == format!("Exec={expected_exec}") => has_expected_exec = true,
             "Hidden=true" => hidden = true,
+            _ if line.starts_with("Exec=") => {
+                exec_matches =
+                    desktop_entry_exec_matches(&line["Exec=".len()..], expected_launch_command)
+            }
             _ => {}
         }
     }
 
-    has_desktop_header && has_application_type && has_expected_name && has_expected_exec && !hidden
+    has_desktop_header && has_application_type && exec_matches && !hidden
+}
+
+fn desktop_entry_exec_matches(exec_value: &str, expected_launch_command: &[&str]) -> bool {
+    match parse_desktop_entry_exec_value(exec_value) {
+        Ok(parsed_exec) => {
+            parsed_exec
+                == expected_launch_command
+                    .iter()
+                    .map(|part| part.to_string())
+                    .collect::<Vec<_>>()
+        }
+        Err(_) => false,
+    }
+}
+
+fn parse_desktop_entry_exec_value(exec_value: &str) -> Result<Vec<String>, String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut chars = exec_value.chars().peekable();
+    let mut in_quotes = false;
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' => in_quotes = !in_quotes,
+            '\\' => match chars.next() {
+                Some(next) => current.push(next),
+                None => return Err("Autostart Exec line ends with a trailing escape".to_string()),
+            },
+            '%' => match chars.next() {
+                Some('%') => current.push('%'),
+                Some(field_code) => {
+                    return Err(format!(
+                        "Autostart Exec line contains field code %{field_code}"
+                    ))
+                }
+                None => return Err("Autostart Exec line ends with a trailing %".to_string()),
+            },
+            ch if ch.is_whitespace() && !in_quotes => {
+                if !current.is_empty() {
+                    parts.push(std::mem::take(&mut current));
+                }
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if in_quotes {
+        return Err("Autostart Exec line has an unclosed quote".to_string());
+    }
+
+    if !current.is_empty() {
+        parts.push(current);
+    }
+
+    Ok(parts)
 }
 
 fn autostart_config_root() -> Result<PathBuf, String> {
@@ -268,6 +321,32 @@ mod tests {
         assert_eq!(
             service.status(&launch_command).state,
             super::AutostartState::Disabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_equivalent_exec_with_different_name_as_enabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nName=Launch Wallpaper Engine\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Enabled
         );
     }
 
