@@ -16,7 +16,8 @@ describe('ItemCard', () => {
           summaryCopy: 'Web support coming later'
         },
         selected: false,
-        assignedMonitorLabels: []
+        assignedMonitorLabels: [],
+        onApplyShortcut: () => {}
       }
     });
 
@@ -45,5 +46,26 @@ describe('ItemCard', () => {
     expect(body).toContain('Assigned to');
     expect(body).toContain('Primary');
     expect(body).toContain('DISPLAY-2 (missing)');
+  });
+
+  it('exposes a secondary action path on the item surface', () => {
+    const { body } = render(ItemCard, {
+      props: {
+        title: 'Forest Scene',
+        itemType: 'scene',
+        coverPath: null,
+        compatibility: {
+          badge: 'fully_supported',
+          reasonCode: 'ready_for_library',
+          summaryCopy: 'Ready to use'
+        },
+        selected: false,
+        assignedMonitorLabels: [],
+        onApplyShortcut: () => {}
+      }
+    });
+
+    expect(body).toContain('More actions');
+    expect(body).toContain('Open quick actions for Forest Scene');
   });
 });

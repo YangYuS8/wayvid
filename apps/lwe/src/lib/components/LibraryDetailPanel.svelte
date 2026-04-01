@@ -1,16 +1,25 @@
 <script lang="ts">
   import { Card } from '$lib/ui/card';
   import { Separator } from '$lib/ui/separator';
+  import { Button } from '$lib/ui/button';
+  import * as Select from '$lib/ui/select';
   import CompatibilityPanel from '$lib/components/CompatibilityPanel.svelte';
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
-  import type { LibraryItemDetail, LibraryPageSnapshot } from '$lib/types';
+  import type { DesktopMonitorSummary, LibraryItemDetail, LibraryPageSnapshot } from '$lib/types';
   import { resolveLibraryAvailabilityIssues } from '../../routes/library/page-state';
 
   export let detail: LibraryItemDetail | null = null;
   export let snapshot: LibraryPageSnapshot | null = null;
   export let loading = false;
   export let error: string | null = null;
+  export let monitors: DesktopMonitorSummary[] = [];
+  export let selectedMonitorId = '';
+  export let applyDisabled = true;
+  export let applying = false;
+  export let applyMessage: string | null = null;
+  export let onApply: (() => void) | undefined = undefined;
+  export let onMonitorChange: ((monitorId: string) => void) | undefined = undefined;
 
   $: availabilitySource = detail ?? snapshot;
   $: issueMessages = availabilitySource ? resolveLibraryAvailabilityIssues(availabilitySource) : [];
@@ -68,6 +77,56 @@
             <p class="lwe-wrap-safe text-sm text-slate-700">{assignedMonitorLabels.join(' • ')}</p>
           </div>
         {/if}
+
+        <div class="lwe-subpanel gap-3.5" aria-label="Apply this item to a monitor">
+          <div class="grid gap-1.5">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Actions</p>
+            <h3 class="text-base font-semibold tracking-tight text-slate-950">Apply</h3>
+            <p class="text-sm leading-6 text-slate-600">
+              Choose a monitor, then apply this item without leaving Library.
+            </p>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <label class="grid gap-1.5">
+              <span class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Monitor
+              </span>
+
+              <Select.Root
+                type="single"
+                name="libraryMonitor"
+                value={selectedMonitorId}
+                onValueChange={(value) => onMonitorChange?.(value)}
+                disabled={monitors.length === 0}
+              >
+                <Select.Trigger aria-label="Apply target monitor">
+                  {selectedMonitorId
+                    ? monitors.find((monitor) => monitor.monitorId === selectedMonitorId)?.displayName ?? selectedMonitorId
+                    : monitors.length > 0
+                      ? 'Select a monitor'
+                      : 'No monitors available'}
+                </Select.Trigger>
+
+                <Select.Content>
+                  {#each monitors as monitor}
+                    <Select.Item value={monitor.monitorId} label={monitor.displayName}>
+                      {monitor.displayName}
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </label>
+
+            <Button onclick={onApply} disabled={applyDisabled || applying}>
+              {applying ? 'Applying…' : 'Apply'}
+            </Button>
+          </div>
+
+          {#if applyMessage}
+            <p class="lwe-info-banner" role="status" aria-live="polite">{applyMessage}</p>
+          {/if}
+        </div>
 
         <CompatibilityPanel compatibility={detail.compatibility} />
 

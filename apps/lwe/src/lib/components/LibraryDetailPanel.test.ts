@@ -74,6 +74,39 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('DISPLAY-2 (missing)');
   });
 
+  it('shows a visible primary apply action in the detail path', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: {
+          id: 'scene-1',
+          title: 'Forest Scene',
+          itemType: 'scene',
+          coverPath: null,
+          source: 'workshop',
+          compatibility: {
+            badge: 'fully_supported',
+            reasonCode: 'ready_for_library',
+            summaryCopy: 'Ready to use',
+            headline: 'Ready to use',
+            detail: 'This item is synchronized locally and available for Library and desktop use.',
+            nextStep: 'none',
+            nextStepCopy: null
+          },
+          monitorsAvailable: true,
+          monitorDiscoveryIssue: null,
+          desktopAssignmentIssue: null,
+          desktopAssignmentsAvailable: true,
+          assignedMonitorLabels: ['Primary'],
+          description: null,
+          tags: []
+        }
+      }
+    });
+
+    expect(body).toContain('Apply');
+    expect(body).toContain('Apply this item to a monitor');
+  });
+
   it('uses the shared subpanel treatment for the empty detail state', () => {
     const { body } = render(LibraryDetailPanel, {
       props: {
