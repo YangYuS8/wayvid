@@ -44,174 +44,53 @@
   } = $props();
 
   const isCurrent = (href: string, pathname: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  const navLinkClass = (current: boolean) =>
+    [
+      'grid gap-2.5 rounded-[1.15rem] border px-4 py-4 text-left transition duration-150',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950',
+      current
+        ? 'border-sky-300/50 bg-gradient-to-b from-sky-400/25 to-sky-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+        : 'border-transparent bg-white/5 hover:-translate-y-0.5 hover:border-sky-300/25 hover:bg-white/10'
+    ].join(' ');
 </script>
 
-<div class="app-shell">
-  <aside class="sidebar" aria-label="Primary">
-    <div class="brand">
-      <p class="kicker">LWE</p>
-      <p class="brand-title">Wallpaper Engine</p>
-      <p class="summary">A persistent shell for library, workshop, desktop, and settings workflows.</p>
-    </div>
+<div
+  class="min-h-screen bg-[radial-gradient(circle_at_top,rgba(103,160,255,0.18),transparent_34%),linear-gradient(180deg,#eef3fb_0%,#e5ebf4_100%)] text-slate-950"
+>
+  <div class="grid min-h-screen gap-4 p-4 lg:grid-cols-[minmax(248px,292px)_minmax(0,1fr)] lg:gap-6 lg:p-5">
+    <aside
+      class="grid content-start gap-5 rounded-[1.75rem] border border-white/10 bg-slate-950/90 p-5 text-slate-50 shadow-[0_24px_56px_rgba(15,23,42,0.24)]"
+      aria-label="Primary"
+    >
+      <div class="grid gap-2 pb-1">
+        <p class="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-sky-100/70">LWE</p>
+        <p class="m-0 text-[1.35rem] font-semibold tracking-tight text-white">Wallpaper Engine</p>
+        <p class="m-0 text-sm leading-6 text-slate-300">
+          A persistent shell for library, workshop, desktop, and settings workflows.
+        </p>
+      </div>
 
-    <nav class="navigation" aria-label="Primary navigation">
-      {#each navItems as item}
-        {@const current = isCurrent(item.href, currentPath)}
+      <nav class="grid gap-3" aria-label="Primary navigation">
+        {#each navItems as item}
+          {@const current = isCurrent(item.href, currentPath)}
 
-        <a class:current href={item.href} aria-current={current ? 'page' : undefined}>
-          <span class="nav-label">{item.label}</span>
-          <span class="nav-meta">{item.shortLabel}</span>
-          <span class="nav-description">{item.description}</span>
-        </a>
-      {/each}
-    </nav>
-  </aside>
+          <a class={navLinkClass(current)} href={item.href} aria-current={current ? 'page' : undefined}>
+            <span class="text-base font-semibold text-white">{item.label}</span>
+            <span class="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-300">
+              {item.shortLabel}
+            </span>
+            <span class="text-sm leading-6 text-slate-300/90">{item.description}</span>
+          </a>
+        {/each}
+      </nav>
+    </aside>
 
-  <main class="content" id="app-content">
-    {@render children?.()}
-  </main>
+    <main
+      class="grid min-w-0 content-start rounded-[2rem] border border-white/60 bg-white/72 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-6"
+      id="app-content"
+    >
+      {@render children?.()}
+    </main>
+  </div>
 </div>
-
-<style>
-  :global(body) {
-    margin: 0;
-    min-height: 100vh;
-    background:
-      radial-gradient(circle at top, rgba(103, 160, 255, 0.18), transparent 34%),
-      linear-gradient(180deg, #eef3fb 0%, #e5ebf4 100%);
-    color: #132033;
-    font-family: 'Segoe UI', sans-serif;
-  }
-
-  :global(a) {
-    color: inherit;
-  }
-
-  .app-shell {
-    min-height: 100vh;
-    display: grid;
-    grid-template-columns: minmax(248px, 292px) minmax(0, 1fr);
-    gap: 1.5rem;
-    padding: 1.25rem;
-    box-sizing: border-box;
-  }
-
-  .sidebar,
-  .brand,
-  .navigation,
-  .content,
-  a {
-    display: grid;
-    gap: 0.9rem;
-  }
-
-  .sidebar {
-    align-content: start;
-    padding: 1.35rem;
-    border-radius: 28px;
-    background: rgba(14, 24, 40, 0.9);
-    color: #f3f7fb;
-    box-shadow: 0 20px 48px rgba(11, 18, 31, 0.18);
-  }
-
-  .brand {
-    gap: 0.45rem;
-    padding-bottom: 0.25rem;
-  }
-
-  .kicker,
-  .summary,
-  .nav-meta,
-  .nav-description,
-  .brand-title {
-    margin: 0;
-  }
-
-  .kicker,
-  .nav-meta {
-    font-size: 0.74rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-
-  .brand-title {
-    font-size: 1.35rem;
-    font-weight: 700;
-  }
-
-  .summary {
-    color: rgba(243, 247, 251, 0.74);
-    line-height: 1.45;
-  }
-
-  .navigation {
-    gap: 0.7rem;
-  }
-
-  a {
-    padding: 0.95rem 1rem;
-    border-radius: 18px;
-    text-decoration: none;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid transparent;
-    transition:
-      transform 120ms ease,
-      background 120ms ease,
-      border-color 120ms ease;
-  }
-
-  a:hover,
-  a:focus-visible {
-    transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(157, 197, 255, 0.28);
-  }
-
-  a:focus-visible {
-    outline: 2px solid rgba(157, 197, 255, 0.5);
-    outline-offset: 2px;
-  }
-
-  a.current {
-    background: linear-gradient(180deg, rgba(116, 170, 255, 0.28), rgba(116, 170, 255, 0.14));
-    border-color: rgba(157, 197, 255, 0.45);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  }
-
-  .nav-label {
-    font-size: 1rem;
-    font-weight: 600;
-  }
-
-  .nav-meta,
-  .nav-description {
-    color: rgba(243, 247, 251, 0.72);
-  }
-
-  .nav-description {
-    line-height: 1.4;
-  }
-
-  .content {
-    align-content: start;
-    min-width: 0;
-    padding: 1.5rem;
-    border-radius: 32px;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(12px);
-  }
-
-  @media (max-width: 900px) {
-    .app-shell {
-      grid-template-columns: 1fr;
-      gap: 1rem;
-      padding: 1rem;
-    }
-
-    .sidebar,
-    .content {
-      border-radius: 24px;
-    }
-  }
-</style>
