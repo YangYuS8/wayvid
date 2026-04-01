@@ -338,13 +338,23 @@ fn render_all_surfaces(state: &mut EngineState) {
         };
 
         // Render frame
-        if let Err(e) = session.render_frame_to_surface(
+        match session.render_frame_to_surface(
             egl_context,
             &surface_info.wl_surface,
             surface_info.width as i32,
             surface_info.height as i32,
         ) {
-            warn!("Frame render error for {}: {}", output_name, e);
+            Ok(()) => {
+                if let Some(path) = surface_info.pending_apply_path.take() {
+                    let _ = state.events_tx.send(EngineEvent::WallpaperApplied {
+                        output: output_name.clone(),
+                        path,
+                    });
+                }
+            }
+            Err(e) => {
+                warn!("Frame render error for {}: {}", output_name, e);
+            }
         }
 
         // Request next frame callback
@@ -401,6 +411,8 @@ struct LayerSurfaceInfo {
     configured: bool,
     /// Frame callback pending
     frame_pending: bool,
+    /// Wallpaper path waiting for first successful rendered frame
+    pending_apply_path: Option<std::path::PathBuf>,
 }
 
 /// Pending output information during enumeration
@@ -451,12 +463,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
 
             for output_name in outputs_to_apply {
                 match apply_wallpaper_to_output(state, &path, &output_name, &qh) {
-                    Ok(()) => {
-                        let _ = state.events_tx.send(EngineEvent::WallpaperApplied {
-                            output: output_name,
-                            path: path.clone(),
-                        });
-                    }
+                    Ok(()) => {}
                     Err(e) => {
                         error!("Failed to apply wallpaper to {}: {}", output_name, e);
                         let _ = state.events_tx.send(EngineEvent::Error(e.to_string()));
@@ -650,6 +657,7 @@ fn apply_wallpaper_to_output(
             height: output_info.height as u32,
             configured: false,
             frame_pending: false,
+            pending_apply_path: Some(path.to_path_buf()),
         },
     );
 
