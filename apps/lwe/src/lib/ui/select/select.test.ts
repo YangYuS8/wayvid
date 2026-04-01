@@ -10,6 +10,7 @@ describe('Select primitive', () => {
     expect(body).toContain('name="monitor"');
     expect(body).toContain('data-select-trigger');
     expect(body).toContain('data-select-item');
-    expect(body).toContain('hover:border-slate-300');
+    expect(body).toContain('hover:bg-accent');
+    expect(body).toContain('hover:text-accent-foreground');
   });
 });
