@@ -57,7 +57,8 @@
   }
 
   .lwe-shell-main {
-    @apply grid min-w-0 content-start rounded-[2rem] border border-white/60 bg-white/72 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-6;
+    @apply grid min-w-0 content-start rounded-[2rem] border border-white/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-6;
+    background-color: rgb(255 255 255 / 0.72);
   }
 
   .lwe-panel {
