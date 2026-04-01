@@ -85,8 +85,8 @@
 <section class="grid gap-6">
   <PageHeader
     eyebrow="Library"
-    title="Local projection snapshot"
-    subtitle="Keep the page thin: render the cached projection and request detail only for the current selection."
+    title="Your local library"
+    subtitle="Browse the content you already own or have synchronized onto this machine."
   />
 
   {#if pageError}

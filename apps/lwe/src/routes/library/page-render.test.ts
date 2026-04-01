@@ -21,7 +21,8 @@ describe('library page render', () => {
   it('does not render the split body when no library snapshot is available', () => {
     const { body } = render(LibraryPage);
 
-    expect(body).toContain('Local projection snapshot');
+    expect(body).toContain('Your local library');
+    expect(body).toContain('Browse the content you already own or have synchronized onto this machine.');
     expect(body).not.toContain('No Library items are available in the current snapshot.');
     expect(body).not.toContain('Select a Library item to inspect its current detail payload.');
   });

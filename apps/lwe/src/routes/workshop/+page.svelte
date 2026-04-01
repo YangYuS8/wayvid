@@ -154,8 +154,8 @@
 <section class="grid gap-6">
   <PageHeader
     eyebrow="Workshop"
-    title="Steam-backed snapshot"
-    subtitle="Render the cached Rust snapshot, fetch details on selection, and keep stale invalidations local."
+    title="Local Workshop sync"
+    subtitle="Review the current Steam Workshop items synced into Wayvid from this machine. This is not a full online Workshop browser."
   >
     {#snippet actions()}
       <Button variant="secondary" onclick={refreshPage} disabled={loading}>Refresh Catalog</Button>

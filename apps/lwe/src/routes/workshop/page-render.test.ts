@@ -21,7 +21,8 @@ describe('workshop page render', () => {
   it('does not render the split body when no workshop snapshot is available', () => {
     const { body } = render(WorkshopPage);
 
-    expect(body).toContain('Steam-backed snapshot');
+    expect(body).toContain('Local Workshop sync');
+    expect(body).toContain('Review the current Steam Workshop items synced into Wayvid from this machine. This is not a full online Workshop browser.');
     expect(body).not.toContain('No Workshop items are available in the current snapshot.');
     expect(body).not.toContain('Select a Workshop item to inspect its current detail payload.');
   });
