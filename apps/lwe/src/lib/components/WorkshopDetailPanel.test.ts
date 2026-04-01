@@ -19,4 +19,20 @@ describe('WorkshopDetailPanel', () => {
     expect(body).toContain('border-dashed');
     expect(body).toContain('role="status"');
   });
+
+  it('uses the shared subpanel treatment for the error detail state', () => {
+    const { body } = render(WorkshopDetailPanel, {
+      props: {
+        detail: null,
+        loading: false,
+        error: 'Unable to complete the Workshop request.',
+        openInSteam: null
+      }
+    });
+
+    expect(body).toContain('Unable to complete the Workshop request.');
+    expect(body).toContain('lwe-subpanel');
+    expect(body).toContain('lwe-warning-banner');
+    expect(body).toContain('Workshop detail');
+  });
 });

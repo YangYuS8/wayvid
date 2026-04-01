@@ -24,7 +24,7 @@
       <p class="text-sm leading-6 text-slate-600">Loading item details…</p>
     </div>
   {:else if error}
-    <div class="grid gap-3">
+    <div class="lwe-subpanel gap-3">
       <p class="lwe-eyebrow">Library detail</p>
       <p class="lwe-warning-banner" role="alert" aria-live="assertive">
         {error}

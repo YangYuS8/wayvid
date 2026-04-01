@@ -88,4 +88,20 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('border-dashed');
     expect(body).toContain('role="status"');
   });
+
+  it('uses the shared subpanel treatment for the error detail state', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: null,
+        snapshot: null,
+        loading: false,
+        error: 'Unable to load the Library request.'
+      }
+    });
+
+    expect(body).toContain('Unable to load the Library request.');
+    expect(body).toContain('lwe-subpanel');
+    expect(body).toContain('lwe-warning-banner');
+    expect(body).toContain('Library detail');
+  });
 });
