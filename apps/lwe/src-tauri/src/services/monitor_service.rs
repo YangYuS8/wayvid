@@ -5,6 +5,7 @@ use crate::services::backends::niri_monitor_backend::NiriMonitorBackend;
 #[derive(Debug, Clone)]
 pub struct MonitorDescriptor {
     pub id: String,
+    pub backend_output_id: String,
     pub name: String,
     pub resolution: String,
 }
@@ -21,6 +22,7 @@ impl MonitorService {
                     .into_iter()
                     .map(|monitor| MonitorDescriptor {
                         id: monitor.id,
+                        backend_output_id: monitor.backend_output_id,
                         name: monitor.name,
                         resolution: monitor.resolution,
                     })
@@ -74,6 +76,7 @@ mod tests {
             MonitorDiscoveryResult::Known(monitors) => {
                 assert!(monitors.iter().all(|monitor| {
                     !monitor.id.is_empty()
+                        && !monitor.backend_output_id.is_empty()
                         && !monitor.name.is_empty()
                         && !monitor.resolution.is_empty()
                         && monitor.resolution.contains('x')
@@ -98,11 +101,13 @@ mod tests {
         let known_monitors = MonitorDiscoveryResult::Known(vec![
             MonitorDescriptor {
                 id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
                 name: "Primary".to_string(),
                 resolution: "1920x1080".to_string(),
             },
             MonitorDescriptor {
                 id: "DISPLAY-2".to_string(),
+                backend_output_id: "DISPLAY-2".to_string(),
                 name: "Secondary".to_string(),
                 resolution: "2560x1440".to_string(),
             },
@@ -121,6 +126,7 @@ mod tests {
             MonitorDiscoveryResult::Known(monitors)
                 if monitors.len() == 1
                     && monitors[0].id == "DISPLAY-2"
+                    && monitors[0].backend_output_id == "DISPLAY-2"
                     && monitors[0].name == "Secondary"
                     && monitors[0].resolution == "2560x1440"
         ));

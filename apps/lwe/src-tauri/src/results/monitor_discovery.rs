@@ -28,6 +28,7 @@ mod tests {
     fn monitor_discovery_result_uses_service_monitor_descriptor_type() {
         let descriptor = crate::services::monitor_service::MonitorDescriptor {
             id: "DISPLAY-1".to_string(),
+            backend_output_id: "DISPLAY-1".to_string(),
             name: "Primary".to_string(),
             resolution: "1920x1080".to_string(),
         };

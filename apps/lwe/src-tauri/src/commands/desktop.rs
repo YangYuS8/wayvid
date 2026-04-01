@@ -29,6 +29,7 @@ pub fn clear_library_item_from_monitor(monitor_id: String) -> Result<ActionOutco
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::desktop_service::real_desktop_flow_test_guard;
     use crate::services::monitor_service::MonitorService;
 
     fn known_monitor_id() -> Option<String> {

@@ -33,6 +33,16 @@ fn desktop_apply_backend_slot() -> &'static Mutex<Option<RunningDesktopApplyBack
     DESKTOP_APPLY_BACKEND.get_or_init(|| Mutex::new(None))
 }
 
+#[cfg(test)]
+pub(crate) fn real_desktop_flow_test_guard() -> std::sync::MutexGuard<'static, ()> {
+    static REAL_DESKTOP_FLOW_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    REAL_DESKTOP_FLOW_TEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("real desktop flow test lock was poisoned")
+}
+
 pub struct DesktopService;
 
 impl DesktopService {
@@ -602,11 +612,13 @@ mod tests {
             MonitorDiscoveryResult::Known(vec![
                 crate::services::monitor_service::MonitorDescriptor {
                     id: "DISPLAY-1".to_string(),
+                    backend_output_id: "DISPLAY-1".to_string(),
                     name: "Primary".to_string(),
                     resolution: "1920x1080".to_string(),
                 },
                 crate::services::monitor_service::MonitorDescriptor {
                     id: "DISPLAY-2".to_string(),
+                    backend_output_id: "DISPLAY-2".to_string(),
                     name: "Secondary".to_string(),
                     resolution: "2560x1440".to_string(),
                 },

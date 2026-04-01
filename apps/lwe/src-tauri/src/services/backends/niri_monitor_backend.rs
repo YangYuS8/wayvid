@@ -87,6 +87,7 @@ fn parse_output(
 
     Ok(Some(BackendMonitorDescriptor {
         id: stable_monitor_id(make, model, serial, &name),
+        backend_output_id: output_id.to_string(),
         name: display_name,
         resolution,
     }))
@@ -227,6 +228,7 @@ mod tests {
             BackendMonitorDiscovery::Known(monitors)
                 if monitors.len() == 1
                     && monitors[0].id == "niri:BOE:0x0893:eDP-1"
+                    && monitors[0].backend_output_id == "eDP-1"
                     && monitors[0].resolution == "2160x1440"
         ));
     }
@@ -251,6 +253,7 @@ mod tests {
             BackendMonitorDiscovery::Known(monitors)
                 if monitors.len() == 1
                     && monitors[0].id == "niri:Dell:U2720Q:CN12345678"
+                    && monitors[0].backend_output_id == "DP-1"
                     && monitors[0].name == "Dell U2720Q"
                     && monitors[0].resolution == "3840x2160"
         ));
