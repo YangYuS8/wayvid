@@ -91,52 +91,52 @@
 
   {#if pageError}
     <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
+  {:else if loading && !snapshot}
+    <p role="status" aria-live="polite">Loading Library snapshot…</p>
+  {:else if snapshot}
+    <div class="page-body">
+      <section class="list-panel">
+        {#if pageState?.issueMessages.length}
+          <div class="state-messages" aria-live="polite">
+            {#each pageState.issueMessages as issue}
+              <p class="message warning">{issue}</p>
+            {/each}
+          </div>
+        {/if}
+
+        {#if snapshot.items.length}
+          <div class="item-grid">
+            {#each snapshot.items as item}
+              <button
+                type="button"
+                class="item-button"
+                aria-pressed={snapshot.selectedItemId === item.id}
+                on:click={() => selectItem(item.id)}
+              >
+                <ItemCard
+                  title={item.title}
+                  itemType={item.itemType}
+                  coverPath={item.coverPath}
+                  compatibility={item.compatibility}
+                  selected={snapshot.selectedItemId === item.id}
+                  assignedMonitorLabels={item.assignedMonitorLabels ?? []}
+                />
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <p>{pageState?.emptyMessage ?? 'No Library items are available in the current snapshot.'}</p>
+        {/if}
+      </section>
+
+      <LibraryDetailPanel
+        detail={$pageCache.library.detail}
+        snapshot={snapshot}
+        loading={detailLoading}
+        error={detailError}
+      />
+    </div>
   {/if}
-
-  <div class="page-body">
-    <section class="list-panel">
-      {#if pageState?.issueMessages.length}
-        <div class="state-messages" aria-live="polite">
-          {#each pageState.issueMessages as issue}
-            <p class="message warning">{issue}</p>
-          {/each}
-        </div>
-      {/if}
-
-      {#if loading && !$pageCache.library.snapshot}
-        <p role="status" aria-live="polite">Loading Library snapshot…</p>
-      {:else if snapshot?.items.length}
-        <div class="item-grid">
-          {#each snapshot.items as item}
-            <button
-              type="button"
-              class="item-button"
-              aria-pressed={snapshot.selectedItemId === item.id}
-              on:click={() => selectItem(item.id)}
-            >
-              <ItemCard
-                title={item.title}
-                itemType={item.itemType}
-                coverPath={item.coverPath}
-                compatibility={item.compatibility}
-                selected={snapshot.selectedItemId === item.id}
-                assignedMonitorLabels={item.assignedMonitorLabels ?? []}
-              />
-            </button>
-          {/each}
-        </div>
-      {:else}
-        <p>{pageState?.emptyMessage ?? 'No Library items are available in the current snapshot.'}</p>
-      {/if}
-    </section>
-
-    <LibraryDetailPanel
-      detail={$pageCache.library.detail}
-      snapshot={snapshot}
-      loading={detailLoading}
-      error={detailError}
-    />
-  </div>
 </section>
 
 <style>

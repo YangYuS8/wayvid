@@ -164,47 +164,47 @@
 
   {#if pageError}
     <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
+  {:else if loading && !$pageCache.workshop.snapshot}
+    <p role="status" aria-live="polite">Loading Workshop snapshot…</p>
+  {:else if $pageCache.workshop.snapshot}
+    {#if actionMessage}
+      <p class="message" role="status" aria-live="polite">{actionMessage}</p>
+    {/if}
+
+    <div class="page-body">
+      <section class="list-panel">
+        {#if $pageCache.workshop.snapshot.items.length}
+          <div class="item-grid">
+            {#each $pageCache.workshop.snapshot.items as item}
+              <button
+                type="button"
+                class="item-button"
+                aria-pressed={$pageCache.workshop.snapshot.selectedItemId === item.id}
+                on:click={() => selectItem(item.id)}
+              >
+                <ItemCard
+                  title={item.title}
+                  itemType={item.itemType}
+                  coverPath={item.coverPath}
+                  compatibility={item.compatibility}
+                  selected={$pageCache.workshop.snapshot.selectedItemId === item.id}
+                />
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <p>No Workshop items are available in the current snapshot.</p>
+        {/if}
+      </section>
+
+      <WorkshopDetailPanel
+        detail={$pageCache.workshop.detail}
+        loading={detailLoading}
+        error={detailError}
+        openInSteam={openSelectedInSteam}
+      />
+    </div>
   {/if}
-
-  {#if actionMessage}
-    <p class="message" role="status" aria-live="polite">{actionMessage}</p>
-  {/if}
-
-  <div class="page-body">
-    <section class="list-panel">
-      {#if loading && !$pageCache.workshop.snapshot}
-        <p role="status" aria-live="polite">Loading Workshop snapshot…</p>
-      {:else if $pageCache.workshop.snapshot?.items.length}
-        <div class="item-grid">
-          {#each $pageCache.workshop.snapshot.items as item}
-            <button
-              type="button"
-              class="item-button"
-              aria-pressed={$pageCache.workshop.snapshot.selectedItemId === item.id}
-              on:click={() => selectItem(item.id)}
-            >
-              <ItemCard
-                title={item.title}
-                itemType={item.itemType}
-                coverPath={item.coverPath}
-                compatibility={item.compatibility}
-                selected={$pageCache.workshop.snapshot.selectedItemId === item.id}
-              />
-            </button>
-          {/each}
-        </div>
-      {:else}
-        <p>No Workshop items are available in the current snapshot.</p>
-      {/if}
-    </section>
-
-    <WorkshopDetailPanel
-      detail={$pageCache.workshop.detail}
-      loading={detailLoading}
-      error={detailError}
-      openInSteam={openSelectedInSteam}
-    />
-  </div>
 </section>
 
 <style>

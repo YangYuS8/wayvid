@@ -18,6 +18,14 @@ describe('library page render', () => {
     resetCache();
   });
 
+  it('does not render the split body when no library snapshot is available', () => {
+    const { body } = render(LibraryPage);
+
+    expect(body).toContain('Local projection snapshot');
+    expect(body).not.toContain('No Library items are available in the current snapshot.');
+    expect(body).not.toContain('Select a Library item to inspect its current detail payload.');
+  });
+
   it('renders assigned monitor labels on cards and in the detail panel', () => {
     setLibrarySnapshot({
       items: [
