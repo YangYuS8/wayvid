@@ -82,7 +82,7 @@
   <title>Library</title>
 </svelte:head>
 
-<section class="page">
+<section class="grid gap-6">
   <PageHeader
     eyebrow="Library"
     title="Local projection snapshot"
@@ -90,26 +90,26 @@
   />
 
   {#if pageError}
-    <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
+    <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !snapshot}
-    <p role="status" aria-live="polite">Loading Library snapshot…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Library snapshot…</p>
   {:else if snapshot}
-    <div class="page-body">
-      <section class="list-panel">
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.9fr)] xl:items-start">
+      <section class="grid gap-4">
         {#if pageState?.issueMessages.length}
-          <div class="state-messages" aria-live="polite">
+          <div class="grid gap-2.5" aria-live="polite">
             {#each pageState.issueMessages as issue}
-              <p class="message warning">{issue}</p>
+              <p class="lwe-info-banner">{issue}</p>
             {/each}
           </div>
         {/if}
 
         {#if snapshot.items.length}
-          <div class="item-grid">
+          <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {#each snapshot.items as item}
               <button
                 type="button"
-                class="item-button"
+                class="rounded-[1.125rem] border-0 bg-transparent p-0 text-left transition duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-4"
                 aria-pressed={snapshot.selectedItemId === item.id}
                 on:click={() => selectItem(item.id)}
               >
@@ -125,7 +125,9 @@
             {/each}
           </div>
         {:else}
-          <p>{pageState?.emptyMessage ?? 'No Library items are available in the current snapshot.'}</p>
+          <p class="text-sm leading-6 text-slate-600">
+            {pageState?.emptyMessage ?? 'No Library items are available in the current snapshot.'}
+          </p>
         {/if}
       </section>
 
@@ -138,64 +140,3 @@
     </div>
   {/if}
 </section>
-
-<style>
-  .page,
-  .page-body,
-  .list-panel,
-  .item-grid,
-  .state-messages {
-    display: grid;
-    gap: 1.1rem;
-  }
-
-  p {
-    margin: 0;
-  }
-
-  .page-body {
-    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
-    align-items: start;
-  }
-
-  .item-grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
-
-  .item-button {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-    border-radius: 18px;
-  }
-
-  .item-button:focus-visible {
-    outline: 3px solid #0f5f9a;
-    outline-offset: 4px;
-  }
-
-  .item-button:hover {
-    transform: translateY(-1px);
-  }
-
-  .message {
-    padding: 0.85rem 1rem;
-    border-radius: 14px;
-  }
-
-  .message.error {
-    background: rgba(160, 98, 23, 0.12);
-  }
-
-  .message.warning {
-    background: rgba(15, 95, 154, 0.12);
-  }
-
-  @media (max-width: 900px) {
-    .page-body {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

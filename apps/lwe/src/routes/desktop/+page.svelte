@@ -55,15 +55,15 @@
   <title>Desktop</title>
 </svelte:head>
 
-<section class="page">
+<section class="grid gap-6">
   <PageHeader
     eyebrow="Desktop"
     title="Monitor shell"
     subtitle="Render the current desktop snapshot without inventing runtime behavior in the frontend."
   >
     {#snippet actions()}
-      <label class="monitor-filter">
-        <span>View</span>
+      <label class="grid justify-items-start gap-1.5">
+        <span class="lwe-eyebrow">View</span>
         <Select.Root type="single" name="monitorFilter" bind:value={monitorFilter}>
           <Select.Trigger aria-label="Monitor view filter" class="min-w-[11rem]">
             {monitorFilter === 'all'
@@ -84,55 +84,57 @@
   </PageHeader>
 
   {#if pageError}
-    <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
+    <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !$pageCache.desktop.snapshot}
-    <p role="status" aria-live="polite">Loading Desktop snapshot…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Desktop snapshot…</p>
   {:else if snapshot}
-    <div class="page-body">
-      <Card class="summary-panel border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
-        <div class="summary-grid">
-          <div class="summary-card">
-            <p class="summary-label">Monitors discovered</p>
-            <p class="summary-value">{snapshot.monitors.length}</p>
+    <div class="grid gap-5">
+      <Card class="lwe-panel gap-5">
+        <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+          <div class="lwe-subpanel content-start gap-2.5">
+            <p class="lwe-eyebrow">Monitors discovered</p>
+            <p class="text-[clamp(1.75rem,3vw,2.4rem)] font-semibold tracking-tight text-slate-950">
+              {snapshot.monitors.length}
+            </p>
           </div>
 
-          <div class="summary-card">
-            <p class="summary-label">Monitor discovery</p>
-            <p class="summary-copy">{pageState?.monitorAvailabilityLabel ?? 'no'}</p>
+          <div class="lwe-subpanel content-start gap-2.5">
+            <p class="lwe-eyebrow">Monitor discovery</p>
+            <p class="text-sm leading-6 text-slate-600">{pageState?.monitorAvailabilityLabel ?? 'no'}</p>
           </div>
 
-          <div class="summary-card">
-            <p class="summary-label">Assignment persistence</p>
-            <p class="summary-copy">{pageState?.assignmentAvailabilityLabel ?? 'no'}</p>
+          <div class="lwe-subpanel content-start gap-2.5">
+            <p class="lwe-eyebrow">Assignment persistence</p>
+            <p class="text-sm leading-6 text-slate-600">{pageState?.assignmentAvailabilityLabel ?? 'no'}</p>
           </div>
 
-          <div class="summary-card">
-            <p class="summary-label">Snapshot stale</p>
-            <p class="summary-copy">{snapshot.stale ? 'yes' : 'no'}</p>
+          <div class="lwe-subpanel content-start gap-2.5">
+            <p class="lwe-eyebrow">Snapshot stale</p>
+            <p class="text-sm leading-6 text-slate-600">{snapshot.stale ? 'yes' : 'no'}</p>
           </div>
         </div>
 
         {#if pageState?.issueMessages.length}
-          <div class="issues" aria-live="polite">
+          <div class="grid gap-2.5" aria-live="polite">
             {#each pageState.issueMessages as issue}
-              <p class="message warning">{issue}</p>
+              <p class="lwe-info-banner">{issue}</p>
             {/each}
           </div>
         {/if}
 
         {#if pageState?.emptyMessage}
-          <p class="summary-copy">{pageState.emptyMessage}</p>
+          <p class="text-sm leading-6 text-slate-600">{pageState.emptyMessage}</p>
         {/if}
       </Card>
 
       {#if visibleMonitors.length > 0}
-        <section class="section-block">
-          <div class="section-heading">
-            <p class="section-kicker">Active outputs</p>
-            <h2>Current monitors</h2>
+        <section class="grid gap-4">
+          <div class="grid gap-1.5">
+            <p class="lwe-eyebrow">Active outputs</p>
+            <h2 class="lwe-heading-md">Current monitors</h2>
           </div>
 
-          <div class="monitor-grid">
+          <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {#each visibleMonitors as monitor}
               <DesktopMonitorCard
                 displayName={monitor.displayName}
@@ -148,14 +150,14 @@
           </div>
         </section>
       {:else if monitorFilter === 'active'}
-        <p class="summary-copy" role="status" aria-live="polite">{filterEmptyMessage}</p>
+        <p class="text-sm leading-6 text-slate-600" role="status" aria-live="polite">{filterEmptyMessage}</p>
       {/if}
 
       {#if visibleMissingMonitorRestores.length > 0}
-        <section class="section-block">
-          <h2>Missing monitor restores</h2>
+        <section class="grid gap-4">
+          <h2 class="lwe-heading-md">Missing monitor restores</h2>
 
-          <div class="monitor-grid">
+          <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {#each visibleMissingMonitorRestores as restore}
               <DesktopMonitorCard
                 displayName={restore.monitorId}
@@ -171,107 +173,12 @@
           </div>
         </section>
       {:else if monitorFilter === 'missing'}
-        <p class="summary-copy" role="status" aria-live="polite">{filterEmptyMessage}</p>
+        <p class="text-sm leading-6 text-slate-600" role="status" aria-live="polite">{filterEmptyMessage}</p>
       {/if}
 
-      <p class="footnote">The runtime control surface stays deferred until a later task exposes real commands.</p>
+      <p class="text-sm leading-6 text-slate-500">
+        The runtime control surface stays deferred until a later task exposes real commands.
+      </p>
     </div>
   {/if}
 </section>
-
-<style>
-  .page,
-  .page-body,
-  .summary-grid,
-  .summary-card,
-  .issues,
-  .monitor-filter,
-  .section-block,
-  .section-heading,
-  .monitor-grid {
-    display: grid;
-    gap: 1rem;
-  }
-
-  p,
-  h2 {
-    margin: 0;
-  }
-
-  .summary-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-
-  .summary-card {
-    align-content: start;
-    padding: 1rem;
-    border-radius: 18px;
-    border: 1px solid rgba(148, 163, 184, 0.24);
-    background: rgba(248, 250, 252, 0.72);
-  }
-
-  .summary-label,
-  .section-kicker {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #526272;
-  }
-
-  .summary-value {
-    font-size: clamp(1.75rem, 3vw, 2.4rem);
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .summary-copy,
-  .footnote {
-    color: #526272;
-    line-height: 1.55;
-  }
-
-  .monitor-filter {
-    justify-items: start;
-    gap: 0.4rem;
-  }
-
-  .monitor-filter span {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #526272;
-  }
-
-  .section-heading {
-    gap: 0.35rem;
-  }
-
-  .monitor-grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
-
-  h2 {
-    font-size: 1.15rem;
-    color: #0f172a;
-  }
-
-  .message.error {
-    padding: 0.85rem 1rem;
-    border-radius: 14px;
-    background: rgba(160, 98, 23, 0.12);
-  }
-
-  .message.warning {
-    padding: 0.85rem 1rem;
-    border-radius: 14px;
-    background: rgba(15, 95, 154, 0.12);
-  }
-
-  @media (max-width: 700px) {
-    .summary-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
