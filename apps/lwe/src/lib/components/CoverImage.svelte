@@ -27,7 +27,7 @@
   />
 {:else}
   <div
-    class="grid aspect-[16/9] w-full place-items-center rounded-[1.35rem] border border-dashed border-slate-300 bg-[linear-gradient(135deg,rgba(241,245,249,1),rgba(248,250,252,0.94),rgba(226,232,240,1))] px-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+    class="grid aspect-[16/9] w-full place-items-center rounded-[1.35rem] border border-dashed border-slate-300 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 px-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
     aria-label={`${label} placeholder`}
   >
     <div class="grid gap-1.5">

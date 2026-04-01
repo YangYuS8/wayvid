@@ -8,7 +8,7 @@
 </script>
 
 <Card
-  class="grid gap-4 rounded-[1.35rem] border-slate-200/80 bg-slate-50/85 p-4 shadow-none"
+  class="lwe-subpanel gap-4 shadow-none"
   aria-label="Compatibility explanation"
 >
   <div class="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">

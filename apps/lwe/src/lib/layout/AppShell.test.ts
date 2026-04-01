@@ -27,8 +27,11 @@ describe('AppShell', () => {
       }
     });
 
-    expect(body).toContain('bg-slate-950/90');
-    expect(body).toContain('lg:grid-cols-[minmax(248px,292px)_minmax(0,1fr)]');
+    expect(body).toContain('Skip to content');
+    expect(body).toContain('href="#app-content"');
+    expect(body).toContain('tabindex="-1"');
+    expect(body).toContain('lwe-shell-sidebar');
+    expect(body).toContain('lwe-shell-grid');
     expect(body).not.toContain('<style>');
   });
 });

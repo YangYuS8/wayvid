@@ -21,7 +21,7 @@
 </script>
 
 <Card
-  class="grid gap-4 overflow-hidden rounded-[1.5rem] border-slate-200/70 bg-white/95 p-3.5 shadow-[0_18px_44px_rgba(15,23,42,0.08)]"
+  class="lwe-panel-compact"
   aria-label={`Desktop monitor ${displayName}`}
 >
   <CoverImage coverPath={currentCoverPath} label={`${displayName} current item`} />
@@ -51,14 +51,14 @@
       </div>
     </div>
 
-    <div class="grid gap-2 rounded-[1.35rem] border border-slate-200/80 bg-slate-50/80 p-4">
+    <div class="lwe-subpanel">
       <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Current item</p>
       <p class="text-sm leading-6 text-slate-800">{currentItemLabel}</p>
     </div>
 
     {#if hasStateDetails}
       <Separator class="bg-slate-200/80" />
-      <div class="grid gap-3 rounded-[1.35rem] border border-slate-200/80 bg-slate-50/60 p-4">
+      <div class="lwe-subpanel gap-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Restore state</p>
 
@@ -84,13 +84,13 @@
         {/if}
 
         {#if restoreIssue}
-          <p class="rounded-2xl border border-sky-200/90 bg-sky-50/90 px-4 py-3 text-sm leading-6 text-sky-900">
+          <p class="lwe-info-banner">
             {restoreIssue}
           </p>
         {/if}
 
         {#if detailsExpanded}
-          <div class="grid gap-4 rounded-[1.35rem] border border-slate-200/80 bg-white/80 p-4">
+          <div class="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-4">
             <Separator class="bg-slate-200/80" />
 
             <div class="grid gap-1.5">
@@ -112,7 +112,7 @@
             </p>
 
             <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-              Inline details keep this surface honest until a real modal primitive exists.
+              Expand this section to review the latest restore status for this display.
             </p>
           </div>
         {/if}

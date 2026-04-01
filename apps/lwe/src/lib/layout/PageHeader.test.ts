@@ -13,7 +13,8 @@ describe('PageHeader', () => {
       }
     });
 
-    expect(body).toContain('tracking-[0.24em]');
+    expect(body).toContain('lwe-eyebrow');
+    expect(body).toContain('lwe-heading-xl');
     expect(body).toContain('sm:grid-cols-[minmax(0,1fr)_auto]');
     expect(body).not.toContain('<style>');
   });
