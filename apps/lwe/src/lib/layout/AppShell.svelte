@@ -50,7 +50,7 @@
   <aside class="sidebar" aria-label="Primary">
     <div class="brand">
       <p class="kicker">LWE</p>
-      <h1>Wallpaper Engine</h1>
+      <p class="brand-title">Wallpaper Engine</p>
       <p class="summary">A persistent shell for library, workshop, desktop, and settings workflows.</p>
     </div>
 
@@ -123,7 +123,7 @@
   .summary,
   .nav-meta,
   .nav-description,
-  h1 {
+  .brand-title {
     margin: 0;
   }
 
@@ -134,8 +134,9 @@
     text-transform: uppercase;
   }
 
-  h1 {
+  .brand-title {
     font-size: 1.35rem;
+    font-weight: 700;
   }
 
   .summary {

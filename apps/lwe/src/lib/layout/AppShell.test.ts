@@ -17,5 +17,6 @@ describe('AppShell', () => {
     expect(body).toContain('Settings');
     expect(body).toContain('aria-current="page"');
     expect(body).toContain('<main');
+    expect(body).not.toContain('<h1');
   });
 });
