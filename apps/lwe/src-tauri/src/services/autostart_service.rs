@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::ErrorKind;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 const AUTOSTART_ENTRY_FILE_NAME: &str = "wayvid-lwe.desktop";
@@ -159,11 +160,15 @@ fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> 
     let mut has_application_type = false;
     let mut exec_matches = false;
     let mut hidden = false;
+    let mut try_exec = None;
 
     for line in group_lines {
         match line {
             "Type=Application" => has_application_type = true,
             "Hidden=true" => hidden = true,
+            _ if line.starts_with("TryExec=") => {
+                try_exec = Some(line["TryExec=".len()..].trim());
+            }
             _ if line.starts_with("Exec=") => {
                 exec_matches =
                     desktop_entry_exec_matches(&line["Exec=".len()..], expected_launch_command)
@@ -172,7 +177,36 @@ fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> 
         }
     }
 
-    has_application_type && exec_matches && !hidden
+    let try_exec_matches = try_exec
+        .map(try_exec_is_executable_in_environment)
+        .unwrap_or(true);
+
+    has_application_type && exec_matches && !hidden && try_exec_matches
+}
+
+fn try_exec_is_executable_in_environment(try_exec: &str) -> bool {
+    if try_exec.is_empty() {
+        return false;
+    }
+
+    let try_exec_path = Path::new(try_exec);
+
+    if try_exec_path.components().count() > 1 || try_exec_path.is_absolute() {
+        return is_executable_file(try_exec_path);
+    }
+
+    std::env::var_os("PATH")
+        .map(|path| {
+            std::env::split_paths(&path)
+                .any(|directory| is_executable_file(&directory.join(try_exec_path)))
+        })
+        .unwrap_or(false)
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    fs::metadata(path)
+        .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
 }
 
 fn desktop_entry_group_lines<'a>(contents: &'a str, group_name: &str) -> Option<Vec<&'a str>> {
@@ -401,6 +435,36 @@ mod tests {
                 ])
                 .state,
             super::AutostartState::Enabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_missing_tryexec_as_disabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root.clone());
+        let missing_tryexec = config_root.join("missing-lwe-bin");
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            format!(
+                "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nTryExec={}\nTerminal=false\n",
+                missing_tryexec.display()
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Disabled
         );
     }
 
