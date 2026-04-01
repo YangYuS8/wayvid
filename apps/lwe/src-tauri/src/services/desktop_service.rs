@@ -736,6 +736,7 @@ mod tests {
 
     #[test]
     fn desktop_apply_flow_apply_to_monitor_reflects_current_monitor_discovery_state() {
+        let _guard = real_desktop_flow_test_guard();
         let Some(monitor_id) = known_monitor_id() else {
             let result = DesktopService::apply_to_monitor("DISPLAY-1", "wallpaper-1").unwrap();
 
