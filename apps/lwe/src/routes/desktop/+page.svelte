@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import DesktopMonitorCard from '$lib/components/DesktopMonitorCard.svelte';
+  import PageHeader from '$lib/layout/PageHeader.svelte';
+  import { Card } from '$lib/ui/card';
   import { loadDesktopPage } from '$lib/ipc';
   import { needsPageLoad, pageCache, setCurrentPage, setDesktopSnapshot } from '$lib/stores/ui';
   import { resolveDesktopPageState } from './page-state';
@@ -36,144 +39,171 @@
   });
 </script>
 
-<section class="page-shell">
-  <header>
-    <p class="eyebrow">Desktop</p>
-    <h1>Monitor shell</h1>
-    <p>Render the current desktop snapshot without inventing runtime behavior in the frontend.</p>
-  </header>
+<svelte:head>
+  <title>Desktop</title>
+</svelte:head>
+
+<section class="page">
+  <PageHeader
+    eyebrow="Desktop"
+    title="Monitor shell"
+    subtitle="Render the current desktop snapshot without inventing runtime behavior in the frontend."
+  />
 
   {#if pageError}
     <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !$pageCache.desktop.snapshot}
     <p role="status" aria-live="polite">Loading Desktop snapshot…</p>
   {:else if snapshot}
-    <section class="panel">
-      <p>Monitors discovered: {snapshot.monitors.length}</p>
-      <p>Monitor discovery available: {pageState?.monitorAvailabilityLabel ?? 'no'}</p>
-      <p>Assignment persistence available: {pageState?.assignmentAvailabilityLabel ?? 'no'}</p>
-      <p>Snapshot stale: {snapshot.stale ? 'yes' : 'no'}</p>
+    <div class="page-body">
+      <Card class="summary-panel border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+        <div class="summary-grid">
+          <div class="summary-card">
+            <p class="summary-label">Monitors discovered</p>
+            <p class="summary-value">{snapshot.monitors.length}</p>
+          </div>
 
-      {#if pageState?.issueMessages.length}
-        <div class="issues" aria-live="polite">
-          {#each pageState.issueMessages as issue}
-            <p class="message warning">{issue}</p>
-          {/each}
+          <div class="summary-card">
+            <p class="summary-label">Monitor discovery</p>
+            <p class="summary-copy">{pageState?.monitorAvailabilityLabel ?? 'no'}</p>
+          </div>
+
+          <div class="summary-card">
+            <p class="summary-label">Assignment persistence</p>
+            <p class="summary-copy">{pageState?.assignmentAvailabilityLabel ?? 'no'}</p>
+          </div>
+
+          <div class="summary-card">
+            <p class="summary-label">Snapshot stale</p>
+            <p class="summary-copy">{snapshot.stale ? 'yes' : 'no'}</p>
+          </div>
         </div>
-      {/if}
 
-      {#if pageState?.emptyMessage}
-        <p>{pageState.emptyMessage}</p>
-      {/if}
+        {#if pageState?.issueMessages.length}
+          <div class="issues" aria-live="polite">
+            {#each pageState.issueMessages as issue}
+              <p class="message warning">{issue}</p>
+            {/each}
+          </div>
+        {/if}
+
+        {#if pageState?.emptyMessage}
+          <p class="summary-copy">{pageState.emptyMessage}</p>
+        {/if}
+      </Card>
 
       {#if snapshot.monitors.length > 0}
-        <div class="monitor-grid">
-          {#each snapshot.monitors as monitor}
-            <article class="monitor-card">
-              <div class="monitor-copy">
-                <h2>{monitor.displayName}</h2>
-                <p>{monitor.resolution}</p>
-                <p>ID: {monitor.monitorId}</p>
-              </div>
+        <section class="section-block">
+          <div class="section-heading">
+            <p class="section-kicker">Active outputs</p>
+            <h2>Current monitors</h2>
+          </div>
 
-              <div class="monitor-state">
-                <p>
-                  Current item:
-                  {monitor.currentWallpaperTitle ?? monitor.currentItemId ?? 'No saved assignment'}
-                </p>
-                {#if monitor.restoreState}
-                  <p>Restore state: {monitor.restoreState.replaceAll('_', ' ')}</p>
-                {/if}
-                {#if monitor.restoreIssue}
-                  <p class="message warning">{monitor.restoreIssue}</p>
-                {/if}
-              </div>
-            </article>
-          {/each}
-        </div>
+          <div class="monitor-grid">
+            {#each snapshot.monitors as monitor}
+              <DesktopMonitorCard
+                displayName={monitor.displayName}
+                monitorId={monitor.monitorId}
+                resolution={monitor.resolution}
+                currentItemLabel={monitor.currentWallpaperTitle ?? monitor.currentItemId ?? 'No saved assignment'}
+                currentCoverPath={monitor.currentCoverPath}
+                runtimeStatus={monitor.runtimeStatus}
+                restoreState={monitor.restoreState ?? null}
+                restoreIssue={monitor.restoreIssue ?? null}
+              />
+            {/each}
+          </div>
+        </section>
       {/if}
 
       {#if snapshot.missingMonitorRestores.length > 0}
-        <div class="missing-restores">
+        <section class="section-block">
           <h2>Missing monitor restores</h2>
 
-          {#each snapshot.missingMonitorRestores as restore}
-            <article class="monitor-card missing">
-              <div class="monitor-copy">
-                <h3>{restore.monitorId}</h3>
-                <p>Saved item: {restore.currentWallpaperTitle ?? restore.currentItemId}</p>
-                <p>Restore state: {restore.restoreState.replaceAll('_', ' ')}</p>
-              </div>
-
-              {#if restore.restoreIssue}
-                <p class="message warning">{restore.restoreIssue}</p>
-              {/if}
-            </article>
-          {/each}
-        </div>
+          <div class="monitor-grid">
+            {#each snapshot.missingMonitorRestores as restore}
+              <DesktopMonitorCard
+                displayName={restore.monitorId}
+                monitorId={restore.monitorId}
+                resolution={null}
+                currentItemLabel={restore.currentWallpaperTitle ?? restore.currentItemId}
+                currentCoverPath={null}
+                restoreState={restore.restoreState}
+                restoreIssue={restore.restoreIssue ?? null}
+                missing={true}
+              />
+            {/each}
+          </div>
+        </section>
       {/if}
 
-      <p>The runtime control surface stays deferred until a later task exposes real commands.</p>
-    </section>
+      <p class="footnote">The runtime control surface stays deferred until a later task exposes real commands.</p>
+    </div>
   {/if}
 </section>
 
 <style>
-  .page-shell,
-  header,
-  .panel,
-   .issues,
-   .monitor-grid,
-   .monitor-card,
-   .monitor-copy,
-   .monitor-state,
-   .missing-restores {
+  .page,
+  .page-body,
+  .summary-grid,
+  .summary-card,
+  .issues,
+  .section-block,
+  .section-heading,
+  .monitor-grid {
     display: grid;
     gap: 1rem;
   }
 
-  .page-shell {
-    padding: 1.5rem;
-  }
-
-  .eyebrow,
-  h1,
-  p {
+  p,
+  h2 {
     margin: 0;
   }
 
-  .eyebrow {
-    font-size: 0.8rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #5a6978;
+  .summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
-  .panel {
-    border: 1px solid rgba(33, 52, 72, 0.12);
-    border-radius: 22px;
-    padding: 1.1rem;
-    background: rgba(255, 255, 255, 0.92);
+  .summary-card {
+    align-content: start;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(248, 250, 252, 0.72);
+  }
+
+  .summary-label,
+  .section-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #526272;
+  }
+
+  .summary-value {
+    font-size: clamp(1.75rem, 3vw, 2.4rem);
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .summary-copy,
+  .footnote {
+    color: #526272;
+    line-height: 1.55;
+  }
+
+  .section-heading {
+    gap: 0.35rem;
   }
 
   .monitor-grid {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
-  .monitor-card {
-    border: 1px solid rgba(33, 52, 72, 0.12);
-    border-radius: 18px;
-    padding: 1rem;
-    background: rgba(248, 250, 252, 0.9);
-  }
-
-  .monitor-card.missing {
-    background: rgba(15, 95, 154, 0.08);
-  }
-
-  h2,
-  h3 {
-    margin: 0;
+  h2 {
+    font-size: 1.15rem;
+    color: #0f172a;
   }
 
   .message.error {
@@ -186,5 +216,11 @@
     padding: 0.85rem 1rem;
     border-radius: 14px;
     background: rgba(15, 95, 154, 0.12);
+  }
+
+  @media (max-width: 700px) {
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
