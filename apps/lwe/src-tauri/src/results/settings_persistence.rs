@@ -1,4 +1,5 @@
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct PersistedSettings {
     pub language: String,
     pub theme: String,

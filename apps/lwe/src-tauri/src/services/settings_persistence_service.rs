@@ -204,6 +204,24 @@ mod tests {
     }
 
     #[test]
+    fn settings_persistence_loads_partial_toml_with_defaults_for_missing_fields() {
+        let path = test_settings_path();
+        std::fs::write(&path, "language = \"fr\"\n").unwrap();
+        let service = SettingsPersistenceService::for_test(path);
+
+        let loaded = service.load_settings();
+
+        assert_eq!(
+            loaded,
+            SettingsPersistenceLoad::Loaded(PersistedSettings {
+                language: "fr".to_string(),
+                theme: "system".to_string(),
+                launch_on_login: false,
+            })
+        );
+    }
+
+    #[test]
     fn settings_persistence_round_trips_mvp_settings_through_toml_file() {
         let path = test_settings_path();
         let service = SettingsPersistenceService::for_test(path.clone());
