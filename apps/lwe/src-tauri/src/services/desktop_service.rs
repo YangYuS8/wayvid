@@ -310,15 +310,15 @@ impl DesktopService {
             .as_mut()
             .ok_or_else(|| "Desktop apply backend failed to initialize".to_string())?;
 
-        Self::wait_for_output(backend, &monitor.name)?;
+        Self::wait_for_output(backend, &monitor.backend_output_id)?;
         backend
             .handle
             .send(EngineCommand::ApplyWallpaper {
                 path: path.clone(),
-                output: Some(monitor.name.clone()),
+                output: Some(monitor.backend_output_id.clone()),
             })
             .map_err(|error| format!("Failed to send real desktop apply command: {error}"))?;
-        Self::wait_for_apply(backend, &monitor.name, &path)
+        Self::wait_for_apply(backend, &monitor.backend_output_id, &path)
     }
 
     fn resolve_real_apply_path(item_id: &str) -> Result<PathBuf, String> {
