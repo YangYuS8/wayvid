@@ -32,7 +32,7 @@ describe('WorkshopDetailPanel', () => {
 
     expect(body).toContain('Unable to complete the Workshop request.');
     expect(body).toContain('lwe-subpanel');
-    expect(body).toContain('lwe-warning-banner');
+    expect(body).toContain('lwe-warning-banner lwe-wrap-safe');
     expect(body).toContain('Workshop detail');
   });
 });

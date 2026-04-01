@@ -26,7 +26,7 @@
   {:else if error}
     <div class="lwe-subpanel gap-3">
       <p class="lwe-eyebrow">Library detail</p>
-      <p class="lwe-warning-banner" role="alert" aria-live="assertive">
+      <p class="lwe-warning-banner lwe-wrap-safe" role="alert" aria-live="assertive">
         {error}
       </p>
     </div>
@@ -53,7 +53,7 @@
         {#if issueMessages.length}
           <div class="grid gap-2.5" aria-live="polite">
             {#each issueMessages as issue}
-              <p class="lwe-info-banner">
+              <p class="lwe-info-banner lwe-wrap-safe">
                 {issue}
               </p>
             {/each}
@@ -97,7 +97,7 @@
       {#if issueMessages.length}
         <div class="grid gap-2.5" aria-live="polite">
           {#each issueMessages as issue}
-            <p class="lwe-info-banner">
+            <p class="lwe-info-banner lwe-wrap-safe">
               {issue}
             </p>
           {/each}

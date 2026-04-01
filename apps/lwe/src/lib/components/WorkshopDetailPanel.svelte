@@ -22,7 +22,7 @@
   {:else if error}
     <div class="lwe-subpanel gap-3">
       <p class="lwe-eyebrow">Workshop detail</p>
-      <p class="lwe-warning-banner" role="alert" aria-live="assertive">
+      <p class="lwe-warning-banner lwe-wrap-safe" role="alert" aria-live="assertive">
         {error}
       </p>
     </div>

@@ -37,6 +37,7 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('Desktop assignments are unavailable.');
     expect(body).toContain('data-slot="card"');
     expect(body).toContain('Library item');
+    expect(body).toContain('lwe-info-banner lwe-wrap-safe');
   });
 
   it('renders assigned monitor labels from the current detail payload', () => {
@@ -101,7 +102,7 @@ describe('LibraryDetailPanel', () => {
 
     expect(body).toContain('Unable to load the Library request.');
     expect(body).toContain('lwe-subpanel');
-    expect(body).toContain('lwe-warning-banner');
+    expect(body).toContain('lwe-warning-banner lwe-wrap-safe');
     expect(body).toContain('Library detail');
   });
 });
