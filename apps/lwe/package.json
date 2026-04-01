@@ -10,10 +10,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "bits-ui": "^2.16.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "shadcn-svelte": "^1.2.5",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {

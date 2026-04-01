@@ -13,5 +13,6 @@
     "lib": "$lib",
     "ui": "$lib/ui",
     "utils": "$lib/ui/utils"
-  }
+  },
+  "registries": {}
 }
