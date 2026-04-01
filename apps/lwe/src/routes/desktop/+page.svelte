@@ -3,18 +3,30 @@
   import DesktopMonitorCard from '$lib/components/DesktopMonitorCard.svelte';
   import PageHeader from '$lib/layout/PageHeader.svelte';
   import { Card } from '$lib/ui/card';
+  import { Select } from '$lib/ui/select';
   import { loadDesktopPage } from '$lib/ipc';
   import { needsPageLoad, pageCache, setCurrentPage, setDesktopSnapshot } from '$lib/stores/ui';
   import { resolveDesktopPageState } from './page-state';
+
+  type MonitorFilter = 'all' | 'active' | 'missing';
 
   const readError = (error: unknown) =>
     error instanceof Error ? error.message : 'Unable to load the Desktop snapshot.';
 
   let loading = false;
   let pageError: string | null = null;
+  let monitorFilter: MonitorFilter = 'all';
 
   $: snapshot = $pageCache.desktop.snapshot;
   $: pageState = snapshot ? resolveDesktopPageState(snapshot) : null;
+  $: visibleMonitors = monitorFilter === 'missing' ? [] : snapshot?.monitors ?? [];
+  $: visibleMissingMonitorRestores = monitorFilter === 'active' ? [] : snapshot?.missingMonitorRestores ?? [];
+  $: filterEmptyMessage =
+    monitorFilter === 'active'
+      ? 'No active monitors are available in the current snapshot.'
+      : monitorFilter === 'missing'
+        ? 'No missing monitor restores are recorded in the current snapshot.'
+        : null;
 
   const ensurePage = async () => {
     if (!needsPageLoad('desktop')) {
@@ -48,7 +60,25 @@
     eyebrow="Desktop"
     title="Monitor shell"
     subtitle="Render the current desktop snapshot without inventing runtime behavior in the frontend."
-  />
+  >
+    {#snippet actions()}
+      <label class="monitor-filter">
+        <span>View</span>
+        <Select
+          value={monitorFilter}
+          aria-label="Monitor view filter"
+          class="min-w-[11rem]"
+          onchange={(event) => {
+            monitorFilter = (event.currentTarget as HTMLSelectElement).value as MonitorFilter;
+          }}
+        >
+          <option value="all">All outputs</option>
+          <option value="active">Current monitors</option>
+          <option value="missing">Missing restores</option>
+        </Select>
+      </label>
+    {/snippet}
+  </PageHeader>
 
   {#if pageError}
     <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
@@ -92,7 +122,7 @@
         {/if}
       </Card>
 
-      {#if snapshot.monitors.length > 0}
+      {#if visibleMonitors.length > 0}
         <section class="section-block">
           <div class="section-heading">
             <p class="section-kicker">Active outputs</p>
@@ -100,7 +130,7 @@
           </div>
 
           <div class="monitor-grid">
-            {#each snapshot.monitors as monitor}
+            {#each visibleMonitors as monitor}
               <DesktopMonitorCard
                 displayName={monitor.displayName}
                 monitorId={monitor.monitorId}
@@ -114,14 +144,16 @@
             {/each}
           </div>
         </section>
+      {:else if monitorFilter === 'active'}
+        <p class="summary-copy" role="status" aria-live="polite">{filterEmptyMessage}</p>
       {/if}
 
-      {#if snapshot.missingMonitorRestores.length > 0}
+      {#if visibleMissingMonitorRestores.length > 0}
         <section class="section-block">
           <h2>Missing monitor restores</h2>
 
           <div class="monitor-grid">
-            {#each snapshot.missingMonitorRestores as restore}
+            {#each visibleMissingMonitorRestores as restore}
               <DesktopMonitorCard
                 displayName={restore.monitorId}
                 monitorId={restore.monitorId}
@@ -135,6 +167,8 @@
             {/each}
           </div>
         </section>
+      {:else if monitorFilter === 'missing'}
+        <p class="summary-copy" role="status" aria-live="polite">{filterEmptyMessage}</p>
       {/if}
 
       <p class="footnote">The runtime control surface stays deferred until a later task exposes real commands.</p>
@@ -148,6 +182,7 @@
   .summary-grid,
   .summary-card,
   .issues,
+  .monitor-filter,
   .section-block,
   .section-heading,
   .monitor-grid {
@@ -191,6 +226,19 @@
   .footnote {
     color: #526272;
     line-height: 1.55;
+  }
+
+  .monitor-filter {
+    justify-items: start;
+    gap: 0.4rem;
+  }
+
+  .monitor-filter span {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #526272;
   }
 
   .section-heading {

@@ -30,5 +30,7 @@ describe('DesktopMonitorCard', () => {
     expect(body).toContain('Restore state');
     expect(body).toContain('Saved assignment was restored from the last session.');
     expect(body).toContain('data-slot="card"');
+    expect(body).toContain('View status details');
+    expect(body).toContain('data-slot="dialog"');
   });
 });

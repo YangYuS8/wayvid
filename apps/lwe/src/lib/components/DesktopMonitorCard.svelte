@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Button } from '$lib/ui/button';
+  import { Dialog } from '$lib/ui/dialog';
   import { Card } from '$lib/ui/card';
   import { Separator } from '$lib/ui/separator';
   import CoverImage from '$lib/components/CoverImage.svelte';
@@ -13,6 +15,7 @@
   export let restoreState: string | null = null;
   export let restoreIssue: string | null = null;
   export let missing = false;
+  let detailsOpen = false;
 
   $: statusLabels = [runtimeStatus, restoreState].filter((value): value is string => Boolean(value));
   $: hasStateDetails = statusLabels.length > 0 || Boolean(restoreIssue);
@@ -57,7 +60,21 @@
     {#if hasStateDetails}
       <Separator class="bg-slate-200/80" />
       <div class="grid gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Restore state</p>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Restore state</p>
+
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-fit"
+            aria-haspopup="dialog"
+            onclick={() => {
+              detailsOpen = true;
+            }}
+          >
+            View status details
+          </Button>
+        </div>
 
         {#if statusLabels.length > 0}
           <div class="flex flex-wrap gap-2">
@@ -73,6 +90,38 @@
           </p>
         {/if}
       </div>
+
+      <Dialog open={detailsOpen} aria-label={`${displayName} status details`} class="grid gap-4 p-0">
+        <div class="grid gap-4 p-6">
+          <div class="grid gap-1">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor status</p>
+            <h4 class="text-lg font-semibold text-slate-950">{displayName}</h4>
+            <p class="text-sm text-slate-600">{monitorId}</p>
+          </div>
+
+          {#if statusLabels.length > 0}
+            <div class="flex flex-wrap gap-2">
+              {#each statusLabels as statusLabel}
+                <StatusBadge label={statusLabel} />
+              {/each}
+            </div>
+          {/if}
+
+          <p class="text-sm leading-6 text-slate-700">
+            {restoreIssue ?? 'This monitor has state metadata available, but no additional restore issue was reported.'}
+          </p>
+
+          <Button
+            variant="secondary"
+            class="w-fit justify-self-end"
+            onclick={() => {
+              detailsOpen = false;
+            }}
+          >
+            Close
+          </Button>
+        </div>
+      </Dialog>
     {/if}
   </div>
 </Card>
