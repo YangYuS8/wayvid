@@ -9,6 +9,16 @@
     "frontendDist": "../build"
   },
   "app": {
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": [
+            "$HOME/.steam/steam/steamapps/workshop/content/**/*"
+          ]
+        }
+      }
+    },
     "windows": [
       {
         "title": "LWE",
