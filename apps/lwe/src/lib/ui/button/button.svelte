@@ -6,14 +6,14 @@
   import { cn } from '$lib/ui/utils';
 
   export const buttonVariants = cva(
-    'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+    'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
     {
       variants: {
         variant: {
-          default: 'bg-slate-900 text-slate-50',
-          secondary: 'bg-slate-100 text-slate-900',
-          outline: 'border border-slate-200 bg-white text-slate-900',
-          ghost: 'text-slate-900'
+          default: 'bg-slate-900 text-slate-50 hover:bg-slate-800',
+          secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+          outline: 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-50',
+          ghost: 'text-slate-900 hover:bg-slate-100'
         },
         size: {
           default: 'h-9 px-4 py-2',
