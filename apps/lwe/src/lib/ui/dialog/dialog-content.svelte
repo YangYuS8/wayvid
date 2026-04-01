@@ -19,13 +19,13 @@
 
 <DialogPrimitive.Portal disabled={portalDisabled}>
   <DialogPrimitive.Overlay
-    class={cn('fixed inset-0 z-50 bg-foreground/40', overlayClass)}
+    class={cn('fixed inset-0 z-50 bg-foreground/50 backdrop-blur-[1px]', overlayClass)}
     data-slot="dialog-overlay"
   />
 
   <DialogPrimitive.Content
     class={cn(
-      'fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-card p-6 text-card-foreground shadow-lg',
+      'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-lg',
       className
     )}
     data-slot="dialog-content"
