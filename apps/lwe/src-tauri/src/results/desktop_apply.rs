@@ -1,10 +1,29 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DesktopApplyResult {
-    Applied { monitor_id: String, item_id: String },
-    Cleared { monitor_id: String },
-    MonitorNotFound { monitor_id: String },
-    MonitorDiscoveryUnavailable { reason: String },
-    PersistenceUnavailable { reason: String },
+    Applied {
+        monitor_id: String,
+        item_id: String,
+    },
+    AppliedWithBackend {
+        monitor_id: String,
+        item_id: String,
+        backend: String,
+    },
+    Cleared {
+        monitor_id: String,
+    },
+    MonitorNotFound {
+        monitor_id: String,
+    },
+    MonitorDiscoveryUnavailable {
+        reason: String,
+    },
+    BackendUnavailable {
+        reason: String,
+    },
+    PersistenceUnavailable {
+        reason: String,
+    },
 }
 
 #[cfg(test)]
@@ -17,8 +36,16 @@ mod tests {
             monitor_id: "DISPLAY-1".to_string(),
             item_id: "scene-7".to_string(),
         };
+        let applied_with_backend = DesktopApplyResult::AppliedWithBackend {
+            monitor_id: "DISPLAY-1".to_string(),
+            item_id: "scene-7".to_string(),
+            backend: "lwe_engine_wayland".to_string(),
+        };
         let discovery_unavailable = DesktopApplyResult::MonitorDiscoveryUnavailable {
             reason: "Desktop persistence is not available yet".to_string(),
+        };
+        let backend_unavailable = DesktopApplyResult::BackendUnavailable {
+            reason: "The current desktop apply backend is unavailable".to_string(),
         };
         let persistence_unavailable = DesktopApplyResult::PersistenceUnavailable {
             reason: "Desktop persistence is not available yet".to_string(),
@@ -29,8 +56,16 @@ mod tests {
 
         assert!(matches!(applied, DesktopApplyResult::Applied { .. }));
         assert!(matches!(
+            applied_with_backend,
+            DesktopApplyResult::AppliedWithBackend { .. }
+        ));
+        assert!(matches!(
             discovery_unavailable,
             DesktopApplyResult::MonitorDiscoveryUnavailable { .. }
+        ));
+        assert!(matches!(
+            backend_unavailable,
+            DesktopApplyResult::BackendUnavailable { .. }
         ));
         assert!(matches!(
             persistence_unavailable,

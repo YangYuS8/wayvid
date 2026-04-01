@@ -1,4 +1,11 @@
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+use lwe_engine::{spawn_engine, EngineCommand, EngineConfig, EngineEvent, EngineHandle};
+use lwe_library::{WeProject, WorkshopProjectType};
 
 use crate::results::desktop::{
     DesktopApplyResult, DesktopPageResult, DesktopResolvedMonitorAssignment,
@@ -12,6 +19,19 @@ use crate::services::monitor_service::MonitorService;
 
 pub(crate) const LIBRARY_RESOLUTION_ISSUE_PREFIX: &str =
     "Unable to resolve desktop items against the current Library snapshot:";
+const REAL_APPLY_BACKEND: &str = "lwe_engine_wayland";
+const REAL_APPLY_BACKEND_TIMEOUT: Duration = Duration::from_secs(5);
+
+struct RunningDesktopApplyBackend {
+    handle: EngineHandle,
+    events: Receiver<EngineEvent>,
+}
+
+static DESKTOP_APPLY_BACKEND: OnceLock<Mutex<Option<RunningDesktopApplyBackend>>> = OnceLock::new();
+
+fn desktop_apply_backend_slot() -> &'static Mutex<Option<RunningDesktopApplyBackend>> {
+    DESKTOP_APPLY_BACKEND.get_or_init(|| Mutex::new(None))
+}
 
 pub struct DesktopService;
 
@@ -230,7 +250,16 @@ impl DesktopService {
                     monitor_id: monitor_id.to_string(),
                 })
             }
-            MonitorDiscoveryResult::Known(_) => {
+            MonitorDiscoveryResult::Known(monitors) => {
+                let monitor = monitors
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| format!("Monitor {monitor_id} unexpectedly resolved empty"))?;
+
+                if let Err(reason) = Self::apply_with_real_backend(&monitor, item_id) {
+                    return Ok(DesktopApplyResult::BackendUnavailable { reason });
+                }
+
                 let persistence = match DesktopPersistenceService::for_user_path() {
                     Ok(service) => service,
                     Err(reason) => {
@@ -239,9 +268,10 @@ impl DesktopService {
                 };
 
                 match persistence.save_assignment(monitor_id, item_id) {
-                    DesktopPersistenceWrite::Saved => Ok(DesktopApplyResult::Applied {
+                    DesktopPersistenceWrite::Saved => Ok(DesktopApplyResult::AppliedWithBackend {
                         monitor_id: monitor_id.to_string(),
                         item_id: item_id.to_string(),
+                        backend: REAL_APPLY_BACKEND.to_string(),
                     }),
                     DesktopPersistenceWrite::Cleared => {
                         Ok(DesktopApplyResult::PersistenceUnavailable {
@@ -257,6 +287,192 @@ impl DesktopService {
             MonitorDiscoveryResult::Unavailable { reason } => {
                 Ok(DesktopApplyResult::MonitorDiscoveryUnavailable { reason })
             }
+        }
+    }
+
+    fn apply_with_real_backend(
+        monitor: &crate::services::monitor_service::MonitorDescriptor,
+        item_id: &str,
+    ) -> Result<(), String> {
+        let path = Self::resolve_real_apply_path(item_id)?;
+        let mut backend_guard = Self::ensure_running_apply_backend()?;
+        let backend = backend_guard
+            .as_mut()
+            .ok_or_else(|| "Desktop apply backend failed to initialize".to_string())?;
+
+        Self::wait_for_output(backend, &monitor.name)?;
+        backend
+            .handle
+            .send(EngineCommand::ApplyWallpaper {
+                path: path.clone(),
+                output: Some(monitor.name.clone()),
+            })
+            .map_err(|error| format!("Failed to send real desktop apply command: {error}"))?;
+        Self::wait_for_apply(backend, &monitor.name, &path)
+    }
+
+    fn resolve_real_apply_path(item_id: &str) -> Result<PathBuf, String> {
+        let entry = LibraryService::inspect_item(item_id).map_err(|reason| {
+            format!("Library item {item_id} is unavailable for real desktop apply: {reason}")
+        })?;
+
+        if entry.entry.project_type != WorkshopProjectType::Video {
+            return Err(format!(
+                "Library item {item_id} uses {:?}, but the current real desktop apply path only supports synced video items on this machine",
+                entry.entry.project_type
+            ));
+        }
+
+        let project = WeProject::load(&entry.entry.project_dir).map_err(|error| {
+            format!(
+                "Library item {item_id} could not load project metadata for real desktop apply: {error}"
+            )
+        })?;
+        let path = project.main_file(&entry.entry.project_dir).ok_or_else(|| {
+            format!(
+                "Library item {item_id} does not expose a primary video asset for real desktop apply"
+            )
+        })?;
+
+        if !path.is_file() {
+            return Err(format!(
+                "Library item {item_id} points to missing video asset {}",
+                path.display()
+            ));
+        }
+
+        Ok(path)
+    }
+
+    fn ensure_running_apply_backend(
+    ) -> Result<std::sync::MutexGuard<'static, Option<RunningDesktopApplyBackend>>, String> {
+        let mut backend = desktop_apply_backend_slot()
+            .lock()
+            .map_err(|_| "Desktop apply backend lock was poisoned".to_string())?;
+        let should_restart = backend
+            .as_ref()
+            .map(|backend| !backend.handle.is_running())
+            .unwrap_or(true);
+
+        if should_restart {
+            *backend = Some(Self::start_apply_backend()?);
+        }
+
+        Ok(backend)
+    }
+
+    fn start_apply_backend() -> Result<RunningDesktopApplyBackend, String> {
+        let (handle, events) = spawn_engine(EngineConfig::default())
+            .map_err(|error| format!("Failed to start {REAL_APPLY_BACKEND}: {error}"))?;
+        let mut backend = RunningDesktopApplyBackend { handle, events };
+
+        Self::wait_for_backend_start(&mut backend)?;
+
+        Ok(backend)
+    }
+
+    fn wait_for_backend_start(backend: &mut RunningDesktopApplyBackend) -> Result<(), String> {
+        let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+
+        loop {
+            match Self::recv_backend_event(backend, deadline)? {
+                Some(EngineEvent::Started) => return Ok(()),
+                Some(EngineEvent::Error(reason)) => {
+                    return Err(format!("{REAL_APPLY_BACKEND} failed to start: {reason}"));
+                }
+                Some(_) => {}
+                None => {
+                    return Err(format!(
+                        "Timed out waiting for {REAL_APPLY_BACKEND} to start"
+                    ));
+                }
+            }
+        }
+    }
+
+    fn wait_for_output(
+        backend: &mut RunningDesktopApplyBackend,
+        output_name: &str,
+    ) -> Result<(), String> {
+        let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+        backend
+            .handle
+            .send(EngineCommand::GetOutputs)
+            .map_err(|error| {
+                format!("Failed to request outputs from {REAL_APPLY_BACKEND}: {error}")
+            })?;
+
+        loop {
+            match Self::recv_backend_event(backend, deadline)? {
+                Some(EngineEvent::OutputAdded(info)) if info.name == output_name => return Ok(()),
+                Some(EngineEvent::OutputsList(outputs))
+                    if outputs.iter().any(|output| output.name == output_name) =>
+                {
+                    return Ok(());
+                }
+                Some(EngineEvent::Error(reason)) => {
+                    return Err(format!(
+                        "{REAL_APPLY_BACKEND} could not prepare output {output_name}: {reason}"
+                    ));
+                }
+                Some(_) => {}
+                None => {
+                    return Err(format!(
+                        "Timed out waiting for output {output_name} in {REAL_APPLY_BACKEND}"
+                    ));
+                }
+            }
+        }
+    }
+
+    fn wait_for_apply(
+        backend: &mut RunningDesktopApplyBackend,
+        output_name: &str,
+        path: &Path,
+    ) -> Result<(), String> {
+        let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+
+        loop {
+            match Self::recv_backend_event(backend, deadline)? {
+                Some(EngineEvent::WallpaperApplied {
+                    output,
+                    path: applied_path,
+                }) if output == output_name && applied_path == path => return Ok(()),
+                Some(EngineEvent::Error(reason)) => {
+                    return Err(format!(
+                        "{REAL_APPLY_BACKEND} failed to apply {} to {output_name}: {reason}",
+                        path.display()
+                    ));
+                }
+                Some(_) => {}
+                None => {
+                    return Err(format!(
+                        "Timed out waiting for {REAL_APPLY_BACKEND} to apply {} to {output_name}",
+                        path.display()
+                    ));
+                }
+            }
+        }
+    }
+
+    fn recv_backend_event(
+        backend: &mut RunningDesktopApplyBackend,
+        deadline: Instant,
+    ) -> Result<Option<EngineEvent>, String> {
+        let now = Instant::now();
+        if now >= deadline {
+            return Ok(None);
+        }
+
+        match backend
+            .events
+            .recv_timeout(deadline.saturating_duration_since(now))
+        {
+            Ok(event) => Ok(Some(event)),
+            Err(RecvTimeoutError::Timeout) => Ok(None),
+            Err(RecvTimeoutError::Disconnected) => Err(format!(
+                "{REAL_APPLY_BACKEND} stopped before completing the desktop apply request"
+            )),
         }
     }
 
@@ -307,7 +523,9 @@ mod tests {
     use crate::results::library::LibraryProjection;
     use crate::results::monitor_discovery::MonitorDiscoveryResult;
     use crate::results::workshop::AssessedWorkshopCatalogEntry;
+    use crate::services::library_service::LibraryService;
     use crate::services::monitor_service::MonitorService;
+    use lwe_library::WeProject;
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
 
     fn known_monitor_id() -> Option<String> {
@@ -317,6 +535,32 @@ mod tests {
             }
             MonitorDiscoveryResult::Unavailable { .. } => None,
         }
+    }
+
+    fn known_monitor() -> Option<crate::services::monitor_service::MonitorDescriptor> {
+        match MonitorService::list_monitors() {
+            MonitorDiscoveryResult::Known(monitors) => monitors.into_iter().next(),
+            MonitorDiscoveryResult::Unavailable { .. } => None,
+        }
+    }
+
+    fn real_supported_library_item_id() -> Option<String> {
+        let projection = LibraryService::load_projection().ok()?;
+
+        projection.entries.into_iter().find_map(|entry| {
+            if entry.entry.project_type != WorkshopProjectType::Video {
+                return None;
+            }
+
+            let project = WeProject::load(&entry.entry.project_dir).ok()?;
+            let main_file = project.main_file(&entry.entry.project_dir)?;
+
+            if !main_file.is_file() {
+                return None;
+            }
+
+            entry.entry.library_item_id
+        })
     }
 
     fn library_item(item_id: &str, title: &str) -> AssessedWorkshopCatalogEntry {
@@ -506,8 +750,33 @@ mod tests {
 
         assert!(matches!(
             result,
-            DesktopApplyResult::Applied { .. } | DesktopApplyResult::PersistenceUnavailable { .. }
+            DesktopApplyResult::Applied { .. }
+                | DesktopApplyResult::AppliedWithBackend { .. }
+                | DesktopApplyResult::BackendUnavailable { .. }
+                | DesktopApplyResult::PersistenceUnavailable { .. }
         ));
+    }
+
+    #[test]
+    fn desktop_apply_flow_apply_to_monitor_avoids_placeholder_result_for_real_monitor_and_library_item(
+    ) {
+        let monitor = known_monitor().expect("expected a real discovered monitor on this machine");
+        let item_id = real_supported_library_item_id()
+            .expect("expected one real supported video Library item on this machine");
+
+        let result = DesktopService::apply_to_monitor(&monitor.id, &item_id).unwrap();
+
+        assert!(
+            !matches!(
+                result,
+                DesktopApplyResult::Applied { .. }
+                    | DesktopApplyResult::PersistenceUnavailable { .. }
+            ),
+            "expected a real backend apply result for {} and {}, got {:?}",
+            monitor.id,
+            item_id,
+            result
+        );
     }
 
     #[test]

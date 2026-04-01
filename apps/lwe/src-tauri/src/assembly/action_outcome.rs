@@ -39,6 +39,17 @@ pub fn assemble_desktop_apply_outcome(result: DesktopApplyResult) -> ActionOutco
             current_update: None,
             invalidations: vec![InvalidatedPage::Desktop, InvalidatedPage::Library],
         },
+        DesktopApplyResult::AppliedWithBackend {
+            monitor_id,
+            item_id,
+            backend,
+        } => ActionOutcome {
+            ok: true,
+            message: Some(format!("Applied {item_id} to {monitor_id} via {backend}")),
+            shell_patch: None,
+            current_update: None,
+            invalidations: vec![InvalidatedPage::Desktop, InvalidatedPage::Library],
+        },
         DesktopApplyResult::Cleared { monitor_id } => ActionOutcome {
             ok: true,
             message: Some(format!("Cleared desktop assignment for {monitor_id}")),
@@ -53,7 +64,8 @@ pub fn assemble_desktop_apply_outcome(result: DesktopApplyResult) -> ActionOutco
             current_update: None,
             invalidations: Vec::new(),
         },
-        DesktopApplyResult::MonitorDiscoveryUnavailable { reason }
+        DesktopApplyResult::BackendUnavailable { reason }
+        | DesktopApplyResult::MonitorDiscoveryUnavailable { reason }
         | DesktopApplyResult::PersistenceUnavailable { reason } => ActionOutcome {
             ok: false,
             message: Some(reason),
@@ -104,5 +116,20 @@ mod tests {
         assert_eq!(outcome.invalidations.len(), 2);
         assert!(matches!(outcome.invalidations[0], InvalidatedPage::Desktop));
         assert!(matches!(outcome.invalidations[1], InvalidatedPage::Library));
+    }
+
+    #[test]
+    fn desktop_apply_flow_action_outcome_mentions_real_backend_apply() {
+        let outcome = assemble_desktop_apply_outcome(DesktopApplyResult::AppliedWithBackend {
+            monitor_id: "DISPLAY-1".to_string(),
+            item_id: "scene-7".to_string(),
+            backend: "lwe_engine_wayland".to_string(),
+        });
+
+        assert!(outcome.ok);
+        assert_eq!(
+            outcome.message.as_deref(),
+            Some("Applied scene-7 to DISPLAY-1 via lwe_engine_wayland")
+        );
     }
 }
