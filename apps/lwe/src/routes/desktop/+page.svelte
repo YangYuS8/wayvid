@@ -3,7 +3,7 @@
   import DesktopMonitorCard from '$lib/components/DesktopMonitorCard.svelte';
   import PageHeader from '$lib/layout/PageHeader.svelte';
   import { Card } from '$lib/ui/card';
-  import { Select } from '$lib/ui/select';
+  import * as Select from '$lib/ui/select';
   import { loadDesktopPage } from '$lib/ipc';
   import { needsPageLoad, pageCache, setCurrentPage, setDesktopSnapshot } from '$lib/stores/ui';
   import { resolveDesktopPageState } from './page-state';
@@ -64,18 +64,21 @@
     {#snippet actions()}
       <label class="monitor-filter">
         <span>View</span>
-        <Select
-          value={monitorFilter}
-          aria-label="Monitor view filter"
-          class="min-w-[11rem]"
-          onchange={(event) => {
-            monitorFilter = (event.currentTarget as HTMLSelectElement).value as MonitorFilter;
-          }}
-        >
-          <option value="all">All outputs</option>
-          <option value="active">Current monitors</option>
-          <option value="missing">Missing restores</option>
-        </Select>
+        <Select.Root type="single" name="monitorFilter" bind:value={monitorFilter}>
+          <Select.Trigger aria-label="Monitor view filter" class="min-w-[11rem]">
+            {monitorFilter === 'all'
+              ? 'All outputs'
+              : monitorFilter === 'active'
+                ? 'Current monitors'
+                : 'Missing restores'}
+          </Select.Trigger>
+
+          <Select.Content>
+            <Select.Item value="all" label="All outputs">All outputs</Select.Item>
+            <Select.Item value="active" label="Current monitors">Current monitors</Select.Item>
+            <Select.Item value="missing" label="Missing restores">Missing restores</Select.Item>
+          </Select.Content>
+        </Select.Root>
       </label>
     {/snippet}
   </PageHeader>
