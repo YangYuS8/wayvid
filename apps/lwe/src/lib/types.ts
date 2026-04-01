@@ -135,8 +135,17 @@ export interface DesktopPageSnapshot {
 export interface SettingsPageSnapshot {
   language: string;
   theme: string;
+  launchOnLogin: boolean;
+  launchOnLoginAvailable: boolean;
   steamRequired: boolean;
+  steamStatusMessage: string;
   stale: boolean;
+}
+
+export interface SettingsUpdateInput {
+  language?: string | null;
+  theme?: string | null;
+  launchOnLogin?: boolean | null;
 }
 
 export interface AppShellPatch {
