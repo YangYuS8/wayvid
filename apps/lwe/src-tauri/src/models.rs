@@ -183,6 +183,7 @@ pub struct DesktopMonitorSummary {
     pub current_wallpaper_title: Option<String>,
     pub current_cover_path: Option<String>,
     pub current_item_id: Option<String>,
+    pub clear_supported: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub restore_state: Option<DesktopRestoreState>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -338,6 +339,7 @@ mod tests {
                 current_wallpaper_title: None,
                 current_cover_path: None,
                 current_item_id: Some("scene-7".to_string()),
+                clear_supported: true,
                 restore_state: Some(DesktopRestoreState::Restored),
                 restore_issue: None,
                 runtime_status: RuntimeStatus::Unsupported,

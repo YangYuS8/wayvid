@@ -68,6 +68,7 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
                     display_name: monitor.name,
                     monitor_id: monitor_id.clone(),
                     resolution: monitor.resolution,
+                    clear_supported: assignment.is_some() && assignments_available,
                     restore_state: assignment.map(|assignment| match assignment {
                         DesktopResolvedMonitorAssignment::Restored { .. } => {
                             DesktopRestoreState::Restored
@@ -199,6 +200,7 @@ mod tests {
             snapshot.monitors[0].restore_state,
             Some(DesktopRestoreState::Restored)
         );
+        assert!(snapshot.monitors[0].clear_supported);
         assert_eq!(snapshot.monitors[0].runtime_status, RuntimeStatus::Running);
     }
 
@@ -228,6 +230,7 @@ mod tests {
             snapshot.monitors[0].runtime_status,
             RuntimeStatus::Unsupported
         );
+        assert!(!snapshot.monitors[0].clear_supported);
     }
 
     #[test]
@@ -251,6 +254,7 @@ mod tests {
         });
 
         assert_eq!(snapshot.monitors[0].runtime_status, RuntimeStatus::Idle);
+        assert!(!snapshot.monitors[0].clear_supported);
     }
 
     #[test]

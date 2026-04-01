@@ -10,6 +10,9 @@
   export let resolution: string | null = null;
   export let currentItemLabel: string;
   export let currentCoverPath: string | null = null;
+  export let clearSupported = false;
+  export let clearing = false;
+  export let onClear: (() => void) | undefined = undefined;
   export let runtimeStatus: string | null = null;
   export let restoreState: string | null = null;
   export let restoreIssue: string | null = null;
@@ -55,6 +58,21 @@
     <div class="lwe-subpanel">
       <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Current item</p>
       <p class="lwe-wrap-safe text-sm leading-6 text-slate-800">{currentItemLabel}</p>
+
+      {#if clearSupported}
+        <div class="mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-fit focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label={`Clear wallpaper from ${displayName}`}
+            disabled={clearing}
+            onclick={onClear}
+          >
+            {clearing ? 'Clearing…' : 'Clear'}
+          </Button>
+        </div>
+      {/if}
     </div>
 
     {#if hasStateDetails}

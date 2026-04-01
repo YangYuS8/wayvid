@@ -17,8 +17,8 @@ impl MonitorService {
         let backend = NiriMonitorBackend;
 
         match backend.list_monitors() {
-            BackendMonitorDiscovery::Known(monitors) => MonitorDiscoveryResult::Known(
-                monitors
+            BackendMonitorDiscovery::Known(monitors) => {
+                let monitors = monitors
                     .into_iter()
                     .map(|monitor| MonitorDescriptor {
                         id: monitor.id,
@@ -26,8 +26,10 @@ impl MonitorService {
                         name: monitor.name,
                         resolution: monitor.resolution,
                     })
-                    .collect(),
-            ),
+                    .collect::<Vec<_>>();
+
+                MonitorDiscoveryResult::Known(monitors)
+            }
             BackendMonitorDiscovery::Unavailable { reason } => {
                 MonitorDiscoveryResult::Unavailable { reason }
             }

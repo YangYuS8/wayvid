@@ -415,11 +415,13 @@ impl DesktopService {
         loop {
             match Self::recv_backend_event(backend, deadline)? {
                 Some(EngineEvent::OutputAdded(info)) if info.name == output_name => return Ok(()),
+                Some(EngineEvent::OutputAdded(_)) => {}
                 Some(EngineEvent::OutputsList(outputs))
                     if outputs.iter().any(|output| output.name == output_name) =>
                 {
                     return Ok(());
                 }
+                Some(EngineEvent::OutputsList(_)) => {}
                 Some(EngineEvent::Error(reason)) => {
                     return Err(format!(
                         "{REAL_APPLY_BACKEND} could not prepare output {output_name}: {reason}"
@@ -495,7 +497,16 @@ impl DesktopService {
                     monitor_id: monitor_id.to_string(),
                 })
             }
-            MonitorDiscoveryResult::Known(_) => {
+            MonitorDiscoveryResult::Known(monitors) => {
+                let monitor = monitors
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| format!("Monitor {monitor_id} unexpectedly resolved empty"))?;
+
+                if let Err(reason) = Self::clear_with_real_backend(&monitor) {
+                    return Ok(DesktopApplyResult::BackendUnavailable { reason });
+                }
+
                 let persistence = match DesktopPersistenceService::for_user_path() {
                     Ok(service) => service,
                     Err(reason) => {
@@ -520,6 +531,57 @@ impl DesktopService {
             }
             MonitorDiscoveryResult::Unavailable { reason } => {
                 Ok(DesktopApplyResult::MonitorDiscoveryUnavailable { reason })
+            }
+        }
+    }
+
+    fn clear_with_real_backend(
+        monitor: &crate::services::monitor_service::MonitorDescriptor,
+    ) -> Result<(), String> {
+        let mut backend_guard = desktop_apply_backend_slot()
+            .lock()
+            .map_err(|_| "Desktop apply backend lock was poisoned".to_string())?;
+
+        let mut backend = backend_guard
+            .take()
+            .ok_or_else(|| "Desktop apply backend is not running".to_string())?;
+
+        if let Err(reason) = Self::wait_for_output(&mut backend, &monitor.backend_output_id) {
+            *backend_guard = Some(backend);
+            return Err(reason);
+        }
+
+        backend.handle.request_shutdown();
+
+        let stop_result = Self::wait_for_backend_stop(&mut backend);
+        let join_result = backend.handle.join().map_err(|error| error.to_string());
+
+        match (stop_result, join_result) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(reason), _) => Err(reason),
+            (_, Err(reason)) => Err(format!(
+                "{REAL_APPLY_BACKEND} failed to shut down cleanly after clear: {reason}"
+            )),
+        }
+    }
+
+    fn wait_for_backend_stop(backend: &mut RunningDesktopApplyBackend) -> Result<(), String> {
+        let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+
+        loop {
+            match Self::recv_backend_event(backend, deadline)? {
+                Some(EngineEvent::Stopped) => return Ok(()),
+                Some(EngineEvent::Error(reason)) => {
+                    return Err(format!(
+                        "{REAL_APPLY_BACKEND} failed to stop during clear: {reason}"
+                    ));
+                }
+                Some(_) => {}
+                None => {
+                    return Err(format!(
+                        "Timed out waiting for {REAL_APPLY_BACKEND} to stop after clear"
+                    ));
+                }
             }
         }
     }
@@ -804,11 +866,17 @@ mod tests {
             return;
         };
 
+        let item_id = real_supported_library_item_id()
+            .expect("expected one real supported video Library item on this machine");
+
+        let apply_result = DesktopService::apply_to_monitor(&monitor_id, &item_id).unwrap();
+        assert!(matches!(
+            apply_result,
+            DesktopApplyResult::AppliedWithBackend { .. }
+        ));
+
         let result = DesktopService::clear_monitor(&monitor_id).unwrap();
 
-        assert!(matches!(
-            result,
-            DesktopApplyResult::Cleared { .. } | DesktopApplyResult::PersistenceUnavailable { .. }
-        ));
+        assert!(matches!(result, DesktopApplyResult::Cleared { .. }));
     }
 }

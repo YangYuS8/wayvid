@@ -115,6 +115,7 @@ export interface DesktopMonitorSummary {
   currentWallpaperTitle: string | null;
   currentCoverPath: string | null;
   currentItemId?: string | null;
+  clearSupported: boolean;
   restoreState?: DesktopRestoreState | null;
   restoreIssue?: string | null;
   runtimeStatus: RuntimeStatus;

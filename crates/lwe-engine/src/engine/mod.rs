@@ -344,7 +344,7 @@ fn render_all_surfaces(state: &mut EngineState) {
             surface_info.width as i32,
             surface_info.height as i32,
         ) {
-            Ok(()) => {
+            Ok(true) => {
                 if let Some(path) = surface_info.pending_apply_path.take() {
                     let _ = state.events_tx.send(EngineEvent::WallpaperApplied {
                         output: output_name.clone(),
@@ -352,6 +352,7 @@ fn render_all_surfaces(state: &mut EngineState) {
                     });
                 }
             }
+            Ok(false) => {}
             Err(e) => {
                 warn!("Frame render error for {}: {}", output_name, e);
             }
@@ -577,12 +578,16 @@ fn apply_wallpaper_to_output(
     if let Some(surface_info) = state.layer_surfaces.get(output_name) {
         if surface_info.configured {
             // Layer surface exists and is configured - just update the video source
-            if let Some(session) = state.sessions.get_mut(output_name) {
+            if let (Some(surface_info), Some(session)) = (
+                state.layer_surfaces.get_mut(output_name),
+                state.sessions.get_mut(output_name),
+            ) {
                 info!(
                     "Hot-swapping wallpaper for {} (reusing surface)",
                     output_name
                 );
                 session.load_new_wallpaper(path)?;
+                surface_info.pending_apply_path = Some(path.to_path_buf());
                 return Ok(());
             }
         }

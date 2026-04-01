@@ -4,7 +4,7 @@
   import PageHeader from '$lib/layout/PageHeader.svelte';
   import { Card } from '$lib/ui/card';
   import * as Select from '$lib/ui/select';
-  import { loadDesktopPage } from '$lib/ipc';
+import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
   import { needsPageLoad, pageCache, setCurrentPage, setDesktopSnapshot } from '$lib/stores/ui';
   import { resolveDesktopPageState } from './page-state';
 
@@ -15,6 +15,9 @@
 
   let loading = false;
   let pageError: string | null = null;
+  let actionError: string | null = null;
+  let actionMessage: string | null = null;
+  let clearingMonitorId: string | null = null;
   let monitorFilter: MonitorFilter = 'all';
 
   $: snapshot = $pageCache.desktop.snapshot;
@@ -42,6 +45,22 @@
       pageError = readError(error);
     } finally {
       loading = false;
+    }
+  };
+
+  const clearMonitor = async (monitorId: string) => {
+    clearingMonitorId = monitorId;
+    actionError = null;
+    actionMessage = null;
+
+    try {
+      const outcome = await clearLibraryItemFromMonitor(monitorId);
+      actionMessage = outcome.message;
+      setDesktopSnapshot(await loadDesktopPage());
+    } catch (error) {
+      actionError = readError(error);
+    } finally {
+      clearingMonitorId = null;
     }
   };
 
@@ -85,6 +104,8 @@
 
   {#if pageError}
     <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
+  {:else if actionError}
+    <p class="lwe-warning-banner" role="alert" aria-live="assertive">{actionError}</p>
   {:else if loading && !$pageCache.desktop.snapshot}
     <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Desktop snapshot…</p>
   {:else if snapshot}
@@ -122,6 +143,10 @@
           </div>
         {/if}
 
+        {#if actionMessage}
+          <p class="lwe-info-banner" role="status" aria-live="polite">{actionMessage}</p>
+        {/if}
+
         {#if pageState?.emptyMessage}
           <p class="text-sm leading-6 text-slate-600">{pageState.emptyMessage}</p>
         {/if}
@@ -142,6 +167,9 @@
                 resolution={monitor.resolution}
                 currentItemLabel={monitor.currentWallpaperTitle ?? monitor.currentItemId ?? 'No saved assignment'}
                 currentCoverPath={monitor.currentCoverPath}
+                clearSupported={monitor.clearSupported}
+                clearing={clearingMonitorId === monitor.monitorId}
+                onClear={() => clearMonitor(monitor.monitorId)}
                 runtimeStatus={monitor.runtimeStatus}
                 restoreState={monitor.restoreState ?? null}
                 restoreIssue={monitor.restoreIssue ?? null}

@@ -28,6 +28,7 @@ describe('desktop page render', () => {
           currentWallpaperTitle: 'Forest Scene',
           currentCoverPath: null,
           currentItemId: 'scene-7',
+          clearSupported: true,
           restoreState: 'restored',
           restoreIssue: null,
           runtimeStatus: 'unsupported'

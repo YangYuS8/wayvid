@@ -88,7 +88,6 @@ impl WallpaperSession {
             "Initializing rendering resources for {} ({}x{})",
             self.output_info.name, width, height
         );
-
         // Create EGL window for this surface
         let egl_window = egl_context.create_window(wl_surface, width, height)?;
         info!("  ✓ EGL window created");
@@ -139,20 +138,20 @@ impl WallpaperSession {
         wl_surface: &WlSurface,
         width: i32,
         height: i32,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         // Lazy initialization
         if !self.initialized {
             self.initialize_resources(egl_context, wl_surface, width, height)?;
         }
 
         if self.state != PlaybackState::Playing {
-            return Ok(());
+            return Ok(false);
         }
 
         // Get EGL window
         let egl_window = match self.egl_window.as_mut() {
             Some(w) => w,
-            None => return Ok(()),
+            None => return Ok(false),
         };
 
         // Resize if needed
@@ -166,7 +165,9 @@ impl WallpaperSession {
         // Render MPV frame only if we have a frame ready
         if let Some(ref mut player) = self.player {
             // Check if there's a new frame available
-            if player.has_frame() {
+            let has_frame = player.has_frame();
+
+            if has_frame {
                 // Clear background
                 unsafe {
                     gl::ClearColor(0.0, 0.0, 0.0, 1.0);
@@ -175,17 +176,23 @@ impl WallpaperSession {
                 }
 
                 // Render the frame
-                if let Err(e) = player.render(width, height, 0) {
-                    warn!("MPV render error: {}", e);
+                match player.render(width, height, 0) {
+                    Ok(true) => {
+                        // Swap buffers only after rendering a valid frame
+                        egl_context.swap_buffers(egl_window)?;
+                        return Ok(true);
+                    }
+                    Ok(false) => return Ok(false),
+                    Err(e) => {
+                        warn!("MPV render error: {}", e);
+                        return Ok(false);
+                    }
                 }
-
-                // Swap buffers only after rendering a valid frame
-                egl_context.swap_buffers(egl_window)?;
             }
             // If no frame yet, don't swap - keep previous content
         }
 
-        Ok(())
+        Ok(false)
     }
 
     /// Render a frame (legacy method for compatibility)
