@@ -14,80 +14,24 @@
   } = $props();
 </script>
 
-<header class="page-header">
-  <div class="copy">
+<header class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+  <div class="grid gap-3">
     {#if eyebrow}
-      <p class="eyebrow">{eyebrow}</p>
+      <p class="lwe-eyebrow">{eyebrow}</p>
     {/if}
 
-    <div class="title-block">
-      <h1>{title}</h1>
+    <div class="grid gap-2">
+      <h1 class="lwe-heading-xl max-w-[18ch]">{title}</h1>
 
       {#if subtitle}
-        <p class="subtitle">{subtitle}</p>
+        <p class="m-0 max-w-[64ch] text-sm leading-7 text-slate-600 sm:text-[0.95rem]">{subtitle}</p>
       {/if}
     </div>
   </div>
 
   {#if actions}
-    <div class="actions">
+    <div class="grid justify-items-start gap-2 sm:justify-items-end sm:self-center">
       {@render actions()}
     </div>
   {/if}
 </header>
-
-<style>
-  .page-header,
-  .copy,
-  .title-block,
-  .actions {
-    display: grid;
-    gap: 0.5rem;
-  }
-
-  .page-header {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 1rem;
-  }
-
-  .eyebrow,
-  h1,
-  .subtitle {
-    margin: 0;
-  }
-
-  .eyebrow {
-    font-size: 0.77rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #4a6381;
-  }
-
-  h1 {
-    font-size: clamp(1.8rem, 4vw, 2.5rem);
-    line-height: 1.05;
-  }
-
-  .subtitle {
-    max-width: 64ch;
-    color: #526272;
-    line-height: 1.55;
-  }
-
-  .actions {
-    justify-items: end;
-    align-self: center;
-  }
-
-  @media (max-width: 720px) {
-    .page-header {
-      grid-template-columns: 1fr;
-    }
-
-    .actions {
-      justify-items: start;
-    }
-  }
-</style>

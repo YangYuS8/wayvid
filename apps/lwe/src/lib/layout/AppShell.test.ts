@@ -19,4 +19,19 @@ describe('AppShell', () => {
     expect(body).toContain('<main');
     expect(body).not.toContain('<h1');
   });
+
+  it('uses utility-based shell classes instead of the older local style block', () => {
+    const { body } = render(AppShell, {
+      props: {
+        currentPath: '/library'
+      }
+    });
+
+    expect(body).toContain('Skip to content');
+    expect(body).toContain('href="#app-content"');
+    expect(body).toContain('tabindex="-1"');
+    expect(body).toContain('lwe-shell-sidebar');
+    expect(body).toContain('lwe-shell-grid');
+    expect(body).not.toContain('<style>');
+  });
 });

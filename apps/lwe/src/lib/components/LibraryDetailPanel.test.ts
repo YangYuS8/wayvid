@@ -37,6 +37,7 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('Desktop assignments are unavailable.');
     expect(body).toContain('data-slot="card"');
     expect(body).toContain('Library item');
+    expect(body).toContain('lwe-info-banner lwe-wrap-safe');
   });
 
   it('renders assigned monitor labels from the current detail payload', () => {
@@ -71,5 +72,37 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('Assigned monitors');
     expect(body).toContain('Primary');
     expect(body).toContain('DISPLAY-2 (missing)');
+  });
+
+  it('uses the shared subpanel treatment for the empty detail state', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: null,
+        snapshot: null,
+        loading: false,
+        error: null
+      }
+    });
+
+    expect(body).toContain('Select a Library item to inspect its current detail payload.');
+    expect(body).toContain('lwe-subpanel');
+    expect(body).toContain('border-dashed');
+    expect(body).toContain('role="status"');
+  });
+
+  it('uses the shared subpanel treatment for the error detail state', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: null,
+        snapshot: null,
+        loading: false,
+        error: 'Unable to load the Library request.'
+      }
+    });
+
+    expect(body).toContain('Unable to load the Library request.');
+    expect(body).toContain('lwe-subpanel');
+    expect(body).toContain('lwe-warning-banner lwe-wrap-safe');
+    expect(body).toContain('Library detail');
   });
 });

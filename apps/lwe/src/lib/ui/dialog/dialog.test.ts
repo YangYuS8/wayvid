@@ -4,11 +4,13 @@ import { render } from 'svelte/server';
 import DialogTestFixture from './dialog-test-fixture.svelte';
 
 describe('Dialog primitive', () => {
-  it('renders Bits UI backed dialog content', () => {
+  it('renders Tailwind-backed dialog content through the primitive slot layer', () => {
     const { body } = render(DialogTestFixture);
 
-    expect(body).toContain('data-dialog-content');
-    expect(body).toContain('data-dialog-title');
+    expect(body).toContain('data-slot="dialog-content"');
+    expect(body).toContain('data-slot="dialog-overlay"');
+    expect(body).toContain('border-border bg-card p-6');
+    expect(body).toContain('data-slot="dialog-title"');
     expect(body).toContain('aria-label="Example dialog"');
   });
 });

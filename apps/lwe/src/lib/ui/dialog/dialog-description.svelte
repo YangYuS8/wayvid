@@ -7,7 +7,7 @@
 </script>
 
 <DialogPrimitive.Description
-  class={cn('text-sm text-slate-600', className)}
+  class={cn('text-sm text-muted-foreground', className)}
   data-slot="dialog-description"
   {...restProps}
 >

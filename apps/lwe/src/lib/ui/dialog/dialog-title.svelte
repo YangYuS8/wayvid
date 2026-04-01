@@ -7,7 +7,7 @@
 </script>
 
 <DialogPrimitive.Title
-  class={cn('text-lg font-semibold text-slate-950', className)}
+  class={cn('text-lg font-semibold text-card-foreground', className)}
   data-slot="dialog-title"
   {...restProps}
 >

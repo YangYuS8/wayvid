@@ -17,7 +17,7 @@
 
 {#if showCoverImage}
   <img
-    class="block aspect-[16/9] w-full rounded-2xl border border-slate-200/80 bg-slate-100 object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
+    class="block aspect-[16/9] w-full rounded-[1.35rem] border border-slate-200/80 bg-slate-100 object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_16px_40px_rgba(15,23,42,0.08)]"
     src={coverPath ?? undefined}
     alt={label}
     width="1600"
@@ -27,12 +27,12 @@
   />
 {:else}
   <div
-    class="grid aspect-[16/9] w-full place-items-center rounded-2xl border border-dashed border-slate-300 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 px-4 text-center"
+    class="grid aspect-[16/9] w-full place-items-center rounded-[1.35rem] border border-dashed border-slate-300 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 px-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
     aria-label={`${label} placeholder`}
   >
-    <div class="grid gap-1">
+    <div class="grid gap-1.5">
       <span class="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-500">No Cover</span>
-      <span class="text-sm text-slate-600">Artwork will appear here when available.</span>
+      <span class="text-sm leading-6 text-slate-600">Artwork will appear here when available.</span>
     </div>
   </div>
 {/if}

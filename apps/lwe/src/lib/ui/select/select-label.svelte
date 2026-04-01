@@ -7,7 +7,7 @@
 </script>
 
 <SelectPrimitive.GroupHeading
-  class={cn('px-2 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500', className)}
+  class={cn('px-2 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground', className)}
   data-slot="select-label"
   {...restProps}
 >

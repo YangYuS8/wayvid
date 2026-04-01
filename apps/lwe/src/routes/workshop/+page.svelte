@@ -151,7 +151,7 @@
   <title>Workshop</title>
 </svelte:head>
 
-<section class="page">
+<section class="grid gap-6">
   <PageHeader
     eyebrow="Workshop"
     title="Steam-backed snapshot"
@@ -163,22 +163,22 @@
   </PageHeader>
 
   {#if pageError}
-    <p class="message error" role="alert" aria-live="assertive">{pageError}</p>
+    <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !$pageCache.workshop.snapshot}
-    <p role="status" aria-live="polite">Loading Workshop snapshot…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Workshop snapshot…</p>
   {:else if $pageCache.workshop.snapshot}
     {#if actionMessage}
-      <p class="message" role="status" aria-live="polite">{actionMessage}</p>
+      <p class="lwe-info-banner" role="status" aria-live="polite">{actionMessage}</p>
     {/if}
 
-    <div class="page-body">
-      <section class="list-panel">
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.9fr)] xl:items-start">
+      <section class="grid gap-4">
         {#if $pageCache.workshop.snapshot.items.length}
-          <div class="item-grid">
+          <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {#each $pageCache.workshop.snapshot.items as item}
               <button
                 type="button"
-                class="item-button"
+                class="rounded-[1.125rem] border-0 bg-transparent p-0 text-left transition duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-4"
                 aria-pressed={$pageCache.workshop.snapshot.selectedItemId === item.id}
                 on:click={() => selectItem(item.id)}
               >
@@ -193,7 +193,7 @@
             {/each}
           </div>
         {:else}
-          <p>No Workshop items are available in the current snapshot.</p>
+          <p class="text-sm leading-6 text-slate-600">No Workshop items are available in the current snapshot.</p>
         {/if}
       </section>
 
@@ -206,60 +206,3 @@
     </div>
   {/if}
 </section>
-
-<style>
-  .page,
-  .page-body,
-  .list-panel,
-  .item-grid {
-    display: grid;
-    gap: 1.1rem;
-  }
-
-  p {
-    margin: 0;
-  }
-
-  .item-button:focus-visible {
-    outline: 3px solid #0f5f9a;
-    outline-offset: 4px;
-  }
-
-  .item-button:hover {
-    transform: translateY(-1px);
-  }
-
-  .page-body {
-    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
-    align-items: start;
-  }
-
-  .item-grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
-
-  .item-button {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-    border-radius: 18px;
-  }
-
-  .message {
-    padding: 0.85rem 1rem;
-    border-radius: 14px;
-    background: rgba(35, 69, 110, 0.08);
-  }
-
-  .message.error {
-    background: rgba(160, 98, 23, 0.12);
-  }
-
-  @media (max-width: 900px) {
-    .page-body {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

@@ -18,16 +18,17 @@
 
   $: statusLabels = [runtimeStatus, restoreState].filter((value): value is string => Boolean(value));
   $: hasStateDetails = statusLabels.length > 0 || Boolean(restoreIssue);
+  $: issueBannerClass = restoreIssue ? 'lwe-warning-banner' : 'lwe-info-banner';
 </script>
 
 <Card
-  class="grid gap-4 overflow-hidden border-slate-200/80 bg-white/95 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+  class="lwe-panel-compact"
   aria-label={`Desktop monitor ${displayName}`}
 >
   <CoverImage coverPath={currentCoverPath} label={`${displayName} current item`} />
 
   <div class="grid gap-4 px-1 pb-1">
-    <div class="grid gap-3">
+    <div class="grid gap-3.5">
       <div class="flex flex-wrap items-center gap-2">
         <StatusBadge label="desktop" />
         {#if missing}
@@ -39,10 +40,10 @@
         {/each}
       </div>
 
-      <div class="grid gap-1">
+      <div class="grid gap-1.5">
         <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor</p>
-        <h3 class="text-lg font-semibold text-slate-950">{displayName}</h3>
-        <p class="text-sm text-slate-600">
+        <h3 class="lwe-heading-md lwe-wrap-safe">{displayName}</h3>
+        <p class="lwe-wrap-safe text-sm text-slate-600">
           {monitorId}
           {#if resolution}
             <span class="text-slate-400"> • </span>{resolution}
@@ -51,14 +52,14 @@
       </div>
     </div>
 
-    <div class="grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
+    <div class="lwe-subpanel">
       <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Current item</p>
-      <p class="text-sm leading-6 text-slate-800">{currentItemLabel}</p>
+      <p class="lwe-wrap-safe text-sm leading-6 text-slate-800">{currentItemLabel}</p>
     </div>
 
     {#if hasStateDetails}
       <Separator class="bg-slate-200/80" />
-      <div class="grid gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
+      <div class="lwe-subpanel gap-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Restore state</p>
 
@@ -84,7 +85,7 @@
         {/if}
 
         {#if restoreIssue}
-          <p class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <p class={issueBannerClass} role="status" aria-live="polite">
             {restoreIssue}
           </p>
         {/if}
@@ -93,26 +94,26 @@
           <div class="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-4">
             <Separator class="bg-slate-200/80" />
 
-          <div class="grid gap-1">
-            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor status</p>
-            <h4 class="text-lg font-semibold text-slate-950">{displayName}</h4>
-            <p class="text-sm text-slate-600">{monitorId}</p>
-          </div>
-
-          {#if statusLabels.length > 0}
-            <div class="flex flex-wrap gap-2">
-              {#each statusLabels as statusLabel}
-                <StatusBadge label={statusLabel} />
-              {/each}
+            <div class="grid gap-1.5">
+              <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor status</p>
+              <h4 class="lwe-heading-md lwe-wrap-safe">{displayName}</h4>
+              <p class="lwe-wrap-safe text-sm text-slate-600">{monitorId}</p>
             </div>
-          {/if}
 
-          <p class="text-sm leading-6 text-slate-700">
-            {restoreIssue ?? 'This monitor has state metadata available, but no additional restore issue was reported.'}
-          </p>
+            {#if statusLabels.length > 0}
+              <div class="flex flex-wrap gap-2">
+                {#each statusLabels as statusLabel}
+                  <StatusBadge label={statusLabel} />
+                {/each}
+              </div>
+            {/if}
+
+            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
+              {restoreIssue ?? 'This monitor has state metadata available, but no additional restore issue was reported.'}
+            </p>
 
             <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-              Inline details keep this surface honest until a real modal primitive exists.
+              Expand this section to review the latest restore status for this display.
             </p>
           </div>
         {/if}

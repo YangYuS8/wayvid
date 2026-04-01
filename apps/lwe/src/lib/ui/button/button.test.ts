@@ -12,8 +12,9 @@ describe('Button primitive', () => {
       }
     });
 
-    expect(body).toContain('bg-slate-100');
-    expect(body).toContain('hover:bg-slate-200');
+    expect(body).toContain('bg-secondary');
+    expect(body).toContain('text-secondary-foreground');
+    expect(body).toContain('hover:opacity-90');
     expect(body).toContain('focus-visible:ring-2');
     expect(body).toContain('data-slot="button"');
     expect(body).toContain('aria-label="Open dialog"');

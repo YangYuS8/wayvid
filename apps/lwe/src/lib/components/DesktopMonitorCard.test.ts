@@ -32,5 +32,6 @@ describe('DesktopMonitorCard', () => {
     expect(body).toContain('data-slot="card"');
     expect(body).toContain('View status details');
     expect(body).toContain('aria-expanded="false"');
+    expect(body).toContain('lwe-warning-banner');
   });
 });

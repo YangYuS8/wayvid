@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 214 43% 97%;
+    --foreground: 217 45% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 217 45% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 45% 14%;
+    --primary: 214 100% 73%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 214 32% 92%;
+    --secondary-foreground: 217 45% 20%;
+    --muted: 214 30% 92%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 214 32% 92%;
+    --accent-foreground: 217 45% 20%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 26% 84%;
+    --input: 214 26% 84%;
+    --ring: 214 100% 73%;
+    --radius: 1rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply m-0 bg-background font-sans text-foreground;
+  }
+}
+
+@layer components {
+  .lwe-shell-bg {
+    @apply min-h-screen bg-[radial-gradient(circle_at_top,rgba(103,160,255,0.18),transparent_34%),linear-gradient(180deg,#eef3fb_0%,#e5ebf4_100%)] text-slate-950;
+  }
+
+  .lwe-shell-grid {
+    @apply grid min-h-screen gap-4 p-4 lg:grid-cols-[minmax(248px,292px)_minmax(0,1fr)] lg:gap-6 lg:p-5;
+  }
+
+  .lwe-skip-link {
+    @apply absolute left-4 top-4 z-50 -translate-y-16 rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-lg transition focus-visible:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100;
+  }
+
+  .lwe-shell-sidebar {
+    @apply grid content-start gap-5 rounded-3xl border border-white/10 bg-slate-950/90 p-5 text-slate-50 shadow-[0_24px_56px_rgba(15,23,42,0.24)];
+  }
+
+  .lwe-shell-main {
+    @apply grid min-w-0 content-start rounded-[2rem] border border-white/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-6;
+    background-color: rgb(255 255 255 / 0.72);
+  }
+
+  .lwe-panel {
+    @apply grid gap-6 rounded-3xl border border-slate-200/70 bg-white/95 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)] sm:p-6;
+  }
+
+  .lwe-panel-compact {
+    @apply grid gap-4 overflow-hidden rounded-3xl border border-slate-200/70 bg-white/95 p-3.5 shadow-[0_18px_44px_rgba(15,23,42,0.08)];
+  }
+
+  .lwe-subpanel {
+    @apply grid gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/75 p-4;
+  }
+
+  .lwe-info-banner {
+    @apply rounded-2xl border border-sky-200/90 bg-sky-50/90 px-4 py-3 text-sm leading-6 text-sky-900;
+  }
+
+  .lwe-warning-banner {
+    @apply rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900;
+  }
+
+  .lwe-eyebrow {
+    @apply m-0 text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-slate-500;
+  }
+
+  .lwe-kicker {
+    @apply m-0 text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-sky-100/70;
+  }
+
+  .lwe-heading-xl {
+    @apply m-0 text-balance text-[clamp(1.8rem,4vw,2.5rem)] font-semibold leading-none tracking-tight text-slate-950;
+  }
+
+  .lwe-heading-lg {
+    @apply text-2xl font-semibold tracking-tight text-slate-950;
+  }
+
+  .lwe-heading-md {
+    @apply text-lg font-semibold tracking-tight text-slate-950;
+  }
+
+  .lwe-body-copy {
+    @apply text-sm leading-6 text-slate-600;
+  }
+
+  .lwe-wrap-safe {
+    @apply break-words [overflow-wrap:anywhere];
+  }
+
+  .lwe-nav-link {
+    @apply grid gap-2.5 rounded-2xl border px-4 py-4 text-left transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950;
+  }
+
+  .lwe-nav-link-active {
+    @apply border-sky-300/50 bg-gradient-to-b from-sky-400/25 to-sky-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)];
+  }
+
+  .lwe-nav-link-idle {
+    @apply border-transparent bg-white/5 hover:-translate-y-0.5 hover:border-sky-300/25 hover:bg-white/10;
+  }
+
+  .lwe-pill-label {
+    @apply rounded-full border border-slate-200/80 bg-slate-50/90 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-500;
+  }
+}
