@@ -21,7 +21,7 @@
     {/if}
 
     <div class="grid gap-2">
-      <h1 class="lwe-heading-xl">{title}</h1>
+      <h1 class="lwe-heading-xl max-w-[18ch]">{title}</h1>
 
       {#if subtitle}
         <p class="m-0 max-w-[64ch] text-sm leading-7 text-slate-600 sm:text-[0.95rem]">{subtitle}</p>

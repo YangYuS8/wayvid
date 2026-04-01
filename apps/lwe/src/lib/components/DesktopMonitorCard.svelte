@@ -41,8 +41,8 @@
 
       <div class="grid gap-1.5">
         <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor</p>
-        <h3 class="text-lg font-semibold tracking-tight text-slate-950">{displayName}</h3>
-        <p class="text-sm text-slate-600">
+        <h3 class="lwe-heading-md lwe-wrap-safe">{displayName}</h3>
+        <p class="lwe-wrap-safe text-sm text-slate-600">
           {monitorId}
           {#if resolution}
             <span class="text-slate-400"> • </span>{resolution}
@@ -53,7 +53,7 @@
 
     <div class="lwe-subpanel">
       <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Current item</p>
-      <p class="text-sm leading-6 text-slate-800">{currentItemLabel}</p>
+      <p class="lwe-wrap-safe text-sm leading-6 text-slate-800">{currentItemLabel}</p>
     </div>
 
     {#if hasStateDetails}
@@ -95,8 +95,8 @@
 
             <div class="grid gap-1.5">
               <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor status</p>
-              <h4 class="text-lg font-semibold tracking-tight text-slate-950">{displayName}</h4>
-              <p class="text-sm text-slate-600">{monitorId}</p>
+              <h4 class="lwe-heading-md lwe-wrap-safe">{displayName}</h4>
+              <p class="lwe-wrap-safe text-sm text-slate-600">{monitorId}</p>
             </div>
 
             {#if statusLabels.length > 0}
@@ -107,7 +107,7 @@
               </div>
             {/if}
 
-            <p class="text-sm leading-6 text-slate-700">
+            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
               {restoreIssue ?? 'This monitor has state metadata available, but no additional restore issue was reported.'}
             </p>
 

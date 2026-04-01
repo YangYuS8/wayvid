@@ -34,7 +34,7 @@
             <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
               Library item
             </p>
-            <h2 class="text-2xl font-semibold tracking-tight text-slate-950">{detail.title}</h2>
+            <h2 class="lwe-heading-lg lwe-wrap-safe">{detail.title}</h2>
           </div>
 
           <div class="flex flex-wrap gap-2">
@@ -59,7 +59,7 @@
             <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
               Assigned monitors
             </p>
-            <p class="text-sm text-slate-700">{assignedMonitorLabels.join(' • ')}</p>
+            <p class="lwe-wrap-safe text-sm text-slate-700">{assignedMonitorLabels.join(' • ')}</p>
           </div>
         {/if}
 
@@ -72,14 +72,14 @@
             <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
               Description
             </p>
-            <p class="text-sm leading-6 text-slate-700">
+            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
               {detail.description ?? 'No description available for this item yet.'}
             </p>
           </div>
 
           <div class="lwe-subpanel">
             <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Tags</p>
-            <p class="text-sm leading-6 text-slate-700">
+            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
               {detail.tags.length > 0 ? detail.tags.join(' • ') : 'No tags are attached to this item.'}
             </p>
           </div>

@@ -49,7 +49,7 @@
   }
 
   .lwe-skip-link {
-    @apply absolute left-4 top-4 z-50 -translate-y-16 rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-lg transition focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 focus:ring-offset-slate-100;
+    @apply absolute left-4 top-4 z-50 -translate-y-16 rounded-xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-lg transition focus-visible:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100;
   }
 
   .lwe-shell-sidebar {
@@ -89,7 +89,7 @@
   }
 
   .lwe-heading-xl {
-    @apply m-0 text-[clamp(1.8rem,4vw,2.5rem)] font-semibold leading-none tracking-tight text-slate-950;
+    @apply m-0 text-balance text-[clamp(1.8rem,4vw,2.5rem)] font-semibold leading-none tracking-tight text-slate-950;
   }
 
   .lwe-heading-lg {
@@ -102,6 +102,10 @@
 
   .lwe-body-copy {
     @apply text-sm leading-6 text-slate-600;
+  }
+
+  .lwe-wrap-safe {
+    @apply break-words [overflow-wrap:anywhere];
   }
 
   .lwe-nav-link {
