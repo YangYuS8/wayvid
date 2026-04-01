@@ -107,6 +107,60 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('Apply this item to a monitor');
   });
 
+  it('uses a compact vertical detail structure for populated detail', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: {
+          id: 'scene-1',
+          title: 'Forest Scene',
+          itemType: 'scene',
+          coverPath: null,
+          source: 'workshop',
+          compatibility: {
+            badge: 'fully_supported',
+            reasonCode: 'ready_for_library',
+            summaryCopy: 'Ready to use',
+            headline: 'Ready to use',
+            detail: 'This item is synchronized locally and available for Library and desktop use.',
+            nextStep: 'none',
+            nextStepCopy: null
+          },
+          monitorsAvailable: true,
+          monitorDiscoveryIssue: null,
+          desktopAssignmentIssue: null,
+          desktopAssignmentsAvailable: true,
+          assignedMonitorLabels: ['Primary'],
+          description: 'Dense detail flow.',
+          tags: ['forest']
+        }
+      }
+    });
+
+    expect(body).toContain('data-detail-layout="compact-vertical"');
+    expect(body).toContain('data-detail-section="header"');
+    expect(body).toContain('data-detail-section="quick-status"');
+    expect(body).toContain('data-detail-section="actions"');
+    expect(body).toContain('data-detail-section="cover"');
+    expect(body).toContain('data-detail-section="compatibility"');
+    expect(body).toContain('data-detail-section="metadata"');
+    expect(body).not.toContain('lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]');
+    expect(body.indexOf('data-detail-section="header"')).toBeLessThan(
+      body.indexOf('data-detail-section="quick-status"')
+    );
+    expect(body.indexOf('data-detail-section="quick-status"')).toBeLessThan(
+      body.indexOf('data-detail-section="actions"')
+    );
+    expect(body.indexOf('data-detail-section="actions"')).toBeLessThan(
+      body.indexOf('data-detail-section="cover"')
+    );
+    expect(body.indexOf('data-detail-section="cover"')).toBeLessThan(
+      body.indexOf('data-detail-section="compatibility"')
+    );
+    expect(body.indexOf('data-detail-section="compatibility"')).toBeLessThan(
+      body.indexOf('data-detail-section="metadata"')
+    );
+  });
+
   it('uses the shared subpanel treatment for the empty detail state', () => {
     const { body } = render(LibraryDetailPanel, {
       props: {
