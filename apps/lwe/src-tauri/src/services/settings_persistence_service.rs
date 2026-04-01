@@ -30,7 +30,7 @@ impl SettingsPersistenceService {
 impl ScopedSettingsPersistenceService {
     pub fn load_settings(&self) -> SettingsPersistenceLoad {
         match fs::read_to_string(&self.path) {
-            Ok(contents) => match parse_settings(&contents) {
+            Ok(contents) => match toml::from_str::<PersistedSettings>(&contents) {
                 Ok(settings) => SettingsPersistenceLoad::Loaded(settings),
                 Err(reason) => SettingsPersistenceLoad::Unavailable {
                     reason: format!(
@@ -63,89 +63,52 @@ impl ScopedSettingsPersistenceService {
             }
         }
 
-        let contents = serialize_settings(settings);
-
-        match fs::write(&self.path, contents) {
-            Ok(()) => SettingsPersistenceWrite::Saved,
-            Err(error) => SettingsPersistenceWrite::Unavailable {
-                reason: format!(
-                    "Failed to write settings to {}: {error}",
-                    self.path.display()
-                ),
-            },
-        }
-    }
-}
-
-fn serialize_settings(settings: &PersistedSettings) -> String {
-    format!(
-        "language = {}\ntheme = {}\nlaunch_on_login = {}\n",
-        quote_toml_string(&settings.language),
-        quote_toml_string(&settings.theme),
-        settings.launch_on_login
-    )
-}
-
-fn quote_toml_string(value: &str) -> String {
-    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
-}
-
-fn parse_settings(contents: &str) -> Result<PersistedSettings, String> {
-    let mut settings = PersistedSettings::default();
-
-    for raw_line in contents.lines() {
-        let line = raw_line.trim();
-
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        let Some((key, value)) = line.split_once('=') else {
-            return Err(format!("invalid TOML line `{line}`"));
+        let contents = match toml::to_string(settings) {
+            Ok(contents) => contents,
+            Err(error) => {
+                return SettingsPersistenceWrite::Unavailable {
+                    reason: format!(
+                        "Failed to serialize settings for {}: {error}",
+                        self.path.display()
+                    ),
+                }
+            }
         };
 
-        match key.trim() {
-            "language" => settings.language = parse_toml_string(value.trim())?,
-            "theme" => settings.theme = parse_toml_string(value.trim())?,
-            "launch_on_login" => settings.launch_on_login = parse_toml_bool(value.trim())?,
-            _ => {}
+        let temp_path = atomic_write_path_for(&self.path);
+
+        if let Err(error) = fs::write(&temp_path, contents) {
+            return SettingsPersistenceWrite::Unavailable {
+                reason: format!(
+                    "Failed to write temporary settings file {}: {error}",
+                    temp_path.display()
+                ),
+            };
+        }
+
+        match fs::rename(&temp_path, &self.path) {
+            Ok(()) => SettingsPersistenceWrite::Saved,
+            Err(error) => {
+                let _ = fs::remove_file(&temp_path);
+
+                SettingsPersistenceWrite::Unavailable {
+                    reason: format!(
+                        "Failed to atomically replace settings at {}: {error}",
+                        self.path.display()
+                    ),
+                }
+            }
         }
     }
-
-    Ok(settings)
 }
 
-fn parse_toml_bool(value: &str) -> Result<bool, String> {
-    match value {
-        "true" => Ok(true),
-        "false" => Ok(false),
-        _ => Err(format!("expected boolean, found `{value}`")),
-    }
-}
+fn atomic_write_path_for(path: &Path) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("settings.toml");
 
-fn parse_toml_string(value: &str) -> Result<String, String> {
-    if !(value.starts_with('"') && value.ends_with('"')) {
-        return Err(format!("expected quoted string, found `{value}`"));
-    }
-
-    let mut parsed = String::new();
-    let mut chars = value[1..value.len() - 1].chars();
-
-    while let Some(ch) = chars.next() {
-        if ch != '\\' {
-            parsed.push(ch);
-            continue;
-        }
-
-        match chars.next() {
-            Some('"') => parsed.push('"'),
-            Some('\\') => parsed.push('\\'),
-            Some(other) => return Err(format!("unsupported string escape `\\{other}`")),
-            None => return Err("unterminated string escape".to_string()),
-        }
-    }
-
-    Ok(parsed)
+    path.with_file_name(format!(".{file_name}.tmp"))
 }
 
 #[allow(dead_code)]
@@ -194,7 +157,7 @@ mod tests {
 
     use crate::results::settings_persistence::{PersistedSettings, SettingsPersistenceLoad};
 
-    use super::SettingsPersistenceService;
+    use super::{atomic_write_path_for, SettingsPersistenceService};
 
     fn test_settings_path() -> PathBuf {
         let unique = SystemTime::now()
@@ -215,6 +178,28 @@ mod tests {
         assert_eq!(
             loaded,
             SettingsPersistenceLoad::Loaded(PersistedSettings::default())
+        );
+    }
+
+    #[test]
+    fn settings_persistence_loads_real_toml_with_inline_comments() {
+        let path = test_settings_path();
+        std::fs::write(
+            &path,
+            "language = \"en\" # user language\ntheme = \"dark\"\nlaunch_on_login = true\n",
+        )
+        .unwrap();
+        let service = SettingsPersistenceService::for_test(path);
+
+        let loaded = service.load_settings();
+
+        assert_eq!(
+            loaded,
+            SettingsPersistenceLoad::Loaded(PersistedSettings {
+                language: "en".to_string(),
+                theme: "dark".to_string(),
+                launch_on_login: true,
+            })
         );
     }
 
@@ -241,5 +226,19 @@ mod tests {
         let loaded = service.load_settings();
 
         assert_eq!(loaded, SettingsPersistenceLoad::Loaded(settings));
+    }
+
+    #[test]
+    fn settings_persistence_atomic_save_cleans_up_temp_file() {
+        let path = test_settings_path();
+        let service = SettingsPersistenceService::for_test(path.clone());
+        let temp_path = atomic_write_path_for(&path);
+
+        assert!(matches!(
+            service.save_settings(&PersistedSettings::default()),
+            crate::results::settings_persistence::SettingsPersistenceWrite::Saved
+        ));
+
+        assert!(!temp_path.exists());
     }
 }
