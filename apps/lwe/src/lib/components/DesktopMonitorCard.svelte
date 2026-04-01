@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Button } from '$lib/ui/button';
-  import { Dialog } from '$lib/ui/dialog';
   import { Card } from '$lib/ui/card';
   import { Separator } from '$lib/ui/separator';
   import CoverImage from '$lib/components/CoverImage.svelte';
@@ -15,7 +14,7 @@
   export let restoreState: string | null = null;
   export let restoreIssue: string | null = null;
   export let missing = false;
-  let detailsOpen = false;
+  let detailsExpanded = false;
 
   $: statusLabels = [runtimeStatus, restoreState].filter((value): value is string => Boolean(value));
   $: hasStateDetails = statusLabels.length > 0 || Boolean(restoreIssue);
@@ -67,12 +66,12 @@
             variant="outline"
             size="sm"
             class="w-fit"
-            aria-haspopup="dialog"
+            aria-expanded={detailsExpanded}
             onclick={() => {
-              detailsOpen = true;
+              detailsExpanded = !detailsExpanded;
             }}
           >
-            View status details
+            {detailsExpanded ? 'Hide status details' : 'View status details'}
           </Button>
         </div>
 
@@ -89,10 +88,11 @@
             {restoreIssue}
           </p>
         {/if}
-      </div>
 
-      <Dialog open={detailsOpen} aria-label={`${displayName} status details`} class="grid gap-4 p-0">
-        <div class="grid gap-4 p-6">
+        {#if detailsExpanded}
+          <div class="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-4">
+            <Separator class="bg-slate-200/80" />
+
           <div class="grid gap-1">
             <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor status</p>
             <h4 class="text-lg font-semibold text-slate-950">{displayName}</h4>
@@ -111,17 +111,12 @@
             {restoreIssue ?? 'This monitor has state metadata available, but no additional restore issue was reported.'}
           </p>
 
-          <Button
-            variant="secondary"
-            class="w-fit justify-self-end"
-            onclick={() => {
-              detailsOpen = false;
-            }}
-          >
-            Close
-          </Button>
-        </div>
-      </Dialog>
+            <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+              Inline details keep this surface honest until a real modal primitive exists.
+            </p>
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
 </Card>
