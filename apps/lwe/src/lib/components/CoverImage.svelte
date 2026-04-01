@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { shouldRenderCoverImage } from '$lib/components/cover-image';
+  import { resolveCoverSrc, shouldRenderCoverImage } from '$lib/components/cover-image';
 
   export let coverPath: string | null = null;
   export let label = 'cover';
@@ -13,12 +13,13 @@
   }
 
   $: showCoverImage = shouldRenderCoverImage(coverPath, loadFailed);
+  $: resolvedCoverSrc = resolveCoverSrc(coverPath);
 </script>
 
 {#if showCoverImage}
   <img
     class="block aspect-[16/9] w-full rounded-[1.35rem] border border-slate-200/80 bg-slate-100 object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_16px_40px_rgba(15,23,42,0.08)]"
-    src={coverPath ?? undefined}
+    src={resolvedCoverSrc}
     alt={label}
     width="1600"
     height="900"

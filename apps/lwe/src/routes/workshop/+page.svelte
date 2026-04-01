@@ -88,7 +88,7 @@
       const previousSelection = $pageCache.workshop.snapshot?.selectedItemId ?? null;
       const outcome = await refreshWorkshopCatalog();
       const currentSelection = $pageCache.workshop.snapshot?.selectedItemId ?? null;
-      const availableItemIds = outcome.currentUpdate?.items.map((item) => item.id) ?? [];
+      const availableItemIds = outcome.currentUpdate?.items.map((item: { id: string }) => item.id) ?? [];
       const refreshState = resolveWorkshopRefreshState({
         previousSelection,
         currentSelection,

@@ -1,3 +1,5 @@
+import { invoke } from '@tauri-apps/api/core';
+
 import type {
   ActionOutcome,
   AppShellSnapshot,
@@ -11,25 +13,7 @@ import type {
 
 type InvokeArgs = Record<string, unknown>;
 
-type TauriBridge = {
-  invoke?: <T>(command: string, args?: InvokeArgs) => Promise<T>;
-};
-
-declare global {
-  interface Window {
-    __TAURI__?: {
-      core?: TauriBridge;
-    };
-  }
-}
-
 const invokeCommand = <T>(command: string, args?: InvokeArgs) => {
-  const invoke = window.__TAURI__?.core?.invoke;
-
-  if (!invoke) {
-    return Promise.reject(new Error(`Tauri bridge is unavailable for ${command}`));
-  }
-
   return invoke<T>(command, args);
 };
 

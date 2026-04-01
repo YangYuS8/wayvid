@@ -25,7 +25,6 @@ describe('DesktopMonitorCard', () => {
     expect(body).toContain('Forest Scene');
     expect(body).toContain('Unsupported');
     expect(body).toContain('Restored');
-    expect(body).toContain('/covers/forest-scene.jpg');
     expect(body).toContain('Primary current item');
     expect(body).toContain('Restore state');
     expect(body).toContain('Saved assignment was restored from the last session.');
