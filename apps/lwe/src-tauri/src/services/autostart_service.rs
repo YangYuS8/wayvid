@@ -134,20 +134,21 @@ fn desktop_entry_exec_arg(argument: &str) -> String {
             .chars()
             .any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\\' | '`' | '$'));
 
-    if !needs_quotes {
-        return argument.to_string();
-    }
-
     let mut escaped = String::with_capacity(argument.len());
 
     for ch in argument.chars() {
         match ch {
+            '%' => escaped.push_str("%%"),
             '"' | '\\' | '`' | '$' => {
                 escaped.push('\\');
                 escaped.push(ch);
             }
             _ => escaped.push(ch),
         }
+    }
+
+    if !needs_quotes {
+        return escaped;
     }
 
     format!("\"{escaped}\"")
@@ -228,7 +229,13 @@ mod tests {
     fn autostart_service_uses_graphical_session_desktop_entry_under_config_autostart() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root.clone());
-        let launch_command = ["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\""];
+        let launch_command = [
+            "/opt/lwe/bin/lwe",
+            "--profile",
+            "My Project",
+            "say \"hi\"",
+            "100%",
+        ];
 
         assert_eq!(
             service.entry_path(),
@@ -248,9 +255,8 @@ mod tests {
         assert!(contents.contains("[Desktop Entry]"));
         assert!(contents.contains("Type=Application"));
         assert!(contents.contains("Name=LWE"));
-        assert!(
-            contents.contains("Exec=/opt/lwe/bin/lwe --profile \"My Project\" \"say \\\"hi\\\"\"")
-        );
+        assert!(contents
+            .contains("Exec=/opt/lwe/bin/lwe --profile \"My Project\" \"say \\\"hi\\\"\" 100%%"));
         assert_eq!(
             service.status(&launch_command).state,
             super::AutostartState::Enabled
@@ -279,7 +285,13 @@ mod tests {
 
         assert_eq!(
             service
-                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
                 .state,
             super::AutostartState::Disabled
         );
@@ -299,7 +311,13 @@ mod tests {
 
         assert_eq!(
             service
-                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
                 .state,
             super::AutostartState::Disabled
         );
@@ -319,7 +337,13 @@ mod tests {
 
         assert_eq!(
             service
-                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
                 .state,
             super::AutostartState::Disabled
         );
@@ -334,7 +358,13 @@ mod tests {
 
         assert!(matches!(
             service
-                .status(&["/opt/lwe/bin/lwe", "--profile", "My Project", "say \"hi\"",])
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
                 .state,
             super::AutostartState::Unavailable { .. }
         ));
