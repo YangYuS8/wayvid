@@ -65,7 +65,8 @@ describe('ItemCard', () => {
       }
     });
 
-    expect(body).toContain('More actions');
-    expect(body).toContain('Open quick actions for Forest Scene');
+    expect(body).toContain('Show quick actions for Forest Scene');
+    expect(body).toContain('aria-expanded="false"');
+    expect(body).not.toContain('role="menu"');
   });
 });

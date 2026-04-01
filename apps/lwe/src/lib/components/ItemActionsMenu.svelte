@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { Button } from '$lib/ui/button';
-
   export let itemTitle: string;
   export let onApplyShortcut: (() => void) | undefined = undefined;
 
   let open = false;
 
-  const toggleMenu = (event: MouseEvent) => {
+  const toggleDisclosure = (event: MouseEvent) => {
     event.stopPropagation();
     open = !open;
   };
@@ -19,35 +17,30 @@
 </script>
 
 <div class="relative pointer-events-auto">
-  <Button
-    variant="secondary"
-    size="sm"
-    class="h-8 rounded-full border border-slate-200/80 bg-white/90 px-3 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur"
-    aria-label={`Open quick actions for ${itemTitle}`}
+  <button
+    type="button"
+    class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border border-slate-200/70 bg-white/80 text-xs font-semibold tracking-[0.12em] text-slate-500 shadow-sm backdrop-blur transition hover:border-slate-300/80 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
+    aria-label={`Show quick actions for ${itemTitle}`}
     aria-expanded={open}
-    aria-haspopup="menu"
-    onclick={toggleMenu}
+    onclick={toggleDisclosure}
   >
-    More actions
-  </Button>
+    ...
+  </button>
 
   {#if open}
-    <div
-      class="absolute right-0 top-10 z-30 grid min-w-[14rem] gap-1 rounded-xl border border-slate-200/80 bg-white p-2 shadow-[0_20px_40px_rgba(15,23,42,0.16)]"
-      role="menu"
-      aria-label={`Quick actions for ${itemTitle}`}
-    >
+    <div class="absolute right-0 top-10 z-30 grid min-w-[14rem] gap-2 rounded-xl border border-slate-200/80 bg-white p-3 shadow-[0_20px_40px_rgba(15,23,42,0.16)]">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Quick actions</p>
+
       <button
         type="button"
         class="rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-900 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        role="menuitem"
         onclick={runApplyShortcut}
       >
         Apply from details
       </button>
 
       <p class="px-3 pb-1 text-xs leading-5 text-slate-500">
-        Opens the selected item in the detail panel so you can pick a monitor and apply it.
+        Selects this item so you can choose a monitor and apply it from the detail panel.
       </p>
     </div>
   {/if}
