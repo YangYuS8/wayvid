@@ -18,6 +18,7 @@
 
   $: statusLabels = [runtimeStatus, restoreState].filter((value): value is string => Boolean(value));
   $: hasStateDetails = statusLabels.length > 0 || Boolean(restoreIssue);
+  $: issueBannerClass = restoreIssue ? 'lwe-warning-banner' : 'lwe-info-banner';
 </script>
 
 <Card
@@ -84,7 +85,7 @@
         {/if}
 
         {#if restoreIssue}
-          <p class="lwe-info-banner">
+          <p class={issueBannerClass} role="status" aria-live="polite">
             {restoreIssue}
           </p>
         {/if}

@@ -72,4 +72,20 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('Primary');
     expect(body).toContain('DISPLAY-2 (missing)');
   });
+
+  it('uses the shared subpanel treatment for the empty detail state', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: null,
+        snapshot: null,
+        loading: false,
+        error: null
+      }
+    });
+
+    expect(body).toContain('Select a Library item to inspect its current detail payload.');
+    expect(body).toContain('lwe-subpanel');
+    expect(body).toContain('border-dashed');
+    expect(body).toContain('role="status"');
+  });
 });

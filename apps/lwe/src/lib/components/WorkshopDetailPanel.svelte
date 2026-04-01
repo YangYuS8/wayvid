@@ -15,11 +15,17 @@
 
 <Card class="lwe-panel">
   {#if loading}
-    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading item details…</p>
+    <div class="lwe-subpanel gap-3" role="status" aria-live="polite">
+      <p class="lwe-eyebrow">Workshop detail</p>
+      <p class="text-sm leading-6 text-slate-600">Loading item details…</p>
+    </div>
   {:else if error}
-    <p class="lwe-warning-banner" role="alert" aria-live="assertive">
-      {error}
-    </p>
+    <div class="grid gap-3">
+      <p class="lwe-eyebrow">Workshop detail</p>
+      <p class="lwe-warning-banner" role="alert" aria-live="assertive">
+        {error}
+      </p>
+    </div>
   {:else if detail}
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
       <CoverImage coverPath={detail.coverPath} label={detail.title} />
@@ -68,9 +74,9 @@
       </div>
     </div>
   {:else}
-    <div class="grid gap-2 rounded-[1.35rem] border border-dashed border-slate-300 bg-slate-50/60 p-5 text-sm text-slate-600">
-      <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Workshop detail</p>
-      <p>Select a Workshop item to inspect its current detail payload.</p>
+    <div class="lwe-subpanel gap-3 border-dashed" role="status" aria-live="polite">
+      <p class="lwe-eyebrow">Workshop detail</p>
+      <p class="text-sm leading-6 text-slate-600">Select a Workshop item to inspect its current detail payload.</p>
     </div>
   {/if}
 </Card>
