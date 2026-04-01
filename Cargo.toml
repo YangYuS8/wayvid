@@ -11,8 +11,7 @@
 # - lwe-engine: retained playback and rendering candidate
 # - lwe-library: retained local library and metadata candidate
 # - apps/lwe/src-tauri: active LWE application shell
-# - wayvid-gui: retired legacy GUI shell kept temporarily for reference only
-# - wayvid-ctl: retired legacy CLI surface kept temporarily for reference only
+# - wayvid-gui / wayvid-ctl: removed from the repository; history remains in git and archived planning material
 
 [workspace]
 resolver = "2"
@@ -27,9 +26,9 @@ members = [
 version = "0.5.0"
 edition = "2021"
 rust-version = "1.75"
-authors = ["wayvid contributors"]
+authors = ["LWE contributors"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/YangYuS8/wayvid"
+repository = "https://github.com/YangYuS8/lwe"
 
 # Shared dependency versions (workspace.dependencies)
 [workspace.dependencies]

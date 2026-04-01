@@ -13,10 +13,10 @@ The repository reset repositions this repository around `LWE`, a Linux dynamic w
 
 ## Retired Legacy Crates
 
-- `crates/wayvid-gui` is a retired legacy GUI shell superseded by the LWE Tauri + Svelte application shell.
-- `crates/wayvid-ctl` is a retired legacy CLI surface that is no longer part of the active LWE workspace.
+- `crates/wayvid-gui` was a retired legacy GUI shell superseded by the LWE Tauri + Svelte application shell and has now been removed from the repository.
+- `crates/wayvid-ctl` was a retired legacy CLI surface that has now been removed from the repository.
 
-Both directories remain in the repository for reference only unless a later change explicitly revives some portion of their functionality, and they should not be treated as active product components.
+Both directories now survive only in git history and archived planning material, and they should not be treated as active product components.
 
 ## Retire or Re-Evaluate
 

@@ -1,10 +1,10 @@
-# wayvid (Repository Reset in Progress)
+# LWE (Repository Reset in Progress)
 
-This repository is being reset from the legacy `wayvid` product into a Linux dynamic wallpaper platform for Wallpaper Engine migration users on Linux.
+This repository is being reset from the legacy `wayvid` product into `LWE`, a Linux dynamic wallpaper platform for Wallpaper Engine migration users on Linux.
 
 ## Current Status
 
-- The old `wayvid` product story is being retired.
+- The old `wayvid` product story has been retired.
 - The repository is keeping only high-value technical assets from the previous codebase.
 - The current source of truth for product identity in this worktree is `openspec/config.yaml`.
 
@@ -24,7 +24,7 @@ The reset points the repository toward a Linux dynamic wallpaper platform that p
 - Product name: `LWE`
 - Code name and file-path prefix: `lwe`
 
-The old `wayvid` name remains only where legacy crates or migration-candidate assets have not been renamed yet.
+The old `wayvid` name remains only in historical material preserved for reference.
 
 ## What Remains Valuable
 
@@ -41,7 +41,7 @@ The active LWE product path is now limited to:
 - `crates/lwe-library` for library and Workshop logic
 - `crates/lwe-engine` for runtime and rendering behavior
 
-The legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` are no longer active workspace components. They remain in the repository as retired reference material only unless a later change explicitly revives some portion of their functionality.
+The legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` have been removed from the repository. Their history remains available in git history and archived planning material only.
 
 ## What Is Changing
 

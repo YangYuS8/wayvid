@@ -3,10 +3,10 @@ name = "lwe-engine"
 version = "0.5.0"
 edition = "2021"
 rust-version = "1.75"
-authors = ["wayvid contributors"]
+authors = ["LWE contributors"]
 license = "MIT OR Apache-2.0"
 description = "Video rendering engine for LWE (Wayland + MPV)"
-repository = "https://github.com/YangYuS8/wayvid"
+repository = "https://github.com/YangYuS8/lwe"
 
 [dependencies]
 lwe-core = { path = "../lwe-core" }
