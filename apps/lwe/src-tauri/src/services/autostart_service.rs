@@ -152,14 +152,16 @@ fn desktop_entry_exec_arg(argument: &str) -> String {
 }
 
 fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> bool {
-    let mut has_desktop_header = false;
+    let Some(group_lines) = desktop_entry_group_lines(contents, "Desktop Entry") else {
+        return false;
+    };
+
     let mut has_application_type = false;
     let mut exec_matches = false;
     let mut hidden = false;
 
-    for line in contents.lines().map(str::trim) {
+    for line in group_lines {
         match line {
-            "[Desktop Entry]" => has_desktop_header = true,
             "Type=Application" => has_application_type = true,
             "Hidden=true" => hidden = true,
             _ if line.starts_with("Exec=") => {
@@ -170,7 +172,33 @@ fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> 
         }
     }
 
-    has_desktop_header && has_application_type && exec_matches && !hidden
+    has_application_type && exec_matches && !hidden
+}
+
+fn desktop_entry_group_lines<'a>(contents: &'a str, group_name: &str) -> Option<Vec<&'a str>> {
+    let mut in_target_group = false;
+    let mut lines = Vec::new();
+
+    for raw_line in contents.lines() {
+        let line = raw_line.trim();
+
+        if line.starts_with('[') && line.ends_with(']') {
+            let header = &line[1..line.len() - 1];
+
+            if in_target_group {
+                break;
+            }
+
+            in_target_group = header == group_name;
+            continue;
+        }
+
+        if in_target_group {
+            lines.push(line);
+        }
+    }
+
+    in_target_group.then_some(lines)
 }
 
 fn desktop_entry_exec_matches(exec_value: &str, expected_launch_command: &[&str]) -> bool {
@@ -333,6 +361,32 @@ mod tests {
         std::fs::write(
             service.entry_path(),
             "[Desktop Entry]\nType=Application\nName=Launch Wallpaper Engine\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Enabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_ignores_action_group_keys_when_classifying_status() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nName=Launch Wallpaper Engine\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nTerminal=false\n\n[Desktop Action Broken]\nExec=/usr/bin/other-app\nHidden=true\n",
         )
         .unwrap();
 
