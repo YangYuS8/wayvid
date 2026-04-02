@@ -41,6 +41,7 @@
 
   const applySnapshot = (snapshot: SettingsPageSnapshot) => {
     setSettingsSnapshot(snapshot);
+    draftSource = snapshot;
     draft = createDraft(snapshot);
   };
 
@@ -51,6 +52,7 @@
   let saving = false;
   let pageError: string | null = null;
   let actionMessage: string | null = null;
+  let draftSource: SettingsPageSnapshot | null = null;
   let draft: SettingsDraft = {
     language: 'en',
     theme: 'system',
@@ -58,6 +60,10 @@
   };
 
   $: snapshot = $pageCache.settings.snapshot;
+  $: if (snapshot && snapshot !== draftSource) {
+    draft = createDraft(snapshot);
+    draftSource = snapshot;
+  }
   $: hasSnapshot = Boolean(snapshot);
   $: hasChanges =
     snapshot !== null &&
@@ -179,25 +185,33 @@
             </Select.Root>
           </label>
 
-          <label class="flex items-start gap-3 rounded-[1rem] border border-slate-200/80 bg-slate-50/80 p-4">
-            <input
-              type="checkbox"
-              bind:checked={draft.launchOnLogin}
-              disabled={!snapshot.launchOnLoginAvailable || saving}
-              aria-label="Launch on login"
-              class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
-            />
-            <span class="grid gap-1.5">
-              <span class="lwe-eyebrow">Launch on login</span>
-              <span class="text-sm leading-6 text-slate-700">
-                {#if snapshot.launchOnLoginAvailable}
+          {#if snapshot.launchOnLoginAvailable}
+            <label class="flex items-start gap-3 rounded-[1rem] border border-slate-200/80 bg-slate-50/80 p-4">
+              <input
+                type="checkbox"
+                bind:checked={draft.launchOnLogin}
+                disabled={saving}
+                aria-label="Launch on login"
+                class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
+              />
+              <span class="grid gap-1.5">
+                <span class="lwe-eyebrow">Launch on login</span>
+                <span class="text-sm leading-6 text-slate-700">
                   Start LWE automatically when the graphical desktop session begins.
-                {:else}
-                  Launch-on-login is currently unavailable on this machine.
-                {/if}
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          {:else}
+            <div class="grid gap-2 rounded-[1rem] border border-dashed border-slate-200/80 bg-slate-50/60 p-4">
+              <p class="lwe-eyebrow">Launch on login</p>
+              <p class="text-sm leading-6 text-slate-700">
+                Launch-on-login is currently unavailable on this machine.
+              </p>
+              <p class="text-sm leading-6 text-slate-600">
+                Saved preference: {draft.launchOnLogin ? 'prefer enabled when available' : 'prefer disabled when available'}.
+              </p>
+            </div>
+          {/if}
         </div>
 
         <div class="flex flex-wrap items-center gap-3">

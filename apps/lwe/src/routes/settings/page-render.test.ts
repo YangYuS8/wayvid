@@ -60,8 +60,10 @@ describe('settings page render', () => {
     const { body } = render(SettingsPage);
 
     expect(body).toContain('Launch-on-login is currently unavailable on this machine.');
+    expect(body).toContain('Saved preference: prefer enabled when available.');
     expect(body).toContain('Saved launch preference:');
     expect(body).toContain('Prefer enabled when available');
+    expect(body).not.toContain('aria-label="Launch on login"');
     expect(body).not.toContain('Launch on login:');
   });
 });
