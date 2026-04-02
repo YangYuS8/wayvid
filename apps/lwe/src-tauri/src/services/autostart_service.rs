@@ -393,21 +393,17 @@ fn desktop_entry_group_lines<'a>(contents: &'a str, group_name: &str) -> Option<
 
 fn desktop_entry_exec_matches(exec_value: &str, expected_launch_command: &[&str]) -> bool {
     match parse_desktop_entry_exec_value(exec_value) {
-        Ok(parsed_exec) => {
-            parsed_exec_launches_expected_program(&parsed_exec, expected_launch_command)
-        }
+        Ok(parsed_exec) => match normalized_launch_command(expected_launch_command) {
+            Ok(expected_exec) => parsed_exec == expected_exec,
+            Err(_) => false,
+        },
         Err(_) => false,
     }
 }
 
-fn parsed_exec_launches_expected_program(
-    parsed_exec: &[String],
-    expected_launch_command: &[&str],
-) -> bool {
-    match (parsed_exec.first(), expected_launch_command.first()) {
-        (Some(actual_program), Some(expected_program)) => actual_program == expected_program,
-        _ => false,
-    }
+fn normalized_launch_command(expected_launch_command: &[&str]) -> Result<Vec<String>, String> {
+    let encoded = desktop_entry_exec_value(expected_launch_command)?;
+    parse_desktop_entry_exec_value(&encoded)
 }
 
 fn parse_desktop_entry_exec_value(exec_value: &str) -> Result<Vec<String>, String> {
@@ -663,7 +659,7 @@ mod tests {
     }
 
     #[test]
-    fn autostart_service_shadows_inherited_lwe_entry_with_different_flags() {
+    fn autostart_service_does_not_shadow_inherited_lwe_entry_with_different_flags() {
         let config_root = test_config_root();
         let system_root = config_root.join("system");
         let service = AutostartService::for_test_with_system_roots(
@@ -688,8 +684,7 @@ mod tests {
             ])
             .unwrap();
 
-        let user_contents = std::fs::read_to_string(service.entry_path()).unwrap();
-        assert!(user_contents.contains("Hidden=true"));
+        assert!(!service.entry_path().exists());
     }
 
     #[test]
@@ -719,7 +714,7 @@ mod tests {
     }
 
     #[test]
-    fn autostart_service_treats_lwe_entry_with_different_flags_as_enabled() {
+    fn autostart_service_treats_lwe_entry_with_different_flags_as_disabled() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root);
 
@@ -740,7 +735,7 @@ mod tests {
                     "100%",
                 ])
                 .state,
-            super::AutostartState::Enabled
+            super::AutostartState::Disabled
         );
     }
 
