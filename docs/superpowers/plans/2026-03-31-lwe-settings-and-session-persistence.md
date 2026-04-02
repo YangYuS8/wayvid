@@ -62,7 +62,7 @@ It does **not** include:
 - Modify: `apps/lwe/src-tauri/src/services/settings_persistence_service.rs`
 - Test: `cargo test -p lwe-app-shell settings_persistence -- --nocapture`
 
-- [ ] **Step 1: Add a failing path test**
+- [x] **Step 1: Add a failing path test**
 
 Add a new test in `settings_persistence_service.rs` asserting that the active user settings path resolves under `lwe`, not `wayvid`, for example:
 
@@ -79,7 +79,7 @@ fn settings_path_uses_lwe_config_root() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -89,7 +89,7 @@ cargo test -p lwe-app-shell settings_persistence -- --nocapture
 
 Expected: FAIL because the service still targets `wayvid/settings.toml`.
 
-- [ ] **Step 3: Change the active settings path to `lwe`**
+- [x] **Step 3: Change the active settings path to `lwe`**
 
 Update `settings_persistence_service.rs` so the active path becomes:
 
@@ -99,7 +99,7 @@ path.join("lwe").join("settings.toml")
 
 Keep the rest of the TOML logic unchanged for now.
 
-- [ ] **Step 4: Run verification and commit**
+- [x] **Step 4: Run verification and commit**
 
 Run:
 
@@ -124,7 +124,7 @@ git commit -m "refactor: move active settings path to lwe config root"
 - Modify: `apps/lwe/src-tauri/src/results/mod.rs`
 - Test: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
 
-- [ ] **Step 1: Add a failing session-persistence round-trip test**
+- [x] **Step 1: Add a failing session-persistence round-trip test**
 
 Add a test proving the desktop assignment state can round-trip through TOML, for example:
 
@@ -141,7 +141,7 @@ fn desktop_assignment_persistence_round_trips_through_toml() {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -151,7 +151,7 @@ cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture
 
 Expected: FAIL because the current service still uses a separate JSON-backed shape.
 
-- [ ] **Step 3: Replace the active JSON persistence with TOML-backed assignment persistence**
+- [x] **Step 3: Replace the active JSON persistence with TOML-backed assignment persistence**
 
 Refactor `desktop_persistence_service.rs` so its active persistence format is TOML-based and lives under the same `lwe` config root. The persisted assignment facts remain minimal:
 
@@ -161,7 +161,7 @@ Keep the service-specific API shape (`load_state`, `save_assignment`, `clear_ass
 
 If a small helper/result type makes this cleaner, add `results/session_persistence.rs` and export it from `results/mod.rs`.
 
-- [ ] **Step 4: Run verification and commit**
+- [x] **Step 4: Run verification and commit**
 
 Run:
 
@@ -185,11 +185,11 @@ git commit -m "refactor: unify desktop assignment persistence under toml"
 - Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
 - Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
 
-- [ ] **Step 1: Add a failing restore-source test**
+- [x] **Step 1: Add a failing restore-source test**
 
 Add a test proving the desktop/library flow now reads assignment restore state from the unified TOML-backed persistence source, not the old JSON path.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -199,7 +199,7 @@ cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
 
 Expected: FAIL until the restore source is switched over.
 
-- [ ] **Step 3: Update Desktop and Library services**
+- [x] **Step 3: Update Desktop and Library services**
 
 Make `desktop_service.rs` and `library_service.rs` consume the unified settings/session persistence source for assignment restore/quick-status projection.
 
@@ -211,7 +211,7 @@ The restore policy stays the same:
 
 Only the persistence source changes.
 
-- [ ] **Step 4: Run verification and commit**
+- [x] **Step 4: Run verification and commit**
 
 Run:
 
@@ -235,14 +235,14 @@ git commit -m "refactor: restore desktop state from unified persistence"
 - Modify: `apps/lwe/src/routes/settings/page-render.test.ts`
 - Test: `pnpm --dir apps/lwe test && pnpm --dir apps/lwe check`
 
-- [ ] **Step 1: Add a failing UI-behavior test**
+- [x] **Step 1: Add a failing UI-behavior test**
 
 Add or update a test that verifies:
 
 - Simplified Chinese is present as a selectable language option
 - after a successful save, the editing controls collapse back to the settled/normal view state instead of staying expanded in an “editing” posture
 
-- [ ] **Step 2: Run the frontend tests to verify failure**
+- [x] **Step 2: Run the frontend tests to verify failure**
 
 Run:
 
@@ -252,7 +252,7 @@ pnpm --dir apps/lwe test
 
 Expected: FAIL until the page behavior is updated.
 
-- [ ] **Step 3: Update the Settings page behavior**
+- [x] **Step 3: Update the Settings page behavior**
 
 Modify `settings/+page.svelte` so:
 
@@ -261,7 +261,7 @@ Modify `settings/+page.svelte` so:
 
 Keep this minimal and consistent with the current UI foundation; do not redesign the entire Settings page.
 
-- [ ] **Step 4: Run verification and commit**
+- [x] **Step 4: Run verification and commit**
 
 Run:
 
@@ -284,7 +284,7 @@ git commit -m "feat: finish settings mvp ui behavior"
 - Modify: `docs/product/roadmap.md`
 - Test: `python3` assertion over the roadmap
 
-- [ ] **Step 1: Update roadmap wording**
+- [x] **Step 1: Update roadmap wording**
 
 Adjust the `lwe-settings-mvp` wording so it now reflects:
 
@@ -293,7 +293,7 @@ Adjust the `lwe-settings-mvp` wording so it now reflects:
 - launch-on-login support
 - session/assignment persistence alignment
 
-- [ ] **Step 2: Verify roadmap wording and commit**
+- [x] **Step 2: Verify roadmap wording and commit**
 
 Run:
 

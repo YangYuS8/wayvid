@@ -589,6 +589,11 @@ impl DesktopService {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::*;
     use crate::results::desktop::DesktopApplyResult;
     use crate::results::desktop::DesktopResolvedMonitorAssignment;
@@ -599,6 +604,49 @@ mod tests {
     use crate::services::monitor_service::MonitorService;
     use lwe_library::WeProject;
     use lwe_library::{WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState};
+
+    struct EnvGuard {
+        xdg_config_home: Option<OsString>,
+        home: Option<OsString>,
+    }
+
+    impl EnvGuard {
+        fn set_config_root(config_root: &Path) -> Self {
+            let xdg_config_home = std::env::var_os("XDG_CONFIG_HOME");
+            let home = std::env::var_os("HOME");
+
+            std::env::set_var("XDG_CONFIG_HOME", config_root);
+            std::env::set_var("HOME", config_root);
+
+            Self {
+                xdg_config_home,
+                home,
+            }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.xdg_config_home {
+                Some(value) => std::env::set_var("XDG_CONFIG_HOME", value),
+                None => std::env::remove_var("XDG_CONFIG_HOME"),
+            }
+
+            match &self.home {
+                Some(value) => std::env::set_var("HOME", value),
+                None => std::env::remove_var("HOME"),
+            }
+        }
+    }
+
+    fn test_config_root() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+
+        std::env::temp_dir().join(format!("desktop-service-config-{unique}"))
+    }
 
     fn known_monitor_id() -> Option<String> {
         match MonitorService::list_monitors() {
@@ -806,6 +854,32 @@ mod tests {
         } else {
             assert!(persistence_issue.is_some());
         }
+    }
+
+    #[test]
+    fn desktop_apply_flow_load_page_prefers_unified_toml_session_state_over_legacy_json() {
+        let _guard = real_desktop_flow_test_guard();
+        let config_root = test_config_root();
+        fs::create_dir_all(config_root.join("lwe")).unwrap();
+        fs::create_dir_all(config_root.join("wayvid")).unwrap();
+        fs::write(
+            config_root.join("lwe").join("session.toml"),
+            "[assignments]\nDISPLAY-1 = \"scene-from-session\"\n",
+        )
+        .unwrap();
+        fs::write(
+            config_root.join("wayvid").join("desktop-state.json"),
+            "{\"assignments\":{\"DISPLAY-1\":\"scene-from-legacy\"}}",
+        )
+        .unwrap();
+        let _env = EnvGuard::set_config_root(&config_root);
+
+        let result = DesktopService::load_page().unwrap();
+
+        assert_eq!(
+            result.assignments.get("DISPLAY-1").map(String::as_str),
+            Some("scene-from-session")
+        );
     }
 
     #[test]

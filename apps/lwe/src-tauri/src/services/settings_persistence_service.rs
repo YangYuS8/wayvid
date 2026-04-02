@@ -119,7 +119,7 @@ fn settings_path_from_env(
     let base = xdg_config_home.or_else(|| home.map(|home| home.join(".config")));
 
     match base {
-        Some(path) if path.is_absolute() => Ok(path.join("wayvid").join("settings.toml")),
+        Some(path) if path.is_absolute() => Ok(path.join("lwe").join("settings.toml")),
         Some(path) => Err(format!(
             "Unable to resolve settings path from non-absolute config root {}",
             path.display()
@@ -157,7 +157,7 @@ mod tests {
 
     use crate::results::settings_persistence::{PersistedSettings, SettingsPersistenceLoad};
 
-    use super::{atomic_write_path_for, SettingsPersistenceService};
+    use super::{atomic_write_path_for, settings_path_from_env, SettingsPersistenceService};
 
     fn test_settings_path() -> PathBuf {
         let unique = SystemTime::now()
@@ -179,6 +179,17 @@ mod tests {
             loaded,
             SettingsPersistenceLoad::Loaded(PersistedSettings::default())
         );
+    }
+
+    #[test]
+    fn settings_path_uses_lwe_config_root() {
+        let path = settings_path_from_env(
+            Some(PathBuf::from("/tmp/config")),
+            Some(PathBuf::from("/tmp/home")),
+        )
+        .unwrap();
+
+        assert_eq!(path, PathBuf::from("/tmp/config/lwe/settings.toml"));
     }
 
     #[test]

@@ -18,7 +18,7 @@ describe('settings page render', () => {
     resetCache();
   });
 
-  it('renders editable controls and steam status instead of a static snapshot table', () => {
+  it('renders the settled settings view with an explicit edit action', () => {
     setSettingsSnapshot({
       language: 'en',
       theme: 'system',
@@ -31,19 +31,37 @@ describe('settings page render', () => {
 
     const { body } = render(SettingsPage);
 
-    expect(body).toContain('Language');
-    expect(body).toContain('Theme');
-    expect(body).toContain('Launch on login');
+    expect(body).toContain('Current settings');
+    expect(body).toContain('Edit settings');
     expect(body).toContain('Steam integration');
     expect(body).toContain('Steam is required to launch Wallpaper Engine content.');
-    expect(body).toContain('Save changes');
     expect(body).toContain('English');
     expect(body).toContain('Follow system theme');
     expect(body).toContain('Launch on login:');
     expect(body).toContain('enabled');
+    expect(body).not.toContain('Save changes');
     expect(body).not.toContain('Rust backend');
     expect(body).not.toContain('backend-owned settings file');
     expect(body).not.toContain('Snapshot stale');
+  });
+
+  it('renders zh-CN as a selectable language while editing', () => {
+    setSettingsSnapshot({
+      language: 'zh-CN',
+      theme: 'dark',
+      launchOnLogin: false,
+      launchOnLoginAvailable: true,
+      steamRequired: false,
+      steamStatusMessage: 'Steam is optional for the current setup.',
+      stale: false
+    });
+
+    const { body } = render(SettingsPage, { props: { initialEditing: true } });
+
+    expect(body).toContain('Language');
+    expect(body).toContain('Simplified Chinese');
+    expect(body).toContain('Save changes');
+    expect(body).toContain('Cancel');
   });
 
   it('describes launch-on-login as a saved preference when autostart is unavailable', () => {
@@ -58,12 +76,13 @@ describe('settings page render', () => {
     });
 
     const { body } = render(SettingsPage);
+    const { body: editingBody } = render(SettingsPage, { props: { initialEditing: true } });
 
-    expect(body).toContain('Launch-on-login is currently unavailable on this machine.');
-    expect(body).toContain('Saved preference: prefer enabled when available.');
+    expect(editingBody).toContain('Launch-on-login is currently unavailable on this machine.');
+    expect(editingBody).toContain('Saved preference: prefer enabled when available.');
     expect(body).toContain('Saved launch preference:');
     expect(body).toContain('Prefer enabled when available');
-    expect(body).not.toContain('aria-label="Launch on login"');
+    expect(editingBody).not.toContain('aria-label="Launch on login"');
     expect(body).not.toContain('Launch on login:');
   });
 });
