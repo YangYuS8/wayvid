@@ -228,8 +228,14 @@
           <p><span class="font-medium text-slate-950">Saved language:</span> {labelFor(languageOptions, snapshot.language)}</p>
           <p><span class="font-medium text-slate-950">Saved theme:</span> {labelFor(themeOptions, snapshot.theme)}</p>
           <p>
-            <span class="font-medium text-slate-950">Launch on login:</span>
-            {snapshot.launchOnLogin ? 'enabled' : 'disabled'}
+            <span class="font-medium text-slate-950">
+              {snapshot.launchOnLoginAvailable ? 'Launch on login:' : 'Saved launch preference:'}
+            </span>
+            {#if snapshot.launchOnLoginAvailable}
+              {snapshot.launchOnLogin ? 'enabled' : 'disabled'}
+            {:else}
+              {snapshot.launchOnLogin ? 'Prefer enabled when available' : 'Prefer disabled when available'}
+            {/if}
           </p>
         </div>
       </Card>
