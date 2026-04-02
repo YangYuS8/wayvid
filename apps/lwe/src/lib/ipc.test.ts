@@ -8,7 +8,11 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke
 }));
 
-import { applyLibraryItemToMonitor, clearLibraryItemFromMonitor } from './ipc';
+import {
+  applyLibraryItemToMonitor,
+  clearLibraryItemFromMonitor,
+  updateSettings
+} from './ipc';
 
 describe('ipc desktop flow bridge', () => {
   afterEach(() => {
@@ -25,6 +29,28 @@ describe('ipc desktop flow bridge', () => {
     });
     expect(invoke).toHaveBeenNthCalledWith(2, 'clear_library_item_from_monitor', {
       monitorId: 'DISPLAY-1'
+    });
+  });
+});
+
+describe('ipc settings flow bridge', () => {
+  afterEach(() => {
+    invoke.mockClear();
+  });
+
+  it('invokes the settings update command with the editable mvp payload', async () => {
+    await updateSettings({
+      language: 'en',
+      theme: 'dark',
+      launchOnLogin: true
+    });
+
+    expect(invoke).toHaveBeenCalledWith('update_settings', {
+      input: {
+        language: 'en',
+        theme: 'dark',
+        launchOnLogin: true
+      }
     });
   });
 });

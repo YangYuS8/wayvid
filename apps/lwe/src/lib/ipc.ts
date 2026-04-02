@@ -7,6 +7,7 @@ import type {
   LibraryItemDetail,
   LibraryPageSnapshot,
   SettingsPageSnapshot,
+  SettingsUpdateInput,
   WorkshopItemDetail,
   WorkshopPageSnapshot
 } from '$lib/types';
@@ -44,3 +45,6 @@ export const clearLibraryItemFromMonitor = (monitorId: string) =>
   invokeCommand<ActionOutcome<null>>('clear_library_item_from_monitor', { monitorId });
 
 export const loadSettingsPage = () => invokeCommand<SettingsPageSnapshot>('load_settings_page');
+
+export const updateSettings = (input: SettingsUpdateInput) =>
+  invokeCommand<ActionOutcome<SettingsPageSnapshot>>('update_settings', { input });
