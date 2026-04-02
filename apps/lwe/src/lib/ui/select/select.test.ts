@@ -14,5 +14,6 @@ describe('Select primitive', () => {
     expect(body).toContain('border-input bg-background');
     expect(body).toContain('hover:bg-accent');
     expect(body).toContain('hover:text-accent-foreground');
+    expect(body).not.toContain('forcemount="true"');
   });
 });

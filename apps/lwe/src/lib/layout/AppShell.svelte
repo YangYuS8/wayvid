@@ -1,37 +1,28 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { copy } from '$lib/i18n';
 
   type NavItem = {
     href: string;
-    label: string;
-    shortLabel: string;
-    description: string;
+    key: keyof (typeof $copy.appShell.nav);
   };
 
   const navItems: NavItem[] = [
     {
       href: '/library',
-      label: 'Library',
-      shortLabel: 'Browse',
-      description: 'Review local projection state and assignments.'
+      key: 'library'
     },
     {
       href: '/workshop',
-      label: 'Workshop',
-      shortLabel: 'Sync',
-      description: 'Track Steam-backed content and refresh actions.'
+      key: 'workshop'
     },
     {
       href: '/desktop',
-      label: 'Desktop',
-      shortLabel: 'Output',
-      description: 'Inspect current monitor state and restore details.'
+      key: 'desktop'
     },
     {
       href: '/settings',
-      label: 'Settings',
-      shortLabel: 'Config',
-      description: 'Review shell-level environment and runtime status.'
+      key: 'settings'
     }
   ];
 
@@ -47,9 +38,10 @@
 
   const navLinkClass = (current: boolean) =>
     ['lwe-nav-link', current ? 'lwe-nav-link-active' : 'lwe-nav-link-idle'].join(' ');
+
 </script>
 
-<a class="lwe-skip-link" href="#app-content">Skip to content</a>
+<a class="lwe-skip-link" href="#app-content">{$copy.appShell.skipToContent}</a>
 
 <div class="lwe-shell-bg">
   <div class="lwe-shell-grid">
@@ -58,20 +50,21 @@
         <p class="lwe-kicker">LWE</p>
         <p class="m-0 text-[1.35rem] font-semibold tracking-tight text-white">Wallpaper Engine</p>
         <p class="m-0 text-sm leading-6 text-slate-300">
-          A persistent shell for library, workshop, desktop, and settings workflows.
+          {$copy.appShell.appDescription}
         </p>
       </div>
 
       <nav class="grid gap-3" aria-label="Primary navigation">
         {#each navItems as item}
           {@const current = isCurrent(item.href, currentPath)}
+          {@const labels = $copy.appShell.nav[item.key]}
 
           <a class={navLinkClass(current)} href={item.href} aria-current={current ? 'page' : undefined}>
-            <span class="text-base font-semibold text-white">{item.label}</span>
+            <span class="text-base font-semibold text-white">{labels.label}</span>
             <span class="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-300">
-              {item.shortLabel}
+              {labels.shortLabel}
             </span>
-            <span class="text-sm leading-6 text-slate-300/90">{item.description}</span>
+            <span class="text-sm leading-6 text-slate-300/90">{labels.description}</span>
           </a>
         {/each}
       </nav>

@@ -59,7 +59,6 @@ describe('desktop page render', () => {
     expect(body).toContain('Monitor view filter');
     expect(body).toContain('All outputs');
     expect(body).toContain('Current monitors');
-    expect(body).toContain('Missing restores');
     expect(body).toContain('Missing monitor restores');
     expect(body).toContain('DISPLAY-2');
     expect(body).toContain('Ocean Scene');

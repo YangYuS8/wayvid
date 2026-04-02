@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/layout/PageHeader.svelte';
+  import { copy, setPreferredLanguage } from '$lib/i18n';
   import { Button } from '$lib/ui/button';
   import { Card } from '$lib/ui/card';
   import * as Select from '$lib/ui/select';
@@ -16,7 +17,7 @@
   export let initialEditing = false;
 
   const readError = (error: unknown) =>
-    error instanceof Error ? error.message : 'Unable to complete the Settings request.';
+    error instanceof Error ? error.message : $copy.settings.requestError;
 
   type SettingsDraft = {
     language: string;
@@ -25,15 +26,15 @@
   };
 
   const languageOptions = [
-    { value: 'en', label: 'English' },
-    { value: 'zh-CN', label: 'Simplified Chinese' },
-    { value: 'system', label: 'Follow system locale' }
+    { value: 'en', labelKey: 'en' },
+    { value: 'zh-CN', labelKey: 'zh-CN' },
+    { value: 'system', labelKey: 'system' }
   ] as const;
 
   const themeOptions = [
-    { value: 'system', label: 'Follow system theme' },
-    { value: 'light', label: 'Light' },
-    { value: 'dark', label: 'Dark' }
+    { value: 'system', labelKey: 'system' },
+    { value: 'light', labelKey: 'light' },
+    { value: 'dark', labelKey: 'dark' }
   ] as const;
 
   const createDraft = (snapshot: SettingsPageSnapshot): SettingsDraft => ({
@@ -44,12 +45,13 @@
 
   const applySnapshot = (snapshot: SettingsPageSnapshot) => {
     setSettingsSnapshot(snapshot);
+    setPreferredLanguage(snapshot.language as 'en' | 'zh-CN' | 'system');
     draftSource = snapshot;
     draft = createDraft(snapshot);
   };
 
-  const labelFor = (options: readonly { value: string; label: string }[], value: string) =>
-    options.find((option) => option.value === value)?.label ?? value;
+  const languageLabel = (value: string) => $copy.settings.languageOptions[value as 'en' | 'zh-CN' | 'system'] ?? value;
+  const themeLabel = (value: string) => $copy.settings.themeOptions[value as 'system' | 'light' | 'dark'] ?? value;
 
   let loading = false;
   let saving = false;
@@ -147,31 +149,31 @@
 </script>
 
 <svelte:head>
-  <title>Settings</title>
+  <title>{$copy.settings.pageTitle}</title>
 </svelte:head>
 
 <section class="grid gap-6">
   <PageHeader
-    eyebrow="Settings"
-    title="App preferences"
-    subtitle="Choose how LWE looks and behaves when you start your desktop session."
+    eyebrow={$copy.settings.pageTitle}
+    title={$copy.settings.headerTitle}
+    subtitle={$copy.settings.headerSubtitle}
   />
 
   {#if pageError}
     <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !hasSnapshot}
-    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Settings…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">{$copy.settings.loading}</p>
   {:else if snapshot}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.9fr)] xl:items-start">
       <Card class="lwe-panel gap-5">
         <div class="grid gap-1.5">
-          <p class="lwe-eyebrow">{isEditing ? 'Editable settings' : 'Current settings'}</p>
-          <h2 class="lwe-heading-md">Preferences</h2>
+          <p class="lwe-eyebrow">{isEditing ? $copy.settings.editableSettings : $copy.settings.currentSettings}</p>
+          <h2 class="lwe-heading-md">{$copy.settings.preferences}</h2>
           <p class="text-sm leading-6 text-slate-600">
             {#if isEditing}
-              Update language, theme, and startup behavior, then save when you are ready.
+              {$copy.settings.editSubtitle}
             {:else}
-              Review the current language, theme, and startup behavior before making changes.
+              {$copy.settings.reviewSubtitle}
             {/if}
           </p>
         </div>
@@ -183,30 +185,30 @@
         {#if isEditing}
           <div class="grid gap-4">
             <label class="grid gap-1.5">
-              <span class="lwe-eyebrow">Language</span>
+              <span class="lwe-eyebrow">{$copy.settings.language}</span>
               <Select.Root type="single" name="settingsLanguage" bind:value={draft.language}>
-                <Select.Trigger aria-label="Language" class="min-w-[14rem]">
-                  {labelFor(languageOptions, draft.language)}
+                <Select.Trigger aria-label={$copy.settings.language} class="min-w-[14rem]">
+                  {languageLabel(draft.language)}
                 </Select.Trigger>
 
                 <Select.Content>
                   {#each languageOptions as option}
-                    <Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>
+                    <Select.Item value={option.value} label={languageLabel(option.value)}>{languageLabel(option.value)}</Select.Item>
                   {/each}
                 </Select.Content>
               </Select.Root>
             </label>
 
             <label class="grid gap-1.5">
-              <span class="lwe-eyebrow">Theme</span>
+              <span class="lwe-eyebrow">{$copy.settings.theme}</span>
               <Select.Root type="single" name="settingsTheme" bind:value={draft.theme}>
-                <Select.Trigger aria-label="Theme" class="min-w-[14rem]">
-                  {labelFor(themeOptions, draft.theme)}
+                <Select.Trigger aria-label={$copy.settings.theme} class="min-w-[14rem]">
+                  {themeLabel(draft.theme)}
                 </Select.Trigger>
 
                 <Select.Content>
                   {#each themeOptions as option}
-                    <Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>
+                    <Select.Item value={option.value} label={themeLabel(option.value)}>{themeLabel(option.value)}</Select.Item>
                   {/each}
                 </Select.Content>
               </Select.Root>
@@ -218,24 +220,24 @@
                   type="checkbox"
                   bind:checked={draft.launchOnLogin}
                   disabled={saving}
-                  aria-label="Launch on login"
+                  aria-label={$copy.settings.launchOnLogin}
                   class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
                 />
                 <span class="grid gap-1.5">
-                  <span class="lwe-eyebrow">Launch on login</span>
+                  <span class="lwe-eyebrow">{$copy.settings.launchOnLogin}</span>
                   <span class="text-sm leading-6 text-slate-700">
-                    Start LWE automatically when the graphical desktop session begins.
+                    {$copy.settings.startOnSession}
                   </span>
                 </span>
               </label>
             {:else}
               <div class="grid gap-2 rounded-[1rem] border border-dashed border-slate-200/80 bg-slate-50/60 p-4">
-                <p class="lwe-eyebrow">Launch on login</p>
+                <p class="lwe-eyebrow">{$copy.settings.launchOnLogin}</p>
                 <p class="text-sm leading-6 text-slate-700">
-                  Launch-on-login is currently unavailable on this machine.
+                  {$copy.settings.launchOnLoginUnavailable}
                 </p>
                 <p class="text-sm leading-6 text-slate-600">
-                  Saved preference: {draft.launchOnLogin ? 'prefer enabled when available' : 'prefer disabled when available'}.
+                  {$copy.settings.launchPreferencePrefix} {draft.launchOnLogin ? $copy.settings.preferEnabled.toLowerCase() : $copy.settings.preferDisabled.toLowerCase()}.
                 </p>
               </div>
             {/if}
@@ -243,60 +245,60 @@
 
           <div class="flex flex-wrap items-center gap-3">
             <Button onclick={saveSettings} disabled={!hasChanges || saving}>
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? $copy.settings.saving : $copy.settings.saveChanges}
             </Button>
-            <Button onclick={cancelEditing} variant="outline" disabled={saving}>Cancel</Button>
+            <Button onclick={cancelEditing} variant="outline" disabled={saving}>{$copy.settings.cancel}</Button>
 
             {#if hasChanges && !saving}
-              <p class="text-sm leading-6 text-slate-600" aria-live="polite">Unsaved changes</p>
+              <p class="text-sm leading-6 text-slate-600" aria-live="polite">{$copy.settings.unsavedChanges}</p>
             {/if}
           </div>
         {:else}
           <div class="grid gap-4 rounded-[1rem] border border-slate-200/80 bg-slate-50/60 p-4 text-sm leading-6 text-slate-700">
-            <p><span class="font-medium text-slate-950">Language:</span> {labelFor(languageOptions, snapshot.language)}</p>
-            <p><span class="font-medium text-slate-950">Theme:</span> {labelFor(themeOptions, snapshot.theme)}</p>
+            <p><span class="font-medium text-slate-950">{$copy.settings.language}:</span> {languageLabel(snapshot.language)}</p>
+            <p><span class="font-medium text-slate-950">{$copy.settings.theme}:</span> {themeLabel(snapshot.theme)}</p>
             <p>
               <span class="font-medium text-slate-950">
-                {snapshot.launchOnLoginAvailable ? 'Launch on login:' : 'Saved launch preference:'}
+                {snapshot.launchOnLoginAvailable ? $copy.settings.launchOnLoginSaved : $copy.settings.savedLaunchPreference}
               </span>
               {#if snapshot.launchOnLoginAvailable}
-                {snapshot.launchOnLogin ? 'enabled' : 'disabled'}
+                {snapshot.launchOnLogin ? $copy.settings.enabled : $copy.settings.disabled}
               {:else}
-                {snapshot.launchOnLogin ? 'Prefer enabled when available' : 'Prefer disabled when available'}
+                {snapshot.launchOnLogin ? $copy.settings.preferEnabled : $copy.settings.preferDisabled}
               {/if}
             </p>
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <Button onclick={startEditing}>Edit settings</Button>
+            <Button onclick={startEditing}>{$copy.settings.editSettings}</Button>
           </div>
         {/if}
       </Card>
 
       <Card class="lwe-panel gap-4">
         <div class="grid gap-1.5">
-          <p class="lwe-eyebrow">Steam integration</p>
-          <h2 class="lwe-heading-md">Current state</h2>
+          <p class="lwe-eyebrow">{$copy.settings.steamIntegration}</p>
+          <h2 class="lwe-heading-md">{$copy.settings.currentState}</h2>
         </div>
 
         <div class="lwe-subpanel gap-2.5">
           <p class="text-sm font-semibold tracking-tight text-slate-950">
-            {snapshot.steamRequired ? 'Steam is required' : 'Steam is optional'}
+            {snapshot.steamRequired ? $copy.settings.steamRequired : $copy.settings.steamOptional}
           </p>
           <p class="text-sm leading-6 text-slate-600">{snapshot.steamStatusMessage}</p>
         </div>
 
         <div class="grid gap-1.5 text-sm leading-6 text-slate-600">
-          <p><span class="font-medium text-slate-950">Saved language:</span> {labelFor(languageOptions, snapshot.language)}</p>
-          <p><span class="font-medium text-slate-950">Saved theme:</span> {labelFor(themeOptions, snapshot.theme)}</p>
+          <p><span class="font-medium text-slate-950">{$copy.settings.savedLanguage}</span> {languageLabel(snapshot.language)}</p>
+          <p><span class="font-medium text-slate-950">{$copy.settings.savedTheme}</span> {themeLabel(snapshot.theme)}</p>
           <p>
             <span class="font-medium text-slate-950">
-              {snapshot.launchOnLoginAvailable ? 'Launch on login:' : 'Saved launch preference:'}
+              {snapshot.launchOnLoginAvailable ? $copy.settings.launchOnLoginSaved : $copy.settings.savedLaunchPreference}
             </span>
             {#if snapshot.launchOnLoginAvailable}
-              {snapshot.launchOnLogin ? 'enabled' : 'disabled'}
+              {snapshot.launchOnLogin ? $copy.settings.enabled : $copy.settings.disabled}
             {:else}
-              {snapshot.launchOnLogin ? 'Prefer enabled when available' : 'Prefer disabled when available'}
+              {snapshot.launchOnLogin ? $copy.settings.preferEnabled : $copy.settings.preferDisabled}
             {/if}
           </p>
         </div>

@@ -13,7 +13,7 @@
     class: className = '',
     viewportClass = '',
     children,
-    forceMount = true,
+    forceMount = false,
     sideOffset = 8,
     ...restProps
   }: SelectContentProps = $props();

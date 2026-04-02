@@ -54,6 +54,17 @@ impl DesktopService {
         Self::load_page_with_projection(LibraryService::load_projection())
     }
 
+    pub fn restore_saved_assignments() -> Result<(), String> {
+        let page = Self::load_page()?;
+        for issue in Self::restore_saved_assignments_with(&page, |monitor, item_id| {
+            Self::apply_with_real_backend(monitor, item_id)
+        }) {
+            eprintln!("desktop restore skipped: {issue}");
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn load_page_with_projection(
         library_projection: Result<LibraryProjection, String>,
     ) -> Result<DesktopPageResult, String> {
@@ -249,6 +260,40 @@ impl DesktopService {
             assignments_available,
             stale,
         }
+    }
+
+    pub(crate) fn restore_saved_assignments_with<F>(
+        page: &DesktopPageResult,
+        mut apply: F,
+    ) -> Vec<String>
+    where
+        F: FnMut(&crate::services::monitor_service::MonitorDescriptor, &str) -> Result<(), String>,
+    {
+        let monitor_map = page
+            .monitors
+            .iter()
+            .map(|monitor| (monitor.id.as_str(), monitor))
+            .collect::<BTreeMap<_, _>>();
+        let mut issues = Vec::new();
+
+        for (monitor_id, assignment) in &page.resolved_assignments {
+            if let DesktopResolvedMonitorAssignment::Restored { item_id, .. } = assignment {
+                let Some(monitor) = monitor_map.get(monitor_id.as_str()) else {
+                    issues.push(format!(
+                        "Saved assignment for monitor {monitor_id} was marked restorable but no active monitor descriptor was available."
+                    ));
+                    continue;
+                };
+
+                if let Err(reason) = apply(monitor, item_id) {
+                    issues.push(format!(
+                        "Failed to restore saved assignment for monitor {monitor_id} with item {item_id}: {reason}"
+                    ));
+                }
+            }
+        }
+
+        issues
     }
 
     pub fn apply_to_monitor(monitor_id: &str, item_id: &str) -> Result<DesktopApplyResult, String> {
@@ -615,8 +660,10 @@ mod tests {
             let xdg_config_home = std::env::var_os("XDG_CONFIG_HOME");
             let home = std::env::var_os("HOME");
 
-            std::env::set_var("XDG_CONFIG_HOME", config_root);
-            std::env::set_var("HOME", config_root);
+            unsafe {
+                std::env::set_var("XDG_CONFIG_HOME", config_root);
+                std::env::set_var("HOME", config_root);
+            }
 
             Self {
                 xdg_config_home,
@@ -628,13 +675,13 @@ mod tests {
     impl Drop for EnvGuard {
         fn drop(&mut self) {
             match &self.xdg_config_home {
-                Some(value) => std::env::set_var("XDG_CONFIG_HOME", value),
-                None => std::env::remove_var("XDG_CONFIG_HOME"),
+                Some(value) => unsafe { std::env::set_var("XDG_CONFIG_HOME", value) },
+                None => unsafe { std::env::remove_var("XDG_CONFIG_HOME") },
             }
 
             match &self.home {
-                Some(value) => std::env::set_var("HOME", value),
-                None => std::env::remove_var("HOME"),
+                Some(value) => unsafe { std::env::set_var("HOME", value) },
+                None => unsafe { std::env::remove_var("HOME") },
             }
         }
     }
@@ -879,6 +926,55 @@ mod tests {
         assert_eq!(
             result.assignments.get("DISPLAY-1").map(String::as_str),
             Some("scene-from-session")
+        );
+    }
+
+    #[test]
+    fn desktop_apply_flow_startup_restore_applies_only_restorable_assignments() {
+        let page = DesktopPageResult {
+            monitors: vec![crate::services::monitor_service::MonitorDescriptor {
+                id: "DISPLAY-1".to_string(),
+                backend_output_id: "DISPLAY-1".to_string(),
+                name: "Primary".to_string(),
+                resolution: "1920x1080".to_string(),
+            }],
+            assignments: BTreeMap::from([
+                ("DISPLAY-1".to_string(), "scene-7".to_string()),
+                ("DISPLAY-2".to_string(), "missing-item".to_string()),
+            ]),
+            resolved_assignments: BTreeMap::from([
+                (
+                    "DISPLAY-1".to_string(),
+                    DesktopResolvedMonitorAssignment::Restored {
+                        item_id: "scene-7".to_string(),
+                        item_title: "Forest Scene".to_string(),
+                    },
+                ),
+                (
+                    "DISPLAY-2".to_string(),
+                    DesktopResolvedMonitorAssignment::MissingItem {
+                        item_id: "missing-item".to_string(),
+                    },
+                ),
+            ]),
+            library_item_assignments: BTreeMap::new(),
+            restore_issues: Vec::new(),
+            monitors_available: true,
+            monitor_discovery_issue: None,
+            persistence_issue: None,
+            assignments_available: true,
+            stale: false,
+        };
+        let mut applied = Vec::new();
+
+        DesktopService::restore_saved_assignments_with(&page, |monitor, item_id| {
+            applied.push((monitor.id.clone(), item_id.to_string()));
+            Ok(())
+        });
+
+        assert_eq!(
+            applied,
+            vec![("DISPLAY-1".to_string(), "scene-7".to_string())]
         );
     }
 

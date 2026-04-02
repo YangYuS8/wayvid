@@ -27,7 +27,15 @@ pub fn register_commands(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<
 }
 
 pub fn builder() -> tauri::Builder<tauri::Wry> {
-    register_commands(tauri::Builder::default())
+    register_commands(tauri::Builder::default()).setup(|_| {
+        if let Err(reason) =
+            crate::services::desktop_service::DesktopService::restore_saved_assignments()
+        {
+            eprintln!("desktop restore failed during startup: {reason}");
+        }
+
+        Ok(())
+    })
 }
 
 #[cfg(test)]

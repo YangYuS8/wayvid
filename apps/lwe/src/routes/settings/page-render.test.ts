@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 
 import SettingsPage from './+page.svelte';
+import { resetPreferredLanguage, setPreferredLanguage } from '$lib/i18n';
 import { pageCache, setSettingsSnapshot } from '$lib/stores/ui';
 
 const resetCache = () => {
@@ -15,6 +16,7 @@ const resetCache = () => {
 
 describe('settings page render', () => {
   afterEach(() => {
+    resetPreferredLanguage();
     resetCache();
   });
 
@@ -62,6 +64,27 @@ describe('settings page render', () => {
     expect(body).toContain('Simplified Chinese');
     expect(body).toContain('Save changes');
     expect(body).toContain('Cancel');
+  });
+
+  it('renders settings copy in Simplified Chinese when zh-CN is active', () => {
+    setPreferredLanguage('zh-CN');
+
+    setSettingsSnapshot({
+      language: 'zh-CN',
+      theme: 'dark',
+      launchOnLogin: false,
+      launchOnLoginAvailable: true,
+      steamRequired: false,
+      steamStatusMessage: 'Steam is optional for the current setup.',
+      stale: false
+    });
+
+    const { body } = render(SettingsPage);
+
+    expect(body).toContain('设置');
+    expect(body).toContain('应用偏好');
+    expect(body).toContain('当前设置');
+    expect(body).toContain('编辑设置');
   });
 
   it('describes launch-on-login as a saved preference when autostart is unavailable', () => {
