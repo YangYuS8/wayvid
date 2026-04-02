@@ -394,13 +394,19 @@ fn desktop_entry_group_lines<'a>(contents: &'a str, group_name: &str) -> Option<
 fn desktop_entry_exec_matches(exec_value: &str, expected_launch_command: &[&str]) -> bool {
     match parse_desktop_entry_exec_value(exec_value) {
         Ok(parsed_exec) => {
-            parsed_exec
-                == expected_launch_command
-                    .iter()
-                    .map(|part| part.to_string())
-                    .collect::<Vec<_>>()
+            parsed_exec_launches_expected_program(&parsed_exec, expected_launch_command)
         }
         Err(_) => false,
+    }
+}
+
+fn parsed_exec_launches_expected_program(
+    parsed_exec: &[String],
+    expected_launch_command: &[&str],
+) -> bool {
+    match (parsed_exec.first(), expected_launch_command.first()) {
+        (Some(actual_program), Some(expected_program)) => actual_program == expected_program,
+        _ => false,
     }
 }
 
@@ -657,6 +663,36 @@ mod tests {
     }
 
     #[test]
+    fn autostart_service_shadows_inherited_lwe_entry_with_different_flags() {
+        let config_root = test_config_root();
+        let system_root = config_root.join("system");
+        let service = AutostartService::for_test_with_system_roots(
+            config_root.clone(),
+            vec![system_root.clone()],
+        );
+
+        std::fs::create_dir_all(system_root.join("autostart")).unwrap();
+        std::fs::write(
+            system_root.join("autostart").join("wayvid-lwe.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --start-hidden --profile \"Other Project\"\nTerminal=false\n",
+        )
+        .unwrap();
+
+        service
+            .disable(&[
+                "/opt/lwe/bin/lwe",
+                "--profile",
+                "My Project",
+                "say \"hi\"",
+                "100%",
+            ])
+            .unwrap();
+
+        let user_contents = std::fs::read_to_string(service.entry_path()).unwrap();
+        assert!(user_contents.contains("Hidden=true"));
+    }
+
+    #[test]
     fn autostart_service_treats_equivalent_exec_with_different_name_as_enabled() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root);
@@ -665,6 +701,32 @@ mod tests {
         std::fs::write(
             service.entry_path(),
             "[Desktop Entry]\nType=Application\nName=Launch Wallpaper Engine\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Enabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_lwe_entry_with_different_flags_as_enabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --start-hidden --profile \"Other Project\"\nTerminal=false\n",
         )
         .unwrap();
 
