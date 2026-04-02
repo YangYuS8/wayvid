@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
+import { getCopyForLanguage } from '$lib/i18n';
 import { resolveDesktopPageState } from './page-state';
 
+const copy = getCopyForLanguage('en');
+
 describe('desktop page state', () => {
+  it('keeps the zh-CN missing filter label in the centralized dictionary', () => {
+    expect(getCopyForLanguage('zh-CN').desktop.filterOptions.missing).toBe('缺失恢复项');
+  });
+
   it('surfaces monitor discovery and persistence issues instead of treating the snapshot as empty', () => {
     expect(
       resolveDesktopPageState({
@@ -14,7 +21,7 @@ describe('desktop page state', () => {
         persistenceIssue: 'Assignment persistence is unavailable.',
         assignmentsAvailable: false,
         stale: true
-      })
+      }, copy)
     ).toEqual({
       monitorAvailabilityLabel: 'no',
       assignmentAvailabilityLabel: 'no',
@@ -34,7 +41,7 @@ describe('desktop page state', () => {
         persistenceIssue: null,
         assignmentsAvailable: true,
         stale: false
-      })
+      }, copy)
     ).toEqual({
       monitorAvailabilityLabel: 'yes',
       assignmentAvailabilityLabel: 'yes',
@@ -54,7 +61,7 @@ describe('desktop page state', () => {
         persistenceIssue: null,
         assignmentsAvailable: true,
         stale: true
-      })
+      }, copy)
     ).toEqual({
       monitorAvailabilityLabel: 'yes',
       assignmentAvailabilityLabel: 'yes',

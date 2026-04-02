@@ -3,7 +3,15 @@
   import { Card } from '$lib/ui/card';
   import { Separator } from '$lib/ui/separator';
   import CoverImage from '$lib/components/CoverImage.svelte';
+  import {
+    copy,
+    formatCopy,
+    getDesktopRestoreStateLabel,
+    getDesktopRuntimeStatusLabel
+  } from '$lib/i18n';
+  import type { CopyDictionary } from '$lib/i18n';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import type { DesktopRestoreState, RuntimeStatus } from '$lib/types';
 
   export let displayName: string;
   export let monitorId: string;
@@ -13,38 +21,72 @@
   export let clearSupported = false;
   export let clearing = false;
   export let onClear: (() => void) | undefined = undefined;
-  export let runtimeStatus: string | null = null;
-  export let restoreState: string | null = null;
+  export let runtimeStatus: RuntimeStatus | null = null;
+  export let restoreState: DesktopRestoreState | null = null;
   export let restoreIssue: string | null = null;
   export let missing = false;
   let detailsExpanded = false;
 
-  $: statusLabels = [runtimeStatus, restoreState].filter((value): value is string => Boolean(value));
-  $: hasStateDetails = statusLabels.length > 0 || Boolean(restoreIssue);
+  type StatusBadgeEntry = {
+    label: string;
+    variantKey: string;
+  };
+
+  const createStatusBadges = (
+    copyValue: CopyDictionary,
+    runtimeStatus: RuntimeStatus | null,
+    restoreState: DesktopRestoreState | null
+  ): StatusBadgeEntry[] => {
+    const badges: StatusBadgeEntry[] = [];
+
+    if (runtimeStatus) {
+      badges.push({
+        label: getDesktopRuntimeStatusLabel(copyValue, runtimeStatus),
+        variantKey: runtimeStatus
+      });
+    }
+
+    if (restoreState) {
+      badges.push({
+        label: getDesktopRestoreStateLabel(copyValue, restoreState),
+        variantKey: restoreState
+      });
+    }
+
+    return badges;
+  };
+
+  $: statusBadges = createStatusBadges($copy, runtimeStatus, restoreState);
+  $: missingBadgeLabel = getDesktopRestoreStateLabel($copy, 'missing_monitor');
+  $: hasStateDetails = statusBadges.length > 0 || Boolean(restoreIssue);
   $: issueBannerClass = restoreIssue ? 'lwe-warning-banner' : 'lwe-info-banner';
+  $: desktopMonitorCardCopy = $copy.components.desktopMonitorCard;
 </script>
 
 <Card
   class="lwe-panel-compact"
-  aria-label={`Desktop monitor ${displayName}`}
+  aria-label={formatCopy(desktopMonitorCardCopy.ariaLabel, { displayName })}
 >
-  <CoverImage coverPath={currentCoverPath} label={`${displayName} current item`} />
+  <CoverImage
+    coverPath={currentCoverPath}
+    label={formatCopy(desktopMonitorCardCopy.currentItemLabel, { displayName })}
+  />
 
   <div class="grid gap-4 px-1 pb-1">
     <div class="grid gap-3.5">
       <div class="flex flex-wrap items-center gap-2">
-        <StatusBadge label="desktop" />
-        {#if missing}
-          <StatusBadge label="missing_monitor" />
+        <StatusBadge label={desktopMonitorCardCopy.desktopBadge} />
+        {#if missing && restoreState !== 'missing_monitor'}
+          <StatusBadge label={missingBadgeLabel} variantKey="missing_monitor" />
         {/if}
 
-        {#each statusLabels as statusLabel}
-          <StatusBadge label={statusLabel} />
+        {#each statusBadges as statusBadge}
+          <StatusBadge label={statusBadge.label} variantKey={statusBadge.variantKey} />
         {/each}
       </div>
 
       <div class="grid gap-1.5">
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor</p>
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.monitor}</p>
         <h3 class="lwe-heading-md lwe-wrap-safe">{displayName}</h3>
         <p class="lwe-wrap-safe text-sm text-slate-600">
           {monitorId}
@@ -56,7 +98,7 @@
     </div>
 
     <div class="lwe-subpanel">
-      <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Current item</p>
+      <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.currentItem}</p>
       <p class="lwe-wrap-safe text-sm leading-6 text-slate-800">{currentItemLabel}</p>
 
       {#if clearSupported}
@@ -65,11 +107,11 @@
             variant="outline"
             size="sm"
             class="w-fit focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            aria-label={`Clear wallpaper from ${displayName}`}
+            aria-label={formatCopy(desktopMonitorCardCopy.clearWallpaperAriaLabel, { displayName })}
             disabled={clearing}
             onclick={onClear}
           >
-            {clearing ? 'Clearing…' : 'Clear'}
+            {clearing ? desktopMonitorCardCopy.clearing : desktopMonitorCardCopy.clear}
           </Button>
         </div>
       {/if}
@@ -79,7 +121,7 @@
       <Separator class="bg-slate-200/80" />
       <div class="lwe-subpanel gap-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Restore state</p>
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.restoreState}</p>
 
           <Button
             variant="outline"
@@ -90,14 +132,16 @@
               detailsExpanded = !detailsExpanded;
             }}
           >
-            {detailsExpanded ? 'Hide status details' : 'View status details'}
+            {detailsExpanded
+              ? desktopMonitorCardCopy.hideStatusDetails
+              : desktopMonitorCardCopy.viewStatusDetails}
           </Button>
         </div>
 
-        {#if statusLabels.length > 0}
+        {#if statusBadges.length > 0}
           <div class="flex flex-wrap gap-2">
-            {#each statusLabels as statusLabel}
-              <StatusBadge label={statusLabel} />
+            {#each statusBadges as statusBadge}
+              <StatusBadge label={statusBadge.label} variantKey={statusBadge.variantKey} />
             {/each}
           </div>
         {/if}
@@ -113,25 +157,25 @@
             <Separator class="bg-slate-200/80" />
 
             <div class="grid gap-1.5">
-              <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">Monitor status</p>
+              <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.monitorStatus}</p>
               <h4 class="lwe-heading-md lwe-wrap-safe">{displayName}</h4>
               <p class="lwe-wrap-safe text-sm text-slate-600">{monitorId}</p>
             </div>
 
-            {#if statusLabels.length > 0}
+            {#if statusBadges.length > 0}
               <div class="flex flex-wrap gap-2">
-                {#each statusLabels as statusLabel}
-                  <StatusBadge label={statusLabel} />
+                {#each statusBadges as statusBadge}
+                  <StatusBadge label={statusBadge.label} variantKey={statusBadge.variantKey} />
                 {/each}
               </div>
             {/if}
 
             <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
-              {restoreIssue ?? 'This monitor has state metadata available, but no additional restore issue was reported.'}
+              {restoreIssue ?? desktopMonitorCardCopy.noRestoreIssue}
             </p>
 
             <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-              Expand this section to review the latest restore status for this display.
+              {desktopMonitorCardCopy.expandStatusHint}
             </p>
           </div>
         {/if}

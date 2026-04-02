@@ -1,6 +1,6 @@
 type WorkshopRefreshStateInput = {
-  previousSelection: string | null;
   currentSelection: string | null;
+  hasCurrentUpdate: boolean;
   availableItemIds: string[];
   detailLoading: boolean;
   detailRequestToken: number;
@@ -15,13 +15,22 @@ type WorkshopRefreshState = {
 };
 
 export const resolveWorkshopRefreshState = ({
-  previousSelection,
   currentSelection,
+  hasCurrentUpdate,
   availableItemIds,
   detailLoading,
   detailRequestToken,
   detailError
 }: WorkshopRefreshStateInput): WorkshopRefreshState => {
+  if (!hasCurrentUpdate) {
+    return {
+      nextSelection: null,
+      detailLoading: false,
+      detailRequestToken: detailRequestToken + 1,
+      detailError: null
+    };
+  }
+
   const nextSelection =
     currentSelection && availableItemIds.includes(currentSelection) ? currentSelection : null;
 

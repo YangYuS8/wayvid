@@ -3,6 +3,7 @@
   import { cn } from '$lib/ui/utils';
 
   export let label: string;
+  export let variantKey: string | null = null;
 
   const formatLabel = (value: string) =>
     value
@@ -29,7 +30,7 @@
   };
 
   $: badgeLabel = formatLabel(label);
-  $: badgeVariant = resolveBadgeVariant(label);
+  $: badgeVariant = resolveBadgeVariant(variantKey ?? label);
   $: badgeClass = cn(
     'px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] shadow-none',
     badgeVariant === 'secondary' && 'border-sky-200/80 bg-sky-50 text-sky-900',

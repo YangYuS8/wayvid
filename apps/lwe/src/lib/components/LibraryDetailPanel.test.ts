@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 
+import { resetPreferredLanguage, setPreferredLanguage } from '$lib/i18n';
 import LibraryDetailPanel from './LibraryDetailPanel.svelte';
 
 describe('LibraryDetailPanel', () => {
+  afterEach(() => {
+    resetPreferredLanguage();
+  });
+
   it('surfaces desktop assignment degradation from the current detail payload', () => {
     const { body } = render(LibraryDetailPanel, {
       props: {
@@ -107,6 +112,42 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('Apply this item to a monitor');
   });
 
+  it('renders apply errors inline without replacing the populated detail layout', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: {
+          id: 'scene-1',
+          title: 'Forest Scene',
+          itemType: 'scene',
+          coverPath: null,
+          source: 'workshop',
+          compatibility: {
+            badge: 'fully_supported',
+            reasonCode: 'ready_for_library',
+            summaryCopy: 'Ready to use',
+            headline: 'Ready to use',
+            detail: 'This item is synchronized locally and available for Library and desktop use.',
+            nextStep: 'none',
+            nextStepCopy: null
+          },
+          monitorsAvailable: true,
+          monitorDiscoveryIssue: null,
+          desktopAssignmentIssue: null,
+          desktopAssignmentsAvailable: true,
+          assignedMonitorLabels: ['Primary'],
+          description: null,
+          tags: []
+        },
+        applyError: 'Unable to refresh the Library snapshot.'
+      }
+    });
+
+    expect(body).toContain('Unable to refresh the Library snapshot.');
+    expect(body).toContain('data-detail-layout="compact-vertical"');
+    expect(body).toContain('data-detail-section="actions"');
+    expect(body).not.toContain('Select a Library item to inspect its current detail payload.');
+  });
+
   it('uses a compact vertical detail structure for populated detail', () => {
     const { body } = render(LibraryDetailPanel, {
       props: {
@@ -191,5 +232,44 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('lwe-subpanel');
     expect(body).toContain('lwe-warning-banner lwe-wrap-safe');
     expect(body).toContain('Library detail');
+  });
+
+  it('localizes source and item type labels from centralized i18n copy', () => {
+    setPreferredLanguage('zh-CN');
+
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: {
+          id: 'scene-1',
+          title: 'Forest Scene',
+          itemType: 'scene',
+          coverPath: null,
+          source: 'workshop',
+          compatibility: {
+            badge: 'fully_supported',
+            reasonCode: 'ready_for_library',
+            summaryCopy: 'Ready to use',
+            headline: 'Ready to use',
+            detail: 'This item is synchronized locally and available for Library and desktop use.',
+            nextStep: 'none',
+            nextStepCopy: null
+          },
+          monitorsAvailable: true,
+          monitorDiscoveryIssue: null,
+          desktopAssignmentIssue: null,
+          desktopAssignmentsAvailable: true,
+          assignedMonitorLabels: [],
+          description: null,
+          tags: []
+        }
+      }
+    });
+
+    expect(body).toContain('创意工坊');
+    expect(body).toContain('场景');
+    expect(body).toContain('完全支持');
+    expect(body).not.toContain('Fully Supported');
+    expect(body).not.toContain('>workshop<');
+    expect(body).not.toContain('>scene<');
   });
 });

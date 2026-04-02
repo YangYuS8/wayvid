@@ -1,18 +1,19 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { createRawSnippet } from 'svelte';
+import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 
 import AppShell from './AppShell.svelte';
-import { resetPreferredLanguage, setPreferredLanguage } from '$lib/i18n';
 
 describe('AppShell', () => {
-  afterEach(() => {
-    resetPreferredLanguage();
-  });
-
   it('renders persistent navigation, current-page emphasis, and a main region', () => {
+    const children = createRawSnippet(() => ({
+      render: () => '<section data-testid="shell-content">Shell content</section>'
+    }));
+
     const { body } = render(AppShell, {
       props: {
-        currentPath: '/desktop'
+        currentPath: '/desktop',
+        children
       }
     });
 
@@ -21,16 +22,16 @@ describe('AppShell', () => {
     expect(body).toContain('Desktop');
     expect(body).toContain('Settings');
     expect(body).toContain('aria-current="page"');
-    expect(body).toContain('<main');
-    expect(body).not.toContain('<h1');
+    expect(body).toMatch(
+      /<main class="lwe-shell-main" id="app-content" tabindex="-1"><section data-testid="shell-content">Shell content<\/section><!----><\/main>/
+    );
   });
 
-  it('renders navigation in Simplified Chinese when zh-CN is active', () => {
-    setPreferredLanguage('zh-CN');
-
+  it('renders navigation in Simplified Chinese when preferredLanguage is zh-CN', () => {
     const { body } = render(AppShell, {
       props: {
-        currentPath: '/desktop'
+        currentPath: '/desktop',
+        preferredLanguage: 'zh-CN'
       }
     });
 
@@ -38,9 +39,13 @@ describe('AppShell', () => {
     expect(body).toContain('创意工坊');
     expect(body).toContain('桌面');
     expect(body).toContain('设置');
+    expect(body).toContain('查看本地内容与当前应用状态。');
+    expect(body).toContain('同步 Steam 创意工坊项目并刷新目录。');
+    expect(body).toContain('查看显示器输出和恢复状态。');
+    expect(body).toContain('调整界面语言、主题与启动行为。');
   });
 
-  it('uses utility-based shell classes instead of the older local style block', () => {
+  it('renders the shell with the shared utility-based structure and skip link wiring', () => {
     const { body } = render(AppShell, {
       props: {
         currentPath: '/library'
@@ -52,6 +57,6 @@ describe('AppShell', () => {
     expect(body).toContain('tabindex="-1"');
     expect(body).toContain('lwe-shell-sidebar');
     expect(body).toContain('lwe-shell-grid');
-    expect(body).not.toContain('<style>');
+    expect(body).toContain('aria-label="Primary navigation"');
   });
 });

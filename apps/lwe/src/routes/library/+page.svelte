@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { InvalidatedPage } from '$lib/types';
   import ItemCard from '$lib/components/ItemCard.svelte';
   import LibraryDetailPanel from '$lib/components/LibraryDetailPanel.svelte';
   import PageHeader from '$lib/layout/PageHeader.svelte';
+  import { copy, formatCopy } from '$lib/i18n';
   import { applyLibraryItemToMonitor, loadDesktopPage, loadLibraryItemDetail, loadLibraryPage } from '$lib/ipc';
   import {
     applyInvalidations,
@@ -15,10 +17,10 @@
     setLibrarySnapshot,
     setSelectedItem
   } from '$lib/stores/ui';
-  import { resolveLibraryPageState } from './page-state';
+  import { resolveLibraryApplyRefreshState, resolveLibraryPageState } from './page-state';
 
   const readError = (error: unknown) =>
-    error instanceof Error ? error.message : 'Unable to load the Library request.';
+    error instanceof Error ? error.message : $copy.library.requestError;
 
   let loading = false;
   let detailLoading = false;
@@ -31,7 +33,7 @@
   let detailRequestToken = 0;
 
   $: snapshot = $pageCache.library.snapshot;
-  $: pageState = snapshot ? resolveLibraryPageState(snapshot) : null;
+  $: pageState = snapshot ? resolveLibraryPageState(snapshot, $copy.library) : null;
   $: desktopSnapshot = $pageCache.desktop.snapshot;
   $: availableMonitors = desktopSnapshot?.monitors ?? [];
   $: selectedDetail = $pageCache.library.detail;
@@ -72,14 +74,10 @@
     }
   };
 
-  const selectItem = async (itemId: string) => {
+  const loadSelectedDetail = async (itemId: string) => {
     const requestToken = ++detailRequestToken;
-
-    setSelectedItem('library', itemId);
     detailLoading = true;
     detailError = null;
-    applyError = null;
-    applyMessage = null;
 
     try {
       const detail = await loadLibraryItemDetail(itemId);
@@ -102,6 +100,54 @@
     }
   };
 
+  const refreshInvalidatedPages = async (invalidations: InvalidatedPage[]) => {
+    let refreshedSelectedItemId = snapshot?.selectedItemId ?? null;
+    let librarySnapshotRefreshSucceeded = true;
+    const initialRefreshState = resolveLibraryApplyRefreshState({
+      invalidations,
+      selectedItemId: refreshedSelectedItemId
+    });
+
+    if (initialRefreshState.refreshLibrarySnapshot) {
+      try {
+        const refreshedSnapshot = await loadLibraryPage();
+        setLibrarySnapshot(refreshedSnapshot);
+        refreshedSelectedItemId = refreshedSnapshot.selectedItemId;
+      } catch (error) {
+        librarySnapshotRefreshSucceeded = false;
+
+        const message = readError(error);
+        if (snapshot) {
+          applyError = message;
+        } else {
+          pageError = message;
+        }
+      }
+    }
+
+    const refreshState = resolveLibraryApplyRefreshState({
+      invalidations,
+      selectedItemId: refreshedSelectedItemId,
+      librarySnapshotRefreshSucceeded
+    });
+
+    if (refreshState.refreshLibraryDetailId) {
+      await loadSelectedDetail(refreshState.refreshLibraryDetailId);
+    }
+
+    if (refreshState.refreshDesktopSnapshot) {
+      await ensureDesktopSnapshot();
+    }
+  };
+
+  const selectItem = async (itemId: string) => {
+    setSelectedItem('library', itemId);
+    applyError = null;
+    applyMessage = null;
+
+    await loadSelectedDetail(itemId);
+  };
+
   const applySelectedItem = async () => {
     if (!selectedDetail || !applyMonitorId) {
       return;
@@ -115,7 +161,7 @@
       const outcome = await applyLibraryItemToMonitor(applyMonitorId, selectedDetail.id);
       applyMessage = outcome.message;
       applyInvalidations(outcome.invalidations);
-      await ensureDesktopSnapshot();
+      await refreshInvalidatedPages(outcome.invalidations);
     } catch (error) {
       applyError = readError(error);
     } finally {
@@ -131,25 +177,27 @@
 </script>
 
 <svelte:head>
-  <title>Library</title>
+  <title>{$copy.library.pageTitle}</title>
 </svelte:head>
 
 <section class="grid gap-6">
   <PageHeader
-    eyebrow="Library"
-    title="Your local library"
-    subtitle="Browse the content you already own or have synchronized onto this machine."
+    eyebrow={$copy.library.pageTitle}
+    title={$copy.library.headerTitle}
+    subtitle={$copy.library.headerSubtitle}
   />
 
-  {#if pageError}
+  {#if pageError && !snapshot}
     <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
-  {:else if applyError}
-    <p class="lwe-warning-banner" role="alert" aria-live="assertive">{applyError}</p>
   {:else if loading && !snapshot}
-    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Library snapshot…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">{$copy.library.loading}</p>
   {:else if snapshot}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.9fr)] xl:items-start">
       <section class="grid gap-4">
+        {#if pageError}
+          <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
+        {/if}
+
         {#if pageState?.issueMessages.length}
           <div class="grid gap-2.5" aria-live="polite">
             {#each pageState.issueMessages as issue}
@@ -168,7 +216,7 @@
                 compatibility={item.compatibility}
                 selected={snapshot.selectedItemId === item.id}
                 assignedMonitorLabels={item.assignedMonitorLabels ?? []}
-                selectLabel={`Select ${item.title}`}
+                selectLabel={formatCopy($copy.library.selectItemLabel, { itemTitle: item.title })}
                 onSelect={() => selectItem(item.id)}
                 onApplyShortcut={() => selectItem(item.id)}
               />
@@ -176,7 +224,7 @@
           </div>
         {:else}
           <p class="text-sm leading-6 text-slate-600">
-            {pageState?.emptyMessage ?? 'No Library items are available in the current snapshot.'}
+            {pageState?.emptyMessage ?? $copy.library.empty}
           </p>
         {/if}
       </section>
@@ -190,6 +238,7 @@
         selectedMonitorId={applyMonitorId}
         applyDisabled={!selectedDetail || !applyMonitorId}
         applying={applyLoading}
+        {applyError}
         applyMessage={applyMessage}
         onApply={applySelectedItem}
         onMonitorChange={(monitorId) => {

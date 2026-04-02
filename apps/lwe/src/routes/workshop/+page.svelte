@@ -3,6 +3,7 @@
   import ItemCard from '$lib/components/ItemCard.svelte';
   import WorkshopDetailPanel from '$lib/components/WorkshopDetailPanel.svelte';
   import PageHeader from '$lib/layout/PageHeader.svelte';
+  import { copy } from '$lib/i18n';
   import { Button } from '$lib/ui/button';
   import { resolveWorkshopRefreshState } from './page-state';
   import {
@@ -25,7 +26,7 @@
   } from '$lib/stores/ui';
 
   const readError = (error: unknown) =>
-    error instanceof Error ? error.message : 'Unable to complete the Workshop request.';
+    error instanceof Error ? error.message : $copy.workshop.requestError;
 
   let loading = false;
   let detailLoading = false;
@@ -85,18 +86,21 @@
     actionMessage = null;
 
     try {
-      const previousSelection = $pageCache.workshop.snapshot?.selectedItemId ?? null;
       const outcome = await refreshWorkshopCatalog();
       const currentSelection = $pageCache.workshop.snapshot?.selectedItemId ?? null;
       const availableItemIds = outcome.currentUpdate?.items.map((item: { id: string }) => item.id) ?? [];
       const refreshState = resolveWorkshopRefreshState({
-        previousSelection,
         currentSelection,
+        hasCurrentUpdate: Boolean(outcome.currentUpdate),
         availableItemIds,
         detailLoading,
         detailRequestToken,
         detailError
       });
+
+      if (currentSelection !== refreshState.nextSelection) {
+        setSelectedItem('workshop', refreshState.nextSelection);
+      }
 
       if (outcome.currentUpdate) {
         setWorkshopSnapshot({
@@ -148,24 +152,24 @@
 </script>
 
 <svelte:head>
-  <title>Workshop</title>
+  <title>{$copy.workshop.pageTitle}</title>
 </svelte:head>
 
 <section class="grid gap-6">
   <PageHeader
-    eyebrow="Workshop"
-    title="Local Workshop sync"
-    subtitle="Review the current Steam Workshop items synced into Wayvid from this machine. This is not a full online Workshop browser."
+    eyebrow={$copy.workshop.pageTitle}
+    title={$copy.workshop.headerTitle}
+    subtitle={$copy.workshop.headerSubtitle}
   >
     {#snippet actions()}
-      <Button variant="secondary" onclick={refreshPage} disabled={loading}>Refresh Catalog</Button>
+      <Button variant="secondary" onclick={refreshPage} disabled={loading}>{$copy.workshop.refreshCatalog}</Button>
     {/snippet}
   </PageHeader>
 
   {#if pageError}
     <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !$pageCache.workshop.snapshot}
-    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Workshop snapshot…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">{$copy.workshop.loading}</p>
   {:else if $pageCache.workshop.snapshot}
     {#if actionMessage}
       <p class="lwe-info-banner" role="status" aria-live="polite">{actionMessage}</p>
@@ -193,7 +197,7 @@
             {/each}
           </div>
         {:else}
-          <p class="text-sm leading-6 text-slate-600">No Workshop items are available in the current snapshot.</p>
+          <p class="text-sm leading-6 text-slate-600">{$copy.workshop.empty}</p>
         {/if}
       </section>
 

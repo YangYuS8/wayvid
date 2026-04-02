@@ -1,37 +1,42 @@
+import type { CopyDictionary } from '$lib/i18n';
 import type { DesktopPageSnapshot } from '$lib/types';
 
 type DesktopPageState = {
-  monitorAvailabilityLabel: 'yes' | 'no';
-  assignmentAvailabilityLabel: 'yes' | 'no';
+  monitorAvailabilityLabel: string;
+  assignmentAvailabilityLabel: string;
   issueMessages: string[];
   emptyMessage: string | null;
 };
 
-export const resolveDesktopPageState = (snapshot: DesktopPageSnapshot): DesktopPageState => {
+export const resolveDesktopPageState = (
+  snapshot: DesktopPageSnapshot,
+  copyValue: CopyDictionary
+): DesktopPageState => {
   const issueMessages: string[] = [];
+  const desktopCopy = copyValue.desktop;
 
   if (snapshot.monitorDiscoveryIssue) {
     issueMessages.push(snapshot.monitorDiscoveryIssue);
   } else if (!snapshot.monitorsAvailable) {
-    issueMessages.push('Monitor discovery is currently unavailable.');
+    issueMessages.push(desktopCopy.discoveryUnavailable);
   }
 
   if (snapshot.persistenceIssue) {
     issueMessages.push(snapshot.persistenceIssue);
   } else if (!snapshot.assignmentsAvailable) {
-    issueMessages.push('Desktop assignment persistence is currently unavailable.');
+    issueMessages.push(desktopCopy.assignmentPersistenceUnavailable);
   }
 
   issueMessages.push(...(snapshot.restoreIssues ?? []));
 
   return {
-    monitorAvailabilityLabel: snapshot.monitorsAvailable ? 'yes' : 'no',
-    assignmentAvailabilityLabel: snapshot.assignmentsAvailable ? 'yes' : 'no',
+    monitorAvailabilityLabel: snapshot.monitorsAvailable ? desktopCopy.yes : desktopCopy.no,
+    assignmentAvailabilityLabel: snapshot.assignmentsAvailable ? desktopCopy.yes : desktopCopy.no,
     issueMessages,
     emptyMessage: snapshot.monitors.length
       ? null
       : snapshot.monitorsAvailable
-        ? 'No monitors are available in the current snapshot.'
-        : 'Desktop monitor data is currently unavailable in this snapshot.'
+        ? desktopCopy.empty
+        : desktopCopy.snapshotUnavailable
   };
 };

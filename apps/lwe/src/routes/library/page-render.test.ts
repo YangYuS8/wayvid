@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 
 import LibraryPage from './+page.svelte';
+import { resetPreferredLanguage, setPreferredLanguage } from '$lib/i18n';
 import { pageCache, setLibraryDetail, setLibrarySnapshot } from '$lib/stores/ui';
 
 const resetCache = () => {
@@ -15,6 +16,7 @@ const resetCache = () => {
 
 describe('library page render', () => {
   afterEach(() => {
+    resetPreferredLanguage();
     resetCache();
   });
 
@@ -83,5 +85,91 @@ describe('library page render', () => {
     expect(body).toContain('Assigned monitors');
     expect(body).toContain('Primary');
     expect(body).toContain('DISPLAY-2 (missing)');
+  });
+
+  it('renders route and detail placeholder copy in Simplified Chinese when zh-CN is active', () => {
+    setPreferredLanguage('zh-CN');
+
+    setLibrarySnapshot({
+      items: [],
+      selectedItemId: null,
+      monitorsAvailable: true,
+      monitorDiscoveryIssue: null,
+      desktopAssignmentIssue: null,
+      desktopAssignmentsAvailable: true,
+      stale: false
+    });
+
+    const { body } = render(LibraryPage);
+
+    expect(body).toContain('内容库');
+    expect(body).toContain('本地内容库');
+    expect(body).toContain('浏览这台设备上已经拥有或已同步的内容。');
+    expect(body).toContain('当前快照中没有可用的内容项。');
+    expect(body).toContain('内容详情');
+    expect(body).toContain('选择一个内容项以查看当前详情。');
+  });
+
+  it('renders shared Library detail labels in Simplified Chinese when zh-CN is active', () => {
+    setPreferredLanguage('zh-CN');
+
+    setLibrarySnapshot({
+      items: [
+        {
+          id: 'scene-7',
+          title: 'Forest Scene',
+          itemType: 'scene',
+          coverPath: null,
+          source: 'workshop',
+          compatibility: {
+            badge: 'fully_supported',
+            reasonCode: 'ready_for_library',
+            summaryCopy: 'Ready to use'
+          },
+          favorite: false,
+          assignedMonitorLabels: []
+        }
+      ],
+      selectedItemId: 'scene-7',
+      monitorsAvailable: true,
+      monitorDiscoveryIssue: null,
+      desktopAssignmentIssue: null,
+      desktopAssignmentsAvailable: true,
+      stale: false
+    });
+
+    setLibraryDetail({
+      id: 'scene-7',
+      title: 'Forest Scene',
+      itemType: 'scene',
+      coverPath: null,
+      source: 'workshop',
+      compatibility: {
+        badge: 'fully_supported',
+        reasonCode: 'ready_for_library',
+        summaryCopy: 'Ready to use',
+        headline: 'Ready to use',
+        detail: 'This item is synchronized locally and available for Library and desktop use.',
+        nextStep: 'resync_workshop_item',
+        nextStepCopy: 'Choose a monitor before applying this item.'
+      },
+      monitorsAvailable: true,
+      monitorDiscoveryIssue: null,
+      desktopAssignmentIssue: null,
+      desktopAssignmentsAvailable: true,
+      assignedMonitorLabels: [],
+      description: null,
+      tags: []
+    });
+
+    const { body } = render(LibraryPage);
+
+    expect(body).toContain('aria-label="选择内容项 Forest Scene"');
+    expect(body).toContain('显示 Forest Scene 的快捷操作');
+    expect(body).toContain('兼容性');
+    expect(body).toContain('下一步：');
+    expect(body).toContain('完全支持');
+    expect(body).not.toContain('Fully Supported');
+    expect(body).toContain('Choose a monitor before applying this item.');
   });
 });

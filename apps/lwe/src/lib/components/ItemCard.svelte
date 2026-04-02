@@ -3,10 +3,11 @@
   import CoverImage from '$lib/components/CoverImage.svelte';
   import ItemActionsMenu from '$lib/components/ItemActionsMenu.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
-  import type { CompatibilitySummaryModel } from '$lib/types';
+  import { copy, getCompatibilityBadgeLabel, getItemTypeLabel } from '$lib/i18n';
+  import type { CompatibilitySummaryModel, ItemType } from '$lib/types';
 
   export let title: string;
-  export let itemType: string;
+  export let itemType: ItemType;
   export let coverPath: string | null = null;
   export let compatibility: CompatibilitySummaryModel;
   export let selected = false;
@@ -14,6 +15,9 @@
   export let selectLabel: string | null = null;
   export let onSelect: (() => void) | undefined = undefined;
   export let onApplyShortcut: (() => void) | undefined = undefined;
+
+  $: itemTypeLabel = getItemTypeLabel($copy, itemType);
+  $: compatibilityBadgeLabel = getCompatibilityBadgeLabel($copy, compatibility.badge);
 </script>
 
 <Card
@@ -41,9 +45,9 @@
     <div class="grid min-w-0 gap-3.5 px-1 pb-1">
       <div class="grid gap-2.5">
         <div class="flex flex-wrap items-center gap-2">
-          <StatusBadge label={compatibility.badge} />
+          <StatusBadge label={compatibilityBadgeLabel} />
           <span class="lwe-pill-label">
-            {itemType}
+            {itemTypeLabel}
           </span>
         </div>
 
@@ -56,7 +60,7 @@
       {#if assignedMonitorLabels.length > 0}
         <div class="lwe-subpanel gap-1.5 px-3.5 py-3">
           <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Assigned to
+            {$copy.components.itemCard.assignedTo}
           </p>
           <p class="text-sm text-slate-700">{assignedMonitorLabels.join(' • ')}</p>
         </div>

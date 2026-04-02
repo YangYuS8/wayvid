@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 
 import WorkshopDetailPanel from './WorkshopDetailPanel.svelte';
+import { resetPreferredLanguage, setPreferredLanguage } from '$lib/i18n';
 
 describe('WorkshopDetailPanel', () => {
+  afterEach(() => {
+    resetPreferredLanguage();
+  });
+
   it('uses a compact vertical detail structure for populated detail', () => {
     const { body } = render(WorkshopDetailPanel, {
       props: {
@@ -54,6 +59,46 @@ describe('WorkshopDetailPanel', () => {
     expect(body.indexOf('data-detail-section="compatibility"')).toBeLessThan(
       body.indexOf('data-detail-section="metadata"')
     );
+  });
+
+  it('localizes workshop sync status copy for populated detail in Simplified Chinese', () => {
+    setPreferredLanguage('zh-CN');
+
+    const { body } = render(WorkshopDetailPanel, {
+      props: {
+        detail: {
+          id: 'workshop-2',
+          title: 'Workshop Dunes',
+          itemType: 'scene',
+          coverPath: null,
+          syncStatus: 'missing_asset',
+          compatibility: {
+            badge: 'partially_supported',
+            reasonCode: 'needs_asset',
+            summaryCopy: '需要补充资源',
+            headline: '需要补充资源',
+            detail: '缺少一项本地资源。',
+            nextStep: 'none',
+            nextStepCopy: null
+          },
+          description: 'Localized workshop detail.',
+          tags: ['desert']
+        },
+        loading: false,
+        error: null,
+        openInSteam: async () => {}
+      }
+    });
+
+    expect(body).toContain('同步状态： 缺少资源文件');
+    expect(body).toContain('>缺少资源文件<');
+    expect(body).toContain('>部分支持<');
+    expect(body).toContain('无封面');
+    expect(body).toContain('有封面时会在这里显示。');
+    expect(body).toContain('打开 Steam 创意工坊页面');
+    expect(body).not.toContain('partially_supported');
+    expect(body).not.toContain('missing_asset');
+    expect(body).not.toContain('打开源页面');
   });
 
   it('uses the shared subpanel treatment for the empty detail state', () => {

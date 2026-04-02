@@ -1,4 +1,4 @@
-import type { LibraryItemDetail, LibraryPageSnapshot } from '$lib/types';
+import type { InvalidatedPage, LibraryItemDetail, LibraryPageSnapshot } from '$lib/types';
 
 type LibraryAvailabilitySource = Pick<
   LibraryPageSnapshot,
@@ -10,37 +10,74 @@ type LibraryPageState = {
   emptyMessage: string | null;
 };
 
+type LibraryApplyRefreshState = {
+  refreshLibrarySnapshot: boolean;
+  refreshDesktopSnapshot: boolean;
+  refreshLibraryDetailId: string | null;
+};
+
+export type LibraryCopy = {
+  empty: string;
+  monitorDiscoveryUnavailable: string;
+  desktopAssignmentsUnavailable: string;
+  desktopAssignmentDataUnavailable: string;
+};
+
+export const resolveLibraryApplyRefreshState = ({
+  invalidations,
+  selectedItemId,
+  librarySnapshotRefreshSucceeded = true
+}: {
+  invalidations: InvalidatedPage[];
+  selectedItemId: string | null;
+  librarySnapshotRefreshSucceeded?: boolean;
+}): LibraryApplyRefreshState => {
+  const refreshLibrarySnapshot = invalidations.includes('library');
+  const refreshLibraryDetailId =
+    refreshLibrarySnapshot && librarySnapshotRefreshSucceeded ? selectedItemId : null;
+
+  return {
+    refreshLibrarySnapshot,
+    refreshDesktopSnapshot: invalidations.includes('desktop'),
+    refreshLibraryDetailId
+  };
+};
+
 export const resolveLibraryAvailabilityIssues = (
-  source: LibraryAvailabilitySource | LibraryItemDetail
+  source: LibraryAvailabilitySource | LibraryItemDetail,
+  copy: Pick<LibraryCopy, 'monitorDiscoveryUnavailable' | 'desktopAssignmentsUnavailable'>
 ): string[] => {
   const issueMessages: string[] = [];
 
   if (source.monitorDiscoveryIssue) {
     issueMessages.push(source.monitorDiscoveryIssue);
   } else if (!source.monitorsAvailable) {
-    issueMessages.push('Monitor discovery is currently unavailable.');
+    issueMessages.push(copy.monitorDiscoveryUnavailable);
   }
 
   if (source.desktopAssignmentIssue) {
     issueMessages.push(source.desktopAssignmentIssue);
   } else if (!source.desktopAssignmentsAvailable) {
-    issueMessages.push('Desktop assignments are currently unavailable.');
+    issueMessages.push(copy.desktopAssignmentsUnavailable);
   }
 
   return issueMessages;
 };
 
-export const resolveLibraryPageState = (snapshot: LibraryPageSnapshot): LibraryPageState => {
-  const issueMessages = resolveLibraryAvailabilityIssues(snapshot);
+export const resolveLibraryPageState = (
+  snapshot: LibraryPageSnapshot,
+  copy: LibraryCopy
+): LibraryPageState => {
+  const issueMessages = resolveLibraryAvailabilityIssues(snapshot, copy);
   let emptyMessage: string | null = null;
 
   if (!snapshot.items.length) {
-    emptyMessage = 'No Library items are available in the current snapshot.';
+    emptyMessage = copy.empty;
 
     if (!snapshot.desktopAssignmentsAvailable) {
-      emptyMessage += ' Desktop assignment data is currently unavailable.';
+      emptyMessage += ` ${copy.desktopAssignmentDataUnavailable}`;
     } else if (!snapshot.monitorsAvailable) {
-      emptyMessage += ' Monitor discovery is currently unavailable.';
+      emptyMessage += ` ${copy.monitorDiscoveryUnavailable}`;
     }
   }
 

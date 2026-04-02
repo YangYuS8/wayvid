@@ -1,34 +1,37 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import DesktopMonitorCard from '$lib/components/DesktopMonitorCard.svelte';
+  import { copy } from '$lib/i18n';
   import PageHeader from '$lib/layout/PageHeader.svelte';
   import { Card } from '$lib/ui/card';
   import * as Select from '$lib/ui/select';
-import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
+  import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
   import { needsPageLoad, pageCache, setCurrentPage, setDesktopSnapshot } from '$lib/stores/ui';
+  import { applyDesktopClearInvalidations } from './page-actions';
+  import { finishDesktopClear, isDesktopClearInFlight, startDesktopClear } from './clear-state';
   import { resolveDesktopPageState } from './page-state';
 
   type MonitorFilter = 'all' | 'active' | 'missing';
 
   const readError = (error: unknown) =>
-    error instanceof Error ? error.message : 'Unable to load the Desktop snapshot.';
+    error instanceof Error ? error.message : $copy.desktop.requestError;
 
   let loading = false;
   let pageError: string | null = null;
   let actionError: string | null = null;
   let actionMessage: string | null = null;
-  let clearingMonitorId: string | null = null;
+  let clearingMonitorIds = new Set<string>();
   let monitorFilter: MonitorFilter = 'all';
 
   $: snapshot = $pageCache.desktop.snapshot;
-  $: pageState = snapshot ? resolveDesktopPageState(snapshot) : null;
+  $: pageState = snapshot ? resolveDesktopPageState(snapshot, $copy) : null;
   $: visibleMonitors = monitorFilter === 'missing' ? [] : snapshot?.monitors ?? [];
   $: visibleMissingMonitorRestores = monitorFilter === 'active' ? [] : snapshot?.missingMonitorRestores ?? [];
   $: filterEmptyMessage =
     monitorFilter === 'active'
-      ? 'No active monitors are available in the current snapshot.'
+      ? $copy.desktop.filterEmptyActive
       : monitorFilter === 'missing'
-        ? 'No missing monitor restores are recorded in the current snapshot.'
+        ? $copy.desktop.filterEmptyMissing
         : null;
 
   const ensurePage = async () => {
@@ -49,18 +52,19 @@ import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
   };
 
   const clearMonitor = async (monitorId: string) => {
-    clearingMonitorId = monitorId;
+    clearingMonitorIds = startDesktopClear(clearingMonitorIds, monitorId);
     actionError = null;
     actionMessage = null;
 
     try {
       const outcome = await clearLibraryItemFromMonitor(monitorId);
       actionMessage = outcome.message;
+      applyDesktopClearInvalidations(outcome.invalidations);
       setDesktopSnapshot(await loadDesktopPage());
     } catch (error) {
       actionError = readError(error);
     } finally {
-      clearingMonitorId = null;
+      clearingMonitorIds = finishDesktopClear(clearingMonitorIds, monitorId);
     }
   };
 
@@ -71,31 +75,31 @@ import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
 </script>
 
 <svelte:head>
-  <title>Desktop</title>
+  <title>{$copy.desktop.pageTitle}</title>
 </svelte:head>
 
 <section class="grid gap-6">
   <PageHeader
-    eyebrow="Desktop"
-    title="Monitor shell"
-    subtitle="Render the current desktop snapshot without inventing runtime behavior in the frontend."
+    eyebrow={$copy.desktop.pageTitle}
+    title={$copy.desktop.headerTitle}
+    subtitle={$copy.desktop.headerSubtitle}
   >
     {#snippet actions()}
       <label class="grid justify-items-start gap-1.5">
-        <span class="lwe-eyebrow">View</span>
+        <span class="lwe-eyebrow">{$copy.desktop.view}</span>
         <Select.Root type="single" name="monitorFilter" bind:value={monitorFilter}>
-          <Select.Trigger aria-label="Monitor view filter" class="min-w-[11rem]">
+          <Select.Trigger aria-label={$copy.desktop.filterAriaLabel} class="min-w-[11rem]">
             {monitorFilter === 'all'
-              ? 'All outputs'
+              ? $copy.desktop.filterOptions.all
               : monitorFilter === 'active'
-                ? 'Current monitors'
-                : 'Missing restores'}
+                ? $copy.desktop.filterOptions.active
+                : $copy.desktop.filterOptions.missing}
           </Select.Trigger>
 
           <Select.Content>
-            <Select.Item value="all" label="All outputs">All outputs</Select.Item>
-            <Select.Item value="active" label="Current monitors">Current monitors</Select.Item>
-            <Select.Item value="missing" label="Missing restores">Missing restores</Select.Item>
+            <Select.Item value="all" label={$copy.desktop.filterOptions.all}>{$copy.desktop.filterOptions.all}</Select.Item>
+            <Select.Item value="active" label={$copy.desktop.filterOptions.active}>{$copy.desktop.filterOptions.active}</Select.Item>
+            <Select.Item value="missing" label={$copy.desktop.filterOptions.missing}>{$copy.desktop.filterOptions.missing}</Select.Item>
           </Select.Content>
         </Select.Root>
       </label>
@@ -107,31 +111,31 @@ import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
   {:else if actionError}
     <p class="lwe-warning-banner" role="alert" aria-live="assertive">{actionError}</p>
   {:else if loading && !$pageCache.desktop.snapshot}
-    <p class="text-sm text-slate-600" role="status" aria-live="polite">Loading Desktop snapshot…</p>
+    <p class="text-sm text-slate-600" role="status" aria-live="polite">{$copy.desktop.loading}</p>
   {:else if snapshot}
     <div class="grid gap-5">
       <Card class="lwe-panel gap-5">
         <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
           <div class="lwe-subpanel content-start gap-2.5">
-            <p class="lwe-eyebrow">Monitors discovered</p>
+            <p class="lwe-eyebrow">{$copy.desktop.monitorsDiscovered}</p>
             <p class="text-[clamp(1.75rem,3vw,2.4rem)] font-semibold tracking-tight text-slate-950">
               {snapshot.monitors.length}
             </p>
           </div>
 
           <div class="lwe-subpanel content-start gap-2.5">
-            <p class="lwe-eyebrow">Monitor discovery</p>
-            <p class="text-sm leading-6 text-slate-600">{pageState?.monitorAvailabilityLabel ?? 'no'}</p>
+            <p class="lwe-eyebrow">{$copy.desktop.monitorDiscovery}</p>
+            <p class="text-sm leading-6 text-slate-600">{pageState?.monitorAvailabilityLabel ?? $copy.desktop.no}</p>
           </div>
 
           <div class="lwe-subpanel content-start gap-2.5">
-            <p class="lwe-eyebrow">Assignment persistence</p>
-            <p class="text-sm leading-6 text-slate-600">{pageState?.assignmentAvailabilityLabel ?? 'no'}</p>
+            <p class="lwe-eyebrow">{$copy.desktop.assignmentPersistence}</p>
+            <p class="text-sm leading-6 text-slate-600">{pageState?.assignmentAvailabilityLabel ?? $copy.desktop.no}</p>
           </div>
 
           <div class="lwe-subpanel content-start gap-2.5">
-            <p class="lwe-eyebrow">Snapshot stale</p>
-            <p class="text-sm leading-6 text-slate-600">{snapshot.stale ? 'yes' : 'no'}</p>
+            <p class="lwe-eyebrow">{$copy.desktop.snapshotStale}</p>
+            <p class="text-sm leading-6 text-slate-600">{snapshot.stale ? $copy.desktop.yes : $copy.desktop.no}</p>
           </div>
         </div>
 
@@ -155,8 +159,8 @@ import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
       {#if visibleMonitors.length > 0}
         <section class="grid gap-4">
           <div class="grid gap-1.5">
-            <p class="lwe-eyebrow">Active outputs</p>
-            <h2 class="lwe-heading-md">Current monitors</h2>
+            <p class="lwe-eyebrow">{$copy.desktop.activeOutputs}</p>
+            <h2 class="lwe-heading-md">{$copy.desktop.filterOptions.active}</h2>
           </div>
 
           <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
@@ -165,10 +169,10 @@ import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
                 displayName={monitor.displayName}
                 monitorId={monitor.monitorId}
                 resolution={monitor.resolution}
-                currentItemLabel={monitor.currentWallpaperTitle ?? monitor.currentItemId ?? 'No saved assignment'}
+                currentItemLabel={monitor.currentWallpaperTitle ?? monitor.currentItemId ?? $copy.desktop.noSavedAssignment}
                 currentCoverPath={monitor.currentCoverPath}
                 clearSupported={monitor.clearSupported}
-                clearing={clearingMonitorId === monitor.monitorId}
+                clearing={isDesktopClearInFlight(clearingMonitorIds, monitor.monitorId)}
                 onClear={() => clearMonitor(monitor.monitorId)}
                 runtimeStatus={monitor.runtimeStatus}
                 restoreState={monitor.restoreState ?? null}
@@ -183,7 +187,7 @@ import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
 
       {#if visibleMissingMonitorRestores.length > 0}
         <section class="grid gap-4">
-          <h2 class="lwe-heading-md">Missing monitor restores</h2>
+          <h2 class="lwe-heading-md">{$copy.desktop.missingMonitorRestores}</h2>
 
           <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {#each visibleMissingMonitorRestores as restore}
@@ -205,7 +209,7 @@ import { clearLibraryItemFromMonitor, loadDesktopPage } from '$lib/ipc';
       {/if}
 
       <p class="text-sm leading-6 text-slate-500">
-        The runtime control surface stays deferred until a later task exposes real commands.
+        {$copy.desktop.runtimeDeferred}
       </p>
     </div>
   {/if}
