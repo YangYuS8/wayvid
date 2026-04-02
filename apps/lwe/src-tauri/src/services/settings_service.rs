@@ -7,6 +7,7 @@ use crate::results::settings_persistence::{
 use crate::services::autostart_service::{AutostartService, AutostartState};
 use crate::services::settings_persistence_service::SettingsPersistenceService;
 
+#[derive(Debug)]
 pub(crate) struct SettingsPageData {
     pub language: String,
     pub theme: String,
@@ -21,9 +22,10 @@ pub struct SettingsService;
 
 impl SettingsService {
     pub(crate) fn load_page() -> Result<SettingsPageData, String> {
-        let persistence = match SettingsPersistenceService::for_user_path() {
-            Ok(service) => service.load_settings(),
-            Err(reason) => SettingsPersistenceLoad::Unavailable { reason },
+        let persistence = SettingsPersistenceService::for_user_path()?;
+        let settings = match persistence.load_settings() {
+            SettingsPersistenceLoad::Loaded(settings) => settings,
+            SettingsPersistenceLoad::Unavailable { reason } => return Err(reason),
         };
 
         let autostart = match AutostartService::for_user_path() {
@@ -34,15 +36,16 @@ impl SettingsService {
             Err(reason) => AutostartState::Unavailable { reason },
         };
 
-        Ok(Self::build_page_data(persistence, autostart))
+        Ok(Self::build_page_data(settings, autostart))
     }
 
     pub(crate) fn update_settings(input: SettingsUpdateInput) -> Result<SettingsPageData, String> {
         let persistence = SettingsPersistenceService::for_user_path()?;
-        let mut settings = match persistence.load_settings() {
+        let previous_settings = match persistence.load_settings() {
             SettingsPersistenceLoad::Loaded(settings) => settings,
             SettingsPersistenceLoad::Unavailable { reason } => return Err(reason),
         };
+        let mut settings = previous_settings.clone();
 
         if let Some(language) = input.language {
             settings.language = language;
@@ -54,11 +57,25 @@ impl SettingsService {
 
         if let Some(launch_on_login) = input.launch_on_login {
             settings.launch_on_login = launch_on_login;
-            Self::apply_launch_on_login(launch_on_login)?;
         }
 
         match persistence.save_settings(&settings) {
-            SettingsPersistenceWrite::Saved => Self::load_page(),
+            SettingsPersistenceWrite::Saved => {
+                if let Some(launch_on_login) = input.launch_on_login {
+                    if let Err(reason) = Self::apply_launch_on_login(launch_on_login) {
+                        return match persistence.save_settings(&previous_settings) {
+                            SettingsPersistenceWrite::Saved => Err(reason),
+                            SettingsPersistenceWrite::Unavailable {
+                                reason: rollback_reason,
+                            } => Err(format!(
+                                "{reason}; failed to roll back settings persistence: {rollback_reason}"
+                            )),
+                        };
+                    }
+                }
+
+                Self::load_page()
+            }
             SettingsPersistenceWrite::Unavailable { reason } => Err(reason),
         }
     }
@@ -75,15 +92,7 @@ impl SettingsService {
         }
     }
 
-    fn build_page_data(
-        persistence: SettingsPersistenceLoad,
-        autostart: AutostartState,
-    ) -> SettingsPageData {
-        let (settings, persistence_available) = match persistence {
-            SettingsPersistenceLoad::Loaded(settings) => (settings, true),
-            SettingsPersistenceLoad::Unavailable { .. } => (PersistedSettings::default(), false),
-        };
-
+    fn build_page_data(settings: PersistedSettings, autostart: AutostartState) -> SettingsPageData {
         let (launch_on_login, launch_on_login_available) = match autostart {
             AutostartState::Enabled => (true, true),
             AutostartState::Disabled => (false, true),
@@ -99,7 +108,7 @@ impl SettingsService {
             launch_on_login_available,
             steam_required,
             steam_status_message,
-            stale: !persistence_available || !launch_on_login_available,
+            stale: !launch_on_login_available,
         }
     }
 
@@ -108,13 +117,16 @@ impl SettingsService {
         settings_path: std::path::PathBuf,
         config_root: std::path::PathBuf,
     ) -> Result<SettingsPageData, String> {
-        let persistence = SettingsPersistenceService::for_test(settings_path).load_settings();
+        let settings = match SettingsPersistenceService::for_test(settings_path).load_settings() {
+            SettingsPersistenceLoad::Loaded(settings) => settings,
+            SettingsPersistenceLoad::Unavailable { reason } => return Err(reason),
+        };
         let command = vec![test_launch_command()];
         let autostart = AutostartService::for_test(config_root)
             .status(&command_refs(&command))
             .state;
 
-        Ok(Self::build_page_data(persistence, autostart))
+        Ok(Self::build_page_data(settings, autostart))
     }
 
     #[cfg(test)]
@@ -124,10 +136,11 @@ impl SettingsService {
         input: SettingsUpdateInput,
     ) -> Result<SettingsPageData, String> {
         let persistence = SettingsPersistenceService::for_test(settings_path.clone());
-        let mut settings = match persistence.load_settings() {
+        let previous_settings = match persistence.load_settings() {
             SettingsPersistenceLoad::Loaded(settings) => settings,
             SettingsPersistenceLoad::Unavailable { reason } => return Err(reason),
         };
+        let mut settings = previous_settings.clone();
 
         if let Some(language) = input.language {
             settings.language = language;
@@ -139,19 +152,34 @@ impl SettingsService {
 
         if let Some(launch_on_login) = input.launch_on_login {
             settings.launch_on_login = launch_on_login;
-            let autostart = AutostartService::for_test(config_root.clone());
-            let command = vec![test_launch_command()];
-            let command_refs = command_refs(&command);
-
-            if launch_on_login {
-                autostart.enable(&command_refs)?;
-            } else {
-                autostart.disable(&command_refs)?;
-            }
         }
 
         match persistence.save_settings(&settings) {
-            SettingsPersistenceWrite::Saved => Self::load_page_for_test(settings_path, config_root),
+            SettingsPersistenceWrite::Saved => {
+                if let Some(launch_on_login) = input.launch_on_login {
+                    let autostart = AutostartService::for_test(config_root.clone());
+                    let command = vec![test_launch_command()];
+                    let command_refs = command_refs(&command);
+                    let apply_result = if launch_on_login {
+                        autostart.enable(&command_refs)
+                    } else {
+                        autostart.disable(&command_refs)
+                    };
+
+                    if let Err(reason) = apply_result {
+                        return match persistence.save_settings(&previous_settings) {
+                            SettingsPersistenceWrite::Saved => Err(reason),
+                            SettingsPersistenceWrite::Unavailable {
+                                reason: rollback_reason,
+                            } => Err(format!(
+                                "{reason}; failed to roll back settings persistence: {rollback_reason}"
+                            )),
+                        };
+                    }
+                }
+
+                Self::load_page_for_test(settings_path, config_root)
+            }
             SettingsPersistenceWrite::Unavailable { reason } => Err(reason),
         }
     }
@@ -247,13 +275,11 @@ mod tests {
     #[test]
     fn settings_service_uses_persisted_launch_preference_when_autostart_is_unavailable() {
         let result = SettingsService::build_page_data(
-            crate::results::settings_persistence::SettingsPersistenceLoad::Loaded(
-                crate::results::settings_persistence::PersistedSettings {
-                    language: "system".to_string(),
-                    theme: "system".to_string(),
-                    launch_on_login: true,
-                },
-            ),
+            crate::results::settings_persistence::PersistedSettings {
+                language: "system".to_string(),
+                theme: "system".to_string(),
+                launch_on_login: true,
+            },
             AutostartState::Unavailable {
                 reason: "missing XDG config root".to_string(),
             },
@@ -295,5 +321,78 @@ mod tests {
                 .state,
             AutostartState::Enabled
         );
+    }
+
+    #[test]
+    fn settings_service_returns_error_when_persisted_settings_are_unreadable() {
+        let settings_path = unique_test_path("settings-invalid").with_extension("toml");
+        let config_root = unique_test_path("settings-invalid-config");
+
+        std::fs::write(&settings_path, "language = [broken\n").unwrap();
+
+        let error = SettingsService::load_page_for_test(settings_path.clone(), config_root)
+            .expect_err("invalid settings should not be surfaced as defaults");
+
+        assert!(error.contains("Failed to parse settings from"));
+        assert!(error.contains(&settings_path.display().to_string()));
+    }
+
+    #[test]
+    fn settings_service_does_not_change_autostart_when_save_fails() {
+        let blocked_parent = unique_test_path("settings-blocked-parent");
+        let settings_path = blocked_parent.join("settings.toml");
+        let config_root = unique_test_path("settings-save-failure-config");
+
+        std::fs::write(&blocked_parent, "not a directory").unwrap();
+
+        let error = SettingsService::update_settings_for_test(
+            settings_path,
+            config_root.clone(),
+            SettingsUpdateInput {
+                language: None,
+                theme: None,
+                launch_on_login: Some(true),
+            },
+        )
+        .expect_err("save failure should abort settings update");
+
+        assert!(error.contains("Failed"));
+        assert_eq!(
+            AutostartService::for_test(config_root)
+                .status(&["/opt/lwe/bin/lwe"])
+                .state,
+            AutostartState::Disabled
+        );
+    }
+
+    #[test]
+    fn settings_service_rolls_back_persisted_settings_when_autostart_update_fails() {
+        let settings_path = unique_test_path("settings-rollback").with_extension("toml");
+        let blocked_config_root = unique_test_path("settings-rollback-config");
+
+        std::fs::write(
+            &settings_path,
+            "language = \"en\"\ntheme = \"system\"\nlaunch_on_login = false\n",
+        )
+        .unwrap();
+        std::fs::write(&blocked_config_root, "not a directory").unwrap();
+
+        let error = SettingsService::update_settings_for_test(
+            settings_path.clone(),
+            blocked_config_root,
+            SettingsUpdateInput {
+                language: Some("fr".to_string()),
+                theme: None,
+                launch_on_login: Some(true),
+            },
+        )
+        .expect_err("autostart failure should roll back saved settings");
+
+        assert!(error.contains("Failed to create autostart directory"));
+
+        let contents = std::fs::read_to_string(settings_path).unwrap();
+        assert!(contents.contains("language = \"en\""));
+        assert!(contents.contains("theme = \"system\""));
+        assert!(contents.contains("launch_on_login = false"));
     }
 }
