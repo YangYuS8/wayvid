@@ -12,6 +12,12 @@ pub struct ScopedAutostartService {
     system_config_roots: Vec<PathBuf>,
 }
 
+#[derive(Clone, Copy)]
+enum EntrySource {
+    User,
+    Inherited,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AutostartStatus {
     pub state: AutostartState,
@@ -68,8 +74,8 @@ impl ScopedAutostartService {
     pub fn status(&self, launch_command: &[&str]) -> AutostartStatus {
         let entry_path = self.entry_path();
         let state = match self.effective_entry_contents() {
-            Ok(Some(contents)) => {
-                if desktop_entry_is_active(&contents, launch_command) {
+            Ok(Some((contents, source))) => {
+                if desktop_entry_is_active(&contents, launch_command, source) {
                     AutostartState::Enabled
                 } else {
                     AutostartState::Disabled
@@ -135,13 +141,13 @@ impl ScopedAutostartService {
         }
     }
 
-    fn effective_entry_contents(&self) -> Result<Option<String>, String> {
+    fn effective_entry_contents(&self) -> Result<Option<(String, EntrySource)>, String> {
         match fs::read_to_string(self.entry_path()) {
-            Ok(contents) => Ok(Some(contents)),
+            Ok(contents) => Ok(Some((contents, EntrySource::User))),
             Err(error) if error.kind() == ErrorKind::NotFound => {
                 for system_entry_path in self.system_entry_paths() {
                     match fs::read_to_string(&system_entry_path) {
-                        Ok(contents) => return Ok(Some(contents)),
+                        Ok(contents) => return Ok(Some((contents, EntrySource::Inherited))),
                         Err(error) if error.kind() == ErrorKind::NotFound => continue,
                         Err(error) => {
                             return Err(format!(
@@ -172,7 +178,7 @@ impl ScopedAutostartService {
         for system_entry_path in self.system_entry_paths() {
             match fs::read_to_string(&system_entry_path) {
                 Ok(contents) => {
-                    if desktop_entry_is_active(&contents, launch_command) {
+                    if desktop_entry_is_active(&contents, launch_command, EntrySource::Inherited) {
                         return Ok(true);
                     }
                 }
@@ -242,11 +248,16 @@ fn desktop_entry_exec_arg(argument: &str) -> String {
     format!("\"{escaped}\"")
 }
 
-fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> bool {
+fn desktop_entry_is_active(
+    contents: &str,
+    expected_launch_command: &[&str],
+    entry_source: EntrySource,
+) -> bool {
     desktop_entry_is_active_for_desktops(
         contents,
         expected_launch_command,
         &current_desktop_tokens(),
+        entry_source,
     )
 }
 
@@ -254,6 +265,7 @@ fn desktop_entry_is_active_for_desktops(
     contents: &str,
     expected_launch_command: &[&str],
     current_desktops: &[String],
+    entry_source: EntrySource,
 ) -> bool {
     let Some(group_lines) = desktop_entry_group_lines(contents, "Desktop Entry") else {
         return false;
@@ -282,8 +294,11 @@ fn desktop_entry_is_active_for_desktops(
                 not_show_in = Some(parse_desktop_list(&line["NotShowIn=".len()..]));
             }
             _ if line.starts_with("Exec=") => {
-                exec_matches =
-                    desktop_entry_exec_matches(&line["Exec=".len()..], expected_launch_command)
+                exec_matches = desktop_entry_exec_matches(
+                    &line["Exec=".len()..],
+                    expected_launch_command,
+                    entry_source,
+                )
             }
             _ => {}
         }
@@ -391,13 +406,33 @@ fn desktop_entry_group_lines<'a>(contents: &'a str, group_name: &str) -> Option<
     in_target_group.then_some(lines)
 }
 
-fn desktop_entry_exec_matches(exec_value: &str, expected_launch_command: &[&str]) -> bool {
+fn desktop_entry_exec_matches(
+    exec_value: &str,
+    expected_launch_command: &[&str],
+    entry_source: EntrySource,
+) -> bool {
     match parse_desktop_entry_exec_value(exec_value) {
-        Ok(parsed_exec) => match normalized_launch_command(expected_launch_command) {
-            Ok(expected_exec) => parsed_exec == expected_exec,
-            Err(_) => false,
+        Ok(parsed_exec) => match entry_source {
+            EntrySource::User => match normalized_launch_command(expected_launch_command) {
+                Ok(expected_exec) => parsed_exec == expected_exec,
+                Err(_) => false,
+            },
+            EntrySource::Inherited => inherited_exec_matches(&parsed_exec, expected_launch_command),
         },
         Err(_) => false,
+    }
+}
+
+fn inherited_exec_matches(parsed_exec: &[String], expected_launch_command: &[&str]) -> bool {
+    match (parsed_exec.first(), expected_launch_command.first()) {
+        (Some(actual_program), Some(expected_program)) => {
+            actual_program == expected_program
+                && !parsed_exec
+                    .iter()
+                    .skip(1)
+                    .any(|arg| matches!(arg.as_str(), "--help" | "--version"))
+        }
+        _ => false,
     }
 }
 
@@ -659,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    fn autostart_service_does_not_shadow_inherited_lwe_entry_with_different_flags() {
+    fn autostart_service_shadows_inherited_lwe_entry_with_different_flags() {
         let config_root = test_config_root();
         let system_root = config_root.join("system");
         let service = AutostartService::for_test_with_system_roots(
@@ -684,7 +719,8 @@ mod tests {
             ])
             .unwrap();
 
-        assert!(!service.entry_path().exists());
+        let user_contents = std::fs::read_to_string(service.entry_path()).unwrap();
+        assert!(user_contents.contains("Hidden=true"));
     }
 
     #[test]
@@ -714,7 +750,7 @@ mod tests {
     }
 
     #[test]
-    fn autostart_service_treats_lwe_entry_with_different_flags_as_disabled() {
+    fn autostart_service_treats_user_lwe_entry_with_different_flags_as_disabled() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root);
 
@@ -722,6 +758,66 @@ mod tests {
         std::fs::write(
             service.entry_path(),
             "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --start-hidden --profile \"Other Project\"\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Disabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_inherited_lwe_entry_with_different_flags_as_enabled() {
+        let config_root = test_config_root();
+        let system_root = config_root.join("system");
+        let service = AutostartService::for_test_with_system_roots(
+            config_root.clone(),
+            vec![system_root.clone()],
+        );
+
+        std::fs::create_dir_all(system_root.join("autostart")).unwrap();
+        std::fs::write(
+            system_root.join("autostart").join("wayvid-lwe.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --start-hidden --profile \"Other Project\"\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Enabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_inherited_lwe_help_entry_as_disabled() {
+        let config_root = test_config_root();
+        let system_root = config_root.join("system");
+        let service = AutostartService::for_test_with_system_roots(
+            config_root.clone(),
+            vec![system_root.clone()],
+        );
+
+        std::fs::create_dir_all(system_root.join("autostart")).unwrap();
+        std::fs::write(
+            system_root.join("autostart").join("wayvid-lwe.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --help\nTerminal=false\n",
         )
         .unwrap();
 
@@ -843,7 +939,8 @@ mod tests {
                     "say \"hi\"",
                     "100%",
                 ],
-                &["KDE".to_string()]
+                &["KDE".to_string()],
+                super::EntrySource::User,
             ),
             false
         );
@@ -871,7 +968,8 @@ mod tests {
                     "say \"hi\"",
                     "100%",
                 ],
-                &["GNOME".to_string(), "ubuntu:GNOME".to_string()]
+                &["GNOME".to_string(), "ubuntu:GNOME".to_string()],
+                super::EntrySource::User,
             ),
             false
         );
