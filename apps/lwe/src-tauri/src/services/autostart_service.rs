@@ -12,12 +12,6 @@ pub struct ScopedAutostartService {
     system_config_roots: Vec<PathBuf>,
 }
 
-#[derive(Clone, Copy)]
-enum EntrySource {
-    User,
-    Inherited,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AutostartStatus {
     pub state: AutostartState,
@@ -74,8 +68,8 @@ impl ScopedAutostartService {
     pub fn status(&self, launch_command: &[&str]) -> AutostartStatus {
         let entry_path = self.entry_path();
         let state = match self.effective_entry_contents() {
-            Ok(Some((contents, source))) => {
-                if desktop_entry_is_active(&contents, launch_command, source) {
+            Ok(Some(contents)) => {
+                if desktop_entry_is_active(&contents, launch_command) {
                     AutostartState::Enabled
                 } else {
                     AutostartState::Disabled
@@ -141,13 +135,13 @@ impl ScopedAutostartService {
         }
     }
 
-    fn effective_entry_contents(&self) -> Result<Option<(String, EntrySource)>, String> {
+    fn effective_entry_contents(&self) -> Result<Option<String>, String> {
         match fs::read_to_string(self.entry_path()) {
-            Ok(contents) => Ok(Some((contents, EntrySource::User))),
+            Ok(contents) => Ok(Some(contents)),
             Err(error) if error.kind() == ErrorKind::NotFound => {
                 for system_entry_path in self.system_entry_paths() {
                     match fs::read_to_string(&system_entry_path) {
-                        Ok(contents) => return Ok(Some((contents, EntrySource::Inherited))),
+                        Ok(contents) => return Ok(Some(contents)),
                         Err(error) if error.kind() == ErrorKind::NotFound => continue,
                         Err(error) => {
                             return Err(format!(
@@ -178,7 +172,7 @@ impl ScopedAutostartService {
         for system_entry_path in self.system_entry_paths() {
             match fs::read_to_string(&system_entry_path) {
                 Ok(contents) => {
-                    if desktop_entry_is_active(&contents, launch_command, EntrySource::Inherited) {
+                    if desktop_entry_is_active(&contents, launch_command) {
                         return Ok(true);
                     }
                 }
@@ -248,16 +242,11 @@ fn desktop_entry_exec_arg(argument: &str) -> String {
     format!("\"{escaped}\"")
 }
 
-fn desktop_entry_is_active(
-    contents: &str,
-    expected_launch_command: &[&str],
-    entry_source: EntrySource,
-) -> bool {
+fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> bool {
     desktop_entry_is_active_for_desktops(
         contents,
         expected_launch_command,
         &current_desktop_tokens(),
-        entry_source,
     )
 }
 
@@ -265,7 +254,6 @@ fn desktop_entry_is_active_for_desktops(
     contents: &str,
     expected_launch_command: &[&str],
     current_desktops: &[String],
-    entry_source: EntrySource,
 ) -> bool {
     let Some(group_lines) = desktop_entry_group_lines(contents, "Desktop Entry") else {
         return false;
@@ -294,11 +282,8 @@ fn desktop_entry_is_active_for_desktops(
                 not_show_in = Some(parse_desktop_list(&line["NotShowIn=".len()..]));
             }
             _ if line.starts_with("Exec=") => {
-                exec_matches = desktop_entry_exec_matches(
-                    &line["Exec=".len()..],
-                    expected_launch_command,
-                    entry_source,
-                )
+                exec_matches =
+                    desktop_entry_exec_matches(&line["Exec=".len()..], expected_launch_command)
             }
             _ => {}
         }
@@ -406,19 +391,9 @@ fn desktop_entry_group_lines<'a>(contents: &'a str, group_name: &str) -> Option<
     in_target_group.then_some(lines)
 }
 
-fn desktop_entry_exec_matches(
-    exec_value: &str,
-    expected_launch_command: &[&str],
-    entry_source: EntrySource,
-) -> bool {
+fn desktop_entry_exec_matches(exec_value: &str, expected_launch_command: &[&str]) -> bool {
     match parse_desktop_entry_exec_value(exec_value) {
-        Ok(parsed_exec) => match entry_source {
-            EntrySource::User => match normalized_launch_command(expected_launch_command) {
-                Ok(expected_exec) => parsed_exec == expected_exec,
-                Err(_) => false,
-            },
-            EntrySource::Inherited => inherited_exec_matches(&parsed_exec, expected_launch_command),
-        },
+        Ok(parsed_exec) => inherited_exec_matches(&parsed_exec, expected_launch_command),
         Err(_) => false,
     }
 }
@@ -434,11 +409,6 @@ fn inherited_exec_matches(parsed_exec: &[String], expected_launch_command: &[&st
         }
         _ => false,
     }
-}
-
-fn normalized_launch_command(expected_launch_command: &[&str]) -> Result<Vec<String>, String> {
-    let encoded = desktop_entry_exec_value(expected_launch_command)?;
-    parse_desktop_entry_exec_value(&encoded)
 }
 
 fn parse_desktop_entry_exec_value(exec_value: &str) -> Result<Vec<String>, String> {
@@ -750,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn autostart_service_treats_user_lwe_entry_with_different_flags_as_disabled() {
+    fn autostart_service_treats_user_lwe_entry_with_different_flags_as_enabled() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root);
 
@@ -771,7 +741,7 @@ mod tests {
                     "100%",
                 ])
                 .state,
-            super::AutostartState::Disabled
+            super::AutostartState::Enabled
         );
     }
 
@@ -940,7 +910,6 @@ mod tests {
                     "100%",
                 ],
                 &["KDE".to_string()],
-                super::EntrySource::User,
             ),
             false
         );
@@ -969,7 +938,6 @@ mod tests {
                     "100%",
                 ],
                 &["GNOME".to_string(), "ubuntu:GNOME".to_string()],
-                super::EntrySource::User,
             ),
             false
         );
