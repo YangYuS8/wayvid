@@ -153,6 +153,18 @@ fn desktop_entry_exec_arg(argument: &str) -> String {
 }
 
 fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> bool {
+    desktop_entry_is_active_for_desktops(
+        contents,
+        expected_launch_command,
+        &current_desktop_tokens(),
+    )
+}
+
+fn desktop_entry_is_active_for_desktops(
+    contents: &str,
+    expected_launch_command: &[&str],
+    current_desktops: &[String],
+) -> bool {
     let Some(group_lines) = desktop_entry_group_lines(contents, "Desktop Entry") else {
         return false;
     };
@@ -161,13 +173,23 @@ fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> 
     let mut exec_matches = false;
     let mut hidden = false;
     let mut try_exec = None;
+    let mut only_show_in = None;
+    let mut not_show_in = None;
+    let mut gnome_autostart_enabled = true;
 
     for line in group_lines {
         match line {
             "Type=Application" => has_application_type = true,
             "Hidden=true" => hidden = true,
+            "X-GNOME-Autostart-enabled=false" => gnome_autostart_enabled = false,
             _ if line.starts_with("TryExec=") => {
                 try_exec = Some(line["TryExec=".len()..].trim());
+            }
+            _ if line.starts_with("OnlyShowIn=") => {
+                only_show_in = Some(parse_desktop_list(&line["OnlyShowIn=".len()..]));
+            }
+            _ if line.starts_with("NotShowIn=") => {
+                not_show_in = Some(parse_desktop_list(&line["NotShowIn=".len()..]));
             }
             _ if line.starts_with("Exec=") => {
                 exec_matches =
@@ -181,7 +203,51 @@ fn desktop_entry_is_active(contents: &str, expected_launch_command: &[&str]) -> 
         .map(try_exec_is_executable_in_environment)
         .unwrap_or(true);
 
-    has_application_type && exec_matches && !hidden && try_exec_matches
+    let only_show_in_matches = only_show_in
+        .map(|allowed| desktop_list_matches_current_session(&allowed, current_desktops))
+        .unwrap_or(true);
+
+    let not_show_in_matches = not_show_in
+        .map(|blocked| desktop_list_matches_current_session(&blocked, current_desktops))
+        .unwrap_or(false);
+
+    has_application_type
+        && exec_matches
+        && !hidden
+        && gnome_autostart_enabled
+        && try_exec_matches
+        && only_show_in_matches
+        && !not_show_in_matches
+}
+
+fn current_desktop_tokens() -> Vec<String> {
+    std::env::var_os("XDG_CURRENT_DESKTOP")
+        .map(|value| {
+            value
+                .to_string_lossy()
+                .split(':')
+                .map(str::trim)
+                .filter(|part| !part.is_empty())
+                .map(|part| part.to_string())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_desktop_list(value: &str) -> Vec<String> {
+    value
+        .split(';')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(|part| part.to_string())
+        .collect()
+}
+
+fn desktop_list_matches_current_session(list: &[String], current_desktops: &[String]) -> bool {
+    current_desktops.iter().any(|current| {
+        list.iter()
+            .any(|listed| listed.eq_ignore_ascii_case(current.as_str()))
+    })
 }
 
 fn try_exec_is_executable_in_environment(try_exec: &str) -> bool {
@@ -465,6 +531,88 @@ mod tests {
                 ])
                 .state,
             super::AutostartState::Disabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_disabled_gnome_autostart_flag_as_disabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nX-GNOME-Autostart-enabled=false\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Disabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_only_show_in_mismatch_as_disabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nOnlyShowIn=GNOME;\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            super::desktop_entry_is_active_for_desktops(
+                &std::fs::read_to_string(service.entry_path()).unwrap(),
+                &[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ],
+                &["KDE".to_string()]
+            ),
+            false
+        );
+    }
+
+    #[test]
+    fn autostart_service_treats_not_show_in_match_as_disabled() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nNotShowIn=GNOME;\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            super::desktop_entry_is_active_for_desktops(
+                &std::fs::read_to_string(service.entry_path()).unwrap(),
+                &[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ],
+                &["GNOME".to_string(), "ubuntu:GNOME".to_string()]
+            ),
+            false
         );
     }
 
