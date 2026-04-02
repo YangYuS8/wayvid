@@ -107,21 +107,32 @@ impl ScopedAutostartService {
     pub fn disable(&self) -> Result<(), String> {
         let entry_path = self.entry_path();
 
-        if let Some(parent) = entry_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
+        if self.has_inherited_system_entry() {
+            if let Some(parent) = entry_path.parent() {
+                fs::create_dir_all(parent).map_err(|error| {
+                    format!(
+                        "Failed to create autostart directory {}: {error}",
+                        parent.display()
+                    )
+                })?;
+            }
+
+            return fs::write(&entry_path, hidden_desktop_entry_contents()).map_err(|error| {
                 format!(
-                    "Failed to create autostart directory {}: {error}",
-                    parent.display()
+                    "Failed to write autostart shadow entry {}: {error}",
+                    entry_path.display()
                 )
-            })?;
+            });
         }
 
-        fs::write(&entry_path, hidden_desktop_entry_contents()).map_err(|error| {
-            format!(
-                "Failed to write autostart shadow entry {}: {error}",
+        match fs::remove_file(&entry_path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(format!(
+                "Failed to remove autostart entry {}: {error}",
                 entry_path.display()
-            )
-        })
+            )),
+        }
     }
 
     fn effective_entry_contents(&self) -> Result<Option<String>, String> {
@@ -155,6 +166,10 @@ impl ScopedAutostartService {
             .iter()
             .map(|root| root.join("autostart").join(AUTOSTART_ENTRY_FILE_NAME))
             .collect()
+    }
+
+    fn has_inherited_system_entry(&self) -> bool {
+        self.system_entry_paths().iter().any(|path| path.exists())
     }
 }
 
@@ -516,8 +531,7 @@ mod tests {
 
         service.disable().unwrap();
 
-        let disabled_contents = std::fs::read_to_string(service.entry_path()).unwrap();
-        assert!(disabled_contents.contains("Hidden=true"));
+        assert!(!service.entry_path().exists());
         assert_eq!(
             service.status(&launch_command).state,
             super::AutostartState::Disabled
