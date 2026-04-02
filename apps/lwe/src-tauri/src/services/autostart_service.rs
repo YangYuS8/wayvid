@@ -2,6 +2,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::{collections::HashSet, ffi::OsString};
 
 const AUTOSTART_ENTRY_FILE_NAME: &str = "wayvid-lwe.desktop";
 const AUTOSTART_ENTRY_NAME: &str = "LWE";
@@ -10,6 +11,19 @@ pub struct AutostartService;
 pub struct ScopedAutostartService {
     config_root: PathBuf,
     system_config_roots: Vec<PathBuf>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EntrySource {
+    User,
+    System,
+}
+
+struct EffectiveEntry {
+    path: PathBuf,
+    file_name: OsString,
+    contents: String,
+    source: EntrySource,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,15 +81,17 @@ impl ScopedAutostartService {
 
     pub fn status(&self, launch_command: &[&str]) -> AutostartStatus {
         let entry_path = self.entry_path();
-        let state = match self.effective_entry_contents() {
-            Ok(Some(contents)) => {
-                if desktop_entry_is_active(&contents, launch_command) {
+        let state = match self.effective_entries() {
+            Ok(entries) => {
+                if entries
+                    .iter()
+                    .any(|entry| desktop_entry_is_active(&entry.contents, launch_command))
+                {
                     AutostartState::Enabled
                 } else {
                     AutostartState::Disabled
                 }
             }
-            Ok(None) => AutostartState::Disabled,
             Err(reason) => AutostartState::Unavailable { reason },
         };
 
@@ -106,88 +122,146 @@ impl ScopedAutostartService {
 
     pub fn disable(&self, launch_command: &[&str]) -> Result<(), String> {
         let entry_path = self.entry_path();
+        let entries = self.effective_entries()?;
+        let active_entries = entries
+            .into_iter()
+            .filter(|entry| desktop_entry_is_active(&entry.contents, launch_command))
+            .collect::<Vec<_>>();
 
-        if self.has_active_inherited_system_entry(launch_command)? {
-            if let Some(parent) = entry_path.parent() {
-                fs::create_dir_all(parent).map_err(|error| {
-                    format!(
-                        "Failed to create autostart directory {}: {error}",
-                        parent.display()
-                    )
-                })?;
+        let user_autostart_dir = self.user_autostart_dir();
+        fs::create_dir_all(&user_autostart_dir).map_err(|error| {
+            format!(
+                "Failed to create autostart directory {}: {error}",
+                user_autostart_dir.display()
+            )
+        })?;
+
+        let mut shadowed_file_names = HashSet::new();
+
+        for entry in &active_entries {
+            match entry.source {
+                EntrySource::User => {
+                    fs::remove_file(&entry.path)
+                        .or_else(|error| {
+                            if error.kind() == ErrorKind::NotFound {
+                                Ok(())
+                            } else {
+                                Err(error)
+                            }
+                        })
+                        .map_err(|error| {
+                            format!(
+                                "Failed to remove autostart entry {}: {error}",
+                                entry.path.display()
+                            )
+                        })?;
+                }
+                EntrySource::System => {
+                    let shadow_path = user_autostart_dir.join(&entry.file_name);
+                    fs::write(&shadow_path, hidden_desktop_entry_contents()).map_err(|error| {
+                        format!(
+                            "Failed to write autostart shadow entry {}: {error}",
+                            shadow_path.display()
+                        )
+                    })?;
+                    shadowed_file_names.insert(entry.file_name.clone());
+                }
             }
+        }
 
-            return fs::write(&entry_path, hidden_desktop_entry_contents()).map_err(|error| {
-                format!(
-                    "Failed to write autostart shadow entry {}: {error}",
+        if !shadowed_file_names.contains(&OsString::from(AUTOSTART_ENTRY_FILE_NAME)) {
+            match fs::remove_file(&entry_path) {
+                Ok(()) => Ok(()),
+                Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(format!(
+                    "Failed to remove autostart entry {}: {error}",
                     entry_path.display()
-                )
+                )),
+            }
+        } else {
+            Ok(())
+        }
+    }
+
+    fn effective_entries(&self) -> Result<Vec<EffectiveEntry>, String> {
+        let mut seen_file_names = HashSet::new();
+        let mut entries = Vec::new();
+
+        for path in self.autostart_entry_paths(&self.user_autostart_dir())? {
+            let Some(file_name) = path.file_name().map(OsString::from) else {
+                continue;
+            };
+            seen_file_names.insert(file_name.clone());
+            entries.push(EffectiveEntry {
+                contents: read_entry_contents(&path)?,
+                path,
+                file_name,
+                source: EntrySource::User,
             });
         }
 
-        match fs::remove_file(&entry_path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(format!(
-                "Failed to remove autostart entry {}: {error}",
-                entry_path.display()
-            )),
-        }
-    }
+        for system_root in &self.system_config_roots {
+            for path in self.autostart_entry_paths(&system_root.join("autostart"))? {
+                let Some(file_name) = path.file_name().map(OsString::from) else {
+                    continue;
+                };
 
-    fn effective_entry_contents(&self) -> Result<Option<String>, String> {
-        match fs::read_to_string(self.entry_path()) {
-            Ok(contents) => Ok(Some(contents)),
-            Err(error) if error.kind() == ErrorKind::NotFound => {
-                for system_entry_path in self.system_entry_paths() {
-                    match fs::read_to_string(&system_entry_path) {
-                        Ok(contents) => return Ok(Some(contents)),
-                        Err(error) if error.kind() == ErrorKind::NotFound => continue,
-                        Err(error) => {
-                            return Err(format!(
-                                "Failed to read autostart entry {}: {error}",
-                                system_entry_path.display()
-                            ));
-                        }
-                    }
-                }
-
-                Ok(None)
-            }
-            Err(error) => Err(format!(
-                "Failed to read autostart entry {}: {error}",
-                self.entry_path().display()
-            )),
-        }
-    }
-
-    fn system_entry_paths(&self) -> Vec<PathBuf> {
-        self.system_config_roots
-            .iter()
-            .map(|root| root.join("autostart").join(AUTOSTART_ENTRY_FILE_NAME))
-            .collect()
-    }
-
-    fn has_active_inherited_system_entry(&self, launch_command: &[&str]) -> Result<bool, String> {
-        for system_entry_path in self.system_entry_paths() {
-            match fs::read_to_string(&system_entry_path) {
-                Ok(contents) => {
-                    if desktop_entry_is_active(&contents, launch_command) {
-                        return Ok(true);
-                    }
-                }
-                Err(error) if error.kind() == ErrorKind::NotFound => continue,
-                Err(error) => {
-                    return Err(format!(
-                        "Failed to read autostart entry {}: {error}",
-                        system_entry_path.display()
-                    ));
+                if seen_file_names.insert(file_name.clone()) {
+                    entries.push(EffectiveEntry {
+                        contents: read_entry_contents(&path)?,
+                        path,
+                        file_name,
+                        source: EntrySource::System,
+                    });
                 }
             }
         }
 
-        Ok(false)
+        Ok(entries)
     }
+
+    fn autostart_entry_paths(&self, dir: &Path) -> Result<Vec<PathBuf>, String> {
+        let mut paths = Vec::new();
+        let read_dir = match fs::read_dir(dir) {
+            Ok(read_dir) => read_dir,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(paths),
+            Err(error) => {
+                return Err(format!(
+                    "Failed to read autostart directory {}: {error}",
+                    dir.display()
+                ))
+            }
+        };
+
+        for entry in read_dir {
+            let entry = entry.map_err(|error| {
+                format!(
+                    "Failed to read autostart directory entry {}: {error}",
+                    dir.display()
+                )
+            })?;
+            let path = entry.path();
+
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "desktop")
+            {
+                paths.push(path);
+            }
+        }
+
+        paths.sort();
+        Ok(paths)
+    }
+
+    fn user_autostart_dir(&self) -> PathBuf {
+        self.config_root.join("autostart")
+    }
+}
+
+fn read_entry_contents(path: &Path) -> Result<String, String> {
+    fs::read_to_string(path)
+        .map_err(|error| format!("Failed to read autostart entry {}: {error}", path.display()))
 }
 
 fn desktop_entry_contents(launch_command: &[&str]) -> Result<String, String> {
@@ -704,6 +778,37 @@ mod tests {
     }
 
     #[test]
+    fn autostart_service_shadows_inherited_lwe_entry_with_non_default_filename() {
+        let config_root = test_config_root();
+        let system_root = config_root.join("system");
+        let service = AutostartService::for_test_with_system_roots(
+            config_root.clone(),
+            vec![system_root.clone()],
+        );
+
+        std::fs::create_dir_all(system_root.join("autostart")).unwrap();
+        std::fs::write(
+            system_root.join("autostart").join("custom-lwe.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --start-hidden --profile \"Other Project\"\nTerminal=false\n",
+        )
+        .unwrap();
+
+        service
+            .disable(&[
+                "/opt/lwe/bin/lwe",
+                "--profile",
+                "My Project",
+                "say \"hi\"",
+                "100%",
+            ])
+            .unwrap();
+
+        let shadow_path = config_root.join("autostart").join("custom-lwe.desktop");
+        let shadow_contents = std::fs::read_to_string(shadow_path).unwrap();
+        assert!(shadow_contents.contains("Hidden=true"));
+    }
+
+    #[test]
     fn autostart_service_treats_equivalent_exec_with_different_name_as_enabled() {
         let config_root = test_config_root();
         let service = AutostartService::for_test(config_root);
@@ -737,6 +842,32 @@ mod tests {
         std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
         std::fs::write(
             service.entry_path(),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --start-hidden --profile \"Other Project\"\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Enabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_discovers_user_lwe_entry_with_non_default_filename() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root.clone());
+
+        std::fs::create_dir_all(config_root.join("autostart")).unwrap();
+        std::fs::write(
+            config_root.join("autostart").join("custom-lwe.desktop"),
             "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --start-hidden --profile \"Other Project\"\nTerminal=false\n",
         )
         .unwrap();
