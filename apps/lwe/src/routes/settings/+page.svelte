@@ -126,7 +126,7 @@
   <PageHeader
     eyebrow="Settings"
     title="App preferences"
-    subtitle="Adjust the MVP desktop preferences the Rust backend owns today, then save them explicitly."
+    subtitle="Choose how LWE looks and behaves when you start your desktop session."
   />
 
   {#if pageError}
@@ -140,7 +140,7 @@
           <p class="lwe-eyebrow">Editable settings</p>
           <h2 class="lwe-heading-md">Preferences</h2>
           <p class="text-sm leading-6 text-slate-600">
-            Save language, theme, and launch behavior through the backend-owned settings file.
+            Update language, theme, and startup behavior, then save when you are ready.
           </p>
         </div>
 
@@ -225,13 +225,12 @@
         </div>
 
         <div class="grid gap-1.5 text-sm leading-6 text-slate-600">
-          <p><span class="font-medium text-slate-950">Saved language:</span> {snapshot.language}</p>
-          <p><span class="font-medium text-slate-950">Saved theme:</span> {snapshot.theme}</p>
+          <p><span class="font-medium text-slate-950">Saved language:</span> {labelFor(languageOptions, snapshot.language)}</p>
+          <p><span class="font-medium text-slate-950">Saved theme:</span> {labelFor(themeOptions, snapshot.theme)}</p>
           <p>
             <span class="font-medium text-slate-950">Launch on login:</span>
             {snapshot.launchOnLogin ? 'enabled' : 'disabled'}
           </p>
-          <p><span class="font-medium text-slate-950">Snapshot stale:</span> {snapshot.stale ? 'yes' : 'no'}</p>
         </div>
       </Card>
     </div>

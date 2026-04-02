@@ -37,7 +37,10 @@ describe('settings page render', () => {
     expect(body).toContain('Steam integration');
     expect(body).toContain('Steam is required to launch Wallpaper Engine content.');
     expect(body).toContain('Save changes');
-    expect(body).not.toContain('Thin shell settings');
-    expect(body).not.toContain('Show the Rust-owned settings snapshot');
+    expect(body).toContain('English');
+    expect(body).toContain('Follow system theme');
+    expect(body).not.toContain('Rust backend');
+    expect(body).not.toContain('backend-owned settings file');
+    expect(body).not.toContain('Snapshot stale');
   });
 });
