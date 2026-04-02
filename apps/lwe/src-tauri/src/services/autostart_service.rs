@@ -293,6 +293,9 @@ fn desktop_entry_is_active_for_desktops(
         .map(try_exec_is_executable_in_environment)
         .unwrap_or(true);
 
+    let gnome_autostart_allows_session =
+        gnome_autostart_enabled || !is_gnome_session(current_desktops);
+
     let only_show_in_matches = only_show_in
         .map(|allowed| desktop_list_matches_current_session(&allowed, current_desktops))
         .unwrap_or(true);
@@ -304,7 +307,7 @@ fn desktop_entry_is_active_for_desktops(
     has_application_type
         && exec_matches
         && !hidden
-        && gnome_autostart_enabled
+        && gnome_autostart_allows_session
         && try_exec_matches
         && only_show_in_matches
         && !not_show_in_matches
@@ -337,6 +340,13 @@ fn desktop_list_matches_current_session(list: &[String], current_desktops: &[Str
     current_desktops.iter().any(|current| {
         list.iter()
             .any(|listed| listed.eq_ignore_ascii_case(current.as_str()))
+    })
+}
+
+fn is_gnome_session(current_desktops: &[String]) -> bool {
+    current_desktops.iter().any(|desktop| {
+        let normalized = desktop.to_ascii_lowercase();
+        normalized == "gnome" || normalized.contains("gnome")
     })
 }
 
@@ -873,18 +883,42 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            service
-                .status(&[
-                    "/opt/lwe/bin/lwe",
-                    "--profile",
-                    "My Project",
-                    "say \"hi\"",
-                    "100%",
-                ])
-                .state,
-            super::AutostartState::Disabled
-        );
+        assert!(!super::desktop_entry_is_active_for_desktops(
+            &std::fs::read_to_string(service.entry_path()).unwrap(),
+            &[
+                "/opt/lwe/bin/lwe",
+                "--profile",
+                "My Project",
+                "say \"hi\"",
+                "100%",
+            ],
+            &["GNOME".to_string()],
+        ));
+    }
+
+    #[test]
+    fn autostart_service_ignores_gnome_autostart_flag_on_non_gnome_sessions() {
+        let config_root = test_config_root();
+        let service = AutostartService::for_test(config_root);
+
+        std::fs::create_dir_all(service.entry_path().parent().unwrap()).unwrap();
+        std::fs::write(
+            service.entry_path(),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nX-GNOME-Autostart-enabled=false\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert!(super::desktop_entry_is_active_for_desktops(
+            &std::fs::read_to_string(service.entry_path()).unwrap(),
+            &[
+                "/opt/lwe/bin/lwe",
+                "--profile",
+                "My Project",
+                "say \"hi\"",
+                "100%",
+            ],
+            &["KDE".to_string()],
+        ));
     }
 
     #[test]
