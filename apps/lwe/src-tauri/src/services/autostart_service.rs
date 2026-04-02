@@ -9,6 +9,7 @@ pub struct AutostartService;
 
 pub struct ScopedAutostartService {
     config_root: PathBuf,
+    system_config_roots: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,16 +27,34 @@ pub enum AutostartState {
 
 impl AutostartService {
     pub fn for_path(config_root: PathBuf) -> ScopedAutostartService {
-        ScopedAutostartService { config_root }
+        ScopedAutostartService {
+            config_root,
+            system_config_roots: default_system_config_roots(),
+        }
     }
 
     pub fn for_test(config_root: PathBuf) -> ScopedAutostartService {
         Self::for_path(config_root)
     }
 
+    pub fn for_test_with_system_roots(
+        config_root: PathBuf,
+        system_config_roots: Vec<PathBuf>,
+    ) -> ScopedAutostartService {
+        ScopedAutostartService {
+            config_root,
+            system_config_roots,
+        }
+    }
+
     #[allow(dead_code)]
     pub fn for_user_path() -> Result<ScopedAutostartService, String> {
-        autostart_config_root().map(Self::for_path)
+        autostart_config_root().map(|config_root| ScopedAutostartService {
+            config_root,
+            system_config_roots: system_config_roots_from_env(
+                std::env::var_os("XDG_CONFIG_DIRS").map(PathBuf::from),
+            ),
+        })
     }
 }
 
@@ -48,21 +67,16 @@ impl ScopedAutostartService {
 
     pub fn status(&self, launch_command: &[&str]) -> AutostartStatus {
         let entry_path = self.entry_path();
-        let state = match fs::read_to_string(&entry_path) {
-            Ok(contents) => {
+        let state = match self.effective_entry_contents() {
+            Ok(Some(contents)) => {
                 if desktop_entry_is_active(&contents, launch_command) {
                     AutostartState::Enabled
                 } else {
                     AutostartState::Disabled
                 }
             }
-            Err(error) if error.kind() == ErrorKind::NotFound => AutostartState::Disabled,
-            Err(error) => AutostartState::Unavailable {
-                reason: format!(
-                    "Failed to read autostart entry {}: {error}",
-                    entry_path.display()
-                ),
-            },
+            Ok(None) => AutostartState::Disabled,
+            Err(reason) => AutostartState::Unavailable { reason },
         };
 
         AutostartStatus { state, entry_path }
@@ -93,14 +107,54 @@ impl ScopedAutostartService {
     pub fn disable(&self) -> Result<(), String> {
         let entry_path = self.entry_path();
 
-        match fs::remove_file(&entry_path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(format!(
-                "Failed to remove autostart entry {}: {error}",
+        if let Some(parent) = entry_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| {
+                format!(
+                    "Failed to create autostart directory {}: {error}",
+                    parent.display()
+                )
+            })?;
+        }
+
+        fs::write(&entry_path, hidden_desktop_entry_contents()).map_err(|error| {
+            format!(
+                "Failed to write autostart shadow entry {}: {error}",
                 entry_path.display()
+            )
+        })
+    }
+
+    fn effective_entry_contents(&self) -> Result<Option<String>, String> {
+        match fs::read_to_string(self.entry_path()) {
+            Ok(contents) => Ok(Some(contents)),
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                for system_entry_path in self.system_entry_paths() {
+                    match fs::read_to_string(&system_entry_path) {
+                        Ok(contents) => return Ok(Some(contents)),
+                        Err(error) if error.kind() == ErrorKind::NotFound => continue,
+                        Err(error) => {
+                            return Err(format!(
+                                "Failed to read autostart entry {}: {error}",
+                                system_entry_path.display()
+                            ));
+                        }
+                    }
+                }
+
+                Ok(None)
+            }
+            Err(error) => Err(format!(
+                "Failed to read autostart entry {}: {error}",
+                self.entry_path().display()
             )),
         }
+    }
+
+    fn system_entry_paths(&self) -> Vec<PathBuf> {
+        self.system_config_roots
+            .iter()
+            .map(|root| root.join("autostart").join(AUTOSTART_ENTRY_FILE_NAME))
+            .collect()
     }
 }
 
@@ -110,6 +164,10 @@ fn desktop_entry_contents(launch_command: &[&str]) -> Result<String, String> {
     Ok(format!(
         "[Desktop Entry]\nType=Application\nName={AUTOSTART_ENTRY_NAME}\nExec={exec_value}\nTerminal=false\n"
     ))
+}
+
+fn hidden_desktop_entry_contents() -> String {
+    format!("[Desktop Entry]\nType=Application\nName={AUTOSTART_ENTRY_NAME}\nHidden=true\n")
 }
 
 fn desktop_entry_exec_value(launch_command: &[&str]) -> Result<String, String> {
@@ -367,6 +425,19 @@ fn autostart_config_root() -> Result<PathBuf, String> {
     )
 }
 
+fn default_system_config_roots() -> Vec<PathBuf> {
+    system_config_roots_from_env(std::env::var_os("XDG_CONFIG_DIRS").map(PathBuf::from))
+}
+
+fn system_config_roots_from_env(xdg_config_dirs: Option<PathBuf>) -> Vec<PathBuf> {
+    match xdg_config_dirs {
+        Some(value) => std::env::split_paths(&value)
+            .filter(|path| path.is_absolute())
+            .collect(),
+        None => vec![PathBuf::from("/etc/xdg")],
+    }
+}
+
 fn autostart_config_root_from_env(
     xdg_config_home: Option<PathBuf>,
     home: Option<PathBuf>,
@@ -445,9 +516,74 @@ mod tests {
 
         service.disable().unwrap();
 
-        assert!(!service.entry_path().exists());
+        let disabled_contents = std::fs::read_to_string(service.entry_path()).unwrap();
+        assert!(disabled_contents.contains("Hidden=true"));
         assert_eq!(
             service.status(&launch_command).state,
+            super::AutostartState::Disabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_reports_enabled_when_system_entry_exists_without_user_override() {
+        let config_root = test_config_root();
+        let system_root = config_root.join("system");
+        let service = AutostartService::for_test_with_system_roots(
+            config_root.clone(),
+            vec![system_root.clone()],
+        );
+
+        std::fs::create_dir_all(system_root.join("autostart")).unwrap();
+        std::fs::write(
+            system_root.join("autostart").join("wayvid-lwe.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nTerminal=false\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
+            super::AutostartState::Enabled
+        );
+    }
+
+    #[test]
+    fn autostart_service_hidden_user_shadow_disables_inherited_system_entry() {
+        let config_root = test_config_root();
+        let system_root = config_root.join("system");
+        let service = AutostartService::for_test_with_system_roots(
+            config_root.clone(),
+            vec![system_root.clone()],
+        );
+
+        std::fs::create_dir_all(system_root.join("autostart")).unwrap();
+        std::fs::write(
+            system_root.join("autostart").join("wayvid-lwe.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nTerminal=false\n",
+        )
+        .unwrap();
+
+        service.disable().unwrap();
+
+        let user_contents = std::fs::read_to_string(service.entry_path()).unwrap();
+        assert!(user_contents.contains("Hidden=true"));
+        assert_eq!(
+            service
+                .status(&[
+                    "/opt/lwe/bin/lwe",
+                    "--profile",
+                    "My Project",
+                    "say \"hi\"",
+                    "100%",
+                ])
+                .state,
             super::AutostartState::Disabled
         );
     }
