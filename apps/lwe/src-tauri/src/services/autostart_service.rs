@@ -104,10 +104,10 @@ impl ScopedAutostartService {
         })
     }
 
-    pub fn disable(&self) -> Result<(), String> {
+    pub fn disable(&self, launch_command: &[&str]) -> Result<(), String> {
         let entry_path = self.entry_path();
 
-        if self.has_inherited_system_entry() {
+        if self.has_active_inherited_system_entry(launch_command)? {
             if let Some(parent) = entry_path.parent() {
                 fs::create_dir_all(parent).map_err(|error| {
                     format!(
@@ -168,8 +168,25 @@ impl ScopedAutostartService {
             .collect()
     }
 
-    fn has_inherited_system_entry(&self) -> bool {
-        self.system_entry_paths().iter().any(|path| path.exists())
+    fn has_active_inherited_system_entry(&self, launch_command: &[&str]) -> Result<bool, String> {
+        for system_entry_path in self.system_entry_paths() {
+            match fs::read_to_string(&system_entry_path) {
+                Ok(contents) => {
+                    if desktop_entry_is_active(&contents, launch_command) {
+                        return Ok(true);
+                    }
+                }
+                Err(error) if error.kind() == ErrorKind::NotFound => continue,
+                Err(error) => {
+                    return Err(format!(
+                        "Failed to read autostart entry {}: {error}",
+                        system_entry_path.display()
+                    ));
+                }
+            }
+        }
+
+        Ok(false)
     }
 }
 
@@ -529,7 +546,7 @@ mod tests {
             super::AutostartState::Enabled
         );
 
-        service.disable().unwrap();
+        service.disable(&launch_command).unwrap();
 
         assert!(!service.entry_path().exists());
         assert_eq!(
@@ -584,7 +601,15 @@ mod tests {
         )
         .unwrap();
 
-        service.disable().unwrap();
+        service
+            .disable(&[
+                "/opt/lwe/bin/lwe",
+                "--profile",
+                "My Project",
+                "say \"hi\"",
+                "100%",
+            ])
+            .unwrap();
 
         let user_contents = std::fs::read_to_string(service.entry_path()).unwrap();
         assert!(user_contents.contains("Hidden=true"));
@@ -600,6 +625,35 @@ mod tests {
                 .state,
             super::AutostartState::Disabled
         );
+    }
+
+    #[test]
+    fn autostart_service_does_not_shadow_inactive_inherited_system_entry() {
+        let config_root = test_config_root();
+        let system_root = config_root.join("system");
+        let service = AutostartService::for_test_with_system_roots(
+            config_root.clone(),
+            vec![system_root.clone()],
+        );
+
+        std::fs::create_dir_all(system_root.join("autostart")).unwrap();
+        std::fs::write(
+            system_root.join("autostart").join("wayvid-lwe.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=\"/opt/lwe/bin/lwe\" --profile \"My Project\" \"say \\\"hi\\\"\" 100%%\nOnlyShowIn=GNOME;\nTerminal=false\n",
+        )
+        .unwrap();
+
+        service
+            .disable(&[
+                "/opt/lwe/bin/lwe",
+                "--profile",
+                "My Project",
+                "say \"hi\"",
+                "100%",
+            ])
+            .unwrap();
+
+        assert!(!service.entry_path().exists());
     }
 
     #[test]
