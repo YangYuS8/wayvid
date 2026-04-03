@@ -249,7 +249,7 @@ fn compatibility_service_rejects_scene_with_unsupported_runtime_feature() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
 ```
 
 Expected: FAIL until compatibility is aligned with the actual supported subset.
@@ -263,7 +263,7 @@ If the runtime subset needs one or two explicit manifest-level flags, add them i
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
 ```
 
 Expected: PASS.
@@ -309,7 +309,7 @@ fn desktop_apply_flow_does_not_persist_unsupported_scene_as_success() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: FAIL until scene first-frame success semantics are honored end-to-end.
@@ -323,7 +323,7 @@ Update `desktop_service` only if the now-real scene runtime needs small success-
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: PASS.
@@ -354,7 +354,7 @@ Run:
 ```bash
 cargo test -p lwe-library -- --nocapture
 cargo test -p lwe-engine -- --nocapture
-cargo test -p lwe-app-shell -- --nocapture
+cargo test -p lwe-shell -- --nocapture
 ```
 
 Expected: PASS.

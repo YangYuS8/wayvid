@@ -94,7 +94,7 @@ Run:
 ```bash
 pnpm install
 pnpm check
-cargo check -p lwe-app-shell
+cargo check -p lwe-shell
 ```
 
 Expected: PASS, or fail only on remaining old-path references to be cleaned in later tasks.
@@ -147,11 +147,11 @@ dev:
 	cargo tauri dev
 
 test:
-	cargo test -p lwe-app-shell
+	cargo test -p lwe-shell
 	pnpm test
 
 check:
-	cargo test -p lwe-app-shell
+	cargo test -p lwe-shell
 	pnpm exec svelte-kit sync
 	pnpm check
 ```
@@ -257,7 +257,7 @@ Run:
 ```bash
 pnpm test
 pnpm check
-cargo test -p lwe-app-shell
+cargo test -p lwe-shell
 ```
 
 Expected: PASS.

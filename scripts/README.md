@@ -41,7 +41,7 @@ The active product path uses Rust's built-in test framework across the LWE shell
 cargo test --workspace
 
 # Run tests for a specific crate
-cargo test -p lwe-app-shell
+cargo test -p lwe-shell
 cargo test -p lwe-core
 cargo test -p lwe-library
 cargo test -p lwe-engine
@@ -66,7 +66,7 @@ cargo build --workspace
 cargo build --release --workspace
 
 # Run the active shell from the workspace root
-cargo run -p lwe-app-shell
+cargo run -p lwe-shell
 ```
 
 Legacy binaries such as `wayvid-gui` and `wayvid-ctl` are retired reference surfaces and should not be treated as normal active workspace run targets.

@@ -4,7 +4,7 @@
 
 **Goal:** Refactor `src-tauri` into a layered Rust application core where commands, services, policies, application results, and assemblers are clearly separated without introducing new crates yet.
 
-**Architecture:** Keep the active crate boundaries as `lwe-app-shell`, `lwe-library`, `lwe-core`, and `lwe-engine` for now, with `src-tauri` as the shell entrypoint, but restructure `lwe-app-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads. Legacy `wayvid-gui` and `wayvid-ctl` crates are outside the active workspace path.
+**Architecture:** Keep the active crate boundaries as `lwe-shell`, `lwe-library`, `lwe-core`, and `lwe-engine` for now, with `src-tauri` as the shell entrypoint, but restructure `lwe-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads. Legacy `wayvid-gui` and `wayvid-ctl` crates are outside the active workspace path.
 
 **Tech Stack:** Rust workspace, Tauri, `lwe-library`, `lwe-core`, serde, Cargo tests
 
@@ -69,7 +69,7 @@ This plan does **not**:
 - `src-tauri/src/models.rs` - keep frontend-facing contracts only, no business classification logic
 - `src-tauri/src/action_outcome.rs` - keep frontend-facing outcome structs only, no action-decision logic
 
-The active layering surface in this plan stops at the `lwe-app-shell` <-> `lwe-library` <-> `lwe-core` <-> `lwe-engine` boundaries. Legacy GUI and CLI peers stay outside the active workspace path.
+The active layering surface in this plan stops at the `lwe-shell` <-> `lwe-library` <-> `lwe-core` <-> `lwe-engine` boundaries. Legacy GUI and CLI peers stay outside the active workspace path.
 
 ### Files to inspect while implementing
 
@@ -95,7 +95,7 @@ The active layering surface in this plan stops at the `lwe-app-shell` <-> `lwe-l
 - Create: `src-tauri/src/results/library.rs`
 - Create: `src-tauri/src/results/app_shell.rs`
 - Modify: `src-tauri/src/lib.rs`
-- Test: `cargo test -p lwe-app-shell shared_policy -- --nocapture`
+- Test: `cargo test -p lwe-shell shared_policy -- --nocapture`
 
 - [ ] **Step 1: Write the failing support-policy test**
 
@@ -119,7 +119,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell shared_policy -- --nocapture`
+Run: `cargo test -p lwe-shell shared_policy -- --nocapture`
 Expected: FAIL because the new policy modules do not exist yet.
 
 - [ ] **Step 3: Implement the shared policy modules**
@@ -274,7 +274,7 @@ pub mod policies;
 pub mod results;
 ```
 
-Run: `cargo test -p lwe-app-shell shared_policy -- --nocapture`
+Run: `cargo test -p lwe-shell shared_policy -- --nocapture`
 Expected: PASS
 
 Then:
@@ -292,7 +292,7 @@ git commit -m "refactor: add lwe shared policies and app results"
 - Create: `src-tauri/src/services/library_service.rs`
 - Modify: `src-tauri/src/workshop.rs`
 - Modify: `src-tauri/src/library.rs`
-- Test: `cargo test -p lwe-app-shell service_layer -- --nocapture`
+- Test: `cargo test -p lwe-shell service_layer -- --nocapture`
 
 - [ ] **Step 1: Write the failing service-layer test**
 
@@ -317,7 +317,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell service_layer -- --nocapture`
+Run: `cargo test -p lwe-shell service_layer -- --nocapture`
 Expected: FAIL because the new service modules do not exist yet.
 
 - [ ] **Step 3: Implement `WorkshopService` and `LibraryService`**
@@ -419,7 +419,7 @@ In `src-tauri/src/lib.rs`, add:
 pub mod services;
 ```
 
-Run: `cargo test -p lwe-app-shell service_layer -- --nocapture`
+Run: `cargo test -p lwe-shell service_layer -- --nocapture`
 Expected: PASS
 
 Then:
@@ -442,7 +442,7 @@ git commit -m "refactor: extract lwe workshop and library services"
 - Modify: `src-tauri/src/workshop.rs`
 - Modify: `src-tauri/src/library.rs`
 - Modify: `src-tauri/src/app_shell.rs`
-- Test: `cargo test -p lwe-app-shell assembler -- --nocapture`
+- Test: `cargo test -p lwe-shell assembler -- --nocapture`
 
 - [ ] **Step 1: Write the failing assembler test**
 
@@ -468,7 +468,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell assembler -- --nocapture`
+Run: `cargo test -p lwe-shell assembler -- --nocapture`
 Expected: FAIL because the new assembly modules do not exist yet.
 
 - [ ] **Step 3: Implement Workshop and Library assemblers**
@@ -611,7 +611,7 @@ In `src-tauri/src/lib.rs`, add:
 pub mod assembly;
 ```
 
-Run: `cargo test -p lwe-app-shell assembler -- --nocapture`
+Run: `cargo test -p lwe-shell assembler -- --nocapture`
 Expected: PASS
 
 Then:
@@ -632,7 +632,7 @@ git commit -m "refactor: assemble lwe frontend contracts from app results"
 - Create: `src-tauri/src/assembly/settings_page.rs`
 - Modify: `src-tauri/src/desktop.rs`
 - Modify: `src-tauri/src/settings.rs`
-- Test: `cargo test -p lwe-app-shell desktop::tests -- --nocapture && cargo test -p lwe-app-shell settings::tests -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop::tests -- --nocapture && cargo test -p lwe-shell settings::tests -- --nocapture`
 
 - [ ] **Step 1: Write the failing placeholder-result tests**
 
@@ -656,7 +656,7 @@ mod tests {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop::tests -- --nocapture && cargo test -p lwe-app-shell settings::tests -- --nocapture
+cargo test -p lwe-shell desktop::tests -- --nocapture && cargo test -p lwe-shell settings::tests -- --nocapture
 ```
 
 Expected: FAIL because the new services/results/assemblers do not exist yet.
@@ -776,7 +776,7 @@ Also update module exports in `services/mod.rs`, `results/mod.rs`, and `assembly
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop::tests -- --nocapture && cargo test -p lwe-app-shell settings::tests -- --nocapture
+cargo test -p lwe-shell desktop::tests -- --nocapture && cargo test -p lwe-shell settings::tests -- --nocapture
 ```
 
 Expected: PASS
@@ -795,7 +795,7 @@ git commit -m "refactor: route lwe desktop and settings through services"
 - Modify: `src-tauri/src/library.rs`
 - Modify: `src-tauri/src/app_shell.rs`
 - Modify: `src-tauri/src/lib.rs`
-- Test: `cargo test -p lwe-app-shell`
+- Test: `cargo test -p lwe-shell`
 
 - [ ] **Step 1: Write a failing module-boundary test**
 
@@ -813,7 +813,7 @@ mod boundary_tests {
 
 - [ ] **Step 2: Run the full crate tests as a safety baseline**
 
-Run: `cargo test -p lwe-app-shell`
+Run: `cargo test -p lwe-shell`
 Expected: PASS or a failure only from new module-boundary work in progress.
 
 - [ ] **Step 3: Reduce command modules to command-facing helpers only**
@@ -851,7 +851,7 @@ If the old top-level command modules are still required for compatibility, keep 
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell`
+Run: `cargo test -p lwe-shell`
 Expected: PASS
 
 Then:

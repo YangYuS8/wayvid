@@ -317,7 +317,7 @@ git commit -m "refactor: rename wayvid-engine to lwe-engine"
 
 **Files:**
 - Modify: active docs/scripts if any old retained-core names remain
-- Test: `cargo metadata --no-deps && cargo test -p lwe-app-shell`
+- Test: `cargo metadata --no-deps && cargo test -p lwe-shell`
 
 - [ ] **Step 1: Verify the active workspace metadata uses only `lwe-*` retained core crates**
 
@@ -391,7 +391,7 @@ Expected: prints `active references renamed`.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell
+cargo test -p lwe-shell
 ```
 
 Expected: PASS
@@ -426,7 +426,7 @@ When this plan is complete, the active LWE repository path will use one retained
 - `lwe-core`
 - `lwe-library`
 - `lwe-engine`
-- `lwe-app-shell`
+- `lwe-shell`
 
 This reduces the remaining `wayvid` identity to retired legacy crates and archived historical material only.
 

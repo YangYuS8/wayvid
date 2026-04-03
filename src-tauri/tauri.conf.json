@@ -4,7 +4,7 @@
   "identifier": "dev.lwe.app",
   "build": {
     "beforeBuildCommand": "pnpm run build",
-    "beforeDevCommand": "pnpm exec vite --host 127.0.0.1 --port 1420",
+    "beforeDevCommand": "pnpm dev",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../build"
   },

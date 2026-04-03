@@ -78,7 +78,7 @@ Run:
 
 ```bash
 cargo test -p lwe-library scene_manifest -- --nocapture
-cargo test -p lwe-app-shell library_service -- --nocapture
+cargo test -p lwe-shell library_service -- --nocapture
 ```
 
 Expected: FAIL if any path still depends on the logical `scene.json` assumption or hides package-backed provenance.
@@ -95,7 +95,7 @@ Run:
 
 ```bash
 cargo test -p lwe-library scene_manifest -- --nocapture
-cargo test -p lwe-app-shell library_service -- --nocapture
+cargo test -p lwe-shell library_service -- --nocapture
 ```
 
 Expected: PASS.
@@ -139,7 +139,7 @@ fn compatibility_service_rejects_scene_when_scene_pkg_signature_is_unknown() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
 ```
 
 Expected: FAIL if compatibility still over- or under-claims support relative to the package-backed model.
@@ -158,7 +158,7 @@ Keep the compatibility model grounded in what the package-backed manifest can ho
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
 ```
 
 Expected: PASS.
@@ -270,7 +270,7 @@ fn desktop_apply_flow_startup_restore_reuses_package_backed_scene_identity() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: FAIL if any apply or restore path still diverges from package-backed identity.
@@ -286,7 +286,7 @@ Do not add package-internal parsing here.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: PASS.
@@ -312,7 +312,7 @@ Run:
 ```bash
 cargo test -p lwe-library -- --nocapture
 cargo test -p lwe-engine -- --nocapture
-cargo test -p lwe-app-shell -- --nocapture
+cargo test -p lwe-shell -- --nocapture
 ```
 
 Expected: PASS.

@@ -82,7 +82,7 @@ fi
 echo
 echo "[Workspace Crates]"
 echo "  Active workspace members:"
-echo "  - lwe-app-shell   (active LWE application shell)"
+echo "  - lwe-shell   (active LWE application shell)"
 echo "  - lwe-core        (retained core types and config)"
 echo "  - lwe-engine      (retained Wayland + MPV rendering)"
 echo "  - lwe-library     (retained wallpaper library logic)"
@@ -96,8 +96,8 @@ echo "=== Check Complete ==="
 echo
 echo "Active workspace verification commands:"
 echo "  cargo metadata --no-deps"
-echo "  cargo test -p lwe-app-shell"
+echo "  cargo test -p lwe-shell"
 echo "  cargo check --workspace"
 echo
 echo "Run the active shell with:"
-echo "  cargo run -p lwe-app-shell"
+echo "  cargo run -p lwe-shell"

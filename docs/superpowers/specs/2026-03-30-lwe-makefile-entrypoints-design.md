@@ -38,7 +38,7 @@ cd  && cargo tauri dev
 Runs the most common Rust and frontend test commands:
 
 ```bash
-cargo test -p lwe-app-shell
+cargo test -p lwe-shell
 pnpm --dir  test
 ```
 
@@ -47,7 +47,7 @@ pnpm --dir  test
 Runs the common verification path for the active shell:
 
 ```bash
-cargo test -p lwe-app-shell
+cargo test -p lwe-shell
 pnpm --dir  check
 ```
 

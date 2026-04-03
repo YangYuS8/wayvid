@@ -1,12 +1,12 @@
 [package]
 name = "lwe-engine"
-version = "0.5.0"
-edition = "2021"
-rust-version = "1.75"
-authors = ["LWE contributors"]
-license = "MIT OR Apache-2.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
 description = "Video rendering engine for LWE (Wayland + MPV)"
-repository = "https://github.com/YangYuS8/lwe"
+repository.workspace = true
 
 [dependencies]
 lwe-core = { path = "../lwe-core" }

@@ -66,7 +66,7 @@ It does **not** include:
 **Files:**
 - Modify: `src-tauri/src/models.rs`
 - Modify: `src/lib/types.ts`
-- Test: `cargo test -p lwe-app-shell settings_service_returns_placeholder_result -- --nocapture`
+- Test: `cargo test -p lwe-shell settings_service_returns_placeholder_result -- --nocapture`
 
 - [ ] **Step 1: Add a failing serialization test for editable settings**
 
@@ -92,7 +92,7 @@ fn settings_models_serialize_editable_mvp_fields() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell settings_models_serialize_editable_mvp_fields -- --nocapture
+cargo test -p lwe-shell settings_models_serialize_editable_mvp_fields -- --nocapture
 ```
 
 Expected: FAIL because the new models do not exist yet.
@@ -122,7 +122,7 @@ Update `src/lib/types.ts` with matching interfaces for the new snapshot and upda
 Run:
 
 ```bash
-cargo test -p lwe-app-shell settings_models_serialize_editable_mvp_fields -- --nocapture
+cargo test -p lwe-shell settings_models_serialize_editable_mvp_fields -- --nocapture
 ```
 
 Expected: PASS
@@ -141,7 +141,7 @@ git commit -m "feat: add editable settings mvp models"
 - Create: `src-tauri/src/services/settings_persistence_service.rs`
 - Modify: `src-tauri/src/results/mod.rs`
 - Modify: `src-tauri/src/services/mod.rs`
-- Test: `cargo test -p lwe-app-shell settings_persistence -- --nocapture`
+- Test: `cargo test -p lwe-shell settings_persistence -- --nocapture`
 
 - [ ] **Step 1: Add a failing settings persistence test**
 
@@ -152,7 +152,7 @@ Create a test that proves the settings persistence service can round-trip the MV
 Run:
 
 ```bash
-cargo test -p lwe-app-shell settings_persistence -- --nocapture
+cargo test -p lwe-shell settings_persistence -- --nocapture
 ```
 
 Expected: FAIL because the service and result types do not exist yet.
@@ -175,7 +175,7 @@ Create `src-tauri/src/services/settings_persistence_service.rs` so it:
 Update `results/mod.rs` and `services/mod.rs`, then run:
 
 ```bash
-cargo test -p lwe-app-shell settings_persistence -- --nocapture
+cargo test -p lwe-shell settings_persistence -- --nocapture
 ```
 
 Expected: PASS
@@ -192,7 +192,7 @@ git commit -m "feat: add toml settings persistence"
 **Files:**
 - Create: `src-tauri/src/services/autostart_service.rs`
 - Modify: `src-tauri/src/services/mod.rs`
-- Test: `cargo test -p lwe-app-shell autostart_service -- --nocapture`
+- Test: `cargo test -p lwe-shell autostart_service -- --nocapture`
 
 - [ ] **Step 1: Add a failing autostart test**
 
@@ -203,7 +203,7 @@ Create a test that verifies the service can describe or create the expected grap
 Run:
 
 ```bash
-cargo test -p lwe-app-shell autostart_service -- --nocapture
+cargo test -p lwe-shell autostart_service -- --nocapture
 ```
 
 Expected: FAIL because the autostart service does not exist yet.
@@ -223,7 +223,7 @@ Create `src-tauri/src/services/autostart_service.rs` so it:
 Update `services/mod.rs`, then run:
 
 ```bash
-cargo test -p lwe-app-shell autostart_service -- --nocapture
+cargo test -p lwe-shell autostart_service -- --nocapture
 ```
 
 Expected: PASS
@@ -242,7 +242,7 @@ git commit -m "feat: add graphical session autostart service"
 - Modify: `src-tauri/src/assembly/settings_page.rs`
 - Modify: `src-tauri/src/commands/settings.rs`
 - Modify: `src-tauri/src/assembly/action_outcome.rs` if needed
-- Test: `cargo test -p lwe-app-shell settings_service -- --nocapture`
+- Test: `cargo test -p lwe-shell settings_service -- --nocapture`
 
 - [ ] **Step 1: Add a failing real-settings-service test**
 
@@ -253,7 +253,7 @@ Add a test that proves `SettingsService::load_page()` no longer returns a hard-c
 Run:
 
 ```bash
-cargo test -p lwe-app-shell settings_service -- --nocapture
+cargo test -p lwe-shell settings_service -- --nocapture
 ```
 
 Expected: FAIL because the current service is still placeholder-only.
@@ -278,7 +278,7 @@ Update `assembly/settings_page.rs` so the frontend gets a complete MVP snapshot 
 Run:
 
 ```bash
-cargo test -p lwe-app-shell settings_service -- --nocapture
+cargo test -p lwe-shell settings_service -- --nocapture
 ```
 
 Expected: PASS

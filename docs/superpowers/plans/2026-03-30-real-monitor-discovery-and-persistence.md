@@ -78,7 +78,7 @@ It does **not** include:
 - Create: `src-tauri/src/services/backends/monitor_backend.rs`
 - Create: `src-tauri/src/services/backends/persistence_backend.rs`
 - Modify: `src-tauri/src/services/mod.rs`
-- Test: `cargo test -p lwe-app-shell monitor_backend -- --nocapture`
+- Test: `cargo test -p lwe-shell monitor_backend -- --nocapture`
 
 - [ ] **Step 1: Write the failing backend-seam test**
 
@@ -106,7 +106,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell monitor_backend -- --nocapture`
+Run: `cargo test -p lwe-shell monitor_backend -- --nocapture`
 Expected: FAIL because the backend modules do not exist yet.
 
 - [ ] **Step 3: Create the monitor backend seam**
@@ -182,7 +182,7 @@ pub mod backends;
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell monitor_backend -- --nocapture`
+Run: `cargo test -p lwe-shell monitor_backend -- --nocapture`
 Expected: PASS
 
 Then:
@@ -198,7 +198,7 @@ git commit -m "refactor: add monitor and persistence backend seams"
 - Create: `src-tauri/src/services/backends/niri_monitor_backend.rs`
 - Modify: `src-tauri/src/services/backends/mod.rs`
 - Modify: `src-tauri/src/services/monitor_service.rs`
-- Test: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
+- Test: `cargo test -p lwe-shell monitor_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing backend-selection test**
 
@@ -218,7 +218,7 @@ fn monitor_service_uses_real_backend_result_type() {
 
 - [ ] **Step 2: Run the test to verify current behavior fails to provide a backend-backed path**
 
-Run: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
+Run: `cargo test -p lwe-shell monitor_service -- --nocapture`
 Expected: existing placeholder behavior still passes old tests but there is no backend module. Confirm the new test fails or requires the backend path to be introduced.
 
 - [ ] **Step 3: Implement the niri backend**
@@ -249,7 +249,7 @@ Make sure it still preserves `Known(...)` vs `Unavailable { .. }` and resolves b
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
+Run: `cargo test -p lwe-shell monitor_service -- --nocapture`
 Expected: PASS
 
 Then:
@@ -264,7 +264,7 @@ git commit -m "feat: add first real monitor discovery backend"
 **Files:**
 - Modify: `src-tauri/src/services/backends/persistence_backend.rs`
 - Modify: `src-tauri/src/services/desktop_persistence_service.rs`
-- Test: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_persistence_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing persistence-roundtrip test**
 
@@ -295,7 +295,7 @@ fn persistence_service_round_trips_assignments() {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
+Run: `cargo test -p lwe-shell desktop_persistence_service -- --nocapture`
 Expected: FAIL because persistence still returns `Unavailable` and has no testable backend.
 
 - [ ] **Step 3: Implement JSON load/save/clear**
@@ -320,7 +320,7 @@ Then update `src-tauri/src/services/desktop_persistence_service.rs` so it:
 
 - [ ] **Step 4: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
+Run: `cargo test -p lwe-shell desktop_persistence_service -- --nocapture`
 Expected: PASS
 
 Then:
@@ -343,7 +343,7 @@ git commit -m "feat: add json desktop assignment persistence"
 - Modify: `src-tauri/src/assembly/action_outcome.rs`
 - Modify: `src-tauri/src/models.rs`
 - Modify: `src/lib/types.ts`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir  check`
+- Test: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture && pnpm --dir  check`
 
 - [ ] **Step 1: Add the failing “real restore” test**
 
@@ -361,7 +361,7 @@ fn desktop_service_load_page_reports_restorable_assignments() {
 
 - [ ] **Step 2: Run the test to verify the old placeholder assumptions fail**
 
-Run: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+Run: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 Expected: existing logic still partially assumes unavailable backends or placeholder monitor state.
 
 - [ ] **Step 3: Wire real monitor + persistence state through services and assemblers**
@@ -391,7 +391,7 @@ Do not bloat the contract beyond what the current Desktop/Library UI can render.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir  check
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture && pnpm --dir  check
 ```
 
 Expected: PASS

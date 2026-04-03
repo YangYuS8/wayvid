@@ -293,8 +293,8 @@ fn library_service_can_build_scene_runtime_target_for_supported_scene() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
-cargo test -p lwe-app-shell library_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell library_service -- --nocapture
 ```
 
 Expected: FAIL because scene runtime-target inspection does not exist yet.
@@ -317,8 +317,8 @@ For `scene` items, load the scene manifest from `lwe-library` and convert suppor
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
-cargo test -p lwe-app-shell library_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell library_service -- --nocapture
 ```
 
 Expected: PASS.
@@ -368,7 +368,7 @@ fn desktop_apply_flow_reports_scene_manifest_failure_clearly() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: FAIL because desktop apply is still path-only and video-only.
@@ -395,7 +395,7 @@ Do not preserve the old `WorkshopProjectType::Video` hard gate.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: PASS.
@@ -440,7 +440,7 @@ fn desktop_apply_flow_startup_restore_reapplies_supported_scene_assignment() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow_startup_restore -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow_startup_restore -- --nocapture
 ```
 
 Expected: FAIL until the typed scene path is actually used end-to-end.
@@ -458,7 +458,7 @@ Run:
 ```bash
 cargo test -p lwe-library -- --nocapture
 cargo test -p lwe-engine -- --nocapture
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Then perform a local manual check with a real subscribed scene project already on this machine:
@@ -481,4 +481,4 @@ git commit -m "feat: add scene runtime desktop support"
 
 - Spec coverage check: the plan covers scene parsing, typed runtime targets, engine/runtime dispatch, compatibility integration, desktop apply integration, restore behavior, and real-device verification.
 - Placeholder scan: no `TODO`, `TBD`, or content-free “handle errors later” steps remain.
-- Type consistency check: the plan consistently uses a `RuntimeTarget` boundary, `SceneManifest` parser output, and the existing package names `lwe-library`, `lwe-engine`, and `lwe-app-shell`.
+- Type consistency check: the plan consistently uses a `RuntimeTarget` boundary, `SceneManifest` parser output, and the existing package names `lwe-library`, `lwe-engine`, and `lwe-shell`.

@@ -7,10 +7,10 @@ dev:
 	cargo tauri dev
 
 test:
-	cargo test -p lwe-app-shell
+	cargo test -p lwe-shell
 	pnpm test
 
 check:
-	cargo test -p lwe-app-shell
+	cargo test -p lwe-shell
 	pnpm exec svelte-kit sync
 	pnpm check

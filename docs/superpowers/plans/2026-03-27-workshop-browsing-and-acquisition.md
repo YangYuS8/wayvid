@@ -101,7 +101,7 @@ Legacy GUI locale files may be inspected only as wording references. Reuse copy 
 - Create: `src-tauri/src/main.rs`
 - Create: `src-tauri/src/lib.rs`
 - Modify: `Cargo.toml`
-- Test: `cargo test -p lwe-app-shell -- --nocapture`
+- Test: `cargo test -p lwe-shell -- --nocapture`
 
 - [ ] **Step 1: Write the failing workspace test for the new app shell crate**
 
@@ -119,7 +119,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell -- --nocapture`
+Run: `cargo test -p lwe-shell -- --nocapture`
 Expected: FAIL because `src-tauri` does not exist in the workspace yet.
 
 - [ ] **Step 3: Create the minimal Tauri package manifest**
@@ -128,10 +128,10 @@ Create `src-tauri/Cargo.toml` with:
 
 ```toml
 [package]
-name = "lwe-app-shell"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.75"
+name = "lwe-shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 tauri = { version = "2", features = [] }
@@ -280,7 +280,7 @@ Repeat the same minimal pattern for `library`, `desktop`, and `settings`.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell -- --nocapture
+cargo test -p lwe-shell -- --nocapture
 ```
 
 Expected: PASS
@@ -517,7 +517,7 @@ git commit -m "feat: add lwe workshop catalog model"
 - Create: `src-tauri/src/models.rs`
 - Create: `src-tauri/src/action_outcome.rs`
 - Create: `src/lib/types.ts`
-- Test: `cargo test -p lwe-app-shell models::tests -- --nocapture`
+- Test: `cargo test -p lwe-shell models::tests -- --nocapture`
 
 - [ ] **Step 1: Write the failing model-shape tests**
 
@@ -547,7 +547,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell models::tests -- --nocapture`
+Run: `cargo test -p lwe-shell models::tests -- --nocapture`
 Expected: FAIL with missing `WorkshopItemSummary` or missing `models` module.
 
 - [ ] **Step 3: Implement the Rust snapshot and detail models**
@@ -820,7 +820,7 @@ export interface ActionOutcome<T> {
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell models::tests -- --nocapture`
+Run: `cargo test -p lwe-shell models::tests -- --nocapture`
 Expected: PASS
 
 Then:
@@ -839,7 +839,7 @@ git commit -m "feat: add lwe snapshot and action outcome models"
 - Create: `src-tauri/src/desktop.rs`
 - Create: `src-tauri/src/settings.rs`
 - Modify: `src-tauri/src/lib.rs`
-- Test: `cargo test -p lwe-app-shell workshop::tests -- --nocapture`
+- Test: `cargo test -p lwe-shell workshop::tests -- --nocapture`
 
 - [ ] **Step 1: Write the failing Workshop command tests**
 
@@ -870,7 +870,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell workshop::tests -- --nocapture`
+Run: `cargo test -p lwe-shell workshop::tests -- --nocapture`
 Expected: FAIL with missing `workshop` module or missing URL helpers.
 
 - [ ] **Step 3: Implement app-shell and Workshop query/action commands**
@@ -1087,7 +1087,7 @@ pub fn register_commands() {}
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell workshop::tests -- --nocapture`
+Run: `cargo test -p lwe-shell workshop::tests -- --nocapture`
 Expected: PASS
 
 Then:

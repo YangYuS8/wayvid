@@ -60,7 +60,7 @@ It does **not** include:
 
 **Files:**
 - Modify: `src-tauri/src/services/settings_persistence_service.rs`
-- Test: `cargo test -p lwe-app-shell settings_persistence -- --nocapture`
+- Test: `cargo test -p lwe-shell settings_persistence -- --nocapture`
 
 - [x] **Step 1: Add a failing path test**
 
@@ -84,7 +84,7 @@ fn settings_path_uses_lwe_config_root() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell settings_persistence -- --nocapture
+cargo test -p lwe-shell settings_persistence -- --nocapture
 ```
 
 Expected: FAIL because the service still targets `wayvid/settings.toml`.
@@ -104,7 +104,7 @@ Keep the rest of the TOML logic unchanged for now.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell settings_persistence -- --nocapture
+cargo test -p lwe-shell settings_persistence -- --nocapture
 ```
 
 Expected: PASS
@@ -122,7 +122,7 @@ git commit -m "refactor: move active settings path to lwe config root"
 - Create: `src-tauri/src/results/session_persistence.rs`
 - Modify: `src-tauri/src/services/desktop_persistence_service.rs`
 - Modify: `src-tauri/src/results/mod.rs`
-- Test: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_persistence_service -- --nocapture`
 
 - [x] **Step 1: Add a failing session-persistence round-trip test**
 
@@ -146,7 +146,7 @@ fn desktop_assignment_persistence_round_trips_through_toml() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture
+cargo test -p lwe-shell desktop_persistence_service -- --nocapture
 ```
 
 Expected: FAIL because the current service still uses a separate JSON-backed shape.
@@ -166,7 +166,7 @@ If a small helper/result type makes this cleaner, add `results/session_persisten
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture
+cargo test -p lwe-shell desktop_persistence_service -- --nocapture
 ```
 
 Expected: PASS
@@ -183,7 +183,7 @@ git commit -m "refactor: unify desktop assignment persistence under toml"
 **Files:**
 - Modify: `src-tauri/src/services/desktop_service.rs`
 - Modify: `src-tauri/src/services/library_service.rs`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 
 - [x] **Step 1: Add a failing restore-source test**
 
@@ -194,7 +194,7 @@ Add a test proving the desktop/library flow now reads assignment restore state f
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: FAIL until the restore source is switched over.
@@ -216,7 +216,7 @@ Only the persistence source changes.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: PASS

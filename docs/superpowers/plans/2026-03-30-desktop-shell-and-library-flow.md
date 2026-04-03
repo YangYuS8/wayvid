@@ -79,7 +79,7 @@ It explicitly does **not** include:
 - Create: `src-tauri/src/results/desktop_apply.rs`
 - Modify: `src-tauri/src/results/mod.rs`
 - Modify: `src-tauri/src/models.rs`
-- Test: `cargo test -p lwe-app-shell desktop_apply -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_apply -- --nocapture`
 
 - [ ] **Step 1: Write the failing monitor-target test**
 
@@ -104,7 +104,7 @@ fn desktop_apply_request_serializes_specific_monitor_target() {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell desktop_apply -- --nocapture`
+Run: `cargo test -p lwe-shell desktop_apply -- --nocapture`
 Expected: FAIL because `DesktopApplyRequest` / `DesktopApplyTarget` do not exist yet.
 
 - [ ] **Step 3: Add monitor-target and quick-status models**
@@ -180,7 +180,7 @@ pub mod desktop_apply;
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell desktop_apply -- --nocapture`
+Run: `cargo test -p lwe-shell desktop_apply -- --nocapture`
 Expected: PASS
 
 Then:
@@ -196,7 +196,7 @@ git commit -m "feat: add desktop apply request and result models"
 - Create: `src-tauri/src/services/monitor_service.rs`
 - Create: `src-tauri/src/services/desktop_persistence_service.rs`
 - Modify: `src-tauri/src/services/mod.rs`
-- Test: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
+- Test: `cargo test -p lwe-shell monitor_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing monitor-service test**
 
@@ -225,7 +225,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
+Run: `cargo test -p lwe-shell monitor_service -- --nocapture`
 Expected: FAIL because `MonitorDescriptor` / `resolve_specific_monitor` do not exist yet.
 
 - [ ] **Step 3: Implement monitor discovery/target resolution**
@@ -313,7 +313,7 @@ pub mod monitor_service;
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
+Run: `cargo test -p lwe-shell monitor_service -- --nocapture`
 Expected: PASS
 
 Then:
@@ -335,7 +335,7 @@ git commit -m "feat: add monitor and desktop persistence services"
 - Modify: `src-tauri/src/assembly/action_outcome.rs`
 - Modify: `src-tauri/src/results/library.rs`
 - Modify: `src-tauri/src/results/desktop.rs`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Write the failing desktop-apply-flow test**
 
@@ -360,7 +360,7 @@ fn desktop_service_apply_returns_assignment_result() {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+Run: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 Expected: FAIL because `DesktopService::apply_to_monitor` and the related flow do not exist yet.
 
 - [ ] **Step 3: Implement apply/clear/restore in `DesktopService`**
@@ -432,7 +432,7 @@ Update:
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+Run: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 Expected: PASS
 
 Then:

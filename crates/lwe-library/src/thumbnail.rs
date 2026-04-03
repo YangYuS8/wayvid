@@ -91,10 +91,10 @@ impl ThumbnailGenerator {
 
     /// Create generator with custom size
     pub fn with_size(width: u32, height: u32) -> Self {
-        let mut gen = Self::new();
-        gen.width = width;
-        gen.height = height;
-        gen
+        let mut generator = Self::new();
+        generator.width = width;
+        generator.height = height;
+        generator
     }
 
     /// Create generator with custom settings
@@ -437,7 +437,7 @@ impl ThumbnailService {
         // Spawn worker tasks
         let request_rx = Arc::new(tokio::sync::Mutex::new(request_rx));
         for _ in 0..worker_count {
-            let gen = generator.clone();
+            let generator = generator.clone();
             let rx = request_rx.clone();
             let tx = response_tx.clone();
             let pending = pending_count.clone();
@@ -451,7 +451,7 @@ impl ThumbnailService {
 
                     match request {
                         Some(req) => {
-                            let result = gen.generate(&req.source_path);
+                            let result = generator.generate(&req.source_path);
                             let response = ThumbnailResponse {
                                 wallpaper_id: req.wallpaper_id,
                                 result: result.map_err(|e| e.to_string()),
@@ -633,17 +633,17 @@ mod tests {
 
     #[test]
     fn test_thumbnail_generator_creation() {
-        let gen = ThumbnailGenerator::new();
-        assert_eq!(gen.width, THUMBNAIL_WIDTH);
-        assert_eq!(gen.height, THUMBNAIL_HEIGHT);
-        assert_eq!(gen.format, ThumbnailFormat::WebP);
+        let generator = ThumbnailGenerator::new();
+        assert_eq!(generator.width, THUMBNAIL_WIDTH);
+        assert_eq!(generator.height, THUMBNAIL_HEIGHT);
+        assert_eq!(generator.format, ThumbnailFormat::WebP);
     }
 
     #[test]
     fn test_thumbnail_generator_custom_size() {
-        let gen = ThumbnailGenerator::with_size(640, 360);
-        assert_eq!(gen.width, 640);
-        assert_eq!(gen.height, 360);
+        let generator = ThumbnailGenerator::with_size(640, 360);
+        assert_eq!(generator.width, 640);
+        assert_eq!(generator.height, 360);
     }
 
     #[test]
@@ -655,13 +655,13 @@ mod tests {
         let img = DynamicImage::new_rgb8(100, 100);
         img.save(&image_path).unwrap();
 
-        let gen = ThumbnailGenerator::with_options(
+        let generator = ThumbnailGenerator::with_options(
             THUMBNAIL_WIDTH,
             THUMBNAIL_HEIGHT,
             ThumbnailFormat::Png, // Use PNG for test compatibility
             temp_dir.path().join("cache"),
         );
-        let result = gen.generate(&image_path).unwrap();
+        let result = generator.generate(&image_path).unwrap();
 
         assert!(!result.data.is_empty());
         assert!(result.width <= THUMBNAIL_WIDTH);
@@ -680,7 +680,7 @@ mod tests {
         let img = DynamicImage::new_rgb8(100, 100);
         img.save(&image_path).unwrap();
 
-        let gen = ThumbnailGenerator::with_options(
+        let generator = ThumbnailGenerator::with_options(
             THUMBNAIL_WIDTH,
             THUMBNAIL_HEIGHT,
             ThumbnailFormat::Png,
@@ -688,11 +688,11 @@ mod tests {
         );
 
         // First generation should not be cached
-        let result1 = gen.generate(&image_path).unwrap();
+        let result1 = generator.generate(&image_path).unwrap();
         assert!(!result1.cached);
 
         // Second generation should be cached
-        let result2 = gen.generate(&image_path).unwrap();
+        let result2 = generator.generate(&image_path).unwrap();
         assert!(result2.cached);
     }
 
@@ -701,7 +701,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_dir = temp_dir.path().join("cache");
 
-        let gen = ThumbnailGenerator::with_options(
+        let generator = ThumbnailGenerator::with_options(
             THUMBNAIL_WIDTH,
             THUMBNAIL_HEIGHT,
             ThumbnailFormat::Png,
@@ -709,7 +709,7 @@ mod tests {
         );
 
         // Initial stats should be empty
-        let stats = gen.cache_stats();
+        let stats = generator.cache_stats();
         assert_eq!(stats.count, 0);
         assert_eq!(stats.total_bytes, 0);
     }

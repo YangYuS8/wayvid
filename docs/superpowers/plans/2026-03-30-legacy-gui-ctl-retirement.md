@@ -274,7 +274,7 @@ Legacy GUI locale files may be inspected only as wording references; they are no
 In `docs/superpowers/plans/2026-03-30-rust-core-layering.md`, update the architecture wording so the hard active crate boundaries are described as:
 
 ```md
-Keep the active crate boundaries as `lwe-app-shell`, `lwe-library`, `lwe-core`, and `lwe-engine` for now. The retired legacy crates `wayvid-gui` and `wayvid-ctl` are outside the active workspace path.
+Keep the active crate boundaries as `lwe-shell`, `lwe-library`, `lwe-core`, and `lwe-engine` for now. The retired legacy crates `wayvid-gui` and `wayvid-ctl` are outside the active workspace path.
 ```
 
 Do not imply that `wayvid-gui` or `wayvid-ctl` are still active workspace peers.
@@ -309,20 +309,20 @@ git commit -m "docs: align plans with legacy crate retirement"
 
 **Files:**
 - Modify: `Cargo.toml` if a small comment adjustment is still needed after verification
-- Test: `cargo metadata --no-deps && cargo test -p lwe-app-shell`
+- Test: `cargo metadata --no-deps && cargo test -p lwe-shell`
 
 - [ ] **Step 1: Verify the active workspace path builds without legacy crates**
 
 Run:
 
 ```bash
-cargo metadata --no-deps > /tmp/lwe-active-workspace.json && cargo test -p lwe-app-shell
+cargo metadata --no-deps > /tmp/lwe-active-workspace.json && cargo test -p lwe-shell
 ```
 
 Expected:
 
 - `cargo metadata --no-deps` succeeds
-- `cargo test -p lwe-app-shell` succeeds
+- `cargo test -p lwe-shell` succeeds
 
 - [ ] **Step 2: Verify that the active workspace no longer includes legacy GUI/CLI crates**
 
@@ -336,7 +336,7 @@ data = json.loads(Path('/tmp/lwe-active-workspace.json').read_text())
 members = '\n'.join(data['workspace_members'])
 assert 'wayvid-gui' not in members
 assert 'wayvid-ctl' not in members
-assert 'lwe-app-shell' in members
+assert 'lwe-shell' in members
 print('active workspace clean')
 PY
 ```

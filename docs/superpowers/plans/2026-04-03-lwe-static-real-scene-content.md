@@ -238,7 +238,7 @@ fn compatibility_service_rejects_package_backed_scene_without_supported_static_c
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
 ```
 
 Expected: FAIL until compatibility is narrowed to the static-content subset.
@@ -252,7 +252,7 @@ Make compatibility depend on the same static-content derivation rule as the rend
 Run:
 
 ```bash
-cargo test -p lwe-app-shell compatibility_service -- --nocapture
+cargo test -p lwe-shell compatibility_service -- --nocapture
 ```
 
 Expected: PASS.
@@ -295,7 +295,7 @@ fn desktop_apply_flow_restore_reuses_real_static_scene_content_path() {
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: FAIL until the desktop-side tests and semantics reflect the real static renderer path.
@@ -309,7 +309,7 @@ Only make desktop-side changes if needed to align the success barrier or restore
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: PASS.
@@ -335,7 +335,7 @@ Run:
 ```bash
 cargo test -p lwe-library -- --nocapture
 cargo test -p lwe-engine -- --nocapture
-cargo test -p lwe-app-shell -- --nocapture
+cargo test -p lwe-shell -- --nocapture
 ```
 
 Expected: PASS.

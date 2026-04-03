@@ -4,7 +4,7 @@ fn main() {
         std::env::set_var("LC_NUMERIC", "C");
     }
 
-    lwe_app_shell::builder()
+    lwe_shell::builder()
         .run(tauri::generate_context!())
         .expect("error while running LWE application shell");
 }

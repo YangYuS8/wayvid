@@ -4,7 +4,7 @@
 
 **Goal:** Build a real compatibility evaluation and reporting pipeline for LWE so Workshop and Library surfaces show structured compatibility levels, reasoned explanations, and next-step guidance instead of hard-coded badge strings and ad hoc notes.
 
-**Architecture:** This plan extends the layered `lwe-app-shell` core without changing the thin-frontend contract shape. Compatibility moves from scattered per-entry mapping into a dedicated evaluation path: policies define the rules, services produce application-level compatibility results, assemblers translate those into summary/detail payloads, and the frontend renders richer status + explanation blocks without taking ownership of business logic.
+**Architecture:** This plan extends the layered `lwe-shell` core without changing the thin-frontend contract shape. Compatibility moves from scattered per-entry mapping into a dedicated evaluation path: policies define the rules, services produce application-level compatibility results, assemblers translate those into summary/detail payloads, and the frontend renders richer status + explanation blocks without taking ownership of business logic.
 
 **Tech Stack:** Rust workspace, Tauri, Svelte, TypeScript, `lwe-library`, `lwe-core`, Cargo tests, Vitest
 
@@ -68,7 +68,7 @@ It does **not**:
 - Create: `src-tauri/src/results/compatibility.rs`
 - Modify: `src-tauri/src/policies/shared/compatibility_policy.rs`
 - Modify: `src-tauri/src/results/mod.rs`
-- Test: `cargo test -p lwe-app-shell compatibility_policy -- --nocapture`
+- Test: `cargo test -p lwe-shell compatibility_policy -- --nocapture`
 
 - [ ] **Step 1: Write the failing structured-compatibility test**
 
@@ -98,7 +98,7 @@ fn compatibility_decision_exposes_structured_reason_and_guidance() {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell compatibility_policy -- --nocapture`
+Run: `cargo test -p lwe-shell compatibility_policy -- --nocapture`
 Expected: FAIL because `CompatibilityNextStep` and structured compatibility result fields do not exist yet.
 
 - [ ] **Step 3: Create compatibility result types**
@@ -175,7 +175,7 @@ pub mod compatibility;
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell compatibility_policy -- --nocapture`
+Run: `cargo test -p lwe-shell compatibility_policy -- --nocapture`
 Expected: PASS
 
 Then:
@@ -192,7 +192,7 @@ git commit -m "feat: add structured compatibility assessments"
 - Modify: `src-tauri/src/services/mod.rs`
 - Modify: `src-tauri/src/services/workshop_service.rs`
 - Modify: `src-tauri/src/services/library_service.rs`
-- Test: `cargo test -p lwe-app-shell compatibility_service -- --nocapture`
+- Test: `cargo test -p lwe-shell compatibility_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing compatibility-service test**
 
@@ -225,7 +225,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell compatibility_service -- --nocapture`
+Run: `cargo test -p lwe-shell compatibility_service -- --nocapture`
 Expected: FAIL because `CompatibilityService` does not exist yet.
 
 - [ ] **Step 3: Implement the compatibility service**
@@ -299,7 +299,7 @@ In `src-tauri/src/services/library_service.rs`, use the same service to evaluate
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell compatibility_service -- --nocapture`
+Run: `cargo test -p lwe-shell compatibility_service -- --nocapture`
 Expected: PASS
 
 Then:
@@ -319,7 +319,7 @@ git commit -m "refactor: route lwe compatibility through service layer"
 - Modify: `src-tauri/src/assembly/workshop_detail.rs`
 - Modify: `src-tauri/src/assembly/library_page.rs`
 - Modify: `src-tauri/src/assembly/library_detail.rs`
-- Test: `cargo test -p lwe-app-shell compatibility_assembly -- --nocapture`
+- Test: `cargo test -p lwe-shell compatibility_assembly -- --nocapture`
 
 - [ ] **Step 1: Write the failing compatibility-assembly test**
 
@@ -351,7 +351,7 @@ mod tests {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cargo test -p lwe-app-shell compatibility_assembly -- --nocapture`
+Run: `cargo test -p lwe-shell compatibility_assembly -- --nocapture`
 Expected: FAIL because the new compatibility assembly helpers do not exist yet.
 
 - [ ] **Step 3: Add frontend-facing compatibility types to the models**
@@ -484,7 +484,7 @@ Then update the Workshop/Library page/detail assemblers to consume the assessed 
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cargo test -p lwe-app-shell compatibility_assembly -- --nocapture`
+Run: `cargo test -p lwe-shell compatibility_assembly -- --nocapture`
 Expected: PASS
 
 Then:

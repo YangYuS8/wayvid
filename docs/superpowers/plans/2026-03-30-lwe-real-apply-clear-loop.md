@@ -67,7 +67,7 @@ It does **not** include:
 
 **Files:**
 - Modify: `src-tauri/src/services/desktop_service.rs`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Add a failing test for the real apply path contract**
 
@@ -80,7 +80,7 @@ The test should be minimal but concrete, for example by asserting that the retur
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: the new test fails because the apply path is not yet really connected.
@@ -103,7 +103,7 @@ Do **not** broaden the implementation to every future runtime scenario. This is 
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: the new apply-path test passes, and the surrounding desktop-flow tests still pass.
@@ -121,7 +121,7 @@ git commit -m "feat: connect desktop apply to real backend path"
 - Modify: `src-tauri/src/services/desktop_service.rs`
 - Modify: `src-tauri/src/results/desktop_apply.rs`
 - Modify: `src-tauri/src/assembly/action_outcome.rs`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Add a failing clear-path test**
 
@@ -132,7 +132,7 @@ Add a test that proves `clear_monitor` acts on the same real state path as apply
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: the new clear-path test fails if the current implementation is still too placeholder-like.
@@ -152,7 +152,7 @@ Constraints:
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: PASS
@@ -173,7 +173,7 @@ git commit -m "feat: connect desktop clear to real backend path"
 - Modify: `src-tauri/src/assembly/library_detail.rs`
 - Modify: `src-tauri/src/commands/library.rs`
 - Modify: `src-tauri/src/commands/desktop.rs`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
+- Test: `cargo test -p lwe-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Add a failing coherence test**
 
@@ -189,7 +189,7 @@ and that clear removes that state coherently from both.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: the new coherence test fails before the state propagation is corrected.
@@ -205,7 +205,7 @@ Do not add new frontend flows here; this is backend-to-snapshot coherence work.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture
+cargo test -p lwe-shell desktop_apply_flow -- --nocapture
 ```
 
 Expected: PASS

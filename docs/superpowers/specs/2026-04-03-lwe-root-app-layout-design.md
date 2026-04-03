@@ -126,7 +126,7 @@ The desired post-migration command model is:
 - install: `pnpm install`
 - frontend tests: `pnpm test`
 - frontend checks: `pnpm check`
-- backend tests: `cargo test -p lwe-app-shell`
+- backend tests: `cargo test -p lwe-shell`
 - dev: root-level Tauri/Vite workflow without `apps/lwe` path prefixes
 
 This simpler command model is one of the primary reasons for the migration.
@@ -153,7 +153,7 @@ Minimum required verification:
 - `pnpm install`
 - `pnpm test`
 - `pnpm check`
-- `cargo test -p lwe-app-shell`
+- `cargo test -p lwe-shell`
 - a Tauri dev launch using the new root layout
 
 If any of these still requires `apps/lwe`-relative commands, the migration is incomplete.

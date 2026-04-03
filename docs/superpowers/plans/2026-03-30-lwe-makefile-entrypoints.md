@@ -4,7 +4,7 @@
 
 **Goal:** Add a minimal top-level `Makefile` that wraps the most common LWE development commands: install, dev, test, and check.
 
-**Architecture:** The `Makefile` is a thin convenience layer only. It should delegate directly to the existing `pnpm` frontend commands and the active `lwe-app-shell` Rust test path without replacing the current scripts or introducing broader build/release logic.
+**Architecture:** The `Makefile` is a thin convenience layer only. It should delegate directly to the existing `pnpm` frontend commands and the active `lwe-shell` Rust test path without replacing the current scripts or introducing broader build/release logic.
 
 **Tech Stack:** Make, pnpm, Cargo, Tauri
 
@@ -50,11 +50,11 @@ dev:
 	cd  && cargo tauri dev
 
 test:
-	cargo test -p lwe-app-shell
+	cargo test -p lwe-shell
 	pnpm --dir  test
 
 check:
-	cargo test -p lwe-app-shell
+	cargo test -p lwe-shell
 	pnpm --dir  check
 ```
 
@@ -78,7 +78,7 @@ make check
 
 Expected:
 
-- `cargo test -p lwe-app-shell` passes
+- `cargo test -p lwe-shell` passes
 - `pnpm --dir  check` passes
 
 - [ ] **Step 5: Commit**
