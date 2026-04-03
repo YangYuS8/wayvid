@@ -32,57 +32,57 @@ It does **not** include:
 
 ### Files to create
 
-- `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs` - backend trait and shared backend-facing monitor types
-- `apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs` - first concrete monitor backend for the current Wayland/niri environment
-- `apps/lwe/src-tauri/src/services/backends/mod.rs` - backend exports
-- `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs` - JSON persistence helpers and path resolution for desktop state
+- `src-tauri/src/services/backends/monitor_backend.rs` - backend trait and shared backend-facing monitor types
+- `src-tauri/src/services/backends/niri_monitor_backend.rs` - first concrete monitor backend for the current Wayland/niri environment
+- `src-tauri/src/services/backends/mod.rs` - backend exports
+- `src-tauri/src/services/backends/persistence_backend.rs` - JSON persistence helpers and path resolution for desktop state
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/services/monitor_service.rs` - switch from placeholder unavailable contract to real backend-backed monitor discovery
-- `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` - replace placeholder unavailable results with real JSON load/save/clear operations
-- `apps/lwe/src-tauri/src/services/desktop_service.rs` - consume the real monitor backend and persistence backend; implement truthful best-effort restore
-- `apps/lwe/src-tauri/src/services/library_service.rs` - derive desktop assignment status from the same real assignment snapshot
-- `apps/lwe/src-tauri/src/results/monitor_discovery.rs` - keep result types but adjust as needed for real backend output
-- `apps/lwe/src-tauri/src/results/desktop_persistence.rs` - keep result types but adjust as needed for real load/save/clear details
-- `apps/lwe/src-tauri/src/results/desktop_apply.rs` - add restore skip/failure detail if needed
-- `apps/lwe/src-tauri/src/results/desktop.rs` - surface known monitor state, assignment availability, and restore issues cleanly
-- `apps/lwe/src-tauri/src/assembly/desktop_page.rs` - render explicit restored/missing state, not fake empty state
-- `apps/lwe/src-tauri/src/assembly/library_page.rs` - project current assignment state from the real persistence snapshot
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs` - same for Library detail
-- `apps/lwe/src-tauri/src/assembly/action_outcome.rs` - ensure apply/clear outcomes reflect real persistence results
-- `apps/lwe/src-tauri/src/models.rs` - extend frontend-facing monitor/assignment models only as needed for truthful restore-state rendering
-- `apps/lwe/src/lib/types.ts` - align TS contracts with any added monitor/restore state fields
-- `apps/lwe/src/routes/desktop/+page.svelte` - surface restore failures/missing monitor/missing item states clearly
-- `apps/lwe/src/routes/library/+page.svelte` - surface current desktop assignment state truthfully
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - show assignment availability / degradation info when relevant
-- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte` - show restore/degraded status when relevant
+- `src-tauri/src/services/monitor_service.rs` - switch from placeholder unavailable contract to real backend-backed monitor discovery
+- `src-tauri/src/services/desktop_persistence_service.rs` - replace placeholder unavailable results with real JSON load/save/clear operations
+- `src-tauri/src/services/desktop_service.rs` - consume the real monitor backend and persistence backend; implement truthful best-effort restore
+- `src-tauri/src/services/library_service.rs` - derive desktop assignment status from the same real assignment snapshot
+- `src-tauri/src/results/monitor_discovery.rs` - keep result types but adjust as needed for real backend output
+- `src-tauri/src/results/desktop_persistence.rs` - keep result types but adjust as needed for real load/save/clear details
+- `src-tauri/src/results/desktop_apply.rs` - add restore skip/failure detail if needed
+- `src-tauri/src/results/desktop.rs` - surface known monitor state, assignment availability, and restore issues cleanly
+- `src-tauri/src/assembly/desktop_page.rs` - render explicit restored/missing state, not fake empty state
+- `src-tauri/src/assembly/library_page.rs` - project current assignment state from the real persistence snapshot
+- `src-tauri/src/assembly/library_detail.rs` - same for Library detail
+- `src-tauri/src/assembly/action_outcome.rs` - ensure apply/clear outcomes reflect real persistence results
+- `src-tauri/src/models.rs` - extend frontend-facing monitor/assignment models only as needed for truthful restore-state rendering
+- `src/lib/types.ts` - align TS contracts with any added monitor/restore state fields
+- `src/routes/desktop/+page.svelte` - surface restore failures/missing monitor/missing item states clearly
+- `src/routes/library/+page.svelte` - surface current desktop assignment state truthfully
+- `src/lib/components/LibraryDetailPanel.svelte` - show assignment availability / degradation info when relevant
+- `src/lib/components/DesktopMonitorCard.svelte` - show restore/degraded status when relevant
 - `docs/product/roadmap.md` - update roadmap wording once the placeholder backend is replaced with a real first implementation
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src-tauri/src/services/monitor_service.rs`
-- `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs`
-- `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- `apps/lwe/src-tauri/src/assembly/desktop_page.rs`
-- `apps/lwe/src-tauri/src/assembly/library_page.rs`
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs`
-- `apps/lwe/src/lib/types.ts`
-- `apps/lwe/src/routes/desktop/+page.svelte`
-- `apps/lwe/src/routes/library/+page.svelte`
+- `src-tauri/src/services/monitor_service.rs`
+- `src-tauri/src/services/desktop_persistence_service.rs`
+- `src-tauri/src/services/desktop_service.rs`
+- `src-tauri/src/assembly/desktop_page.rs`
+- `src-tauri/src/assembly/library_page.rs`
+- `src-tauri/src/assembly/library_detail.rs`
+- `src/lib/types.ts`
+- `src/routes/desktop/+page.svelte`
+- `src/routes/library/+page.svelte`
 
 ## Task 1: Introduce Backend Seams for Monitor Discovery and JSON Persistence
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/services/backends/mod.rs`
-- Create: `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs`
-- Create: `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs`
-- Modify: `apps/lwe/src-tauri/src/services/mod.rs`
+- Create: `src-tauri/src/services/backends/mod.rs`
+- Create: `src-tauri/src/services/backends/monitor_backend.rs`
+- Create: `src-tauri/src/services/backends/persistence_backend.rs`
+- Modify: `src-tauri/src/services/mod.rs`
 - Test: `cargo test -p lwe-app-shell monitor_backend -- --nocapture`
 
 - [ ] **Step 1: Write the failing backend-seam test**
 
-Create `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs` with this test first:
+Create `src-tauri/src/services/backends/monitor_backend.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -111,7 +111,7 @@ Expected: FAIL because the backend modules do not exist yet.
 
 - [ ] **Step 3: Create the monitor backend seam**
 
-Create `apps/lwe/src-tauri/src/services/backends/monitor_backend.rs` with:
+Create `src-tauri/src/services/backends/monitor_backend.rs` with:
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,7 +151,7 @@ mod tests {
 
 - [ ] **Step 4: Create the JSON persistence backend seam**
 
-Create `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs` with:
+Create `src-tauri/src/services/backends/persistence_backend.rs` with:
 
 ```rust
 use std::collections::BTreeMap;
@@ -167,14 +167,14 @@ pub fn desktop_state_path() -> PathBuf {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/services/backends/mod.rs` with:
+Create `src-tauri/src/services/backends/mod.rs` with:
 
 ```rust
 pub mod monitor_backend;
 pub mod persistence_backend;
 ```
 
-And export it from `apps/lwe/src-tauri/src/services/mod.rs`:
+And export it from `src-tauri/src/services/mod.rs`:
 
 ```rust
 pub mod backends;
@@ -188,21 +188,21 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/mod.rs apps/lwe/src-tauri/src/services/backends
+git add src-tauri/src/services/mod.rs src-tauri/src/services/backends
 git commit -m "refactor: add monitor and persistence backend seams"
 ```
 
 ## Task 2: Implement the First Real Monitor Backend for Wayland + niri
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs`
-- Modify: `apps/lwe/src-tauri/src/services/backends/mod.rs`
-- Modify: `apps/lwe/src-tauri/src/services/monitor_service.rs`
+- Create: `src-tauri/src/services/backends/niri_monitor_backend.rs`
+- Modify: `src-tauri/src/services/backends/mod.rs`
+- Modify: `src-tauri/src/services/monitor_service.rs`
 - Test: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing backend-selection test**
 
-Add this test to `apps/lwe/src-tauri/src/services/monitor_service.rs` first:
+Add this test to `src-tauri/src/services/monitor_service.rs` first:
 
 ```rust
 #[test]
@@ -223,7 +223,7 @@ Expected: existing placeholder behavior still passes old tests but there is no b
 
 - [ ] **Step 3: Implement the niri backend**
 
-Create `apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs` with the first concrete backend. Keep it minimal and truthful; the implementation can use the smallest reliable mechanism available in the current environment to enumerate outputs and basic resolution. The result must be expressed as:
+Create `src-tauri/src/services/backends/niri_monitor_backend.rs` with the first concrete backend. Keep it minimal and truthful; the implementation can use the smallest reliable mechanism available in the current environment to enumerate outputs and basic resolution. The result must be expressed as:
 
 ```rust
 BackendMonitorDiscovery::Known(vec![BackendMonitorDescriptor { id, name, resolution }, ...])
@@ -235,13 +235,13 @@ or:
 BackendMonitorDiscovery::Unavailable { reason }
 ```
 
-Export it in `apps/lwe/src-tauri/src/services/backends/mod.rs`:
+Export it in `src-tauri/src/services/backends/mod.rs`:
 
 ```rust
 pub mod niri_monitor_backend;
 ```
 
-Update `apps/lwe/src-tauri/src/services/monitor_service.rs` so `MonitorService::list_monitors()` delegates to this backend and converts `BackendMonitorDiscovery` into `MonitorDiscoveryResult`.
+Update `src-tauri/src/services/monitor_service.rs` so `MonitorService::list_monitors()` delegates to this backend and converts `BackendMonitorDiscovery` into `MonitorDiscoveryResult`.
 
 - [ ] **Step 4: Keep `resolve_specific_monitor()` aligned with the new backend-backed result**
 
@@ -255,20 +255,20 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/backends/niri_monitor_backend.rs apps/lwe/src-tauri/src/services/backends/mod.rs apps/lwe/src-tauri/src/services/monitor_service.rs
+git add src-tauri/src/services/backends/niri_monitor_backend.rs src-tauri/src/services/backends/mod.rs src-tauri/src/services/monitor_service.rs
 git commit -m "feat: add first real monitor discovery backend"
 ```
 
 ## Task 3: Implement Real JSON Desktop Assignment Persistence
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs`
-- Modify: `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs`
+- Modify: `src-tauri/src/services/backends/persistence_backend.rs`
+- Modify: `src-tauri/src/services/desktop_persistence_service.rs`
 - Test: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing persistence-roundtrip test**
 
-Add this test to `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` first:
+Add this test to `src-tauri/src/services/desktop_persistence_service.rs` first:
 
 ```rust
 #[test]
@@ -300,7 +300,7 @@ Expected: FAIL because persistence still returns `Unavailable` and has no testab
 
 - [ ] **Step 3: Implement JSON load/save/clear**
 
-Update `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs` so it actually reads/writes a JSON file with:
+Update `src-tauri/src/services/backends/persistence_backend.rs` so it actually reads/writes a JSON file with:
 
 ```json
 {
@@ -310,7 +310,7 @@ Update `apps/lwe/src-tauri/src/services/backends/persistence_backend.rs` so it a
 }
 ```
 
-Then update `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` so it:
+Then update `src-tauri/src/services/desktop_persistence_service.rs` so it:
 
 - loads the file if present
 - returns `Loaded(empty map)` if the file does not exist yet
@@ -326,28 +326,28 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/backends/persistence_backend.rs apps/lwe/src-tauri/src/services/desktop_persistence_service.rs
+git add src-tauri/src/services/backends/persistence_backend.rs src-tauri/src/services/desktop_persistence_service.rs
 git commit -m "feat: add json desktop assignment persistence"
 ```
 
 ## Task 4: Thread the Real Backends Through Desktop and Library Flows
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
-- Modify: `apps/lwe/src-tauri/src/results/desktop.rs`
-- Modify: `apps/lwe/src-tauri/src/results/desktop_apply.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/desktop_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_detail.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/action_outcome.rs`
-- Modify: `apps/lwe/src-tauri/src/models.rs`
-- Modify: `apps/lwe/src/lib/types.ts`
-- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir apps/lwe check`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/results/desktop.rs`
+- Modify: `src-tauri/src/results/desktop_apply.rs`
+- Modify: `src-tauri/src/assembly/desktop_page.rs`
+- Modify: `src-tauri/src/assembly/library_page.rs`
+- Modify: `src-tauri/src/assembly/library_detail.rs`
+- Modify: `src-tauri/src/assembly/action_outcome.rs`
+- Modify: `src-tauri/src/models.rs`
+- Modify: `src/lib/types.ts`
+- Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir  check`
 
 - [ ] **Step 1: Add the failing “real restore” test**
 
-Add this test to `apps/lwe/src-tauri/src/services/desktop_service.rs` first:
+Add this test to `src-tauri/src/services/desktop_service.rs` first:
 
 ```rust
 #[test]
@@ -391,7 +391,7 @@ Do not bloat the contract beyond what the current Desktop/Library UI can render.
 Run:
 
 ```bash
-cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir apps/lwe check
+cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -399,7 +399,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs apps/lwe/src-tauri/src/services/library_service.rs apps/lwe/src-tauri/src/results/desktop.rs apps/lwe/src-tauri/src/results/desktop_apply.rs apps/lwe/src-tauri/src/assembly/desktop_page.rs apps/lwe/src-tauri/src/assembly/library_page.rs apps/lwe/src-tauri/src/assembly/library_detail.rs apps/lwe/src-tauri/src/assembly/action_outcome.rs apps/lwe/src-tauri/src/models.rs apps/lwe/src/lib/types.ts
+git add src-tauri/src/services/desktop_service.rs src-tauri/src/services/library_service.rs src-tauri/src/results/desktop.rs src-tauri/src/results/desktop_apply.rs src-tauri/src/assembly/desktop_page.rs src-tauri/src/assembly/library_page.rs src-tauri/src/assembly/library_detail.rs src-tauri/src/assembly/action_outcome.rs src-tauri/src/models.rs src/lib/types.ts
 git commit -m "feat: wire real monitor and persistence state through desktop flow"
 ```
 

@@ -30,7 +30,7 @@ The repository already recognizes `scene` as a content type at the metadata leve
 - `WeProject::is_scene()` exists
 - compatibility and UI layers can label items as `scene`
 
-However, the real desktop apply path still rejects them. `apps/lwe/src-tauri/src/services/desktop_service.rs` currently resolves the real apply target by insisting the library entry is `WorkshopProjectType::Video`, then extracting a primary video asset path and sending that path into the current engine. The engine path itself is effectively a video/mpv path.
+However, the real desktop apply path still rejects them. `src-tauri/src/services/desktop_service.rs` currently resolves the real apply target by insisting the library entry is `WorkshopProjectType::Video`, then extracting a primary video asset path and sending that path into the current engine. The engine path itself is effectively a video/mpv path.
 
 This means scene projects can be recognized and displayed in the app, but not actually applied to the desktop.
 
@@ -59,7 +59,7 @@ The feature is split into three layers:
 1. `lwe-library`
    Parse Wallpaper Engine scene projects into a typed runtime manifest.
 
-2. `apps/lwe/src-tauri`
+2. `src-tauri`
    Use the parsed manifest to evaluate compatibility and choose a runtime target for desktop apply.
 
 3. `lwe-engine`

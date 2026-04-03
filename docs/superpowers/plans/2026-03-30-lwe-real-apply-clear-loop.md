@@ -33,20 +33,20 @@ It does **not** include:
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/services/desktop_service.rs` - connect apply/clear operations to the actual runtime/backend path instead of placeholder semantics
-- `apps/lwe/src-tauri/src/services/library_service.rs` - ensure Library assignment state reflects the real applied result path
-- `apps/lwe/src-tauri/src/results/desktop_apply.rs` - refine the apply/clear result shape if needed for the real loop
-- `apps/lwe/src-tauri/src/assembly/action_outcome.rs` - ensure action outcomes reflect the real apply/clear path cleanly
-- `apps/lwe/src-tauri/src/assembly/desktop_page.rs` - ensure Desktop reflects the applied/cleared state in a user-visible way
-- `apps/lwe/src-tauri/src/assembly/library_page.rs` - ensure Library quick status reflects the same assignment state
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs` - same for the selected item detail
-- `apps/lwe/src-tauri/src/commands/library.rs` - expose the real apply command path through the current command layer
-- `apps/lwe/src-tauri/src/commands/desktop.rs` - expose the real clear command path through the current command layer
-- `apps/lwe/src/lib/ipc.ts` - keep IPC wrappers aligned if the Rust command return shape changes slightly
-- `apps/lwe/src/routes/library/+page.svelte` - preserve race-safe apply UX while reflecting the now-real action result
-- `apps/lwe/src/routes/desktop/+page.svelte` - preserve Desktop refresh/clear UX while reflecting real applied state
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - keep the apply control and assignment feedback aligned with the real action loop
-- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte` - keep the clear control and current-state rendering aligned with the real action loop
+- `src-tauri/src/services/desktop_service.rs` - connect apply/clear operations to the actual runtime/backend path instead of placeholder semantics
+- `src-tauri/src/services/library_service.rs` - ensure Library assignment state reflects the real applied result path
+- `src-tauri/src/results/desktop_apply.rs` - refine the apply/clear result shape if needed for the real loop
+- `src-tauri/src/assembly/action_outcome.rs` - ensure action outcomes reflect the real apply/clear path cleanly
+- `src-tauri/src/assembly/desktop_page.rs` - ensure Desktop reflects the applied/cleared state in a user-visible way
+- `src-tauri/src/assembly/library_page.rs` - ensure Library quick status reflects the same assignment state
+- `src-tauri/src/assembly/library_detail.rs` - same for the selected item detail
+- `src-tauri/src/commands/library.rs` - expose the real apply command path through the current command layer
+- `src-tauri/src/commands/desktop.rs` - expose the real clear command path through the current command layer
+- `src/lib/ipc.ts` - keep IPC wrappers aligned if the Rust command return shape changes slightly
+- `src/routes/library/+page.svelte` - preserve race-safe apply UX while reflecting the now-real action result
+- `src/routes/desktop/+page.svelte` - preserve Desktop refresh/clear UX while reflecting real applied state
+- `src/lib/components/LibraryDetailPanel.svelte` - keep the apply control and assignment feedback aligned with the real action loop
+- `src/lib/components/DesktopMonitorCard.svelte` - keep the clear control and current-state rendering aligned with the real action loop
 - `docs/product/roadmap.md` - update wording once a real locally verified apply/clear loop exists
 
 ### Files to create
@@ -55,23 +55,23 @@ It does **not** include:
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- `apps/lwe/src-tauri/src/commands/library.rs`
-- `apps/lwe/src-tauri/src/commands/desktop.rs`
-- `apps/lwe/src/routes/library/+page.svelte`
-- `apps/lwe/src/routes/desktop/+page.svelte`
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte`
+- `src-tauri/src/services/desktop_service.rs`
+- `src-tauri/src/commands/library.rs`
+- `src-tauri/src/commands/desktop.rs`
+- `src/routes/library/+page.svelte`
+- `src/routes/desktop/+page.svelte`
+- `src/lib/components/LibraryDetailPanel.svelte`
+- `src/lib/components/DesktopMonitorCard.svelte`
 
 ## Task 1: Identify and Lock a Real Apply Path for the Current Environment
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
 - Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Add a failing test for the real apply path contract**
 
-Add a new test to `apps/lwe/src-tauri/src/services/desktop_service.rs` that asserts `apply_to_monitor` no longer returns an immediate “unavailable” placeholder result when given a monitor discovered by the current backend and a real supported Library item fixture.
+Add a new test to `src-tauri/src/services/desktop_service.rs` that asserts `apply_to_monitor` no longer returns an immediate “unavailable” placeholder result when given a monitor discovered by the current backend and a real supported Library item fixture.
 
 The test should be minimal but concrete, for example by asserting that the returned application result is not the same placeholder/degraded outcome used before.
 
@@ -111,16 +111,16 @@ Expected: the new apply-path test passes, and the surrounding desktop-flow tests
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs
+git add src-tauri/src/services/desktop_service.rs
 git commit -m "feat: connect desktop apply to real backend path"
 ```
 
 ## Task 2: Make Clear Use the Same Real State Path
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Modify: `apps/lwe/src-tauri/src/results/desktop_apply.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/action_outcome.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/results/desktop_apply.rs`
+- Modify: `src-tauri/src/assembly/action_outcome.rs`
 - Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Add a failing clear-path test**
@@ -160,19 +160,19 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs apps/lwe/src-tauri/src/results/desktop_apply.rs apps/lwe/src-tauri/src/assembly/action_outcome.rs
+git add src-tauri/src/services/desktop_service.rs src-tauri/src/results/desktop_apply.rs src-tauri/src/assembly/action_outcome.rs
 git commit -m "feat: connect desktop clear to real backend path"
 ```
 
 ## Task 3: Keep Library and Desktop in Sync With the Real Action Results
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/desktop_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_detail.rs`
-- Modify: `apps/lwe/src-tauri/src/commands/library.rs`
-- Modify: `apps/lwe/src-tauri/src/commands/desktop.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/assembly/desktop_page.rs`
+- Modify: `src-tauri/src/assembly/library_page.rs`
+- Modify: `src-tauri/src/assembly/library_detail.rs`
+- Modify: `src-tauri/src/commands/library.rs`
+- Modify: `src-tauri/src/commands/desktop.rs`
 - Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Add a failing coherence test**
@@ -213,20 +213,20 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src-tauri/src/services/library_service.rs apps/lwe/src-tauri/src/assembly/desktop_page.rs apps/lwe/src-tauri/src/assembly/library_page.rs apps/lwe/src-tauri/src/assembly/library_detail.rs apps/lwe/src-tauri/src/commands/library.rs apps/lwe/src-tauri/src/commands/desktop.rs
+git add src-tauri/src/services/library_service.rs src-tauri/src/assembly/desktop_page.rs src-tauri/src/assembly/library_page.rs src-tauri/src/assembly/library_detail.rs src-tauri/src/commands/library.rs src-tauri/src/commands/desktop.rs
 git commit -m "fix: keep library and desktop state in sync"
 ```
 
 ## Task 4: Verify the Real Loop Through the Existing Frontend
 
 **Files:**
-- Modify: `apps/lwe/src/lib/ipc.ts` only if required to align with the final action contract
-- Modify: `apps/lwe/src/routes/library/+page.svelte` only if required to surface the real apply result cleanly
-- Modify: `apps/lwe/src/routes/desktop/+page.svelte` only if required to surface the real clear result cleanly
-- Modify: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` only if required to keep assignment feedback aligned
-- Modify: `apps/lwe/src/lib/components/DesktopMonitorCard.svelte` only if required to keep clear feedback aligned
+- Modify: `src/lib/ipc.ts` only if required to align with the final action contract
+- Modify: `src/routes/library/+page.svelte` only if required to surface the real apply result cleanly
+- Modify: `src/routes/desktop/+page.svelte` only if required to surface the real clear result cleanly
+- Modify: `src/lib/components/LibraryDetailPanel.svelte` only if required to keep assignment feedback aligned
+- Modify: `src/lib/components/DesktopMonitorCard.svelte` only if required to keep clear feedback aligned
 - Create: `docs/archive/manual-verification/lwe-real-apply-clear-loop.md`
-- Test: `pnpm --dir apps/lwe test && pnpm --dir apps/lwe check`
+- Test: `pnpm --dir  test && pnpm --dir  check`
 
 - [ ] **Step 1: Add the failing integration assertion (if needed)**
 
@@ -239,7 +239,7 @@ If no frontend contract change is needed, skip directly to the manual verificati
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -274,7 +274,7 @@ Include:
 - [ ] **Step 4: Commit**
 
 ```bash
-git add apps/lwe/src/lib/ipc.ts apps/lwe/src/routes/library/+page.svelte apps/lwe/src/routes/desktop/+page.svelte apps/lwe/src/lib/components/LibraryDetailPanel.svelte apps/lwe/src/lib/components/DesktopMonitorCard.svelte docs/archive/manual-verification/lwe-real-apply-clear-loop.md
+git add src/lib/ipc.ts src/routes/library/+page.svelte src/routes/desktop/+page.svelte src/lib/components/LibraryDetailPanel.svelte src/lib/components/DesktopMonitorCard.svelte docs/archive/manual-verification/lwe-real-apply-clear-loop.md
 git commit -m "feat: verify real apply clear loop on local desktop"
 ```
 

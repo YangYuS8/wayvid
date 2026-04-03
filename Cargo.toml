@@ -2,7 +2,7 @@
 # ==========================
 #
 # This repository is in repository-reset mode for the Linux dynamic wallpaper
-# platform. The active workspace path is limited to apps/lwe/src-tauri plus
+# platform. The active workspace path is limited to src-tauri plus
 # the retained crates lwe-core, lwe-library, and lwe-engine, which remain
 # under evaluation for selective migration. Retired legacy GUI/CLI crates stay
 # in the repository temporarily for reference only and are not active workspace
@@ -10,7 +10,7 @@
 # - lwe-core: retained shared models and configuration candidate
 # - lwe-engine: retained playback and rendering candidate
 # - lwe-library: retained local library and metadata candidate
-# - apps/lwe/src-tauri: active LWE application shell
+# - src-tauri: active LWE application shell
 # - wayvid-gui / wayvid-ctl: removed from the repository; history remains in git and archived planning material
 
 [workspace]
@@ -19,7 +19,7 @@ members = [
     "crates/lwe-core",
     "crates/lwe-engine",
     "crates/lwe-library",
-    "apps/lwe/src-tauri",
+    "src-tauri",
 ]
 
 [workspace.package]

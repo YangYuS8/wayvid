@@ -16,7 +16,7 @@ This plan is intentionally limited to the **UI foundation v1 surfaces**.
 
 It includes:
 
-- Tailwind setup in `apps/lwe`
+- Tailwind setup in ``
 - aligning the primitive layer with Tailwind usage
 - migrating shell + core product components to the unified styling system
 - updating page integration only as needed to consume the migrated components
@@ -32,54 +32,54 @@ It does **not** include:
 
 ### Files to create
 
-- `apps/lwe/src/app.css` - Tailwind entrypoint and the minimal app-level tokens/layers for the foundation
-- `apps/lwe/tailwind.config.ts` - Tailwind configuration for the LWE shell and primitive layer
-- `apps/lwe/postcss.config.cjs` - Tailwind/PostCSS integration
+- `src/app.css` - Tailwind entrypoint and the minimal app-level tokens/layers for the foundation
+- `tailwind.config.ts` - Tailwind configuration for the LWE shell and primitive layer
+- `postcss.config.cjs` - Tailwind/PostCSS integration
 
 ### Files to modify
 
-- `apps/lwe/package.json` - add Tailwind-related dependencies and scripts if needed
-- `apps/lwe/components.json` - align the primitive config with Tailwind usage
-- `apps/lwe/src/routes/+layout.svelte` - wire in the global app stylesheet and shell class usage
-- `apps/lwe/src/lib/layout/AppShell.svelte`
-- `apps/lwe/src/lib/layout/PageHeader.svelte`
-- `apps/lwe/src/lib/ui/button/button.svelte`
-- `apps/lwe/src/lib/ui/badge/badge.svelte`
-- `apps/lwe/src/lib/ui/card/card.svelte`
-- `apps/lwe/src/lib/ui/dialog/*.svelte`
-- `apps/lwe/src/lib/ui/select/*.svelte`
-- `apps/lwe/src/lib/ui/separator/separator.svelte`
-- `apps/lwe/src/lib/components/ItemCard.svelte`
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte`
-- `apps/lwe/src/lib/components/CompatibilityPanel.svelte`
-- `apps/lwe/src/lib/components/StatusBadge.svelte`
-- `apps/lwe/src/lib/components/CoverImage.svelte`
-- `apps/lwe/src/routes/library/+page.svelte`
-- `apps/lwe/src/routes/workshop/+page.svelte`
-- `apps/lwe/src/routes/desktop/+page.svelte`
-- `apps/lwe/src/routes/settings/+page.svelte`
+- `package.json` - add Tailwind-related dependencies and scripts if needed
+- `components.json` - align the primitive config with Tailwind usage
+- `src/routes/+layout.svelte` - wire in the global app stylesheet and shell class usage
+- `src/lib/layout/AppShell.svelte`
+- `src/lib/layout/PageHeader.svelte`
+- `src/lib/ui/button/button.svelte`
+- `src/lib/ui/badge/badge.svelte`
+- `src/lib/ui/card/card.svelte`
+- `src/lib/ui/dialog/*.svelte`
+- `src/lib/ui/select/*.svelte`
+- `src/lib/ui/separator/separator.svelte`
+- `src/lib/components/ItemCard.svelte`
+- `src/lib/components/LibraryDetailPanel.svelte`
+- `src/lib/components/WorkshopDetailPanel.svelte`
+- `src/lib/components/DesktopMonitorCard.svelte`
+- `src/lib/components/CompatibilityPanel.svelte`
+- `src/lib/components/StatusBadge.svelte`
+- `src/lib/components/CoverImage.svelte`
+- `src/routes/library/+page.svelte`
+- `src/routes/workshop/+page.svelte`
+- `src/routes/desktop/+page.svelte`
+- `src/routes/settings/+page.svelte`
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src/routes/+layout.svelte`
-- `apps/lwe/src/lib/layout/AppShell.svelte`
-- `apps/lwe/src/lib/components/ItemCard.svelte`
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte`
+- `src/routes/+layout.svelte`
+- `src/lib/layout/AppShell.svelte`
+- `src/lib/components/ItemCard.svelte`
+- `src/lib/components/LibraryDetailPanel.svelte`
+- `src/lib/components/WorkshopDetailPanel.svelte`
+- `src/lib/components/DesktopMonitorCard.svelte`
 - `docs/superpowers/specs/2026-03-30-lwe-ui-foundation-v2-tailwind-design.md`
 
 ## Task 1: Add Tailwind to the LWE Frontend
 
 **Files:**
-- Create: `apps/lwe/src/app.css`
-- Create: `apps/lwe/tailwind.config.ts`
-- Create: `apps/lwe/postcss.config.cjs`
-- Modify: `apps/lwe/package.json`
-- Modify: `apps/lwe/components.json`
-- Test: `pnpm --dir apps/lwe check`
+- Create: `src/app.css`
+- Create: `tailwind.config.ts`
+- Create: `postcss.config.cjs`
+- Modify: `package.json`
+- Modify: `components.json`
+- Test: `pnpm --dir  check`
 
 - [ ] **Step 1: Write the failing Tailwind setup check**
 
@@ -88,9 +88,9 @@ Run:
 ```bash
 python3 - <<'PY'
 from pathlib import Path
-assert Path('apps/lwe/src/app.css').exists()
-assert Path('apps/lwe/tailwind.config.ts').exists()
-assert Path('apps/lwe/postcss.config.cjs').exists()
+assert Path('src/app.css').exists()
+assert Path('tailwind.config.ts').exists()
+assert Path('postcss.config.cjs').exists()
 print('tailwind config present')
 PY
 ```
@@ -99,31 +99,31 @@ Expected: FAIL because the Tailwind setup files do not exist yet.
 
 - [ ] **Step 2: Add Tailwind dependencies and configuration**
 
-Update `apps/lwe/package.json` with the minimal Tailwind dependencies needed for Svelte + `shadcn-svelte` integration.
+Update `package.json` with the minimal Tailwind dependencies needed for Svelte + `shadcn-svelte` integration.
 
-Create `apps/lwe/tailwind.config.ts` with a content glob that covers:
+Create `tailwind.config.ts` with a content glob that covers:
 
 - `src/**/*.{svelte,ts}`
 - `src/lib/ui/**/*.{svelte,ts}`
 
-Create `apps/lwe/postcss.config.cjs` to enable Tailwind and autoprefixer.
+Create `postcss.config.cjs` to enable Tailwind and autoprefixer.
 
-Update `apps/lwe/components.json` so the primitive layer aligns with the Tailwind setup.
+Update `components.json` so the primitive layer aligns with the Tailwind setup.
 
 - [ ] **Step 3: Create the app stylesheet**
 
-Create `apps/lwe/src/app.css` with the minimal Tailwind layers and any token variables the current shell/components need in this phase.
+Create `src/app.css` with the minimal Tailwind layers and any token variables the current shell/components need in this phase.
 
 - [ ] **Step 4: Wire the app stylesheet into the shell**
 
-Update `apps/lwe/src/routes/+layout.svelte` to import the new global stylesheet.
+Update `src/routes/+layout.svelte` to import the new global stylesheet.
 
 - [ ] **Step 5: Run verification and commit**
 
 Run:
 
 ```bash
-pnpm --dir apps/lwe install && pnpm --dir apps/lwe check
+pnpm --dir  install && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -131,20 +131,20 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/package.json apps/lwe/pnpm-lock.yaml apps/lwe/components.json apps/lwe/tailwind.config.ts apps/lwe/postcss.config.cjs apps/lwe/src/app.css apps/lwe/src/routes/+layout.svelte
+git add package.json pnpm-lock.yaml components.json tailwind.config.ts postcss.config.cjs src/app.css src/routes/+layout.svelte
 git commit -m "feat: add tailwind foundation to lwe"
 ```
 
 ## Task 2: Align the Primitive Layer With Tailwind
 
 **Files:**
-- Modify: `apps/lwe/src/lib/ui/button/button.svelte`
-- Modify: `apps/lwe/src/lib/ui/badge/badge.svelte`
-- Modify: `apps/lwe/src/lib/ui/card/card.svelte`
-- Modify: `apps/lwe/src/lib/ui/dialog/*.svelte`
-- Modify: `apps/lwe/src/lib/ui/select/*.svelte`
-- Modify: `apps/lwe/src/lib/ui/separator/separator.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Modify: `src/lib/ui/button/button.svelte`
+- Modify: `src/lib/ui/badge/badge.svelte`
+- Modify: `src/lib/ui/card/card.svelte`
+- Modify: `src/lib/ui/dialog/*.svelte`
+- Modify: `src/lib/ui/select/*.svelte`
+- Modify: `src/lib/ui/separator/separator.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Write the failing primitive-style test**
 
@@ -155,7 +155,7 @@ Add or update a primitive test so it asserts one of the current primitives is no
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL once the new assertions are in place.
@@ -175,7 +175,7 @@ Do not expand the primitive catalog; just align the current one.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -183,23 +183,23 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src/lib/ui
+git add src/lib/ui
 git commit -m "refactor: align lwe primitives with tailwind foundation"
 ```
 
 ## Task 3: Migrate the Shell and Core Product Components
 
 **Files:**
-- Modify: `apps/lwe/src/lib/layout/AppShell.svelte`
-- Modify: `apps/lwe/src/lib/layout/PageHeader.svelte`
-- Modify: `apps/lwe/src/lib/components/ItemCard.svelte`
-- Modify: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/DesktopMonitorCard.svelte`
-- Modify: `apps/lwe/src/lib/components/CompatibilityPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/StatusBadge.svelte`
-- Modify: `apps/lwe/src/lib/components/CoverImage.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Modify: `src/lib/layout/AppShell.svelte`
+- Modify: `src/lib/layout/PageHeader.svelte`
+- Modify: `src/lib/components/ItemCard.svelte`
+- Modify: `src/lib/components/LibraryDetailPanel.svelte`
+- Modify: `src/lib/components/WorkshopDetailPanel.svelte`
+- Modify: `src/lib/components/DesktopMonitorCard.svelte`
+- Modify: `src/lib/components/CompatibilityPanel.svelte`
+- Modify: `src/lib/components/StatusBadge.svelte`
+- Modify: `src/lib/components/CoverImage.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Write the failing component-foundation test**
 
@@ -210,7 +210,7 @@ Add or update component tests so they assert the new shell/components consume th
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL once the new assertions are in place.
@@ -230,7 +230,7 @@ Do not redesign the component APIs.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -238,18 +238,18 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src/lib/layout apps/lwe/src/lib/components
+git add src/lib/layout src/lib/components
 git commit -m "refactor: migrate lwe shell and components to tailwind"
 ```
 
 ## Task 4: Re-integrate the Migrated Components Into the Core Pages
 
 **Files:**
-- Modify: `apps/lwe/src/routes/library/+page.svelte`
-- Modify: `apps/lwe/src/routes/workshop/+page.svelte`
-- Modify: `apps/lwe/src/routes/desktop/+page.svelte`
-- Modify: `apps/lwe/src/routes/settings/+page.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Modify: `src/routes/library/+page.svelte`
+- Modify: `src/routes/workshop/+page.svelte`
+- Modify: `src/routes/desktop/+page.svelte`
+- Modify: `src/routes/settings/+page.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Write the failing page-integration check**
 
@@ -260,7 +260,7 @@ Add or update page render tests so they assert the pages are using the migrated 
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL once the new assertions are in place.
@@ -281,7 +281,7 @@ Do not redesign page data flow.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -289,7 +289,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src/routes
+git add src/routes
 git commit -m "feat: integrate tailwind ui foundation into core pages"
 ```
 
@@ -297,7 +297,7 @@ git commit -m "feat: integrate tailwind ui foundation into core pages"
 
 **Files:**
 - Modify: active component/page files as needed for the current monitor-selection / status / degraded-state feedback surfaces
-- Test: `pnpm --dir apps/lwe test`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Identify the smallest necessary feedback polish**
 
@@ -314,7 +314,7 @@ Avoid broad redesign of interaction flows.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -322,7 +322,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src/lib/components apps/lwe/src/routes
+git add src/lib/components src/routes
 git commit -m "feat: polish lwe tailwind feedback surfaces"
 ```
 

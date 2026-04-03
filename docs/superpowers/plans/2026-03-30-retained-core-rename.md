@@ -35,8 +35,8 @@ It does **not**:
 ### Files to modify
 
 - `Cargo.toml` - workspace members and comments for the renamed retained crates
-- `apps/lwe/src-tauri/Cargo.toml` - dependency path and package rename updates
-- all Rust sources under `apps/lwe/src-tauri/**` that import `wayvid_library`, `wayvid_core`, or `wayvid_engine`
+- `src-tauri/Cargo.toml` - dependency path and package rename updates
+- all Rust sources under `src-tauri/**` that import `wayvid_library`, `wayvid_core`, or `wayvid_engine`
 - Rust sources under retained crates that import one another
 - active docs and plans that reference the retained crates by name or path, including:
   - `README.md`
@@ -52,9 +52,9 @@ It does **not**:
 - `crates/wayvid-core/Cargo.toml`
 - `crates/wayvid-library/Cargo.toml`
 - `crates/wayvid-engine/Cargo.toml`
-- `apps/lwe/src-tauri/Cargo.toml`
+- `src-tauri/Cargo.toml`
 - `Cargo.toml`
-- current import paths under `apps/lwe/src-tauri/src/**`
+- current import paths under `src-tauri/src/**`
 - doctests in retained crates, especially:
   - `crates/wayvid-core/src/config/pattern.rs`
   - `crates/wayvid-library/src/lib.rs`
@@ -118,7 +118,7 @@ with:
 
 Update references from `wayvid-core` / `wayvid_core` to `lwe-core` / `lwe_core` across active paths, including:
 
-- `apps/lwe/src-tauri/**`
+- `src-tauri/**`
 - `crates/lwe-library/**`
 - `crates/lwe-engine/**`
 - `scripts/README.md`
@@ -147,7 +147,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add Cargo.toml crates/lwe-core apps/lwe/src-tauri docs scripts
+git add Cargo.toml crates/lwe-core src-tauri docs scripts
 git commit -m "refactor: rename wayvid-core to lwe-core"
 ```
 
@@ -157,7 +157,7 @@ git commit -m "refactor: rename wayvid-core to lwe-core"
 - Create by rename: `crates/lwe-library/**`
 - Modify: `Cargo.toml`
 - Modify: `crates/lwe-library/Cargo.toml`
-- Modify: `apps/lwe/src-tauri/Cargo.toml`
+- Modify: `src-tauri/Cargo.toml`
 - Modify: all active imports/docs that reference `wayvid-library` / `wayvid_library`
 - Test: `cargo test -p lwe-library`
 
@@ -169,7 +169,7 @@ Run before changes:
 python3 - <<'PY'
 from pathlib import Path
 root = Path('Cargo.toml').read_text()
-shell = Path('apps/lwe/src-tauri/Cargo.toml').read_text()
+shell = Path('src-tauri/Cargo.toml').read_text()
 assert 'crates/lwe-library' in root
 assert 'lwe-library = { path = "../../../crates/lwe-library" }' in shell
 print('library rename wired')
@@ -202,8 +202,8 @@ lwe-core = { path = "../lwe-core" }
 Replace active references from `wayvid-library` / `wayvid_library` to `lwe-library` / `lwe_library` across:
 
 - `Cargo.toml`
-- `apps/lwe/src-tauri/Cargo.toml`
-- `apps/lwe/src-tauri/src/**`
+- `src-tauri/Cargo.toml`
+- `src-tauri/src/**`
 - `crates/lwe-engine/**` if it imports the library crate in any active path
 - active docs/plans/scripts
 
@@ -233,7 +233,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add Cargo.toml apps/lwe/src-tauri/Cargo.toml crates/lwe-library apps/lwe/src-tauri docs scripts
+git add Cargo.toml src-tauri/Cargo.toml crates/lwe-library src-tauri docs scripts
 git commit -m "refactor: rename wayvid-library to lwe-library"
 ```
 
@@ -286,7 +286,7 @@ lwe-core = { path = "../lwe-core" }
 Replace active references from `wayvid-engine` / `wayvid_engine` to `lwe-engine` / `lwe_engine` across:
 
 - `Cargo.toml`
-- `apps/lwe/src-tauri/**`
+- `src-tauri/**`
 - `crates/lwe-engine/**`
 - active docs/plans/scripts
 
@@ -309,7 +309,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add Cargo.toml crates/lwe-engine apps/lwe/src-tauri docs scripts
+git add Cargo.toml crates/lwe-engine src-tauri docs scripts
 git commit -m "refactor: rename wayvid-engine to lwe-engine"
 ```
 
@@ -360,7 +360,7 @@ patterns = [
 ]
 
 paths = [
-    'apps/lwe/src-tauri',
+    'src-tauri',
     'crates/lwe-core',
     'crates/lwe-library',
     'crates/lwe-engine',
@@ -403,7 +403,7 @@ If you had to make final small cleanup edits after the sweep, commit them here. 
 If needed:
 
 ```bash
-git add Cargo.toml apps/lwe crates/lwe-core crates/lwe-library crates/lwe-engine README.md docs scripts
+git add Cargo.toml  crates/lwe-core crates/lwe-library crates/lwe-engine README.md docs scripts
 git commit -m "docs: complete retained core lwe rename sweep"
 ```
 

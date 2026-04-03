@@ -31,46 +31,46 @@ It does **not** include:
 
 ### Files to create
 
-- `apps/lwe/src-tauri/src/results/settings_persistence.rs` - result types for settings load/save and autostart status
-- `apps/lwe/src-tauri/src/services/settings_persistence_service.rs` - TOML settings file load/save helpers
-- `apps/lwe/src-tauri/src/services/autostart_service.rs` - Linux graphical-session autostart helpers
-- `apps/lwe/src-tauri/src/assembly/settings_page.rs` - may be extended or split to assemble editable settings state and status
-- `apps/lwe/src-tauri/src/commands/settings.rs` - extended command surface for updating settings
-- `apps/lwe/src/lib/components/SettingsSection.svelte` - optional small wrapper for grouped settings blocks if needed
+- `src-tauri/src/results/settings_persistence.rs` - result types for settings load/save and autostart status
+- `src-tauri/src/services/settings_persistence_service.rs` - TOML settings file load/save helpers
+- `src-tauri/src/services/autostart_service.rs` - Linux graphical-session autostart helpers
+- `src-tauri/src/assembly/settings_page.rs` - may be extended or split to assemble editable settings state and status
+- `src-tauri/src/commands/settings.rs` - extended command surface for updating settings
+- `src/lib/components/SettingsSection.svelte` - optional small wrapper for grouped settings blocks if needed
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/models.rs` - add editable settings snapshot/update input models and autostart status fields
-- `apps/lwe/src-tauri/src/results/mod.rs` - export settings persistence result types
-- `apps/lwe/src-tauri/src/services/mod.rs` - export settings persistence and autostart services
-- `apps/lwe/src-tauri/src/services/settings_service.rs` - stop returning a hard-coded placeholder snapshot; source data from persistence and autostart services
-- `apps/lwe/src-tauri/src/assembly/action_outcome.rs` - add settings action outcome assembly if needed
-- `apps/lwe/src-tauri/src/assembly/settings_page.rs` - build the richer settings snapshot for the frontend
-- `apps/lwe/src/lib/types.ts` - mirror the richer settings models and update-input contract
-- `apps/lwe/src/lib/ipc.ts` - add typed settings update commands
-- `apps/lwe/src/routes/settings/+page.svelte` - replace the static snapshot display with editable controls
-- `apps/lwe/src/lib/ui/select/*.svelte` and/or current form primitives only if needed for settings inputs
+- `src-tauri/src/models.rs` - add editable settings snapshot/update input models and autostart status fields
+- `src-tauri/src/results/mod.rs` - export settings persistence result types
+- `src-tauri/src/services/mod.rs` - export settings persistence and autostart services
+- `src-tauri/src/services/settings_service.rs` - stop returning a hard-coded placeholder snapshot; source data from persistence and autostart services
+- `src-tauri/src/assembly/action_outcome.rs` - add settings action outcome assembly if needed
+- `src-tauri/src/assembly/settings_page.rs` - build the richer settings snapshot for the frontend
+- `src/lib/types.ts` - mirror the richer settings models and update-input contract
+- `src/lib/ipc.ts` - add typed settings update commands
+- `src/routes/settings/+page.svelte` - replace the static snapshot display with editable controls
+- `src/lib/ui/select/*.svelte` and/or current form primitives only if needed for settings inputs
 - `docs/product/roadmap.md` - reflect that Settings is now a real editable MVP once complete
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src-tauri/src/services/settings_service.rs`
-- `apps/lwe/src-tauri/src/models.rs`
-- `apps/lwe/src/routes/settings/+page.svelte`
-- `apps/lwe/src/lib/types.ts`
-- `apps/lwe/src/lib/ipc.ts`
+- `src-tauri/src/services/settings_service.rs`
+- `src-tauri/src/models.rs`
+- `src/routes/settings/+page.svelte`
+- `src/lib/types.ts`
+- `src/lib/ipc.ts`
 - `docs/superpowers/specs/2026-03-31-lwe-settings-mvp-design.md`
 
 ## Task 1: Introduce Typed Settings Snapshot and Update Models
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/models.rs`
-- Modify: `apps/lwe/src/lib/types.ts`
+- Modify: `src-tauri/src/models.rs`
+- Modify: `src/lib/types.ts`
 - Test: `cargo test -p lwe-app-shell settings_service_returns_placeholder_result -- --nocapture`
 
 - [ ] **Step 1: Add a failing serialization test for editable settings**
 
-Add a new test in `apps/lwe/src-tauri/src/models.rs` asserting that a settings update input and richer snapshot serialize cleanly, for example:
+Add a new test in `src-tauri/src/models.rs` asserting that a settings update input and richer snapshot serialize cleanly, for example:
 
 ```rust
 #[test]
@@ -99,7 +99,7 @@ Expected: FAIL because the new models do not exist yet.
 
 - [ ] **Step 3: Add editable settings models in Rust**
 
-Extend `apps/lwe/src-tauri/src/models.rs` with:
+Extend `src-tauri/src/models.rs` with:
 
 - `SettingsUpdateInput`
 - richer `SettingsPageSnapshot` fields for:
@@ -115,7 +115,7 @@ Keep the model narrow to the approved MVP.
 
 - [ ] **Step 4: Mirror the models into TypeScript**
 
-Update `apps/lwe/src/lib/types.ts` with matching interfaces for the new snapshot and update input.
+Update `src/lib/types.ts` with matching interfaces for the new snapshot and update input.
 
 - [ ] **Step 5: Run tests and commit**
 
@@ -130,17 +130,17 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/models.rs apps/lwe/src/lib/types.ts
+git add src-tauri/src/models.rs src/lib/types.ts
 git commit -m "feat: add editable settings mvp models"
 ```
 
 ## Task 2: Implement TOML Settings Persistence
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/results/settings_persistence.rs`
-- Create: `apps/lwe/src-tauri/src/services/settings_persistence_service.rs`
-- Modify: `apps/lwe/src-tauri/src/results/mod.rs`
-- Modify: `apps/lwe/src-tauri/src/services/mod.rs`
+- Create: `src-tauri/src/results/settings_persistence.rs`
+- Create: `src-tauri/src/services/settings_persistence_service.rs`
+- Modify: `src-tauri/src/results/mod.rs`
+- Modify: `src-tauri/src/services/mod.rs`
 - Test: `cargo test -p lwe-app-shell settings_persistence -- --nocapture`
 
 - [ ] **Step 1: Add a failing settings persistence test**
@@ -159,11 +159,11 @@ Expected: FAIL because the service and result types do not exist yet.
 
 - [ ] **Step 3: Add persistence result types**
 
-Create `apps/lwe/src-tauri/src/results/settings_persistence.rs` with structured load/save results (for example `Loaded`, `Saved`, `Unavailable { reason }`).
+Create `src-tauri/src/results/settings_persistence.rs` with structured load/save results (for example `Loaded`, `Saved`, `Unavailable { reason }`).
 
 - [ ] **Step 4: Implement the TOML persistence service**
 
-Create `apps/lwe/src-tauri/src/services/settings_persistence_service.rs` so it:
+Create `src-tauri/src/services/settings_persistence_service.rs` so it:
 
 - stores a small TOML settings file
 - returns defaults if the file does not exist
@@ -183,15 +183,15 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/results/settings_persistence.rs apps/lwe/src-tauri/src/services/settings_persistence_service.rs apps/lwe/src-tauri/src/results/mod.rs apps/lwe/src-tauri/src/services/mod.rs
+git add src-tauri/src/results/settings_persistence.rs src-tauri/src/services/settings_persistence_service.rs src-tauri/src/results/mod.rs src-tauri/src/services/mod.rs
 git commit -m "feat: add toml settings persistence"
 ```
 
 ## Task 3: Implement Graphical-Session Autostart Support
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/services/autostart_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/mod.rs`
+- Create: `src-tauri/src/services/autostart_service.rs`
+- Modify: `src-tauri/src/services/mod.rs`
 - Test: `cargo test -p lwe-app-shell autostart_service -- --nocapture`
 
 - [ ] **Step 1: Add a failing autostart test**
@@ -210,7 +210,7 @@ Expected: FAIL because the autostart service does not exist yet.
 
 - [ ] **Step 3: Implement autostart service helpers**
 
-Create `apps/lwe/src-tauri/src/services/autostart_service.rs` so it:
+Create `src-tauri/src/services/autostart_service.rs` so it:
 
 - targets graphical-session autostart only
 - uses a desktop-entry-based path under the user config/autostart location
@@ -231,17 +231,17 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/autostart_service.rs apps/lwe/src-tauri/src/services/mod.rs
+git add src-tauri/src/services/autostart_service.rs src-tauri/src/services/mod.rs
 git commit -m "feat: add graphical session autostart service"
 ```
 
 ## Task 4: Route Settings Through Real Services and Commands
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/settings_service.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/settings_page.rs`
-- Modify: `apps/lwe/src-tauri/src/commands/settings.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/action_outcome.rs` if needed
+- Modify: `src-tauri/src/services/settings_service.rs`
+- Modify: `src-tauri/src/assembly/settings_page.rs`
+- Modify: `src-tauri/src/commands/settings.rs`
+- Modify: `src-tauri/src/assembly/action_outcome.rs` if needed
 - Test: `cargo test -p lwe-app-shell settings_service -- --nocapture`
 
 - [ ] **Step 1: Add a failing real-settings-service test**
@@ -286,18 +286,18 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/settings_service.rs apps/lwe/src-tauri/src/assembly/settings_page.rs apps/lwe/src-tauri/src/commands/settings.rs apps/lwe/src-tauri/src/assembly/action_outcome.rs
+git add src-tauri/src/services/settings_service.rs src-tauri/src/assembly/settings_page.rs src-tauri/src/commands/settings.rs src-tauri/src/assembly/action_outcome.rs
 git commit -m "feat: connect settings mvp backend flows"
 ```
 
 ## Task 5: Replace the Read-Only Settings UI With an Editable MVP
 
 **Files:**
-- Create if needed: `apps/lwe/src/lib/components/SettingsSection.svelte`
-- Modify: `apps/lwe/src/lib/ipc.ts`
-- Modify: `apps/lwe/src/routes/settings/+page.svelte`
-- Modify: `apps/lwe/src/lib/types.ts` if the UI contract changed during backend work
-- Test: `pnpm --dir apps/lwe test && pnpm --dir apps/lwe check`
+- Create if needed: `src/lib/components/SettingsSection.svelte`
+- Modify: `src/lib/ipc.ts`
+- Modify: `src/routes/settings/+page.svelte`
+- Modify: `src/lib/types.ts` if the UI contract changed during backend work
+- Test: `pnpm --dir  test && pnpm --dir  check`
 
 - [ ] **Step 1: Add a failing settings-page interaction test**
 
@@ -312,14 +312,14 @@ Add or update a frontend test so it expects:
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL once the new interaction expectations are in place.
 
 - [ ] **Step 3: Implement the editable settings page**
 
-Update `apps/lwe/src/routes/settings/+page.svelte` so it:
+Update `src/routes/settings/+page.svelte` so it:
 
 - renders editable controls for language/theme/launch-on-login
 - loads the Rust-owned snapshot
@@ -334,7 +334,7 @@ Use the existing UI foundation primitives rather than inventing a new visual sys
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -342,7 +342,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src/lib/ipc.ts apps/lwe/src/routes/settings/+page.svelte apps/lwe/src/lib/types.ts apps/lwe/src/lib/components/SettingsSection.svelte
+git add src/lib/ipc.ts src/routes/settings/+page.svelte src/lib/types.ts src/lib/components/SettingsSection.svelte
 git commit -m "feat: add editable settings mvp page"
 ```
 

@@ -32,34 +32,34 @@ It does **not** include:
 
 ### Files to create
 
-- `apps/lwe/src-tauri/src/results/session_persistence.rs` - result types for desktop assignment/session persistence under the TOML config root
+- `src-tauri/src/results/session_persistence.rs` - result types for desktop assignment/session persistence under the TOML config root
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/services/settings_persistence_service.rs` - move active settings path from `wayvid` to `lwe`
-- `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` - stop using standalone JSON as the active persistence format; route desktop assignment persistence through the TOML-based config story
-- `apps/lwe/src-tauri/src/services/desktop_service.rs` - restore assignments from the unified persistence source
-- `apps/lwe/src-tauri/src/services/library_service.rs` - consume the unified assignment source for quick-status projection
-- `apps/lwe/src-tauri/src/results/mod.rs` - export any new session-persistence result types if needed
-- `apps/lwe/src-tauri/src/models.rs` - extend models only as needed for the new settings/session persistence truth
-- `apps/lwe/src/lib/types.ts` - mirror any necessary frontend model changes
-- `apps/lwe/src/routes/settings/+page.svelte` - after successful save, collapse back to the settled view state and add Simplified Chinese option
-- `apps/lwe/src/routes/settings/page-render.test.ts` - update for the new save/collapse behavior and Chinese option
+- `src-tauri/src/services/settings_persistence_service.rs` - move active settings path from `wayvid` to `lwe`
+- `src-tauri/src/services/desktop_persistence_service.rs` - stop using standalone JSON as the active persistence format; route desktop assignment persistence through the TOML-based config story
+- `src-tauri/src/services/desktop_service.rs` - restore assignments from the unified persistence source
+- `src-tauri/src/services/library_service.rs` - consume the unified assignment source for quick-status projection
+- `src-tauri/src/results/mod.rs` - export any new session-persistence result types if needed
+- `src-tauri/src/models.rs` - extend models only as needed for the new settings/session persistence truth
+- `src/lib/types.ts` - mirror any necessary frontend model changes
+- `src/routes/settings/+page.svelte` - after successful save, collapse back to the settled view state and add Simplified Chinese option
+- `src/routes/settings/page-render.test.ts` - update for the new save/collapse behavior and Chinese option
 - `docs/product/roadmap.md` - reflect the unified settings/session persistence story once complete
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src-tauri/src/services/settings_persistence_service.rs`
-- `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs`
-- `apps/lwe/src-tauri/src/services/settings_service.rs`
-- `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- `apps/lwe/src/routes/settings/+page.svelte`
+- `src-tauri/src/services/settings_persistence_service.rs`
+- `src-tauri/src/services/desktop_persistence_service.rs`
+- `src-tauri/src/services/settings_service.rs`
+- `src-tauri/src/services/desktop_service.rs`
+- `src/routes/settings/+page.svelte`
 - `docs/superpowers/specs/2026-03-31-lwe-settings-and-session-persistence-design.md`
 
 ## Task 1: Move the Active Config Root From `wayvid` to `lwe`
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/settings_persistence_service.rs`
+- Modify: `src-tauri/src/services/settings_persistence_service.rs`
 - Test: `cargo test -p lwe-app-shell settings_persistence -- --nocapture`
 
 - [x] **Step 1: Add a failing path test**
@@ -112,16 +112,16 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/settings_persistence_service.rs
+git add src-tauri/src/services/settings_persistence_service.rs
 git commit -m "refactor: move active settings path to lwe config root"
 ```
 
 ## Task 2: Replace Standalone JSON Desktop Assignment Persistence With TOML-Based Session Persistence
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/results/session_persistence.rs`
-- Modify: `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs`
-- Modify: `apps/lwe/src-tauri/src/results/mod.rs`
+- Create: `src-tauri/src/results/session_persistence.rs`
+- Modify: `src-tauri/src/services/desktop_persistence_service.rs`
+- Modify: `src-tauri/src/results/mod.rs`
 - Test: `cargo test -p lwe-app-shell desktop_persistence_service -- --nocapture`
 
 - [x] **Step 1: Add a failing session-persistence round-trip test**
@@ -174,15 +174,15 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_persistence_service.rs apps/lwe/src-tauri/src/results/session_persistence.rs apps/lwe/src-tauri/src/results/mod.rs
+git add src-tauri/src/services/desktop_persistence_service.rs src-tauri/src/results/session_persistence.rs src-tauri/src/results/mod.rs
 git commit -m "refactor: unify desktop assignment persistence under toml"
 ```
 
 ## Task 3: Route Restore Through the Unified TOML Persistence Source
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
 - Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
 
 - [x] **Step 1: Add a failing restore-source test**
@@ -224,16 +224,16 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs apps/lwe/src-tauri/src/services/library_service.rs
+git add src-tauri/src/services/desktop_service.rs src-tauri/src/services/library_service.rs
 git commit -m "refactor: restore desktop state from unified persistence"
 ```
 
 ## Task 4: Finish the Settings MVP UI Behavior
 
 **Files:**
-- Modify: `apps/lwe/src/routes/settings/+page.svelte`
-- Modify: `apps/lwe/src/routes/settings/page-render.test.ts`
-- Test: `pnpm --dir apps/lwe test && pnpm --dir apps/lwe check`
+- Modify: `src/routes/settings/+page.svelte`
+- Modify: `src/routes/settings/page-render.test.ts`
+- Test: `pnpm --dir  test && pnpm --dir  check`
 
 - [x] **Step 1: Add a failing UI-behavior test**
 
@@ -247,7 +247,7 @@ Add or update a test that verifies:
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL until the page behavior is updated.
@@ -266,7 +266,7 @@ Keep this minimal and consistent with the current UI foundation; do not redesign
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -274,7 +274,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src/routes/settings/+page.svelte apps/lwe/src/routes/settings/page-render.test.ts
+git add src/routes/settings/+page.svelte src/routes/settings/page-render.test.ts
 git commit -m "feat: finish settings mvp ui behavior"
 ```
 

@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the existing scene manifest, compatibility, runtime-target, and desktop apply wiring intact, and focus this implementation on `lwe-engine` as the primary work surface. The first scene runtime should validate a narrow supported subset during setup, create a real renderable scene session, and only report apply success after the first real rendered frame.
 
-**Tech Stack:** Rust, `lwe-engine`, `lwe-library`, `apps/lwe/src-tauri`, Wayland layer-shell, EGL/OpenGL
+**Tech Stack:** Rust, `lwe-engine`, `lwe-library`, `src-tauri`, Wayland layer-shell, EGL/OpenGL
 
 ---
 
@@ -22,11 +22,11 @@
   - Keep docs and exports aligned with the now-real scene runtime.
 - Modify: `crates/lwe-library/src/scene_manifest.rs`
   - Extend manifest or validation only if the supported subset needs more structured data.
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
   - Align “supported scene” with the actual minimal runtime subset.
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs`
+- Modify: `src-tauri/src/results/workshop.rs`
   - Extend structured runtime assessment only if needed for subset support reasons.
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
   - Only if scene first-frame success/failure semantics require tiny integration updates.
 - Test: `crates/lwe-engine/src/scene.rs`
   - Add setup/render tests for supported and unsupported scene runtime cases.
@@ -34,9 +34,9 @@
   - Verify a supported scene session can be created and an unsupported one fails at setup.
 - Test: `crates/lwe-engine/src/engine/mod.rs`
   - Verify first-frame apply-success behavior remains correct for scenes.
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/compatibility_service.rs`
   - Verify compatibility only reports supported for the real minimal subset.
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
   - Verify supported scene apply and restore succeed; unsupported scenes fail before persistence success.
 
 ## Supported-Subset Rule for This Plan
@@ -222,9 +222,9 @@ git commit -m "feat: render a first native scene frame"
 
 **Files:**
 - Modify: `crates/lwe-library/src/scene_manifest.rs` only if subset flags must be added
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs`
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/results/workshop.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/compatibility_service.rs`
 
 - [ ] **Step 1: Write the failing compatibility-subset tests**
 
@@ -273,15 +273,15 @@ Expected: PASS.
 Run:
 
 ```bash
-git add crates/lwe-library/src/scene_manifest.rs apps/lwe/src-tauri/src/results/workshop.rs apps/lwe/src-tauri/src/services/compatibility_service.rs
+git add crates/lwe-library/src/scene_manifest.rs src-tauri/src/results/workshop.rs src-tauri/src/services/compatibility_service.rs
 git commit -m "feat: align scene compatibility with runtime subset"
 ```
 
 ### Task 4: Prove Desktop Apply and Restore Use Real Scene First-Frame Success
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
 
 - [ ] **Step 1: Write the failing desktop scene apply and restore tests**
 
@@ -333,7 +333,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs
+git add src-tauri/src/services/desktop_service.rs
 git commit -m "feat: complete scene apply and restore success flow"
 ```
 

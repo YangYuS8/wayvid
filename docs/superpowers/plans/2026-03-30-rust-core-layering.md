@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Refactor `apps/lwe/src-tauri` into a layered Rust application core where commands, services, policies, application results, and assemblers are clearly separated without introducing new crates yet.
+**Goal:** Refactor `src-tauri` into a layered Rust application core where commands, services, policies, application results, and assemblers are clearly separated without introducing new crates yet.
 
-**Architecture:** Keep the active crate boundaries as `lwe-app-shell`, `lwe-library`, `lwe-core`, and `lwe-engine` for now, with `apps/lwe/src-tauri` as the shell entrypoint, but restructure `lwe-app-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads. Legacy `wayvid-gui` and `wayvid-ctl` crates are outside the active workspace path.
+**Architecture:** Keep the active crate boundaries as `lwe-app-shell`, `lwe-library`, `lwe-core`, and `lwe-engine` for now, with `src-tauri` as the shell entrypoint, but restructure `lwe-app-shell` internally. Commands become thin entrypoints, services coordinate workflows and return application-result types, shared policies own product rules, and assemblers translate application results into frontend-facing snapshots, details, and `ActionOutcome` payloads. Legacy `wayvid-gui` and `wayvid-ctl` crates are outside the active workspace path.
 
 **Tech Stack:** Rust workspace, Tauri, `lwe-library`, `lwe-core`, serde, Cargo tests
 
@@ -12,7 +12,7 @@
 
 ## Scope Note
 
-This plan is intentionally about **internal Rust architecture**, not new end-user features. It should preserve current behavior for the active LWE shell and Workshop loop while replacing the current command-heavy organization with a stable module structure inside `apps/lwe/src-tauri`.
+This plan is intentionally about **internal Rust architecture**, not new end-user features. It should preserve current behavior for the active LWE shell and Workshop loop while replacing the current command-heavy organization with a stable module structure inside `src-tauri`.
 
 This plan does **not**:
 
@@ -25,81 +25,81 @@ This plan does **not**:
 
 ### Files to create
 
-- `apps/lwe/src-tauri/src/commands/mod.rs` - command module exports
-- `apps/lwe/src-tauri/src/commands/app_shell.rs` - Tauri commands for shell snapshot
-- `apps/lwe/src-tauri/src/commands/workshop.rs` - Tauri commands for Workshop page/detail/actions
-- `apps/lwe/src-tauri/src/commands/library.rs` - Tauri commands for Library page/detail
-- `apps/lwe/src-tauri/src/commands/desktop.rs` - Tauri commands for Desktop page
-- `apps/lwe/src-tauri/src/commands/settings.rs` - Tauri commands for Settings page
-- `apps/lwe/src-tauri/src/services/mod.rs` - service module exports
-- `apps/lwe/src-tauri/src/services/workshop_service.rs` - Workshop application workflows
-- `apps/lwe/src-tauri/src/services/library_service.rs` - Library projection workflows
-- `apps/lwe/src-tauri/src/services/desktop_service.rs` - Desktop snapshot workflows
-- `apps/lwe/src-tauri/src/services/settings_service.rs` - Settings snapshot workflows
-- `apps/lwe/src-tauri/src/policies/mod.rs` - policy module exports
-- `apps/lwe/src-tauri/src/policies/shared/mod.rs` - shared policy exports
-- `apps/lwe/src-tauri/src/policies/shared/support_policy.rs` - first-release support rules
-- `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs` - compatibility badge and note rules
-- `apps/lwe/src-tauri/src/policies/shared/cover_policy.rs` - bundled-cover-or-placeholder rules
-- `apps/lwe/src-tauri/src/policies/shared/invalidation_policy.rs` - page invalidation rules for actions
-- `apps/lwe/src-tauri/src/results/mod.rs` - application-result exports
-- `apps/lwe/src-tauri/src/results/workshop.rs` - Workshop application results
-- `apps/lwe/src-tauri/src/results/library.rs` - Library projection results
-- `apps/lwe/src-tauri/src/results/app_shell.rs` - shell summary result types
-- `apps/lwe/src-tauri/src/results/desktop.rs` - Desktop snapshot source result types
-- `apps/lwe/src-tauri/src/results/settings.rs` - Settings result types
-- `apps/lwe/src-tauri/src/assembly/mod.rs` - assembler exports
-- `apps/lwe/src-tauri/src/assembly/app_shell.rs` - app shell snapshot/patch assembly
-- `apps/lwe/src-tauri/src/assembly/workshop_page.rs` - Workshop page snapshot assembly
-- `apps/lwe/src-tauri/src/assembly/workshop_detail.rs` - Workshop detail assembly
-- `apps/lwe/src-tauri/src/assembly/library_page.rs` - Library page snapshot assembly
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs` - Library detail assembly
-- `apps/lwe/src-tauri/src/assembly/desktop_page.rs` - Desktop page assembly
-- `apps/lwe/src-tauri/src/assembly/settings_page.rs` - Settings page assembly
-- `apps/lwe/src-tauri/src/assembly/action_outcome.rs` - `ActionOutcome` assembly from application effects
+- `src-tauri/src/commands/mod.rs` - command module exports
+- `src-tauri/src/commands/app_shell.rs` - Tauri commands for shell snapshot
+- `src-tauri/src/commands/workshop.rs` - Tauri commands for Workshop page/detail/actions
+- `src-tauri/src/commands/library.rs` - Tauri commands for Library page/detail
+- `src-tauri/src/commands/desktop.rs` - Tauri commands for Desktop page
+- `src-tauri/src/commands/settings.rs` - Tauri commands for Settings page
+- `src-tauri/src/services/mod.rs` - service module exports
+- `src-tauri/src/services/workshop_service.rs` - Workshop application workflows
+- `src-tauri/src/services/library_service.rs` - Library projection workflows
+- `src-tauri/src/services/desktop_service.rs` - Desktop snapshot workflows
+- `src-tauri/src/services/settings_service.rs` - Settings snapshot workflows
+- `src-tauri/src/policies/mod.rs` - policy module exports
+- `src-tauri/src/policies/shared/mod.rs` - shared policy exports
+- `src-tauri/src/policies/shared/support_policy.rs` - first-release support rules
+- `src-tauri/src/policies/shared/compatibility_policy.rs` - compatibility badge and note rules
+- `src-tauri/src/policies/shared/cover_policy.rs` - bundled-cover-or-placeholder rules
+- `src-tauri/src/policies/shared/invalidation_policy.rs` - page invalidation rules for actions
+- `src-tauri/src/results/mod.rs` - application-result exports
+- `src-tauri/src/results/workshop.rs` - Workshop application results
+- `src-tauri/src/results/library.rs` - Library projection results
+- `src-tauri/src/results/app_shell.rs` - shell summary result types
+- `src-tauri/src/results/desktop.rs` - Desktop snapshot source result types
+- `src-tauri/src/results/settings.rs` - Settings result types
+- `src-tauri/src/assembly/mod.rs` - assembler exports
+- `src-tauri/src/assembly/app_shell.rs` - app shell snapshot/patch assembly
+- `src-tauri/src/assembly/workshop_page.rs` - Workshop page snapshot assembly
+- `src-tauri/src/assembly/workshop_detail.rs` - Workshop detail assembly
+- `src-tauri/src/assembly/library_page.rs` - Library page snapshot assembly
+- `src-tauri/src/assembly/library_detail.rs` - Library detail assembly
+- `src-tauri/src/assembly/desktop_page.rs` - Desktop page assembly
+- `src-tauri/src/assembly/settings_page.rs` - Settings page assembly
+- `src-tauri/src/assembly/action_outcome.rs` - `ActionOutcome` assembly from application effects
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/lib.rs` - wire new modules and command registration
-- `apps/lwe/src-tauri/src/app_shell.rs` - remove or move old command-heavy logic into layered modules
-- `apps/lwe/src-tauri/src/workshop.rs` - remove or move old command-heavy logic into layered modules
-- `apps/lwe/src-tauri/src/library.rs` - remove or move old command-heavy logic into layered modules
-- `apps/lwe/src-tauri/src/desktop.rs` - remove or move old command-heavy logic into layered modules
-- `apps/lwe/src-tauri/src/settings.rs` - remove or move old command-heavy logic into layered modules
-- `apps/lwe/src-tauri/src/models.rs` - keep frontend-facing contracts only, no business classification logic
-- `apps/lwe/src-tauri/src/action_outcome.rs` - keep frontend-facing outcome structs only, no action-decision logic
+- `src-tauri/src/lib.rs` - wire new modules and command registration
+- `src-tauri/src/app_shell.rs` - remove or move old command-heavy logic into layered modules
+- `src-tauri/src/workshop.rs` - remove or move old command-heavy logic into layered modules
+- `src-tauri/src/library.rs` - remove or move old command-heavy logic into layered modules
+- `src-tauri/src/desktop.rs` - remove or move old command-heavy logic into layered modules
+- `src-tauri/src/settings.rs` - remove or move old command-heavy logic into layered modules
+- `src-tauri/src/models.rs` - keep frontend-facing contracts only, no business classification logic
+- `src-tauri/src/action_outcome.rs` - keep frontend-facing outcome structs only, no action-decision logic
 
 The active layering surface in this plan stops at the `lwe-app-shell` <-> `lwe-library` <-> `lwe-core` <-> `lwe-engine` boundaries. Legacy GUI and CLI peers stay outside the active workspace path.
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src-tauri/src/lib.rs`
-- `apps/lwe/src-tauri/src/workshop.rs`
-- `apps/lwe/src-tauri/src/library.rs`
-- `apps/lwe/src-tauri/src/app_shell.rs`
-- `apps/lwe/src-tauri/src/models.rs`
-- `apps/lwe/src-tauri/src/action_outcome.rs`
+- `src-tauri/src/lib.rs`
+- `src-tauri/src/workshop.rs`
+- `src-tauri/src/library.rs`
+- `src-tauri/src/app_shell.rs`
+- `src-tauri/src/models.rs`
+- `src-tauri/src/action_outcome.rs`
 - `crates/lwe-library/src/workshop_catalog.rs`
 
 ## Task 1: Introduce Shared Policies and Application Results
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/policies/mod.rs`
-- Create: `apps/lwe/src-tauri/src/policies/shared/mod.rs`
-- Create: `apps/lwe/src-tauri/src/policies/shared/support_policy.rs`
-- Create: `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs`
-- Create: `apps/lwe/src-tauri/src/policies/shared/cover_policy.rs`
-- Create: `apps/lwe/src-tauri/src/policies/shared/invalidation_policy.rs`
-- Create: `apps/lwe/src-tauri/src/results/mod.rs`
-- Create: `apps/lwe/src-tauri/src/results/workshop.rs`
-- Create: `apps/lwe/src-tauri/src/results/library.rs`
-- Create: `apps/lwe/src-tauri/src/results/app_shell.rs`
-- Modify: `apps/lwe/src-tauri/src/lib.rs`
+- Create: `src-tauri/src/policies/mod.rs`
+- Create: `src-tauri/src/policies/shared/mod.rs`
+- Create: `src-tauri/src/policies/shared/support_policy.rs`
+- Create: `src-tauri/src/policies/shared/compatibility_policy.rs`
+- Create: `src-tauri/src/policies/shared/cover_policy.rs`
+- Create: `src-tauri/src/policies/shared/invalidation_policy.rs`
+- Create: `src-tauri/src/results/mod.rs`
+- Create: `src-tauri/src/results/workshop.rs`
+- Create: `src-tauri/src/results/library.rs`
+- Create: `src-tauri/src/results/app_shell.rs`
+- Modify: `src-tauri/src/lib.rs`
 - Test: `cargo test -p lwe-app-shell shared_policy -- --nocapture`
 
 - [ ] **Step 1: Write the failing support-policy test**
 
-Create `apps/lwe/src-tauri/src/policies/shared/support_policy.rs` with this test first:
+Create `src-tauri/src/policies/shared/support_policy.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -124,7 +124,7 @@ Expected: FAIL because the new policy modules do not exist yet.
 
 - [ ] **Step 3: Implement the shared policy modules**
 
-Create `apps/lwe/src-tauri/src/policies/shared/support_policy.rs` with:
+Create `src-tauri/src/policies/shared/support_policy.rs` with:
 
 ```rust
 use lwe_library::WorkshopProjectType;
@@ -148,7 +148,7 @@ mod tests {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/policies/shared/cover_policy.rs` with:
+Create `src-tauri/src/policies/shared/cover_policy.rs` with:
 
 ```rust
 pub fn bundled_cover_or_none(cover_path: Option<String>) -> Option<String> {
@@ -156,7 +156,7 @@ pub fn bundled_cover_or_none(cover_path: Option<String>) -> Option<String> {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs` with:
+Create `src-tauri/src/policies/shared/compatibility_policy.rs` with:
 
 ```rust
 use crate::models::CompatibilityBadge;
@@ -191,7 +191,7 @@ pub fn compatibility_note(entry: &WorkshopCatalogEntry) -> Option<String> {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/policies/shared/invalidation_policy.rs` with:
+Create `src-tauri/src/policies/shared/invalidation_policy.rs` with:
 
 ```rust
 use crate::action_outcome::InvalidatedPage;
@@ -201,7 +201,7 @@ pub fn pages_after_workshop_refresh() -> Vec<InvalidatedPage> {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/policies/shared/mod.rs` with:
+Create `src-tauri/src/policies/shared/mod.rs` with:
 
 ```rust
 pub mod compatibility_policy;
@@ -210,7 +210,7 @@ pub mod invalidation_policy;
 pub mod support_policy;
 ```
 
-Create `apps/lwe/src-tauri/src/policies/mod.rs` with:
+Create `src-tauri/src/policies/mod.rs` with:
 
 ```rust
 pub mod shared;
@@ -218,7 +218,7 @@ pub mod shared;
 
 - [ ] **Step 4: Introduce application-result types**
 
-Create `apps/lwe/src-tauri/src/results/workshop.rs` with:
+Create `src-tauri/src/results/workshop.rs` with:
 
 ```rust
 use lwe_library::WorkshopCatalogEntry;
@@ -234,7 +234,7 @@ pub struct WorkshopInspection {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/results/library.rs` with:
+Create `src-tauri/src/results/library.rs` with:
 
 ```rust
 use crate::models::LibraryItemSummary;
@@ -245,7 +245,7 @@ pub struct LibraryProjection {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/results/app_shell.rs` with:
+Create `src-tauri/src/results/app_shell.rs` with:
 
 ```rust
 #[derive(Debug, Clone)]
@@ -257,7 +257,7 @@ pub struct ShellSummary {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/results/mod.rs` with:
+Create `src-tauri/src/results/mod.rs` with:
 
 ```rust
 pub mod app_shell;
@@ -267,7 +267,7 @@ pub mod workshop;
 
 - [ ] **Step 5: Export modules, run tests, and commit**
 
-In `apps/lwe/src-tauri/src/lib.rs`, add:
+In `src-tauri/src/lib.rs`, add:
 
 ```rust
 pub mod policies;
@@ -280,23 +280,23 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/lib.rs apps/lwe/src-tauri/src/policies apps/lwe/src-tauri/src/results
+git add src-tauri/src/lib.rs src-tauri/src/policies src-tauri/src/results
 git commit -m "refactor: add lwe shared policies and app results"
 ```
 
 ## Task 2: Extract Workshop and Library Services
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/services/mod.rs`
-- Create: `apps/lwe/src-tauri/src/services/workshop_service.rs`
-- Create: `apps/lwe/src-tauri/src/services/library_service.rs`
-- Modify: `apps/lwe/src-tauri/src/workshop.rs`
-- Modify: `apps/lwe/src-tauri/src/library.rs`
+- Create: `src-tauri/src/services/mod.rs`
+- Create: `src-tauri/src/services/workshop_service.rs`
+- Create: `src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/workshop.rs`
+- Modify: `src-tauri/src/library.rs`
 - Test: `cargo test -p lwe-app-shell service_layer -- --nocapture`
 
 - [ ] **Step 1: Write the failing service-layer test**
 
-Create `apps/lwe/src-tauri/src/services/workshop_service.rs` with this test first:
+Create `src-tauri/src/services/workshop_service.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -322,7 +322,7 @@ Expected: FAIL because the new service modules do not exist yet.
 
 - [ ] **Step 3: Implement `WorkshopService` and `LibraryService`**
 
-Create `apps/lwe/src-tauri/src/services/workshop_service.rs` with:
+Create `src-tauri/src/services/workshop_service.rs` with:
 
 ```rust
 use crate::results::workshop::{WorkshopInspection, WorkshopRefreshResult};
@@ -363,7 +363,7 @@ mod tests {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/services/library_service.rs` with:
+Create `src-tauri/src/services/library_service.rs` with:
 
 ```rust
 use crate::library::project_library_items;
@@ -382,7 +382,7 @@ impl LibraryService {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/services/mod.rs` with:
+Create `src-tauri/src/services/mod.rs` with:
 
 ```rust
 pub mod library_service;
@@ -391,7 +391,7 @@ pub mod workshop_service;
 
 - [ ] **Step 4: Thin the existing command modules down to service entrypoints**
 
-In `apps/lwe/src-tauri/src/workshop.rs`, replace direct scan orchestration in command functions with service calls, for example:
+In `src-tauri/src/workshop.rs`, replace direct scan orchestration in command functions with service calls, for example:
 
 ```rust
 use crate::services::workshop_service::WorkshopService;
@@ -409,11 +409,11 @@ pub fn load_workshop_item_detail(workshop_id: String) -> Result<crate::models::W
 }
 ```
 
-In `apps/lwe/src-tauri/src/library.rs`, replace direct scan orchestration with `LibraryService::load_projection()`.
+In `src-tauri/src/library.rs`, replace direct scan orchestration with `LibraryService::load_projection()`.
 
 - [ ] **Step 5: Run tests and commit**
 
-In `apps/lwe/src-tauri/src/lib.rs`, add:
+In `src-tauri/src/lib.rs`, add:
 
 ```rust
 pub mod services;
@@ -425,28 +425,28 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/lib.rs apps/lwe/src-tauri/src/services apps/lwe/src-tauri/src/workshop.rs apps/lwe/src-tauri/src/library.rs
+git add src-tauri/src/lib.rs src-tauri/src/services src-tauri/src/workshop.rs src-tauri/src/library.rs
 git commit -m "refactor: extract lwe workshop and library services"
 ```
 
 ## Task 3: Introduce Assemblers for Page and Detail Contracts
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/assembly/mod.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/workshop_page.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/workshop_detail.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/library_page.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/library_detail.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/app_shell.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/action_outcome.rs`
-- Modify: `apps/lwe/src-tauri/src/workshop.rs`
-- Modify: `apps/lwe/src-tauri/src/library.rs`
-- Modify: `apps/lwe/src-tauri/src/app_shell.rs`
+- Create: `src-tauri/src/assembly/mod.rs`
+- Create: `src-tauri/src/assembly/workshop_page.rs`
+- Create: `src-tauri/src/assembly/workshop_detail.rs`
+- Create: `src-tauri/src/assembly/library_page.rs`
+- Create: `src-tauri/src/assembly/library_detail.rs`
+- Create: `src-tauri/src/assembly/app_shell.rs`
+- Create: `src-tauri/src/assembly/action_outcome.rs`
+- Modify: `src-tauri/src/workshop.rs`
+- Modify: `src-tauri/src/library.rs`
+- Modify: `src-tauri/src/app_shell.rs`
 - Test: `cargo test -p lwe-app-shell assembler -- --nocapture`
 
 - [ ] **Step 1: Write the failing assembler test**
 
-Create `apps/lwe/src-tauri/src/assembly/workshop_page.rs` with this test first:
+Create `src-tauri/src/assembly/workshop_page.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -473,7 +473,7 @@ Expected: FAIL because the new assembly modules do not exist yet.
 
 - [ ] **Step 3: Implement Workshop and Library assemblers**
 
-Create `apps/lwe/src-tauri/src/assembly/workshop_page.rs` with:
+Create `src-tauri/src/assembly/workshop_page.rs` with:
 
 ```rust
 use crate::models::WorkshopPageSnapshot;
@@ -505,7 +505,7 @@ mod tests {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/assembly/workshop_detail.rs` with:
+Create `src-tauri/src/assembly/workshop_detail.rs` with:
 
 ```rust
 use crate::models::WorkshopItemDetail;
@@ -517,7 +517,7 @@ pub fn assemble_workshop_detail(result: WorkshopInspection) -> WorkshopItemDetai
 }
 ```
 
-Create `apps/lwe/src-tauri/src/assembly/library_page.rs` with:
+Create `src-tauri/src/assembly/library_page.rs` with:
 
 ```rust
 use crate::models::LibraryPageSnapshot;
@@ -532,7 +532,7 @@ pub fn assemble_library_page(result: LibraryProjection) -> LibraryPageSnapshot {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/assembly/library_detail.rs` with:
+Create `src-tauri/src/assembly/library_detail.rs` with:
 
 ```rust
 use crate::models::LibraryItemDetail;
@@ -546,7 +546,7 @@ pub fn assemble_library_detail(entry: WorkshopCatalogEntry) -> LibraryItemDetail
 
 - [ ] **Step 4: Implement shell and action assemblers and switch commands to use them**
 
-Create `apps/lwe/src-tauri/src/assembly/app_shell.rs` with:
+Create `src-tauri/src/assembly/app_shell.rs` with:
 
 ```rust
 use crate::models::AppShellSnapshot;
@@ -564,7 +564,7 @@ pub fn assemble_app_shell(summary: ShellSummary) -> AppShellSnapshot {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/assembly/action_outcome.rs` with:
+Create `src-tauri/src/assembly/action_outcome.rs` with:
 
 ```rust
 use crate::action_outcome::{ActionOutcome, AppShellPatch};
@@ -590,7 +590,7 @@ pub fn assemble_workshop_refresh_outcome(result: &WorkshopRefreshResult) -> Acti
 }
 ```
 
-Create `apps/lwe/src-tauri/src/assembly/mod.rs` with:
+Create `src-tauri/src/assembly/mod.rs` with:
 
 ```rust
 pub mod action_outcome;
@@ -605,7 +605,7 @@ Then update the commands in `workshop.rs`, `library.rs`, and `app_shell.rs` so c
 
 - [ ] **Step 5: Run tests and commit**
 
-In `apps/lwe/src-tauri/src/lib.rs`, add:
+In `src-tauri/src/lib.rs`, add:
 
 ```rust
 pub mod assembly;
@@ -617,26 +617,26 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/lib.rs apps/lwe/src-tauri/src/assembly apps/lwe/src-tauri/src/workshop.rs apps/lwe/src-tauri/src/library.rs apps/lwe/src-tauri/src/app_shell.rs
+git add src-tauri/src/lib.rs src-tauri/src/assembly src-tauri/src/workshop.rs src-tauri/src/library.rs src-tauri/src/app_shell.rs
 git commit -m "refactor: assemble lwe frontend contracts from app results"
 ```
 
 ## Task 4: Move Remaining Page Logic Out of Command Modules
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Create: `apps/lwe/src-tauri/src/services/settings_service.rs`
-- Create: `apps/lwe/src-tauri/src/results/desktop.rs`
-- Create: `apps/lwe/src-tauri/src/results/settings.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/desktop_page.rs`
-- Create: `apps/lwe/src-tauri/src/assembly/settings_page.rs`
-- Modify: `apps/lwe/src-tauri/src/desktop.rs`
-- Modify: `apps/lwe/src-tauri/src/settings.rs`
+- Create: `src-tauri/src/services/desktop_service.rs`
+- Create: `src-tauri/src/services/settings_service.rs`
+- Create: `src-tauri/src/results/desktop.rs`
+- Create: `src-tauri/src/results/settings.rs`
+- Create: `src-tauri/src/assembly/desktop_page.rs`
+- Create: `src-tauri/src/assembly/settings_page.rs`
+- Modify: `src-tauri/src/desktop.rs`
+- Modify: `src-tauri/src/settings.rs`
 - Test: `cargo test -p lwe-app-shell desktop::tests -- --nocapture && cargo test -p lwe-app-shell settings::tests -- --nocapture`
 
 - [ ] **Step 1: Write the failing placeholder-result tests**
 
-Add this test to `apps/lwe/src-tauri/src/services/desktop_service.rs` first:
+Add this test to `src-tauri/src/services/desktop_service.rs` first:
 
 ```rust
 #[cfg(test)]
@@ -663,7 +663,7 @@ Expected: FAIL because the new services/results/assemblers do not exist yet.
 
 - [ ] **Step 3: Implement Desktop and Settings service/result/assembler flow**
 
-Create `apps/lwe/src-tauri/src/results/desktop.rs` with:
+Create `src-tauri/src/results/desktop.rs` with:
 
 ```rust
 #[derive(Debug, Clone)]
@@ -673,7 +673,7 @@ pub struct DesktopPageResult {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/results/settings.rs` with:
+Create `src-tauri/src/results/settings.rs` with:
 
 ```rust
 #[derive(Debug, Clone)]
@@ -685,7 +685,7 @@ pub struct SettingsPageResult {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/services/desktop_service.rs` with:
+Create `src-tauri/src/services/desktop_service.rs` with:
 
 ```rust
 use crate::results::desktop::DesktopPageResult;
@@ -713,7 +713,7 @@ mod tests {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/services/settings_service.rs` with:
+Create `src-tauri/src/services/settings_service.rs` with:
 
 ```rust
 use crate::results::settings::SettingsPageResult;
@@ -732,7 +732,7 @@ impl SettingsService {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/assembly/desktop_page.rs` with:
+Create `src-tauri/src/assembly/desktop_page.rs` with:
 
 ```rust
 use crate::models::DesktopPageSnapshot;
@@ -747,7 +747,7 @@ pub fn assemble_desktop_page(result: DesktopPageResult) -> DesktopPageSnapshot {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/assembly/settings_page.rs` with:
+Create `src-tauri/src/assembly/settings_page.rs` with:
 
 ```rust
 use crate::models::SettingsPageSnapshot;
@@ -765,9 +765,9 @@ pub fn assemble_settings_page(result: SettingsPageResult) -> SettingsPageSnapsho
 
 - [ ] **Step 4: Thin the Desktop and Settings command modules**
 
-Update `apps/lwe/src-tauri/src/desktop.rs` to call `DesktopService::load_page()` and `assemble_desktop_page(...)`.
+Update `src-tauri/src/desktop.rs` to call `DesktopService::load_page()` and `assemble_desktop_page(...)`.
 
-Update `apps/lwe/src-tauri/src/settings.rs` to call `SettingsService::load_page()` and `assemble_settings_page(...)`.
+Update `src-tauri/src/settings.rs` to call `SettingsService::load_page()` and `assemble_settings_page(...)`.
 
 Also update module exports in `services/mod.rs`, `results/mod.rs`, and `assembly/mod.rs`.
 
@@ -784,22 +784,22 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services apps/lwe/src-tauri/src/results apps/lwe/src-tauri/src/assembly apps/lwe/src-tauri/src/desktop.rs apps/lwe/src-tauri/src/settings.rs
+git add src-tauri/src/services src-tauri/src/results src-tauri/src/assembly src-tauri/src/desktop.rs src-tauri/src/settings.rs
 git commit -m "refactor: route lwe desktop and settings through services"
 ```
 
 ## Task 5: Remove Leftover Business Logic From Command Modules
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/workshop.rs`
-- Modify: `apps/lwe/src-tauri/src/library.rs`
-- Modify: `apps/lwe/src-tauri/src/app_shell.rs`
-- Modify: `apps/lwe/src-tauri/src/lib.rs`
+- Modify: `src-tauri/src/workshop.rs`
+- Modify: `src-tauri/src/library.rs`
+- Modify: `src-tauri/src/app_shell.rs`
+- Modify: `src-tauri/src/lib.rs`
 - Test: `cargo test -p lwe-app-shell`
 
 - [ ] **Step 1: Write a failing module-boundary test**
 
-Add this test to `apps/lwe/src-tauri/src/workshop.rs` first:
+Add this test to `src-tauri/src/workshop.rs` first:
 
 ```rust
 #[cfg(test)]
@@ -818,7 +818,7 @@ Expected: PASS or a failure only from new module-boundary work in progress.
 
 - [ ] **Step 3: Reduce command modules to command-facing helpers only**
 
-For `apps/lwe/src-tauri/src/workshop.rs`, keep only:
+For `src-tauri/src/workshop.rs`, keep only:
 
 - public Tauri command functions
 - tiny command-local wrappers such as URL builders if still needed externally
@@ -829,13 +829,13 @@ Move any remaining business classification helpers into:
 - `assembly/workshop_page.rs`
 - `assembly/workshop_detail.rs`
 
-For `apps/lwe/src-tauri/src/library.rs`, keep only command functions and move any remaining detail/projection shaping out to services/assemblers.
+For `src-tauri/src/library.rs`, keep only command functions and move any remaining detail/projection shaping out to services/assemblers.
 
-For `apps/lwe/src-tauri/src/app_shell.rs`, keep only the command function and move shell-shaping logic into service/result/assembler flow.
+For `src-tauri/src/app_shell.rs`, keep only the command function and move shell-shaping logic into service/result/assembler flow.
 
 - [ ] **Step 4: Make module exports reflect the layered architecture**
 
-Update `apps/lwe/src-tauri/src/lib.rs` so the top-level exports are organized and commented like this:
+Update `src-tauri/src/lib.rs` so the top-level exports are organized and commented like this:
 
 ```rust
 pub mod action_outcome;
@@ -857,7 +857,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/lib.rs apps/lwe/src-tauri/src/workshop.rs apps/lwe/src-tauri/src/library.rs apps/lwe/src-tauri/src/app_shell.rs
+git add src-tauri/src/lib.rs src-tauri/src/workshop.rs src-tauri/src/library.rs src-tauri/src/app_shell.rs
 git commit -m "refactor: thin lwe command modules"
 ```
 
@@ -875,7 +875,7 @@ git commit -m "refactor: thin lwe command modules"
 
 ## Expected Output of This Plan
 
-When this plan is complete, `apps/lwe/src-tauri` will no longer be organized as command modules that directly perform classification, page shaping, and action assembly. Instead it will have:
+When this plan is complete, `src-tauri` will no longer be organized as command modules that directly perform classification, page shaping, and action assembly. Instead it will have:
 
 - thin Tauri commands
 - service modules that return application results

@@ -23,7 +23,7 @@ This leaves LWE with a half-complete design system. The purpose of this phase is
 
 ### In scope
 
-- add Tailwind CSS to `apps/lwe`
+- add Tailwind CSS to ``
 - align the existing primitive layer with Tailwind + `shadcn-svelte`
 - migrate the existing UI foundation surfaces to the unified styling system:
   - `AppShell`

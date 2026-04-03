@@ -33,48 +33,48 @@ It does **not** include:
 
 ### Files to create
 
-- `apps/lwe/components.json` - `shadcn-svelte` component registry/config for the app
-- `apps/lwe/src/lib/ui/**` - imported/generated `shadcn-svelte` primitive components used by the shell and page surfaces
-- `apps/lwe/src/lib/layout/AppShell.svelte` - the new persistent desktop shell wrapper
-- `apps/lwe/src/lib/layout/PageHeader.svelte` - shared page header block for title/subtitle/actions
-- `apps/lwe/src/lib/theme/tokens.ts` - small shared UI token map if needed for app-level constants
-- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte` - proper product-level monitor card component replacing inline Desktop card markup
+- `components.json` - `shadcn-svelte` component registry/config for the app
+- `src/lib/ui/**` - imported/generated `shadcn-svelte` primitive components used by the shell and page surfaces
+- `src/lib/layout/AppShell.svelte` - the new persistent desktop shell wrapper
+- `src/lib/layout/PageHeader.svelte` - shared page header block for title/subtitle/actions
+- `src/lib/theme/tokens.ts` - small shared UI token map if needed for app-level constants
+- `src/lib/components/DesktopMonitorCard.svelte` - proper product-level monitor card component replacing inline Desktop card markup
 
 ### Files to modify
 
-- `apps/lwe/package.json` - add the UI dependencies needed for `shadcn-svelte`
-- `apps/lwe/src/routes/+layout.svelte` - replace the current minimal nav shell with the new `AppShell`
-- `apps/lwe/src/routes/library/+page.svelte` - align page structure with the new shell and page header pattern
-- `apps/lwe/src/routes/workshop/+page.svelte` - same
-- `apps/lwe/src/routes/desktop/+page.svelte` - same
-- `apps/lwe/src/routes/settings/+page.svelte` - adopt the shell and basic page chrome even if deep redesign is deferred
-- `apps/lwe/src/lib/components/ItemCard.svelte` - medium visual/system rewrite against the new primitive layer
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - medium visual/system rewrite
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte` - medium visual/system rewrite
-- `apps/lwe/src/lib/components/CompatibilityPanel.svelte` - align with the new status/info panel styling
-- `apps/lwe/src/lib/components/StatusBadge.svelte` - align with the primitive layer or wrap `shadcn-svelte` badge primitives
-- `apps/lwe/src/lib/components/CoverImage.svelte` - align with the new card/media language
-- `apps/lwe/src/routes/library/+page.svelte` / `workshop/+page.svelte` / `desktop/+page.svelte` tests - adjust snapshots/assertions if needed for the new shell/components
+- `package.json` - add the UI dependencies needed for `shadcn-svelte`
+- `src/routes/+layout.svelte` - replace the current minimal nav shell with the new `AppShell`
+- `src/routes/library/+page.svelte` - align page structure with the new shell and page header pattern
+- `src/routes/workshop/+page.svelte` - same
+- `src/routes/desktop/+page.svelte` - same
+- `src/routes/settings/+page.svelte` - adopt the shell and basic page chrome even if deep redesign is deferred
+- `src/lib/components/ItemCard.svelte` - medium visual/system rewrite against the new primitive layer
+- `src/lib/components/LibraryDetailPanel.svelte` - medium visual/system rewrite
+- `src/lib/components/WorkshopDetailPanel.svelte` - medium visual/system rewrite
+- `src/lib/components/CompatibilityPanel.svelte` - align with the new status/info panel styling
+- `src/lib/components/StatusBadge.svelte` - align with the primitive layer or wrap `shadcn-svelte` badge primitives
+- `src/lib/components/CoverImage.svelte` - align with the new card/media language
+- `src/routes/library/+page.svelte` / `workshop/+page.svelte` / `desktop/+page.svelte` tests - adjust snapshots/assertions if needed for the new shell/components
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src/routes/+layout.svelte`
-- `apps/lwe/src/routes/library/+page.svelte`
-- `apps/lwe/src/routes/workshop/+page.svelte`
-- `apps/lwe/src/routes/desktop/+page.svelte`
-- `apps/lwe/src/lib/components/ItemCard.svelte`
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- `apps/lwe/src/lib/components/CompatibilityPanel.svelte`
+- `src/routes/+layout.svelte`
+- `src/routes/library/+page.svelte`
+- `src/routes/workshop/+page.svelte`
+- `src/routes/desktop/+page.svelte`
+- `src/lib/components/ItemCard.svelte`
+- `src/lib/components/LibraryDetailPanel.svelte`
+- `src/lib/components/WorkshopDetailPanel.svelte`
+- `src/lib/components/CompatibilityPanel.svelte`
 - `docs/superpowers/specs/2026-03-30-lwe-ui-foundation-v1-design.md`
 
 ## Task 1: Add `shadcn-svelte` and Primitive UI Foundation
 
 **Files:**
-- Create: `apps/lwe/components.json`
-- Create: `apps/lwe/src/lib/ui/**`
-- Modify: `apps/lwe/package.json`
-- Test: `pnpm --dir apps/lwe check`
+- Create: `components.json`
+- Create: `src/lib/ui/**`
+- Modify: `package.json`
+- Test: `pnpm --dir  check`
 
 - [ ] **Step 1: Write the failing dependency/config check**
 
@@ -83,9 +83,9 @@ Run:
 ```bash
 python3 - <<'PY'
 from pathlib import Path
-pkg = Path('apps/lwe/package.json').read_text()
+pkg = Path('package.json').read_text()
 assert 'shadcn-svelte' in pkg or '@shadcn-svelte' in pkg
-assert Path('apps/lwe/components.json').exists()
+assert Path('components.json').exists()
 print('ui foundation config present')
 PY
 ```
@@ -94,9 +94,9 @@ Expected: FAIL because the current frontend does not yet include `shadcn-svelte`
 
 - [ ] **Step 2: Add the UI dependencies and config**
 
-Update `apps/lwe/package.json` to add the minimal UI dependencies needed for `shadcn-svelte` primitives used in this phase.
+Update `package.json` to add the minimal UI dependencies needed for `shadcn-svelte` primitives used in this phase.
 
-Create `apps/lwe/components.json` with the minimal configuration that points generated/imported primitives into `src/lib/ui`.
+Create `components.json` with the minimal configuration that points generated/imported primitives into `src/lib/ui`.
 
 Create/import only the primitive components actually needed in this phase, prioritizing:
 
@@ -111,14 +111,14 @@ Do not import the entire catalog.
 
 - [ ] **Step 3: Add a tiny primitive wrapper smoke test**
 
-Create a small smoke test for one primitive under `apps/lwe/src/lib/ui/**` (or a wrapper around it) so the foundation is exercised by the frontend test runner.
+Create a small smoke test for one primitive under `src/lib/ui/**` (or a wrapper around it) so the foundation is exercised by the frontend test runner.
 
 - [ ] **Step 4: Run verification**
 
 Run:
 
 ```bash
-pnpm --dir apps/lwe install && pnpm --dir apps/lwe check
+pnpm --dir  install && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -126,17 +126,17 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/package.json apps/lwe/components.json apps/lwe/src/lib/ui
+git add package.json components.json src/lib/ui
 git commit -m "feat: add lwe shadcn ui foundation"
 ```
 
 ## Task 2: Rebuild the Global LWE Shell
 
 **Files:**
-- Create: `apps/lwe/src/lib/layout/AppShell.svelte`
-- Create: `apps/lwe/src/lib/layout/PageHeader.svelte`
-- Modify: `apps/lwe/src/routes/+layout.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Create: `src/lib/layout/AppShell.svelte`
+- Create: `src/lib/layout/PageHeader.svelte`
+- Modify: `src/routes/+layout.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Write the failing shell-layout test**
 
@@ -153,7 +153,7 @@ This can be a simple render-level test of `AppShell.svelte` or `+layout.svelte`.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL because the current shell is still just a flat link list.
@@ -178,7 +178,7 @@ Then update `+layout.svelte` to use the new shell.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -186,21 +186,21 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src/lib/layout apps/lwe/src/routes/+layout.svelte
+git add src/lib/layout src/routes/+layout.svelte
 git commit -m "feat: add lwe application shell"
 ```
 
 ## Task 3: Rebuild Core Product Components on the New Primitive Layer
 
 **Files:**
-- Create: `apps/lwe/src/lib/components/DesktopMonitorCard.svelte`
-- Modify: `apps/lwe/src/lib/components/ItemCard.svelte`
-- Modify: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/CompatibilityPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/StatusBadge.svelte`
-- Modify: `apps/lwe/src/lib/components/CoverImage.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Create: `src/lib/components/DesktopMonitorCard.svelte`
+- Modify: `src/lib/components/ItemCard.svelte`
+- Modify: `src/lib/components/LibraryDetailPanel.svelte`
+- Modify: `src/lib/components/WorkshopDetailPanel.svelte`
+- Modify: `src/lib/components/CompatibilityPanel.svelte`
+- Modify: `src/lib/components/StatusBadge.svelte`
+- Modify: `src/lib/components/CoverImage.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Write the failing component-system test**
 
@@ -215,7 +215,7 @@ Add one or more tests that expect:
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL because the old components are still manually styled and `DesktopMonitorCard` does not exist.
@@ -236,7 +236,7 @@ Keep the business props and data flow intact. This is a UI refoundation task, no
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -244,18 +244,18 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src/lib/components
+git add src/lib/components
 git commit -m "feat: refresh lwe core product components"
 ```
 
 ## Task 4: Integrate the New Shell and Components Into Library / Workshop / Desktop Pages
 
 **Files:**
-- Modify: `apps/lwe/src/routes/library/+page.svelte`
-- Modify: `apps/lwe/src/routes/workshop/+page.svelte`
-- Modify: `apps/lwe/src/routes/desktop/+page.svelte`
-- Modify: `apps/lwe/src/routes/settings/+page.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Modify: `src/routes/library/+page.svelte`
+- Modify: `src/routes/workshop/+page.svelte`
+- Modify: `src/routes/desktop/+page.svelte`
+- Modify: `src/routes/settings/+page.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Write the failing page-integration test**
 
@@ -270,7 +270,7 @@ Add tests or update existing page render tests so they expect:
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL because the current pages still use the old page shell and inline structures.
@@ -291,7 +291,7 @@ Do not redesign the page information architecture.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -299,7 +299,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src/routes
+git add src/routes
 git commit -m "feat: integrate lwe ui foundation into core pages"
 ```
 
@@ -307,7 +307,7 @@ git commit -m "feat: integrate lwe ui foundation into core pages"
 
 **Files:**
 - Modify: active page/component files as needed for dialog/select/toast integration
-- Test: `pnpm --dir apps/lwe test`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Identify the minimum feedback surfaces to standardize**
 
@@ -328,7 +328,7 @@ Do not turn this into a broad interaction redesign.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -336,7 +336,7 @@ Expected: PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add apps/lwe/src/lib/components apps/lwe/src/routes
+git add src/lib/components src/routes
 git commit -m "feat: polish lwe interaction feedback surfaces"
 ```
 

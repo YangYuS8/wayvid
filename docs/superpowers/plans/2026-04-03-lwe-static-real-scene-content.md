@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the package-backed `scene.pkg` runtime contract intact and add the smallest evidence-backed static-content derivation path that can produce a real renderable asset. Then wire `SceneSession` to upload and draw that content natively through the existing EGL/OpenGL path, and tighten compatibility so only scenes with a real static-content path are marked supported.
 
-**Tech Stack:** Rust, `lwe-library`, `lwe-engine`, `apps/lwe/src-tauri`, Wayland/EGL/OpenGL, package-backed scene manifest/runtime target model
+**Tech Stack:** Rust, `lwe-library`, `lwe-engine`, `src-tauri`, Wayland/EGL/OpenGL, package-backed scene manifest/runtime target model
 
 ---
 
@@ -22,19 +22,19 @@
   - Replace `glClearColor` placeholder rendering with real static-content loading and drawing.
 - Modify: `crates/lwe-engine/src/engine/mod.rs`
   - Keep first-frame success semantics aligned with the real static renderer path.
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs`
+- Modify: `src-tauri/src/results/workshop.rs`
   - Extend runtime assessment only if compatibility needs a structured static-content capability signal.
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
   - Mark scenes supported only when real static content can be derived.
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
   - Only if desktop apply tests need tiny alignment for first-frame success semantics.
 - Test: `crates/lwe-library/src/scene_static_content.rs`
   - Verify supported static-content derivation and clear unsupported cases.
 - Test: `crates/lwe-engine/src/scene.rs`
   - Verify the placeholder color path is gone for supported scenes and real content is rendered.
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/compatibility_service.rs`
   - Verify compatibility matches static-content derivation availability.
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
   - Verify scene apply and restore success depend on the real static renderer path.
 
 ## Precondition
@@ -209,9 +209,9 @@ git commit -m "feat: render real static scene content"
 ### Task 3: Tighten Compatibility to the Static-Content Subset
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs`
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/results/workshop.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/compatibility_service.rs`
 
 - [ ] **Step 1: Write the failing compatibility tests**
 
@@ -262,15 +262,15 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/lwe/src-tauri/src/results/workshop.rs apps/lwe/src-tauri/src/services/compatibility_service.rs
+git add src-tauri/src/results/workshop.rs src-tauri/src/services/compatibility_service.rs
 git commit -m "feat: gate scene support on static content derivation"
 ```
 
 ### Task 4: Verify Desktop Apply and Restore Depend on the Real Static Renderer Path
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
 
 - [ ] **Step 1: Write the failing desktop tests**
 
@@ -319,7 +319,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs
+git add src-tauri/src/services/desktop_service.rs
 git commit -m "feat: align scene desktop flow with static renderer"
 ```
 

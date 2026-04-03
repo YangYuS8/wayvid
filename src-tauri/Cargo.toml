@@ -10,8 +10,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 toml = "0.8"
 open = "5.3"
-lwe-engine = { path = "../../../crates/lwe-engine" }
-lwe-library = { path = "../../../crates/lwe-library" }
+lwe-engine = { path = "../crates/lwe-engine" }
+lwe-library = { path = "../crates/lwe-library" }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

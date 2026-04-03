@@ -1,16 +1,16 @@
 .PHONY: install dev test check
 
 install:
-	pnpm --dir apps/lwe install
+	pnpm install
 
 dev:
-	cd apps/lwe && cargo tauri dev
+	cargo tauri dev
 
 test:
 	cargo test -p lwe-app-shell
-	pnpm --dir apps/lwe test
+	pnpm test
 
 check:
 	cargo test -p lwe-app-shell
-	pnpm --dir apps/lwe exec svelte-kit sync
-	pnpm --dir apps/lwe check
+	pnpm exec svelte-kit sync
+	pnpm check

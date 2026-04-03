@@ -25,54 +25,54 @@ It does **not**:
 
 ### Files to create
 
-- `apps/lwe/src-tauri/src/results/compatibility.rs` - application-result types for compatibility assessments and explanation data
-- `apps/lwe/src-tauri/src/services/compatibility_service.rs` - service entrypoints that evaluate compatibility for Workshop entries and Library projections
-- `apps/lwe/src-tauri/src/assembly/compatibility.rs` - helpers that translate compatibility results into frontend-facing summary/detail fields
-- `apps/lwe/src/lib/components/CompatibilityPanel.svelte` - shared frontend component for explanation blocks and next-step guidance
+- `src-tauri/src/results/compatibility.rs` - application-result types for compatibility assessments and explanation data
+- `src-tauri/src/services/compatibility_service.rs` - service entrypoints that evaluate compatibility for Workshop entries and Library projections
+- `src-tauri/src/assembly/compatibility.rs` - helpers that translate compatibility results into frontend-facing summary/detail fields
+- `src/lib/components/CompatibilityPanel.svelte` - shared frontend component for explanation blocks and next-step guidance
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs` - replace note-string generation with structured reason/evidence outputs
-- `apps/lwe/src-tauri/src/policies/shared/support_policy.rs` - expose any helpers needed by compatibility evaluation
-- `apps/lwe/src-tauri/src/services/mod.rs` - export compatibility service
-- `apps/lwe/src-tauri/src/results/mod.rs` - export compatibility results
-- `apps/lwe/src-tauri/src/assembly/mod.rs` - export compatibility assembly helpers
-- `apps/lwe/src-tauri/src/models.rs` - add structured compatibility explanation fields to Workshop/Library detail payloads and refined summary badge data if needed
-- `apps/lwe/src-tauri/src/assembly/workshop_page.rs` - use compatibility assembly helpers for summaries
-- `apps/lwe/src-tauri/src/assembly/workshop_detail.rs` - assemble structured compatibility detail instead of hard-coded note strings
-- `apps/lwe/src-tauri/src/assembly/library_page.rs` - include compatibility summary for imported Library items where appropriate
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs` - expose compatibility explanation for Library detail payloads
-- `apps/lwe/src-tauri/src/services/workshop_service.rs` - feed Workshop refresh/inspect flows through compatibility evaluation
-- `apps/lwe/src-tauri/src/services/library_service.rs` - evaluate compatibility for Workshop-projected library items
-- `apps/lwe/src/lib/types.ts` - add matching TypeScript compatibility explanation/result types
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte` - render structured compatibility information via `CompatibilityPanel`
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - render the same compatibility explanation model
-- `apps/lwe/src/routes/workshop/+page.svelte` - expose any new detail fields cleanly
-- `apps/lwe/src/routes/library/+page.svelte` - expose any new detail fields cleanly
+- `src-tauri/src/policies/shared/compatibility_policy.rs` - replace note-string generation with structured reason/evidence outputs
+- `src-tauri/src/policies/shared/support_policy.rs` - expose any helpers needed by compatibility evaluation
+- `src-tauri/src/services/mod.rs` - export compatibility service
+- `src-tauri/src/results/mod.rs` - export compatibility results
+- `src-tauri/src/assembly/mod.rs` - export compatibility assembly helpers
+- `src-tauri/src/models.rs` - add structured compatibility explanation fields to Workshop/Library detail payloads and refined summary badge data if needed
+- `src-tauri/src/assembly/workshop_page.rs` - use compatibility assembly helpers for summaries
+- `src-tauri/src/assembly/workshop_detail.rs` - assemble structured compatibility detail instead of hard-coded note strings
+- `src-tauri/src/assembly/library_page.rs` - include compatibility summary for imported Library items where appropriate
+- `src-tauri/src/assembly/library_detail.rs` - expose compatibility explanation for Library detail payloads
+- `src-tauri/src/services/workshop_service.rs` - feed Workshop refresh/inspect flows through compatibility evaluation
+- `src-tauri/src/services/library_service.rs` - evaluate compatibility for Workshop-projected library items
+- `src/lib/types.ts` - add matching TypeScript compatibility explanation/result types
+- `src/lib/components/WorkshopDetailPanel.svelte` - render structured compatibility information via `CompatibilityPanel`
+- `src/lib/components/LibraryDetailPanel.svelte` - render the same compatibility explanation model
+- `src/routes/workshop/+page.svelte` - expose any new detail fields cleanly
+- `src/routes/library/+page.svelte` - expose any new detail fields cleanly
 - `docs/product/roadmap.md` - mark the compatibility track more concretely once implemented
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs`
-- `apps/lwe/src-tauri/src/results/workshop.rs`
-- `apps/lwe/src-tauri/src/results/library.rs`
-- `apps/lwe/src-tauri/src/assembly/workshop_detail.rs`
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs`
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
+- `src-tauri/src/policies/shared/compatibility_policy.rs`
+- `src-tauri/src/results/workshop.rs`
+- `src-tauri/src/results/library.rs`
+- `src-tauri/src/assembly/workshop_detail.rs`
+- `src-tauri/src/assembly/library_detail.rs`
+- `src/lib/components/WorkshopDetailPanel.svelte`
+- `src/lib/components/LibraryDetailPanel.svelte`
 - `docs/superpowers/specs/2026-03-27-linux-dynamic-wallpaper-platform-design.md`
 
 ## Task 1: Replace Compatibility Strings With Structured Evaluation Results
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/results/compatibility.rs`
-- Modify: `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs`
-- Modify: `apps/lwe/src-tauri/src/results/mod.rs`
+- Create: `src-tauri/src/results/compatibility.rs`
+- Modify: `src-tauri/src/policies/shared/compatibility_policy.rs`
+- Modify: `src-tauri/src/results/mod.rs`
 - Test: `cargo test -p lwe-app-shell compatibility_policy -- --nocapture`
 
 - [ ] **Step 1: Write the failing structured-compatibility test**
 
-Add this test to `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs` first:
+Add this test to `src-tauri/src/policies/shared/compatibility_policy.rs` first:
 
 ```rust
 #[test]
@@ -103,7 +103,7 @@ Expected: FAIL because `CompatibilityNextStep` and structured compatibility resu
 
 - [ ] **Step 3: Create compatibility result types**
 
-Create `apps/lwe/src-tauri/src/results/compatibility.rs` with:
+Create `src-tauri/src/results/compatibility.rs` with:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -147,7 +147,7 @@ pub struct CompatibilityExplanation {
 
 - [ ] **Step 4: Update the shared compatibility policy to return structured decisions**
 
-In `apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs`, change `CompatibilityDecision` so it becomes:
+In `src-tauri/src/policies/shared/compatibility_policy.rs`, change `CompatibilityDecision` so it becomes:
 
 ```rust
 pub struct CompatibilityDecision {
@@ -167,7 +167,7 @@ CompatibilityReason::UnsupportedWebItem => CompatibilityNextStep::WaitForFutureS
 CompatibilityReason::UnsupportedProjectType => CompatibilityNextStep::WaitForFutureSupport
 ```
 
-Export the new result module in `apps/lwe/src-tauri/src/results/mod.rs`:
+Export the new result module in `src-tauri/src/results/mod.rs`:
 
 ```rust
 pub mod compatibility;
@@ -181,22 +181,22 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/results/compatibility.rs apps/lwe/src-tauri/src/results/mod.rs apps/lwe/src-tauri/src/policies/shared/compatibility_policy.rs
+git add src-tauri/src/results/compatibility.rs src-tauri/src/results/mod.rs src-tauri/src/policies/shared/compatibility_policy.rs
 git commit -m "feat: add structured compatibility assessments"
 ```
 
 ## Task 2: Route Workshop and Library Through a Compatibility Service
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/mod.rs`
-- Modify: `apps/lwe/src-tauri/src/services/workshop_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Create: `src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/services/mod.rs`
+- Modify: `src-tauri/src/services/workshop_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
 - Test: `cargo test -p lwe-app-shell compatibility_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing compatibility-service test**
 
-Create `apps/lwe/src-tauri/src/services/compatibility_service.rs` with this test first:
+Create `src-tauri/src/services/compatibility_service.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -230,7 +230,7 @@ Expected: FAIL because `CompatibilityService` does not exist yet.
 
 - [ ] **Step 3: Implement the compatibility service**
 
-Create `apps/lwe/src-tauri/src/services/compatibility_service.rs` with:
+Create `src-tauri/src/services/compatibility_service.rs` with:
 
 ```rust
 use crate::policies::shared::compatibility_policy::compatibility_decision;
@@ -287,15 +287,15 @@ mod tests {
 
 - [ ] **Step 4: Feed Workshop and Library service results through compatibility evaluation**
 
-In `apps/lwe/src-tauri/src/services/mod.rs`, add:
+In `src-tauri/src/services/mod.rs`, add:
 
 ```rust
 pub mod compatibility_service;
 ```
 
-In `apps/lwe/src-tauri/src/services/workshop_service.rs`, extend `WorkshopRefreshResult` / `WorkshopInspection` population to include compatibility assessments, for example by building a vector of `(WorkshopCatalogEntry, CompatibilityAssessment)` pairs instead of plain entries.
+In `src-tauri/src/services/workshop_service.rs`, extend `WorkshopRefreshResult` / `WorkshopInspection` population to include compatibility assessments, for example by building a vector of `(WorkshopCatalogEntry, CompatibilityAssessment)` pairs instead of plain entries.
 
-In `apps/lwe/src-tauri/src/services/library_service.rs`, use the same service to evaluate the entries that are projected into Library so the later assemblers can attach compatibility summaries without recomputing policy logic.
+In `src-tauri/src/services/library_service.rs`, use the same service to evaluate the entries that are projected into Library so the later assemblers can attach compatibility summaries without recomputing policy logic.
 
 - [ ] **Step 5: Run tests and commit**
 
@@ -305,25 +305,25 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/mod.rs apps/lwe/src-tauri/src/services/compatibility_service.rs apps/lwe/src-tauri/src/services/workshop_service.rs apps/lwe/src-tauri/src/services/library_service.rs
+git add src-tauri/src/services/mod.rs src-tauri/src/services/compatibility_service.rs src-tauri/src/services/workshop_service.rs src-tauri/src/services/library_service.rs
 git commit -m "refactor: route lwe compatibility through service layer"
 ```
 
 ## Task 3: Assemble Compatibility Summaries and Explanations Into Frontend Models
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/assembly/compatibility.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/mod.rs`
-- Modify: `apps/lwe/src-tauri/src/models.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/workshop_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/workshop_detail.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_detail.rs`
+- Create: `src-tauri/src/assembly/compatibility.rs`
+- Modify: `src-tauri/src/assembly/mod.rs`
+- Modify: `src-tauri/src/models.rs`
+- Modify: `src-tauri/src/assembly/workshop_page.rs`
+- Modify: `src-tauri/src/assembly/workshop_detail.rs`
+- Modify: `src-tauri/src/assembly/library_page.rs`
+- Modify: `src-tauri/src/assembly/library_detail.rs`
 - Test: `cargo test -p lwe-app-shell compatibility_assembly -- --nocapture`
 
 - [ ] **Step 1: Write the failing compatibility-assembly test**
 
-Create `apps/lwe/src-tauri/src/assembly/compatibility.rs` with this test first:
+Create `src-tauri/src/assembly/compatibility.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -356,7 +356,7 @@ Expected: FAIL because the new compatibility assembly helpers do not exist yet.
 
 - [ ] **Step 3: Add frontend-facing compatibility types to the models**
 
-In `apps/lwe/src-tauri/src/models.rs`, add:
+In `src-tauri/src/models.rs`, add:
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -386,7 +386,7 @@ Then update:
 
 - [ ] **Step 4: Implement compatibility assembly helpers and wire page/detail assemblers**
 
-Create `apps/lwe/src-tauri/src/assembly/compatibility.rs` with:
+Create `src-tauri/src/assembly/compatibility.rs` with:
 
 ```rust
 use crate::models::{CompatibilityBadge, CompatibilityExplanationModel, CompatibilitySummaryModel};
@@ -474,7 +474,7 @@ mod tests {
 }
 ```
 
-Export it from `apps/lwe/src-tauri/src/assembly/mod.rs`:
+Export it from `src-tauri/src/assembly/mod.rs`:
 
 ```rust
 pub mod compatibility;
@@ -490,25 +490,25 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/models.rs apps/lwe/src-tauri/src/assembly/mod.rs apps/lwe/src-tauri/src/assembly/compatibility.rs apps/lwe/src-tauri/src/assembly/workshop_page.rs apps/lwe/src-tauri/src/assembly/workshop_detail.rs apps/lwe/src-tauri/src/assembly/library_page.rs apps/lwe/src-tauri/src/assembly/library_detail.rs
+git add src-tauri/src/models.rs src-tauri/src/assembly/mod.rs src-tauri/src/assembly/compatibility.rs src-tauri/src/assembly/workshop_page.rs src-tauri/src/assembly/workshop_detail.rs src-tauri/src/assembly/library_page.rs src-tauri/src/assembly/library_detail.rs
 git commit -m "feat: assemble lwe compatibility summaries and explanations"
 ```
 
 ## Task 4: Render Compatibility Explanations in the Thin Frontend
 
 **Files:**
-- Create: `apps/lwe/src/lib/components/CompatibilityPanel.svelte`
-- Modify: `apps/lwe/src/lib/types.ts`
-- Modify: `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/ItemCard.svelte`
-- Modify: `apps/lwe/src/routes/workshop/+page.svelte`
-- Modify: `apps/lwe/src/routes/library/+page.svelte`
-- Test: `npm test --prefix apps/lwe`
+- Create: `src/lib/components/CompatibilityPanel.svelte`
+- Modify: `src/lib/types.ts`
+- Modify: `src/lib/components/WorkshopDetailPanel.svelte`
+- Modify: `src/lib/components/LibraryDetailPanel.svelte`
+- Modify: `src/lib/components/ItemCard.svelte`
+- Modify: `src/routes/workshop/+page.svelte`
+- Modify: `src/routes/library/+page.svelte`
+- Test: `npm test --prefix `
 
 - [ ] **Step 1: Write the failing frontend compatibility-panel test**
 
-Create `apps/lwe/src/lib/components/CompatibilityPanel.svelte` with this Vitest/Svelte test first in a colocated test file `apps/lwe/src/lib/components/CompatibilityPanel.test.ts`:
+Create `src/lib/components/CompatibilityPanel.svelte` with this Vitest/Svelte test first in a colocated test file `src/lib/components/CompatibilityPanel.test.ts`:
 
 ```ts
 import { render, screen } from '@testing-library/svelte';
@@ -535,12 +535,12 @@ describe('CompatibilityPanel', () => {
 
 - [ ] **Step 2: Run the frontend test to verify it fails**
 
-Run: `npm test --prefix apps/lwe`
+Run: `npm test --prefix `
 Expected: FAIL because the new compatibility panel and matching TS types do not exist yet.
 
 - [ ] **Step 3: Mirror the new compatibility models into TypeScript**
 
-In `apps/lwe/src/lib/types.ts`, add:
+In `src/lib/types.ts`, add:
 
 ```ts
 export type CompatibilityNextStep =
@@ -574,7 +574,7 @@ to use those structured types.
 
 - [ ] **Step 4: Render the compatibility explanation panel and summary badges**
 
-Create `apps/lwe/src/lib/components/CompatibilityPanel.svelte` with:
+Create `src/lib/components/CompatibilityPanel.svelte` with:
 
 ```svelte
 <script lang="ts">
@@ -605,13 +605,13 @@ Update the Workshop/Library pages only as needed to pass the richer structured c
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `npm test --prefix apps/lwe`
+Run: `npm test --prefix `
 Expected: PASS
 
 Then:
 
 ```bash
-git add apps/lwe/src/lib/types.ts apps/lwe/src/lib/components/CompatibilityPanel.svelte apps/lwe/src/lib/components/CompatibilityPanel.test.ts apps/lwe/src/lib/components/WorkshopDetailPanel.svelte apps/lwe/src/lib/components/LibraryDetailPanel.svelte apps/lwe/src/lib/components/ItemCard.svelte apps/lwe/src/routes/workshop/+page.svelte apps/lwe/src/routes/library/+page.svelte
+git add src/lib/types.ts src/lib/components/CompatibilityPanel.svelte src/lib/components/CompatibilityPanel.test.ts src/lib/components/WorkshopDetailPanel.svelte src/lib/components/LibraryDetailPanel.svelte src/lib/components/ItemCard.svelte src/routes/workshop/+page.svelte src/routes/library/+page.svelte
 git commit -m "feat: render lwe compatibility explanations in frontend"
 ```
 

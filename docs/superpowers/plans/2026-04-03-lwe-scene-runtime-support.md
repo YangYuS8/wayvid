@@ -6,7 +6,7 @@
 
 **Architecture:** Extend `lwe-library` with a scene manifest parser and structured scene parse failures, then replace the current desktop apply `PathBuf` assumption with a typed runtime target shared between the Tauri backend and `lwe-engine`. Preserve the current video/mpv path, but dispatch `scene` items through a sibling engine runtime path with explicit compatibility and failure reporting.
 
-**Tech Stack:** Rust, Tauri 2, `lwe-library`, `lwe-engine`, `apps/lwe/src-tauri`, existing workshop/catalog/compatibility services
+**Tech Stack:** Rust, Tauri 2, `lwe-library`, `lwe-engine`, `src-tauri`, existing workshop/catalog/compatibility services
 
 ---
 
@@ -32,19 +32,19 @@
   - Support the scene runtime path alongside the existing mpv/video session logic.
 - Test: `crates/lwe-engine/src/engine/command.rs` and `crates/lwe-engine/src/engine/mod.rs` tests
   - Verify command typing and dispatch behavior.
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
   - Fold scene parse/runtime support into compatibility assessment.
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
   - Surface typed runtime inspection data for library items.
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
   - Replace `resolve_real_apply_path()` with typed runtime-target resolution and scene-aware engine apply.
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs`
+- Modify: `src-tauri/src/results/workshop.rs`
   - Extend assessed metadata only if needed to surface scene support reasons cleanly.
-- Modify: `apps/lwe/src-tauri/src/assembly/*` and result modules only if needed
+- Modify: `src-tauri/src/assembly/*` and result modules only if needed
   - Preserve frontend-thin behavior while surfacing clearer support/failure states.
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
   - Verify video target, scene target, and scene failure cases.
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/compatibility_service.rs`
   - Verify supported vs unsupported scene compatibility outcomes.
 
 ## Fixture Guidance
@@ -258,11 +258,11 @@ git commit -m "feat: add typed engine runtime targets"
 ### Task 3: Integrate Scene Parsing into Compatibility and Library Inspection
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs` if structured metadata needs extension
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
-- Test: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/results/workshop.rs` if structured metadata needs extension
+- Test: `src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/library_service.rs`
 
 - [ ] **Step 1: Write the failing compatibility and library inspection tests**
 
@@ -328,16 +328,16 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/compatibility_service.rs apps/lwe/src-tauri/src/services/library_service.rs apps/lwe/src-tauri/src/results/workshop.rs
+git add src-tauri/src/services/compatibility_service.rs src-tauri/src/services/library_service.rs src-tauri/src/results/workshop.rs
 git commit -m "feat: assess scene runtime support"
 ```
 
 ### Task 4: Replace Desktop Apply Path Resolution with Runtime-Target Dispatch
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
 - Modify: `crates/lwe-engine/src/engine/command.rs` if command payload names need final alignment
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
 
 - [ ] **Step 1: Write the failing desktop-apply tests for video and scene targets**
 
@@ -405,15 +405,15 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs crates/lwe-engine/src/engine/command.rs
+git add src-tauri/src/services/desktop_service.rs crates/lwe-engine/src/engine/command.rs
 git commit -m "feat: dispatch scene runtime targets for desktop apply"
 ```
 
 ### Task 5: Validate Startup Restore and Real-World Scene Apply Paths
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Modify: tests in `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Modify: tests in `src-tauri/src/services/desktop_service.rs`
 - Modify: docs only if a small manual verification note is needed
 
 - [ ] **Step 1: Write the failing restore/regression test for scene assignments**
@@ -473,7 +473,7 @@ Then perform a local manual check with a real subscribed scene project already o
 Run:
 
 ```bash
-git add crates/lwe-library/src/scene_manifest.rs crates/lwe-library/src/workshop.rs crates/lwe-library/src/lib.rs crates/lwe-engine/src/scene.rs crates/lwe-engine/src/lib.rs crates/lwe-engine/src/engine/command.rs crates/lwe-engine/src/engine/mod.rs crates/lwe-engine/src/engine/session.rs apps/lwe/src-tauri/src/services/compatibility_service.rs apps/lwe/src-tauri/src/services/library_service.rs apps/lwe/src-tauri/src/services/desktop_service.rs apps/lwe/src-tauri/src/results/workshop.rs
+git add crates/lwe-library/src/scene_manifest.rs crates/lwe-library/src/workshop.rs crates/lwe-library/src/lib.rs crates/lwe-engine/src/scene.rs crates/lwe-engine/src/lib.rs crates/lwe-engine/src/engine/command.rs crates/lwe-engine/src/engine/mod.rs crates/lwe-engine/src/engine/session.rs src-tauri/src/services/compatibility_service.rs src-tauri/src/services/library_service.rs src-tauri/src/services/desktop_service.rs src-tauri/src/results/workshop.rs
 git commit -m "feat: add scene runtime desktop support"
 ```
 

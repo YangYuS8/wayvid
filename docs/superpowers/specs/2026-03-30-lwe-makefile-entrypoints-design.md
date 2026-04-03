@@ -22,15 +22,15 @@ It should not add release, cleanup, packaging, or legacy-crate targets.
 Installs frontend dependencies with pnpm:
 
 ```bash
-pnpm --dir apps/lwe install
+pnpm --dir  install
 ```
 
 ### `dev`
 
-Runs the active LWE shell in development mode from `apps/lwe`:
+Runs the active LWE shell in development mode from ``:
 
 ```bash
-cd apps/lwe && cargo tauri dev
+cd  && cargo tauri dev
 ```
 
 ### `test`
@@ -39,7 +39,7 @@ Runs the most common Rust and frontend test commands:
 
 ```bash
 cargo test -p lwe-app-shell
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 ### `check`
@@ -48,7 +48,7 @@ Runs the common verification path for the active shell:
 
 ```bash
 cargo test -p lwe-app-shell
-pnpm --dir apps/lwe check
+pnpm --dir  check
 ```
 
 ## Non-Goals

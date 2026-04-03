@@ -51,7 +51,7 @@ docs/po/*.mo
 .worktrees/
 
 # LWE frontend generated files
-apps/lwe/.svelte-kit/
-apps/lwe/node_modules/
-apps/lwe/src-tauri/gen/
-apps/lwe/build/
+.svelte-kit/
+node_modules/
+src-tauri/gen/
+build/

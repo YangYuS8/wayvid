@@ -44,18 +44,18 @@ Write `Makefile` with exactly these targets:
 .PHONY: install dev test check
 
 install:
-	pnpm --dir apps/lwe install
+	pnpm --dir  install
 
 dev:
-	cd apps/lwe && cargo tauri dev
+	cd  && cargo tauri dev
 
 test:
 	cargo test -p lwe-app-shell
-	pnpm --dir apps/lwe test
+	pnpm --dir  test
 
 check:
 	cargo test -p lwe-app-shell
-	pnpm --dir apps/lwe check
+	pnpm --dir  check
 ```
 
 - [ ] **Step 3: Run dry-run verification**
@@ -79,7 +79,7 @@ make check
 Expected:
 
 - `cargo test -p lwe-app-shell` passes
-- `pnpm --dir apps/lwe check` passes
+- `pnpm --dir  check` passes
 
 - [ ] **Step 5: Commit**
 

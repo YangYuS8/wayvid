@@ -29,35 +29,35 @@ It does **not** include:
 
 ### Files to create
 
-- `apps/lwe/src/lib/components/ItemActionsMenu.svelte` - right-click / secondary action menu for wallpaper items
+- `src/lib/components/ItemActionsMenu.svelte` - right-click / secondary action menu for wallpaper items
 
 ### Files to modify
 
-- `apps/lwe/src/routes/library/+page.svelte` - clarify Library framing and wire stronger apply discoverability
-- `apps/lwe/src/routes/workshop/+page.svelte` - clarify current local-sync Workshop role in page framing/copy
-- `apps/lwe/src/lib/components/ItemCard.svelte` - support the visible apply affordance and context-menu affordance
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - move to a denser vertical information flow with visible primary apply action
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte` - same vertical-density improvements and role clarity
-- `apps/lwe/src/lib/components/MonitorPicker.svelte` - align with the stronger visible-apply path if needed
-- `apps/lwe/src/lib/types.ts` - only if a minimal UI-facing action/secondary-action prop shape is needed
+- `src/routes/library/+page.svelte` - clarify Library framing and wire stronger apply discoverability
+- `src/routes/workshop/+page.svelte` - clarify current local-sync Workshop role in page framing/copy
+- `src/lib/components/ItemCard.svelte` - support the visible apply affordance and context-menu affordance
+- `src/lib/components/LibraryDetailPanel.svelte` - move to a denser vertical information flow with visible primary apply action
+- `src/lib/components/WorkshopDetailPanel.svelte` - same vertical-density improvements and role clarity
+- `src/lib/components/MonitorPicker.svelte` - align with the stronger visible-apply path if needed
+- `src/lib/types.ts` - only if a minimal UI-facing action/secondary-action prop shape is needed
 - `docs/product/roadmap.md` - reflect the new usability pass if completed
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src/routes/library/+page.svelte`
-- `apps/lwe/src/routes/workshop/+page.svelte`
-- `apps/lwe/src/lib/components/ItemCard.svelte`
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- `apps/lwe/src/lib/components/MonitorPicker.svelte`
+- `src/routes/library/+page.svelte`
+- `src/routes/workshop/+page.svelte`
+- `src/lib/components/ItemCard.svelte`
+- `src/lib/components/LibraryDetailPanel.svelte`
+- `src/lib/components/WorkshopDetailPanel.svelte`
+- `src/lib/components/MonitorPicker.svelte`
 - `docs/superpowers/specs/2026-03-31-lwe-usability-pass-v1-design.md`
 
 ## Task 1: Clarify `Library` vs `Workshop` Page Semantics
 
 **Files:**
-- Modify: `apps/lwe/src/routes/library/+page.svelte`
-- Modify: `apps/lwe/src/routes/workshop/+page.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Modify: `src/routes/library/+page.svelte`
+- Modify: `src/routes/workshop/+page.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Add a failing page-semantics test**
 
@@ -73,7 +73,7 @@ This can be done through existing page render tests or new lightweight text asse
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL once the new copy/semantics assertions are introduced.
@@ -92,7 +92,7 @@ Do not rename the page entirely, and do not fake online Workshop browsing.
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -100,18 +100,18 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src/routes/library/+page.svelte apps/lwe/src/routes/workshop/+page.svelte
+git add src/routes/library/+page.svelte src/routes/workshop/+page.svelte
 git commit -m "feat: clarify library and workshop roles"
 ```
 
 ## Task 2: Make Apply Obvious and Fast
 
 **Files:**
-- Create: `apps/lwe/src/lib/components/ItemActionsMenu.svelte`
-- Modify: `apps/lwe/src/lib/components/ItemCard.svelte`
-- Modify: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- Modify: `apps/lwe/src/routes/library/+page.svelte`
-- Test: `pnpm --dir apps/lwe test`
+- Create: `src/lib/components/ItemActionsMenu.svelte`
+- Modify: `src/lib/components/ItemCard.svelte`
+- Modify: `src/lib/components/LibraryDetailPanel.svelte`
+- Modify: `src/routes/library/+page.svelte`
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Add a failing apply-discoverability test**
 
@@ -127,7 +127,7 @@ The test does not need to validate runtime behavior, only UI discoverability and
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL once the new discoverability assertions are in place.
@@ -147,7 +147,7 @@ Do not move ownership of the apply business logic out of the current detail/pane
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -155,17 +155,17 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src/lib/components/ItemActionsMenu.svelte apps/lwe/src/lib/components/ItemCard.svelte apps/lwe/src/lib/components/LibraryDetailPanel.svelte apps/lwe/src/routes/library/+page.svelte
+git add src/lib/components/ItemActionsMenu.svelte src/lib/components/ItemCard.svelte src/lib/components/LibraryDetailPanel.svelte src/routes/library/+page.svelte
 git commit -m "feat: improve apply action discoverability"
 ```
 
 ## Task 3: Tighten the Detail Panel Layout
 
 **Files:**
-- Modify: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- Modify: `apps/lwe/src/lib/components/CoverImage.svelte` only if needed for the new compact detail treatment
-- Test: `pnpm --dir apps/lwe test`
+- Modify: `src/lib/components/LibraryDetailPanel.svelte`
+- Modify: `src/lib/components/WorkshopDetailPanel.svelte`
+- Modify: `src/lib/components/CoverImage.svelte` only if needed for the new compact detail treatment
+- Test: `pnpm --dir  test`
 
 - [ ] **Step 1: Add a failing layout-density test**
 
@@ -178,7 +178,7 @@ This can be done by checking for the new section ordering / wrappers / structure
 Run:
 
 ```bash
-pnpm --dir apps/lwe test
+pnpm --dir  test
 ```
 
 Expected: FAIL once the structural expectations are added.
@@ -206,7 +206,7 @@ Requirements:
 Run:
 
 ```bash
-pnpm --dir apps/lwe test && pnpm --dir apps/lwe check
+pnpm --dir  test && pnpm --dir  check
 ```
 
 Expected: PASS
@@ -214,7 +214,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lwe/src/lib/components/LibraryDetailPanel.svelte apps/lwe/src/lib/components/WorkshopDetailPanel.svelte apps/lwe/src/lib/components/CoverImage.svelte
+git add src/lib/components/LibraryDetailPanel.svelte src/lib/components/WorkshopDetailPanel.svelte src/lib/components/CoverImage.svelte
 git commit -m "feat: tighten detail panel layout for real use"
 ```
 

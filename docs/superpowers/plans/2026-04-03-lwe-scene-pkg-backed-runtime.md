@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the current narrow `PKGV00xx` signature/version evidence and package-backed manifest fallback, and push that model consistently through `lwe-library`, `lwe-engine`, and the Tauri backend. The runtime should stop depending on guessed top-level `scene.json` paths and treat `scene.pkg` as the external scene payload, while still refusing to invent internal package enumeration semantics.
 
-**Tech Stack:** Rust, `lwe-library`, `lwe-engine`, `apps/lwe/src-tauri`, Wayland/EGL runtime path, existing typed `RuntimeTarget`
+**Tech Stack:** Rust, `lwe-library`, `lwe-engine`, `src-tauri`, Wayland/EGL runtime path, existing typed `RuntimeTarget`
 
 ---
 
@@ -16,11 +16,11 @@
   - Preserve package-backed provenance and make `scene.pkg` the authoritative runtime payload path.
 - Modify: `crates/lwe-library/src/lib.rs`
   - Re-export any adjusted manifest/provenance types if needed.
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs`
+- Modify: `src-tauri/src/results/workshop.rs`
   - Keep runtime assessment/result types aligned with package-backed scene payloads.
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
   - Align compatibility with package-backed acceptance rules instead of guessed entry-file rules.
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
   - Build `RuntimeTarget::Scene` from package-backed manifest facts.
 - Modify: `crates/lwe-engine/src/scene.rs`
   - Make scene runtime identity package-backed rather than guessed-entry-backed.
@@ -28,28 +28,28 @@
   - Keep apply barrier/status identity aligned with the package-backed scene target.
 - Modify: `crates/lwe-engine/src/engine/command.rs`
   - Only if status or target metadata names need alignment.
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
   - Keep apply barrier identity aligned with the package-backed scene target.
 - Test: `crates/lwe-library/src/scene_manifest.rs`
   - Verify package-backed manifest provenance and failure semantics.
-- Test: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Test: `src-tauri/src/services/library_service.rs`
   - Verify `RuntimeTarget::Scene` is package-backed.
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/compatibility_service.rs`
   - Verify compatibility reflects package-backed acceptance/failure.
 - Test: `crates/lwe-engine/src/scene.rs`
   - Verify scene runtime identity uses the package payload path.
 - Test: `crates/lwe-engine/src/engine/mod.rs`
   - Verify apply barrier and status use the package-backed identity.
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
   - Verify apply barrier identity and restore behavior stay aligned with the package-backed target.
 
 ### Task 1: Make the Manifest and Runtime Target Explicitly Package-Backed
 
 **Files:**
 - Modify: `crates/lwe-library/src/scene_manifest.rs`
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
 - Test: `crates/lwe-library/src/scene_manifest.rs`
-- Test: `apps/lwe/src-tauri/src/services/library_service.rs`
+- Test: `src-tauri/src/services/library_service.rs`
 
 - [ ] **Step 1: Write the failing package-backed manifest and runtime-target tests**
 
@@ -105,16 +105,16 @@ Expected: PASS.
 Run:
 
 ```bash
-git add crates/lwe-library/src/scene_manifest.rs apps/lwe/src-tauri/src/services/library_service.rs
+git add crates/lwe-library/src/scene_manifest.rs src-tauri/src/services/library_service.rs
 git commit -m "feat: make scene runtime targets package-backed"
 ```
 
 ### Task 2: Align Compatibility with the Package-Backed Acceptance Model
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/results/workshop.rs`
-- Modify: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
-- Test: `apps/lwe/src-tauri/src/services/compatibility_service.rs`
+- Modify: `src-tauri/src/results/workshop.rs`
+- Modify: `src-tauri/src/services/compatibility_service.rs`
+- Test: `src-tauri/src/services/compatibility_service.rs`
 
 - [ ] **Step 1: Write the failing compatibility tests**
 
@@ -168,7 +168,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/lwe/src-tauri/src/results/workshop.rs apps/lwe/src-tauri/src/services/compatibility_service.rs
+git add src-tauri/src/results/workshop.rs src-tauri/src/services/compatibility_service.rs
 git commit -m "feat: align scene compatibility with package-backed runtime"
 ```
 
@@ -244,8 +244,8 @@ git commit -m "feat: align scene engine identity with package payload"
 ### Task 4: Align Desktop Apply and Restore with the Package-Backed Scene Identity
 
 **Files:**
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Test: `apps/lwe/src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Test: `src-tauri/src/services/desktop_service.rs`
 
 - [ ] **Step 1: Write the failing desktop apply/restore identity tests**
 
@@ -296,7 +296,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs
+git add src-tauri/src/services/desktop_service.rs
 git commit -m "feat: align scene desktop apply with package identity"
 ```
 

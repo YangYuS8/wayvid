@@ -33,57 +33,57 @@ It explicitly does **not** include:
 
 ### Files to create
 
-- `apps/lwe/src-tauri/src/results/desktop_apply.rs` - application-result types for apply/clear/restore effects
-- `apps/lwe/src-tauri/src/services/monitor_service.rs` - monitor discovery + target resolution service
-- `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` - persisted last-assignment read/write helpers
-- `apps/lwe/src-tauri/src/assembly/desktop_apply.rs` - assembly helpers for apply/clear action outcomes and Library quick-status updates
-- `apps/lwe/src/lib/components/MonitorPicker.svelte` - thin monitor selection UI for Library apply action
-- `apps/lwe/src/lib/components/DesktopMonitorCard.svelte` - current monitor state card for the Desktop page
+- `src-tauri/src/results/desktop_apply.rs` - application-result types for apply/clear/restore effects
+- `src-tauri/src/services/monitor_service.rs` - monitor discovery + target resolution service
+- `src-tauri/src/services/desktop_persistence_service.rs` - persisted last-assignment read/write helpers
+- `src-tauri/src/assembly/desktop_apply.rs` - assembly helpers for apply/clear action outcomes and Library quick-status updates
+- `src/lib/components/MonitorPicker.svelte` - thin monitor selection UI for Library apply action
+- `src/lib/components/DesktopMonitorCard.svelte` - current monitor state card for the Desktop page
 
 ### Files to modify
 
-- `apps/lwe/src-tauri/src/models.rs` - add monitor target/apply request types, Library quick-status fields, Desktop monitor assignment fields
-- `apps/lwe/src-tauri/src/action_outcome.rs` - extend action outcomes if needed for current-page update + Desktop invalidation patterns
-- `apps/lwe/src-tauri/src/results/mod.rs` - export the new desktop-apply result module
-- `apps/lwe/src-tauri/src/services/mod.rs` - export new monitor/persistence services
-- `apps/lwe/src-tauri/src/services/library_service.rs` - expose applyable Library item selection and quick-status projection inputs
-- `apps/lwe/src-tauri/src/services/desktop_service.rs` - replace placeholder-only behavior with monitor snapshot/load/apply/clear/restore workflows
-- `apps/lwe/src-tauri/src/services/app_shell_service.rs` - include persisted/current desktop summary where relevant
-- `apps/lwe/src-tauri/src/assembly/library_page.rs` - surface current usage quick status in Library summaries
-- `apps/lwe/src-tauri/src/assembly/library_detail.rs` - expose applyability and quick status in Library detail
-- `apps/lwe/src-tauri/src/assembly/desktop_page.rs` - build real monitor cards from Desktop results
-- `apps/lwe/src-tauri/src/assembly/action_outcome.rs` - assemble apply/clear outcomes with current-page and stale-page behavior
-- `apps/lwe/src-tauri/src/commands/library.rs` - add Library-side apply command(s)
-- `apps/lwe/src-tauri/src/commands/desktop.rs` - add Desktop-side clear/load commands and startup restore hook if needed
-- `apps/lwe/src/lib/types.ts` - mirror new apply/monitor/status contract shapes
-- `apps/lwe/src/lib/ipc.ts` - add typed wrappers for apply/clear/load flows
-- `apps/lwe/src/lib/stores/ui.ts` - add minimal current-action/quick-status cache handling for Library + Desktop pages
-- `apps/lwe/src/routes/library/+page.svelte` - add apply action in the Library detail panel and hook monitor selection flow
-- `apps/lwe/src/routes/desktop/+page.svelte` - replace placeholder Desktop rendering with monitor cards and clear actions
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - render apply button and current usage quick status
+- `src-tauri/src/models.rs` - add monitor target/apply request types, Library quick-status fields, Desktop monitor assignment fields
+- `src-tauri/src/action_outcome.rs` - extend action outcomes if needed for current-page update + Desktop invalidation patterns
+- `src-tauri/src/results/mod.rs` - export the new desktop-apply result module
+- `src-tauri/src/services/mod.rs` - export new monitor/persistence services
+- `src-tauri/src/services/library_service.rs` - expose applyable Library item selection and quick-status projection inputs
+- `src-tauri/src/services/desktop_service.rs` - replace placeholder-only behavior with monitor snapshot/load/apply/clear/restore workflows
+- `src-tauri/src/services/app_shell_service.rs` - include persisted/current desktop summary where relevant
+- `src-tauri/src/assembly/library_page.rs` - surface current usage quick status in Library summaries
+- `src-tauri/src/assembly/library_detail.rs` - expose applyability and quick status in Library detail
+- `src-tauri/src/assembly/desktop_page.rs` - build real monitor cards from Desktop results
+- `src-tauri/src/assembly/action_outcome.rs` - assemble apply/clear outcomes with current-page and stale-page behavior
+- `src-tauri/src/commands/library.rs` - add Library-side apply command(s)
+- `src-tauri/src/commands/desktop.rs` - add Desktop-side clear/load commands and startup restore hook if needed
+- `src/lib/types.ts` - mirror new apply/monitor/status contract shapes
+- `src/lib/ipc.ts` - add typed wrappers for apply/clear/load flows
+- `src/lib/stores/ui.ts` - add minimal current-action/quick-status cache handling for Library + Desktop pages
+- `src/routes/library/+page.svelte` - add apply action in the Library detail panel and hook monitor selection flow
+- `src/routes/desktop/+page.svelte` - replace placeholder Desktop rendering with monitor cards and clear actions
+- `src/lib/components/LibraryDetailPanel.svelte` - render apply button and current usage quick status
 - `docs/product/roadmap.md` - update the desktop/library flow track once implemented
 
 ### Files to inspect while implementing
 
-- `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- `apps/lwe/src-tauri/src/assembly/desktop_page.rs`
-- `apps/lwe/src-tauri/src/services/library_service.rs`
-- `apps/lwe/src/lib/types.ts`
-- `apps/lwe/src/routes/library/+page.svelte`
-- `apps/lwe/src/routes/desktop/+page.svelte`
+- `src-tauri/src/services/desktop_service.rs`
+- `src-tauri/src/assembly/desktop_page.rs`
+- `src-tauri/src/services/library_service.rs`
+- `src/lib/types.ts`
+- `src/routes/library/+page.svelte`
+- `src/routes/desktop/+page.svelte`
 - `docs/superpowers/specs/2026-03-27-linux-dynamic-wallpaper-platform-design.md`
 
 ## Task 1: Define Monitor Targets and Desktop Apply Result Types
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/results/desktop_apply.rs`
-- Modify: `apps/lwe/src-tauri/src/results/mod.rs`
-- Modify: `apps/lwe/src-tauri/src/models.rs`
+- Create: `src-tauri/src/results/desktop_apply.rs`
+- Modify: `src-tauri/src/results/mod.rs`
+- Modify: `src-tauri/src/models.rs`
 - Test: `cargo test -p lwe-app-shell desktop_apply -- --nocapture`
 
 - [ ] **Step 1: Write the failing monitor-target test**
 
-Add this test to `apps/lwe/src-tauri/src/models.rs` first:
+Add this test to `src-tauri/src/models.rs` first:
 
 ```rust
 #[test]
@@ -109,7 +109,7 @@ Expected: FAIL because `DesktopApplyRequest` / `DesktopApplyTarget` do not exist
 
 - [ ] **Step 3: Add monitor-target and quick-status models**
 
-In `apps/lwe/src-tauri/src/models.rs`, add:
+In `src-tauri/src/models.rs`, add:
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -140,7 +140,7 @@ Then update:
 
 - [ ] **Step 4: Create desktop-apply result types**
 
-Create `apps/lwe/src-tauri/src/results/desktop_apply.rs` with:
+Create `src-tauri/src/results/desktop_apply.rs` with:
 
 ```rust
 use crate::results::app_shell::ObservedCount;
@@ -172,7 +172,7 @@ pub struct RestoreAssignmentsResult {
 }
 ```
 
-Export it in `apps/lwe/src-tauri/src/results/mod.rs`:
+Export it in `src-tauri/src/results/mod.rs`:
 
 ```rust
 pub mod desktop_apply;
@@ -186,21 +186,21 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/models.rs apps/lwe/src-tauri/src/results/mod.rs apps/lwe/src-tauri/src/results/desktop_apply.rs
+git add src-tauri/src/models.rs src-tauri/src/results/mod.rs src-tauri/src/results/desktop_apply.rs
 git commit -m "feat: add desktop apply request and result models"
 ```
 
 ## Task 2: Build Monitor Discovery and Desktop Persistence Services
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/services/monitor_service.rs`
-- Create: `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/mod.rs`
+- Create: `src-tauri/src/services/monitor_service.rs`
+- Create: `src-tauri/src/services/desktop_persistence_service.rs`
+- Modify: `src-tauri/src/services/mod.rs`
 - Test: `cargo test -p lwe-app-shell monitor_service -- --nocapture`
 
 - [ ] **Step 1: Write the failing monitor-service test**
 
-Create `apps/lwe/src-tauri/src/services/monitor_service.rs` with this test first:
+Create `src-tauri/src/services/monitor_service.rs` with this test first:
 
 ```rust
 #[cfg(test)]
@@ -230,7 +230,7 @@ Expected: FAIL because `MonitorDescriptor` / `resolve_specific_monitor` do not e
 
 - [ ] **Step 3: Implement monitor discovery/target resolution**
 
-Create `apps/lwe/src-tauri/src/services/monitor_service.rs` with:
+Create `src-tauri/src/services/monitor_service.rs` with:
 
 ```rust
 #[derive(Debug, Clone)]
@@ -281,7 +281,7 @@ mod tests {
 
 - [ ] **Step 4: Implement persisted assignment storage helpers**
 
-Create `apps/lwe/src-tauri/src/services/desktop_persistence_service.rs` with:
+Create `src-tauri/src/services/desktop_persistence_service.rs` with:
 
 ```rust
 use std::collections::BTreeMap;
@@ -304,7 +304,7 @@ impl DesktopPersistenceService {
 }
 ```
 
-Export both services in `apps/lwe/src-tauri/src/services/mod.rs`:
+Export both services in `src-tauri/src/services/mod.rs`:
 
 ```rust
 pub mod desktop_persistence_service;
@@ -319,27 +319,27 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/mod.rs apps/lwe/src-tauri/src/services/monitor_service.rs apps/lwe/src-tauri/src/services/desktop_persistence_service.rs
+git add src-tauri/src/services/mod.rs src-tauri/src/services/monitor_service.rs src-tauri/src/services/desktop_persistence_service.rs
 git commit -m "feat: add monitor and desktop persistence services"
 ```
 
 ## Task 3: Implement Desktop Apply/Clear/Restore Service and Assembly Flow
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/assembly/desktop_apply.rs`
-- Modify: `apps/lwe/src-tauri/src/services/desktop_service.rs`
-- Modify: `apps/lwe/src-tauri/src/services/library_service.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/desktop_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_page.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/library_detail.rs`
-- Modify: `apps/lwe/src-tauri/src/assembly/action_outcome.rs`
-- Modify: `apps/lwe/src-tauri/src/results/library.rs`
-- Modify: `apps/lwe/src-tauri/src/results/desktop.rs`
+- Create: `src-tauri/src/assembly/desktop_apply.rs`
+- Modify: `src-tauri/src/services/desktop_service.rs`
+- Modify: `src-tauri/src/services/library_service.rs`
+- Modify: `src-tauri/src/assembly/desktop_page.rs`
+- Modify: `src-tauri/src/assembly/library_page.rs`
+- Modify: `src-tauri/src/assembly/library_detail.rs`
+- Modify: `src-tauri/src/assembly/action_outcome.rs`
+- Modify: `src-tauri/src/results/library.rs`
+- Modify: `src-tauri/src/results/desktop.rs`
 - Test: `cargo test -p lwe-app-shell desktop_apply_flow -- --nocapture`
 
 - [ ] **Step 1: Write the failing desktop-apply-flow test**
 
-Add this test to `apps/lwe/src-tauri/src/services/desktop_service.rs` first:
+Add this test to `src-tauri/src/services/desktop_service.rs` first:
 
 ```rust
 #[test]
@@ -365,7 +365,7 @@ Expected: FAIL because `DesktopService::apply_to_monitor` and the related flow d
 
 - [ ] **Step 3: Implement apply/clear/restore in `DesktopService`**
 
-Extend `apps/lwe/src-tauri/src/services/desktop_service.rs` with:
+Extend `src-tauri/src/services/desktop_service.rs` with:
 
 ```rust
 use crate::models::{DesktopApplyRequest, DesktopApplyTarget};
@@ -411,7 +411,7 @@ impl DesktopService {
 
 - [ ] **Step 4: Assemble the Desktop and Library effects**
 
-Create `apps/lwe/src-tauri/src/assembly/desktop_apply.rs` with helpers like:
+Create `src-tauri/src/assembly/desktop_apply.rs` with helpers like:
 
 ```rust
 use crate::action_outcome::{ActionOutcome, InvalidatedPage};
@@ -438,28 +438,28 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/services/desktop_service.rs apps/lwe/src-tauri/src/services/library_service.rs apps/lwe/src-tauri/src/results/library.rs apps/lwe/src-tauri/src/results/desktop.rs apps/lwe/src-tauri/src/assembly/desktop_apply.rs apps/lwe/src-tauri/src/assembly/desktop_page.rs apps/lwe/src-tauri/src/assembly/library_page.rs apps/lwe/src-tauri/src/assembly/library_detail.rs apps/lwe/src-tauri/src/assembly/action_outcome.rs
+git add src-tauri/src/services/desktop_service.rs src-tauri/src/services/library_service.rs src-tauri/src/results/library.rs src-tauri/src/results/desktop.rs src-tauri/src/assembly/desktop_apply.rs src-tauri/src/assembly/desktop_page.rs src-tauri/src/assembly/library_page.rs src-tauri/src/assembly/library_detail.rs src-tauri/src/assembly/action_outcome.rs
 git commit -m "feat: add desktop apply clear and restore flow"
 ```
 
 ## Task 4: Expose Apply/Clear Through Commands and Thin Frontend UI
 
 **Files:**
-- Create: `apps/lwe/src/lib/components/MonitorPicker.svelte`
-- Create: `apps/lwe/src/lib/components/DesktopMonitorCard.svelte`
-- Modify: `apps/lwe/src-tauri/src/commands/library.rs`
-- Modify: `apps/lwe/src-tauri/src/commands/desktop.rs`
-- Modify: `apps/lwe/src/lib/types.ts`
-- Modify: `apps/lwe/src/lib/ipc.ts`
-- Modify: `apps/lwe/src/lib/stores/ui.ts`
-- Modify: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- Modify: `apps/lwe/src/routes/library/+page.svelte`
-- Modify: `apps/lwe/src/routes/desktop/+page.svelte`
-- Test: `npm test --prefix apps/lwe`
+- Create: `src/lib/components/MonitorPicker.svelte`
+- Create: `src/lib/components/DesktopMonitorCard.svelte`
+- Modify: `src-tauri/src/commands/library.rs`
+- Modify: `src-tauri/src/commands/desktop.rs`
+- Modify: `src/lib/types.ts`
+- Modify: `src/lib/ipc.ts`
+- Modify: `src/lib/stores/ui.ts`
+- Modify: `src/lib/components/LibraryDetailPanel.svelte`
+- Modify: `src/routes/library/+page.svelte`
+- Modify: `src/routes/desktop/+page.svelte`
+- Test: `npm test --prefix `
 
 - [ ] **Step 1: Write the failing frontend monitor-picker test**
 
-Create `apps/lwe/src/lib/components/MonitorPicker.test.ts` with:
+Create `src/lib/components/MonitorPicker.test.ts` with:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -484,12 +484,12 @@ describe('MonitorPicker', () => {
 
 - [ ] **Step 2: Run the frontend test to verify it fails**
 
-Run: `npm test --prefix apps/lwe`
+Run: `npm test --prefix `
 Expected: FAIL because the monitor picker and related apply flow do not exist yet.
 
 - [ ] **Step 3: Extend frontend contract and IPC for apply/clear**
 
-In `apps/lwe/src/lib/types.ts`, add:
+In `src/lib/types.ts`, add:
 
 ```ts
 export type DesktopApplyTarget = {
@@ -509,7 +509,7 @@ export interface LibraryQuickStatus {
 
 Update existing `LibraryItemSummary`, `LibraryItemDetail`, and `DesktopMonitorSummary` types to carry the new quick-status / monitor-assignment fields.
 
-In `apps/lwe/src/lib/ipc.ts`, add wrappers like:
+In `src/lib/ipc.ts`, add wrappers like:
 
 ```ts
 export const applyLibraryItemToDesktop = (request: DesktopApplyRequest) =>
@@ -521,9 +521,9 @@ export const clearDesktopMonitor = (monitorId: string) =>
 
 - [ ] **Step 4: Implement the thin Library/Desktop UI flow**
 
-Create `apps/lwe/src/lib/components/MonitorPicker.svelte` with a minimal monitor-choice list or select control.
+Create `src/lib/components/MonitorPicker.svelte` with a minimal monitor-choice list or select control.
 
-Create `apps/lwe/src/lib/components/DesktopMonitorCard.svelte` to render:
+Create `src/lib/components/DesktopMonitorCard.svelte` to render:
 
 - monitor name
 - resolution
@@ -548,13 +548,13 @@ Update `routes/desktop/+page.svelte` to render monitor cards and call `clearDesk
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `npm test --prefix apps/lwe`
+Run: `npm test --prefix `
 Expected: PASS
 
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/commands/library.rs apps/lwe/src-tauri/src/commands/desktop.rs apps/lwe/src/lib/types.ts apps/lwe/src/lib/ipc.ts apps/lwe/src/lib/stores/ui.ts apps/lwe/src/lib/components/MonitorPicker.svelte apps/lwe/src/lib/components/MonitorPicker.test.ts apps/lwe/src/lib/components/DesktopMonitorCard.svelte apps/lwe/src/lib/components/LibraryDetailPanel.svelte apps/lwe/src/routes/library/+page.svelte apps/lwe/src/routes/desktop/+page.svelte
+git add src-tauri/src/commands/library.rs src-tauri/src/commands/desktop.rs src/lib/types.ts src/lib/ipc.ts src/lib/stores/ui.ts src/lib/components/MonitorPicker.svelte src/lib/components/MonitorPicker.test.ts src/lib/components/DesktopMonitorCard.svelte src/lib/components/LibraryDetailPanel.svelte src/routes/library/+page.svelte src/routes/desktop/+page.svelte
 git commit -m "feat: add library to desktop apply ui flow"
 ```
 

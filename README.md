@@ -36,7 +36,7 @@ The old `wayvid` name remains only in historical material preserved for referenc
 
 The active LWE product path is now limited to:
 
-- `apps/lwe/src-tauri`
+- `src-tauri`
 - `crates/lwe-core` for shared models and configuration
 - `crates/lwe-library` for library and Workshop logic
 - `crates/lwe-engine` for runtime and rendering behavior

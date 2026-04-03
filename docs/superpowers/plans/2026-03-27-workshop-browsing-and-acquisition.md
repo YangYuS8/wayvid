@@ -4,7 +4,7 @@
 
 **Goal:** Build the first reset-era LWE Workshop loop with a Tauri + Svelte thin frontend, a Rust-owned Workshop page snapshot model, official Steam handoff actions, and Library projection for locally synchronized items.
 
-**Architecture:** This plan replaces the old `wayvid-gui`/`iced` Workshop direction with the active `lwe` application shell rooted at `apps/lwe/src-tauri` and `apps/lwe`. Rust remains the product brain: it discovers Steam libraries, scans locally synchronized Wallpaper Engine items, resolves bundled covers, produces page snapshots and item details, and returns `ActionOutcome` results for state-changing commands. The Svelte frontend stays thin: it renders `Library / Workshop / Desktop / Settings`, caches page snapshots by page, requests details on selection, and obeys stale-page invalidation instead of maintaining its own business truth.
+**Architecture:** This plan replaces the old `wayvid-gui`/`iced` Workshop direction with the active `lwe` application shell rooted at `src-tauri` and ``. Rust remains the product brain: it discovers Steam libraries, scans locally synchronized Wallpaper Engine items, resolves bundled covers, produces page snapshots and item details, and returns `ActionOutcome` results for state-changing commands. The Svelte frontend stays thin: it renders `Library / Workshop / Desktop / Settings`, caches page snapshots by page, requests details on selection, and obeys stale-page invalidation instead of maintaining its own business truth.
 
 **Tech Stack:** Rust workspace, Tauri, Svelte, TypeScript, `lwe-library`, `lwe-core`, Steam local filesystem discovery, `open` crate, Cargo tests, Vitest
 
@@ -30,41 +30,41 @@ This plan does **not** implement:
 
 ### Files to create
 
-- `apps/lwe/package.json` - frontend package manifest for the new thin frontend shell
-- `apps/lwe/svelte.config.js` - Svelte app configuration
-- `apps/lwe/vite.config.ts` - Vite configuration for the frontend
-- `apps/lwe/tsconfig.json` - TypeScript configuration for the frontend
-- `apps/lwe/src/app.d.ts` - Svelte TypeScript declarations
-- `apps/lwe/src/lib/types.ts` - frontend snapshot/detail/action TypeScript types
-- `apps/lwe/src/lib/ipc.ts` - thin typed wrappers over Tauri commands/events
-- `apps/lwe/src/lib/stores/ui.ts` - page selection, stale flags, and current-detail UI state only
-- `apps/lwe/src/routes/+layout.svelte` - global app shell for `Library / Workshop / Desktop / Settings`
-- `apps/lwe/src/routes/+page.svelte` - default redirect or landing behavior to `Library`
-- `apps/lwe/src/routes/library/+page.svelte` - thin Library page using Rust snapshots
-- `apps/lwe/src/routes/workshop/+page.svelte` - thin Workshop page using Rust snapshots and detail fetches
-- `apps/lwe/src/routes/desktop/+page.svelte` - thin Desktop page shell using Rust snapshots
-- `apps/lwe/src/routes/settings/+page.svelte` - thin Settings page shell using Rust snapshots
-- `apps/lwe/src/lib/components/ItemCard.svelte` - shared summary-card renderer using bundled cover or placeholder
-- `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte` - Workshop detail panel component
-- `apps/lwe/src/lib/components/LibraryDetailPanel.svelte` - Library detail panel component
-- `apps/lwe/src/lib/components/StatusBadge.svelte` - compact badge component for sync/compatibility/source states
-- `apps/lwe/src/lib/components/CoverImage.svelte` - cover-or-placeholder rendering component
-- `apps/lwe/src-tauri/Cargo.toml` - Tauri Rust package manifest for the `lwe` app shell
-- `apps/lwe/src-tauri/tauri.conf.json` - Tauri configuration for the `lwe` desktop shell
-- `apps/lwe/src-tauri/src/main.rs` - Tauri entry point
-- `apps/lwe/src-tauri/src/lib.rs` - Tauri command registration module
-- `apps/lwe/src-tauri/src/models.rs` - serialized snapshot/detail/action result types for frontend commands
-- `apps/lwe/src-tauri/src/app_shell.rs` - app-shell snapshot assembly and shell patch helpers
-- `apps/lwe/src-tauri/src/workshop.rs` - Workshop page snapshot, detail, and action commands
-- `apps/lwe/src-tauri/src/library.rs` - Library page snapshot and Workshop-to-Library projection commands
-- `apps/lwe/src-tauri/src/desktop.rs` - Desktop page snapshot shell commands
-- `apps/lwe/src-tauri/src/settings.rs` - Settings page snapshot shell commands
-- `apps/lwe/src-tauri/src/action_outcome.rs` - shared `ActionOutcome<T>` model and invalidation enums
+- `package.json` - frontend package manifest for the new thin frontend shell
+- `svelte.config.js` - Svelte app configuration
+- `vite.config.ts` - Vite configuration for the frontend
+- `tsconfig.json` - TypeScript configuration for the frontend
+- `src/app.d.ts` - Svelte TypeScript declarations
+- `src/lib/types.ts` - frontend snapshot/detail/action TypeScript types
+- `src/lib/ipc.ts` - thin typed wrappers over Tauri commands/events
+- `src/lib/stores/ui.ts` - page selection, stale flags, and current-detail UI state only
+- `src/routes/+layout.svelte` - global app shell for `Library / Workshop / Desktop / Settings`
+- `src/routes/+page.svelte` - default redirect or landing behavior to `Library`
+- `src/routes/library/+page.svelte` - thin Library page using Rust snapshots
+- `src/routes/workshop/+page.svelte` - thin Workshop page using Rust snapshots and detail fetches
+- `src/routes/desktop/+page.svelte` - thin Desktop page shell using Rust snapshots
+- `src/routes/settings/+page.svelte` - thin Settings page shell using Rust snapshots
+- `src/lib/components/ItemCard.svelte` - shared summary-card renderer using bundled cover or placeholder
+- `src/lib/components/WorkshopDetailPanel.svelte` - Workshop detail panel component
+- `src/lib/components/LibraryDetailPanel.svelte` - Library detail panel component
+- `src/lib/components/StatusBadge.svelte` - compact badge component for sync/compatibility/source states
+- `src/lib/components/CoverImage.svelte` - cover-or-placeholder rendering component
+- `src-tauri/Cargo.toml` - Tauri Rust package manifest for the `lwe` app shell
+- `src-tauri/tauri.conf.json` - Tauri configuration for the `lwe` desktop shell
+- `src-tauri/src/main.rs` - Tauri entry point
+- `src-tauri/src/lib.rs` - Tauri command registration module
+- `src-tauri/src/models.rs` - serialized snapshot/detail/action result types for frontend commands
+- `src-tauri/src/app_shell.rs` - app-shell snapshot assembly and shell patch helpers
+- `src-tauri/src/workshop.rs` - Workshop page snapshot, detail, and action commands
+- `src-tauri/src/library.rs` - Library page snapshot and Workshop-to-Library projection commands
+- `src-tauri/src/desktop.rs` - Desktop page snapshot shell commands
+- `src-tauri/src/settings.rs` - Settings page snapshot shell commands
+- `src-tauri/src/action_outcome.rs` - shared `ActionOutcome<T>` model and invalidation enums
 - `crates/lwe-library/src/workshop_catalog.rs` - catalog/domain layer for synchronized Workshop entries, bundled covers, and first-release support state
 
 ### Files to modify
 
-- `Cargo.toml` - keep `apps/lwe/src-tauri` as the active Rust workspace shell member
+- `Cargo.toml` - keep `src-tauri` as the active Rust workspace shell member
 - `README.md` - add a short note that the reset-era app shell is now `LWE` / `lwe`
 - `docs/product/roadmap.md` - align the Workshop planning track with the new Tauri + Svelte direction if wording still mentions only generic browsing
 - `crates/lwe-library/src/lib.rs` - export new Workshop catalog types
@@ -85,27 +85,27 @@ Legacy GUI locale files may be inspected only as wording references. Reuse copy 
 ## Task 1: Create the New `lwe` Tauri + Svelte Shell
 
 **Files:**
-- Create: `apps/lwe/package.json`
-- Create: `apps/lwe/svelte.config.js`
-- Create: `apps/lwe/vite.config.ts`
-- Create: `apps/lwe/tsconfig.json`
-- Create: `apps/lwe/src/app.d.ts`
-- Create: `apps/lwe/src/routes/+layout.svelte`
-- Create: `apps/lwe/src/routes/+page.svelte`
-- Create: `apps/lwe/src/routes/library/+page.svelte`
-- Create: `apps/lwe/src/routes/workshop/+page.svelte`
-- Create: `apps/lwe/src/routes/desktop/+page.svelte`
-- Create: `apps/lwe/src/routes/settings/+page.svelte`
-- Create: `apps/lwe/src-tauri/Cargo.toml`
-- Create: `apps/lwe/src-tauri/tauri.conf.json`
-- Create: `apps/lwe/src-tauri/src/main.rs`
-- Create: `apps/lwe/src-tauri/src/lib.rs`
+- Create: `package.json`
+- Create: `svelte.config.js`
+- Create: `vite.config.ts`
+- Create: `tsconfig.json`
+- Create: `src/app.d.ts`
+- Create: `src/routes/+layout.svelte`
+- Create: `src/routes/+page.svelte`
+- Create: `src/routes/library/+page.svelte`
+- Create: `src/routes/workshop/+page.svelte`
+- Create: `src/routes/desktop/+page.svelte`
+- Create: `src/routes/settings/+page.svelte`
+- Create: `src-tauri/Cargo.toml`
+- Create: `src-tauri/tauri.conf.json`
+- Create: `src-tauri/src/main.rs`
+- Create: `src-tauri/src/lib.rs`
 - Modify: `Cargo.toml`
 - Test: `cargo test -p lwe-app-shell -- --nocapture`
 
 - [ ] **Step 1: Write the failing workspace test for the new app shell crate**
 
-Add this Rust test to `apps/lwe/src-tauri/src/lib.rs` before implementing commands:
+Add this Rust test to `src-tauri/src/lib.rs` before implementing commands:
 
 ```rust
 #[cfg(test)]
@@ -120,11 +120,11 @@ mod tests {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `cargo test -p lwe-app-shell -- --nocapture`
-Expected: FAIL because `apps/lwe/src-tauri` does not exist in the workspace yet.
+Expected: FAIL because `src-tauri` does not exist in the workspace yet.
 
 - [ ] **Step 3: Create the minimal Tauri package manifest**
 
-Create `apps/lwe/src-tauri/Cargo.toml` with:
+Create `src-tauri/Cargo.toml` with:
 
 ```toml
 [package]
@@ -148,7 +148,7 @@ open = "5.0"
 tauri-build = { version = "2", features = [] }
 ```
 
-Create `apps/lwe/src-tauri/src/lib.rs` with:
+Create `src-tauri/src/lib.rs` with:
 
 ```rust
 pub const APP_CODE_NAME: &str = "lwe";
@@ -164,7 +164,7 @@ mod tests {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/main.rs` with:
+Create `src-tauri/src/main.rs` with:
 
 ```rust
 fn main() {
@@ -172,7 +172,7 @@ fn main() {
 }
 ```
 
-Create `apps/lwe/src-tauri/tauri.conf.json` with the minimal package identity:
+Create `src-tauri/tauri.conf.json` with the minimal package identity:
 
 ```json
 {
@@ -204,13 +204,13 @@ members = [
     "crates/lwe-core",
     "crates/lwe-engine",
     "crates/lwe-library",
-    "apps/lwe/src-tauri",
+    "src-tauri",
 ]
 ```
 
 - [ ] **Step 5: Create the minimal Svelte shell files**
 
-Create `apps/lwe/package.json` with:
+Create `package.json` with:
 
 ```json
 {
@@ -237,7 +237,7 @@ Create `apps/lwe/package.json` with:
 }
 ```
 
-Create `apps/lwe/src/routes/+layout.svelte` with:
+Create `src/routes/+layout.svelte` with:
 
 ```svelte
 <script lang="ts">
@@ -258,7 +258,7 @@ Create `apps/lwe/src/routes/+layout.svelte` with:
 <slot />
 ```
 
-Create `apps/lwe/src/routes/+page.svelte` with:
+Create `src/routes/+page.svelte` with:
 
 ```svelte
 <script lang="ts">
@@ -267,7 +267,7 @@ Create `apps/lwe/src/routes/+page.svelte` with:
 </script>
 ```
 
-Create one placeholder page per route with a heading only, for example `apps/lwe/src/routes/workshop/+page.svelte`:
+Create one placeholder page per route with a heading only, for example `src/routes/workshop/+page.svelte`:
 
 ```svelte
 <h1>Workshop</h1>
@@ -288,7 +288,7 @@ Expected: PASS
 Then:
 
 ```bash
-git add Cargo.toml apps/lwe
+git add Cargo.toml 
 git commit -m "feat: add lwe tauri and svelte shell"
 ```
 
@@ -514,14 +514,14 @@ git commit -m "feat: add lwe workshop catalog model"
 ## Task 3: Define Tauri Snapshot, Detail, and ActionOutcome Models
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/models.rs`
-- Create: `apps/lwe/src-tauri/src/action_outcome.rs`
-- Create: `apps/lwe/src/lib/types.ts`
+- Create: `src-tauri/src/models.rs`
+- Create: `src-tauri/src/action_outcome.rs`
+- Create: `src/lib/types.ts`
 - Test: `cargo test -p lwe-app-shell models::tests -- --nocapture`
 
 - [ ] **Step 1: Write the failing model-shape tests**
 
-Add this Rust test module to `apps/lwe/src-tauri/src/models.rs` first:
+Add this Rust test module to `src-tauri/src/models.rs` first:
 
 ```rust
 #[cfg(test)]
@@ -552,7 +552,7 @@ Expected: FAIL with missing `WorkshopItemSummary` or missing `models` module.
 
 - [ ] **Step 3: Implement the Rust snapshot and detail models**
 
-Create `apps/lwe/src-tauri/src/models.rs` with:
+Create `src-tauri/src/models.rs` with:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -672,7 +672,7 @@ mod tests {
 
 - [ ] **Step 4: Implement `ActionOutcome<T>` and the matching frontend types**
 
-Create `apps/lwe/src-tauri/src/action_outcome.rs` with:
+Create `src-tauri/src/action_outcome.rs` with:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -716,7 +716,7 @@ impl<T> ActionOutcome<T> {
 }
 ```
 
-Create `apps/lwe/src/lib/types.ts` with matching frontend interfaces:
+Create `src/lib/types.ts` with matching frontend interfaces:
 
 ```ts
 export type InvalidatedPage = 'library' | 'workshop' | 'desktop' | 'settings';
@@ -826,24 +826,24 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/models.rs apps/lwe/src-tauri/src/action_outcome.rs apps/lwe/src/lib/types.ts
+git add src-tauri/src/models.rs src-tauri/src/action_outcome.rs src/lib/types.ts
 git commit -m "feat: add lwe snapshot and action outcome models"
 ```
 
 ## Task 4: Implement Tauri Workshop and Library Commands
 
 **Files:**
-- Create: `apps/lwe/src-tauri/src/app_shell.rs`
-- Create: `apps/lwe/src-tauri/src/workshop.rs`
-- Create: `apps/lwe/src-tauri/src/library.rs`
-- Create: `apps/lwe/src-tauri/src/desktop.rs`
-- Create: `apps/lwe/src-tauri/src/settings.rs`
-- Modify: `apps/lwe/src-tauri/src/lib.rs`
+- Create: `src-tauri/src/app_shell.rs`
+- Create: `src-tauri/src/workshop.rs`
+- Create: `src-tauri/src/library.rs`
+- Create: `src-tauri/src/desktop.rs`
+- Create: `src-tauri/src/settings.rs`
+- Modify: `src-tauri/src/lib.rs`
 - Test: `cargo test -p lwe-app-shell workshop::tests -- --nocapture`
 
 - [ ] **Step 1: Write the failing Workshop command tests**
 
-Add this test module to `apps/lwe/src-tauri/src/workshop.rs` first:
+Add this test module to `src-tauri/src/workshop.rs` first:
 
 ```rust
 #[cfg(test)]
@@ -875,7 +875,7 @@ Expected: FAIL with missing `workshop` module or missing URL helpers.
 
 - [ ] **Step 3: Implement app-shell and Workshop query/action commands**
 
-Create `apps/lwe/src-tauri/src/app_shell.rs` with:
+Create `src-tauri/src/app_shell.rs` with:
 
 ```rust
 use crate::models::AppShellSnapshot;
@@ -892,7 +892,7 @@ pub fn load_app_shell() -> AppShellSnapshot {
 }
 ```
 
-Create `apps/lwe/src-tauri/src/workshop.rs` with these core pieces:
+Create `src-tauri/src/workshop.rs` with these core pieces:
 
 ```rust
 use crate::action_outcome::{ActionOutcome, AppShellPatch, InvalidatedPage};
@@ -1018,7 +1018,7 @@ pub fn open_workshop_in_steam(workshop_id: u64) -> Result<ActionOutcome<()>, Str
 
 - [ ] **Step 4: Implement Library projection and register commands**
 
-Create `apps/lwe/src-tauri/src/library.rs` with:
+Create `src-tauri/src/library.rs` with:
 
 ```rust
 use crate::models::{LibraryItemDetail, LibraryItemSummary, LibraryPageSnapshot};
@@ -1069,7 +1069,7 @@ pub fn load_library_item_detail(item_id: String) -> Result<LibraryItemDetail, St
 
 Create placeholder page loaders for `desktop.rs` and `settings.rs` that return empty but valid snapshots matching the models from Task 3.
 
-Then update `apps/lwe/src-tauri/src/lib.rs` to expose modules and register Tauri commands in a single place, using this skeleton:
+Then update `src-tauri/src/lib.rs` to expose modules and register Tauri commands in a single place, using this skeleton:
 
 ```rust
 pub mod action_outcome;
@@ -1093,29 +1093,29 @@ Expected: PASS
 Then:
 
 ```bash
-git add apps/lwe/src-tauri/src/app_shell.rs apps/lwe/src-tauri/src/workshop.rs apps/lwe/src-tauri/src/library.rs apps/lwe/src-tauri/src/desktop.rs apps/lwe/src-tauri/src/settings.rs apps/lwe/src-tauri/src/lib.rs
+git add src-tauri/src/app_shell.rs src-tauri/src/workshop.rs src-tauri/src/library.rs src-tauri/src/desktop.rs src-tauri/src/settings.rs src-tauri/src/lib.rs
 git commit -m "feat: add lwe tauri workshop and library commands"
 ```
 
 ## Task 5: Build the Thin Svelte Pages, Page Cache, and Detail Flow
 
 **Files:**
-- Create: `apps/lwe/src/lib/ipc.ts`
-- Create: `apps/lwe/src/lib/stores/ui.ts`
-- Create: `apps/lwe/src/lib/components/ItemCard.svelte`
-- Create: `apps/lwe/src/lib/components/StatusBadge.svelte`
-- Create: `apps/lwe/src/lib/components/CoverImage.svelte`
-- Create: `apps/lwe/src/lib/components/WorkshopDetailPanel.svelte`
-- Create: `apps/lwe/src/lib/components/LibraryDetailPanel.svelte`
-- Modify: `apps/lwe/src/routes/workshop/+page.svelte`
-- Modify: `apps/lwe/src/routes/library/+page.svelte`
-- Modify: `apps/lwe/src/routes/desktop/+page.svelte`
-- Modify: `apps/lwe/src/routes/settings/+page.svelte`
-- Test: `npm test --prefix apps/lwe`
+- Create: `src/lib/ipc.ts`
+- Create: `src/lib/stores/ui.ts`
+- Create: `src/lib/components/ItemCard.svelte`
+- Create: `src/lib/components/StatusBadge.svelte`
+- Create: `src/lib/components/CoverImage.svelte`
+- Create: `src/lib/components/WorkshopDetailPanel.svelte`
+- Create: `src/lib/components/LibraryDetailPanel.svelte`
+- Modify: `src/routes/workshop/+page.svelte`
+- Modify: `src/routes/library/+page.svelte`
+- Modify: `src/routes/desktop/+page.svelte`
+- Modify: `src/routes/settings/+page.svelte`
+- Test: `npm test --prefix `
 
 - [ ] **Step 1: Write the failing UI-store test for stale-page behavior**
 
-Create `apps/lwe/src/lib/stores/ui.ts` with this test first using Vitest:
+Create `src/lib/stores/ui.ts` with this test first using Vitest:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1136,12 +1136,12 @@ describe('ui page cache', () => {
 
 - [ ] **Step 2: Run the frontend test to verify it fails**
 
-Run: `npm test --prefix apps/lwe`
+Run: `npm test --prefix `
 Expected: FAIL because the Vitest/Svelte shell is not wired yet or the store file is missing.
 
 - [ ] **Step 3: Implement the thin IPC wrappers and UI state cache**
 
-Create `apps/lwe/src/lib/ipc.ts` with typed wrappers like:
+Create `src/lib/ipc.ts` with typed wrappers like:
 
 ```ts
 import { invoke } from '@tauri-apps/api/core';
@@ -1171,7 +1171,7 @@ export const loadDesktopPage = () => invoke<DesktopPageSnapshot>('load_desktop_p
 export const loadSettingsPage = () => invoke<SettingsPageSnapshot>('load_settings_page');
 ```
 
-Create `apps/lwe/src/lib/stores/ui.ts` with a minimal cache model:
+Create `src/lib/stores/ui.ts` with a minimal cache model:
 
 ```ts
 import { writable } from 'svelte/store';
@@ -1196,7 +1196,7 @@ export const pageCache = writable({
 
 - [ ] **Step 4: Implement the thin pages and cover-or-placeholder components**
 
-Create `apps/lwe/src/lib/components/CoverImage.svelte` with:
+Create `src/lib/components/CoverImage.svelte` with:
 
 ```svelte
 <script lang="ts">
@@ -1211,7 +1211,7 @@ Create `apps/lwe/src/lib/components/CoverImage.svelte` with:
 {/if}
 ```
 
-Create `apps/lwe/src/lib/components/StatusBadge.svelte` with:
+Create `src/lib/components/StatusBadge.svelte` with:
 
 ```svelte
 <script lang="ts">
@@ -1221,7 +1221,7 @@ Create `apps/lwe/src/lib/components/StatusBadge.svelte` with:
 <span>{label}</span>
 ```
 
-Create `apps/lwe/src/lib/components/ItemCard.svelte` with:
+Create `src/lib/components/ItemCard.svelte` with:
 
 ```svelte
 <script lang="ts">
@@ -1244,7 +1244,7 @@ Create `apps/lwe/src/lib/components/ItemCard.svelte` with:
 
 Create minimal detail panels that accept the typed detail payload and render title, cover, badges, description, and a button in the Workshop panel to call `openWorkshopInSteam`.
 
-Update `apps/lwe/src/routes/workshop/+page.svelte` so it:
+Update `src/routes/workshop/+page.svelte` so it:
 
 - loads `WorkshopPageSnapshot` on mount if no cache exists or the page is stale
 - renders `ItemCard` for each summary
@@ -1252,7 +1252,7 @@ Update `apps/lwe/src/routes/workshop/+page.svelte` so it:
 - calls `refreshWorkshopCatalog()` for the refresh button
 - marks `library` stale when the action outcome invalidates it
 
-Update `apps/lwe/src/routes/library/+page.svelte` so it:
+Update `src/routes/library/+page.svelte` so it:
 
 - loads `LibraryPageSnapshot` on mount if needed
 - fetches `LibraryItemDetail` on selection
@@ -1262,13 +1262,13 @@ Update the `desktop` and `settings` pages to load and render their snapshots wit
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `npm test --prefix apps/lwe`
+Run: `npm test --prefix `
 Expected: PASS
 
 Then:
 
 ```bash
-git add apps/lwe/src/lib apps/lwe/src/routes
+git add src/lib src/routes
 git commit -m "feat: add thin lwe workshop and library frontend"
 ```
 

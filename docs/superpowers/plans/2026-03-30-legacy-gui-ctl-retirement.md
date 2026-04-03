@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove `crates/wayvid-gui` and `crates/wayvid-ctl` from the active LWE workspace and documentation story without deleting their directories yet, so the repository’s active product path is limited to `apps/lwe/src-tauri` plus retained core crates.
+**Goal:** Remove `crates/wayvid-gui` and `crates/wayvid-ctl` from the active LWE workspace and documentation story without deleting their directories yet, so the repository’s active product path is limited to `src-tauri` plus retained core crates.
 
 **Architecture:** This plan retires legacy identity before retained-core renaming. The active workspace will shrink to the LWE shell and the retained core capabilities, while legacy GUI/CLI crates remain in the repository only as explicitly retired reference material. The work focuses on workspace membership, default verification paths, and documentation truthfulness; it does not yet move or delete the legacy directories.
 
@@ -28,7 +28,7 @@ It does **not**:
 - `Cargo.toml` - remove legacy GUI/CLI crates from active workspace members and update workspace comments
 - `README.md` - clarify the active LWE path and explicitly retire the old GUI/CLI crates from the current product surface
 - `docs/product/repository-reset.md` - move `wayvid-gui` and `wayvid-ctl` out of retained migration candidates into a retired legacy section
-- `docs/product/roadmap.md` - ensure roadmap language points future work at `apps/lwe/src-tauri` and retained core crates only
+- `docs/product/roadmap.md` - ensure roadmap language points future work at `src-tauri` and retained core crates only
 - `docs/superpowers/plans/2026-03-27-workshop-browsing-and-acquisition.md` - remove assumptions that `wayvid-gui` / `wayvid-ctl` remain active workspace members
 - `docs/superpowers/plans/2026-03-30-rust-core-layering.md` - make sure the layering plan no longer assumes legacy GUI/CLI crates are still active workspace peers
 
@@ -40,7 +40,7 @@ It does **not**:
 
 - `crates/wayvid-gui/Cargo.toml`
 - `crates/wayvid-ctl/Cargo.toml`
-- `apps/lwe/src-tauri/Cargo.toml`
+- `src-tauri/Cargo.toml`
 - `Cargo.toml`
 - `docs/product/repository-reset.md`
 - `README.md`
@@ -76,7 +76,7 @@ members = [
     "crates/lwe-core",
     "crates/lwe-engine",
     "crates/lwe-library",
-    "apps/lwe/src-tauri",
+    "src-tauri",
 ]
 ```
 
@@ -153,7 +153,7 @@ Add a short section after `What Remains Valuable`:
 
 The active LWE product path is now limited to:
 
-- `apps/lwe/src-tauri`
+- `src-tauri`
 - retained core crates for shared models, library/workshop logic, and runtime behavior
 
 The legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` are no longer active workspace components. They remain in the repository temporarily as retired reference material only.
@@ -254,7 +254,7 @@ Expected: FAIL because older plan text still refers to the legacy crates as acti
 Adjust the roadmap text so the active roadmap is explicit about the current product path. Add or update language like:
 
 ```md
-The active application shell for ongoing work is `apps/lwe/src-tauri`. Legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` have been retired from the active workspace and are not future-facing roadmap targets.
+The active application shell for ongoing work is `src-tauri`. Legacy crates `crates/wayvid-gui` and `crates/wayvid-ctl` have been retired from the active workspace and are not future-facing roadmap targets.
 ```
 
 - [ ] **Step 3: Remove active-workspace assumptions from the Workshop plan**
@@ -374,7 +374,7 @@ When this plan is complete, the repository will:
 
 - stop treating `crates/wayvid-gui` and `crates/wayvid-ctl` as active workspace members
 - document those crates as retired legacy reference material
-- narrow the active LWE path to `apps/lwe/src-tauri` plus retained core crates
+- narrow the active LWE path to `src-tauri` plus retained core crates
 - reduce confusion before the follow-on retained-core rename work
 
 ## Follow-on Plans After This One
