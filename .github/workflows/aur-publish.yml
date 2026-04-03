@@ -34,12 +34,11 @@ jobs:
       - name: Setup SSH configuration
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          AUR_KNOWN_HOSTS: ${{ secrets.AUR_KNOWN_HOSTS }}
         shell: bash
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf "%s\n" "$AUR_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh-keyscan -t rsa,ecdsa,ed25519 aur.archlinux.org > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
           eval "$(ssh-agent -s)"
