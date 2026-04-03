@@ -67,13 +67,13 @@ jobs:
           cp packaging/aur/lwe-git/.SRCINFO aur-repo/.SRCINFO
 
           cd aur-repo
-          if git diff --quiet -- PKGBUILD .SRCINFO; then
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
             echo "No AUR metadata changes to publish"
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add PKGBUILD .SRCINFO
           git commit -m "chore: update lwe-git to ${GITHUB_SHA:0:7}"
           GIT_SSH_COMMAND="ssh $SSH_OPTS" git push origin HEAD:master
