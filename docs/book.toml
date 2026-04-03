@@ -1,9 +1,0 @@
-[documentation]
-status = "reset"
-format = "markdown"
-primary_docs = [
-  "product/overview.md",
-  "product/roadmap.md",
-  "product/repository-reset.md",
-  "archive/legacy-wayvid-summary.md",
-]
