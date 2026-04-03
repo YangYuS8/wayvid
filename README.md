@@ -65,3 +65,18 @@ The repository reset is considered complete when all of the following are true:
 - Product overview: `docs/product/overview.md`
 - Product roadmap: `docs/product/roadmap.md`
 - Documentation reset guide: `docs/README.md`
+## AppImage Build
+
+LWE currently supports Linux AppImage bundling through the official Tauri v2 bundler.
+
+Build command:
+
+```bash
+cargo tauri build --bundles appimage
+```
+
+Current host prerequisite observed on this machine:
+
+- `mksquashfs` must be installed and available on `PATH`
+
+If it is missing, Tauri can complete the `AppDir` staging step but fail on the final `linuxdeploy` AppImage packaging step.
