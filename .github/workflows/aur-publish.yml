@@ -1,0 +1,59 @@
+name: Publish AUR lwe-git
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: aur-lwe-git-main
+  cancel-in-progress: false
+
+jobs:
+  publish-aur:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Install runtime dependencies
+        run: pacman -Syu --noconfirm git openssh
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Regenerate .SRCINFO
+        run: |
+          cd packaging/aur/lwe-git
+          makepkg --printsrcinfo > .SRCINFO
+
+      - name: Setup SSH configuration
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          AUR_KNOWN_HOSTS: ${{ secrets.AUR_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf "%s\n" "$AUR_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          eval "$(ssh-agent -s)"
+          trap 'ssh-agent -k' EXIT
+          ssh-add - <<< "$AUR_SSH_PRIVATE_KEY"
+
+          git clone "ssh://aur@aur.archlinux.org/lwe-git.git" aur-repo
+
+          cp packaging/aur/lwe-git/PKGBUILD aur-repo/PKGBUILD
+          cp packaging/aur/lwe-git/.SRCINFO aur-repo/.SRCINFO
+
+          cd aur-repo
+          if git diff --quiet -- PKGBUILD .SRCINFO; then
+            echo "No AUR metadata changes to publish"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "chore: update lwe-git to ${GITHUB_SHA::7}"
+          git push origin HEAD:master
