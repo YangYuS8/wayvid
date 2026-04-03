@@ -22,15 +22,20 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Prepare non-root makepkg user
+        run: |
+          useradd --create-home --shell /bin/bash aurbuilder
+          chown -R aurbuilder:aurbuilder "$GITHUB_WORKSPACE"
+
       - name: Regenerate .SRCINFO
         run: |
-          cd packaging/aur/lwe-git
-          makepkg --printsrcinfo > .SRCINFO
+          su -s /bin/bash aurbuilder -c 'cd "$GITHUB_WORKSPACE/packaging/aur/lwe-git" && makepkg --printsrcinfo > .SRCINFO'
 
       - name: Setup SSH configuration
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           AUR_KNOWN_HOSTS: ${{ secrets.AUR_KNOWN_HOSTS }}
+        shell: bash
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -39,7 +44,7 @@ jobs:
 
           eval "$(ssh-agent -s)"
           trap 'ssh-agent -k' EXIT
-          ssh-add - <<< "$AUR_SSH_PRIVATE_KEY"
+          printf "%s\n" "$AUR_SSH_PRIVATE_KEY" | ssh-add -
 
           git clone "ssh://aur@aur.archlinux.org/lwe-git.git" aur-repo
 
@@ -55,5 +60,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add PKGBUILD .SRCINFO
-          git commit -m "chore: update lwe-git to ${GITHUB_SHA::7}"
+          git commit -m "chore: update lwe-git to ${GITHUB_SHA:0:7}"
           git push origin HEAD:master
