@@ -50,8 +50,10 @@ jobs:
           trap 'ssh-agent -k' EXIT
           printf "%s\n" "$AUR_SSH_PRIVATE_KEY" | ssh-add -
 
+          SSH_OPTS="-o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o GlobalKnownHostsFile=/dev/null"
+
           set +e
-          ssh -T aur@aur.archlinux.org
+          ssh $SSH_OPTS -T aur@aur.archlinux.org
           ssh_rc=$?
           set -e
           if [ "$ssh_rc" -ne 0 ] && [ "$ssh_rc" -ne 1 ]; then
@@ -59,7 +61,7 @@ jobs:
             exit "$ssh_rc"
           fi
 
-          git clone "ssh://aur@aur.archlinux.org/lwe-git.git" aur-repo
+          GIT_SSH_COMMAND="ssh $SSH_OPTS" git clone "ssh://aur@aur.archlinux.org/lwe-git.git" aur-repo
 
           cp packaging/aur/lwe-git/PKGBUILD aur-repo/PKGBUILD
           cp packaging/aur/lwe-git/.SRCINFO aur-repo/.SRCINFO
@@ -74,4 +76,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add PKGBUILD .SRCINFO
           git commit -m "chore: update lwe-git to ${GITHUB_SHA:0:7}"
-          git push origin HEAD:master
+          GIT_SSH_COMMAND="ssh $SSH_OPTS" git push origin HEAD:master
