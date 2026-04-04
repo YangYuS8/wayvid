@@ -10,9 +10,15 @@ pub fn load_settings_page() -> Result<SettingsPageSnapshot, String> {
 
 #[tauri::command]
 pub fn update_settings(
+    app: tauri::AppHandle,
     input: SettingsUpdateInput,
 ) -> Result<ActionOutcome<SettingsPageSnapshot>, String> {
+    let requested_language = input.language.clone();
     let snapshot = assemble_settings_page(SettingsService::update_settings(input)?);
+
+    if let Some(language) = requested_language {
+        crate::update_tray_menu_language(&app, &language);
+    }
 
     Ok(ActionOutcome {
         ok: true,

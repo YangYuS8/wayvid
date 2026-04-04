@@ -207,7 +207,10 @@ fn current_launch_command() -> Result<Vec<String>, String> {
     let path = std::env::current_exe()
         .map_err(|error| format!("Unable to resolve current executable for autostart: {error}"))?;
 
-    Ok(vec![path_to_command_part(&path)?])
+    Ok(vec![
+        path_to_command_part(&path)?,
+        "--start-hidden".to_string(),
+    ])
 }
 
 #[cfg(test)]
