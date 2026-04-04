@@ -113,30 +113,34 @@ pub fn builder() -> tauri::Builder<tauri::Wry> {
                 .items(&[&show_main_item, &quit_item])
                 .build()?;
 
-            let _tray = TrayIconBuilder::with_id(TRAY_ID)
-                .menu(&tray_menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show-main" => show_main_window(app),
-                    "quit-app" => {
-                        app.state::<QuitRequested>()
-                            .0
-                            .store(true, Ordering::Relaxed);
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        show_main_window(&tray.app_handle());
-                    }
-                })
-                .build(app)?;
+            let _tray =
+                TrayIconBuilder::with_id(TRAY_ID)
+                    .icon(app.default_window_icon().cloned().ok_or_else(|| {
+                        "default app icon is unavailable for tray icon".to_string()
+                    })?)
+                    .menu(&tray_menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "show-main" => show_main_window(app),
+                        "quit-app" => {
+                            app.state::<QuitRequested>()
+                                .0
+                                .store(true, Ordering::Relaxed);
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            show_main_window(&tray.app_handle());
+                        }
+                    })
+                    .build(app)?;
 
             if is_start_hidden() {
                 if let Some(window) = app.get_webview_window("main") {
