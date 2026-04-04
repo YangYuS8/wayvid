@@ -1,3 +1,14 @@
+<p align="center">
+  <img src="logo.svg" alt="LWE logo" width="180" />
+</p>
+
+<p align="center">
+  <img alt="AUR lwe-git" src="https://img.shields.io/aur/version/lwe-git?label=AUR%20lwe-git" />
+  <img alt="AUR lwe" src="https://img.shields.io/aur/version/lwe?label=AUR%20lwe" />
+  <img alt="AUR publish" src="https://github.com/YangYuS8/lwe/actions/workflows/aur-publish.yml/badge.svg" />
+  <img alt="Stable release" src="https://github.com/YangYuS8/lwe/actions/workflows/release-stable.yml/badge.svg" />
+</p>
+
 # LWE (Repository Reset in Progress)
 
 This repository is being reset from the legacy `wayvid` product into `LWE`, a Linux dynamic wallpaper platform for Wallpaper Engine migration users on Linux.
