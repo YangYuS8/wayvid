@@ -12,6 +12,18 @@ use serde_json::Value;
 pub struct WorkshopService;
 
 impl WorkshopService {
+    fn truthy_value(value: &Value) -> bool {
+        match value {
+            Value::Bool(flag) => *flag,
+            Value::Number(number) => number.as_u64().unwrap_or(0) > 0,
+            Value::String(text) => {
+                let normalized = text.trim().to_ascii_lowercase();
+                normalized == "1" || normalized == "true" || normalized == "yes"
+            }
+            _ => false,
+        }
+    }
+
     fn load_steam_web_api_key() -> Result<String, String> {
         let persistence = SettingsPersistenceService::for_user_path()?;
         let settings = match persistence.load_settings() {
@@ -112,7 +124,30 @@ impl WorkshopService {
         }
 
         let explicit_markers = [
-            "nsfw", "adult", "explicit", "porn", "nude", "nudity", "sex", "erotic", "r18", "r-18",
+            "nsfw",
+            "adult",
+            "explicit",
+            "porn",
+            "nude",
+            "nudity",
+            "sexual",
+            "sex",
+            "erotic",
+            "lewd",
+            "fetish",
+            "hentai",
+            "ecchi",
+            "r18",
+            "r-18",
+            "18+",
+            "18 plus",
+            "x-rated",
+            "mature sexual",
+            "成人",
+            "色情",
+            "裸露",
+            "性暗示",
+            "限制级",
         ];
         let explicit_hits = Self::marker_score(&blob, &explicit_markers);
         if !explicit_hits.is_empty() {
@@ -132,6 +167,18 @@ impl WorkshopService {
             "violent",
             "blood",
             "gore",
+            "horror",
+            "disturbing",
+            "questionable",
+            "teen",
+            "dark theme",
+            "sensitive",
+            "暴力",
+            "血腥",
+            "惊悚",
+            "恐怖",
+            "家长指导",
+            "pg-13",
         ];
         let mature_hits = Self::marker_score(&blob, &mature_markers);
         if !mature_hits.is_empty() {
@@ -177,14 +224,19 @@ impl WorkshopService {
                         let short_description =
                             entry["short_description"].as_str().map(str::to_string);
                         let maybe_inappropriate_sex =
-                            entry["maybe_inappropriate_sex"].as_u64().unwrap_or(0) > 0;
+                            Self::truthy_value(&entry["maybe_inappropriate_sex"]);
                         let maybe_inappropriate_violence =
-                            entry["maybe_inappropriate_violence"].as_u64().unwrap_or(0) > 0;
+                            Self::truthy_value(&entry["maybe_inappropriate_violence"]);
                         let tags = entry["tags"]
                             .as_array()
                             .map(|tags| {
                                 tags.iter()
-                                    .filter_map(|tag| tag["tag"].as_str().map(str::to_string))
+                                    .filter_map(|tag| {
+                                        tag["tag"]
+                                            .as_str()
+                                            .or_else(|| tag["display_name"].as_str())
+                                            .map(str::to_string)
+                                    })
                                     .collect::<Vec<_>>()
                             })
                             .unwrap_or_default();
@@ -226,6 +278,45 @@ impl WorkshopService {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    fn infer_local_entry_age_rating(
+        entry: &crate::results::workshop::AssessedWorkshopCatalogEntry,
+    ) -> String {
+        let mut blob = String::new();
+        blob.push_str(&entry.entry.title.to_lowercase());
+
+        if let Some(description) = &entry.project_metadata.description {
+            blob.push(' ');
+            blob.push_str(&description.to_lowercase());
+        }
+
+        if !entry.project_metadata.tags.is_empty() {
+            blob.push(' ');
+            blob.push_str(&entry.project_metadata.tags.join(" ").to_lowercase());
+        }
+
+        if blob.contains("nsfw")
+            || blob.contains("adult")
+            || blob.contains("r18")
+            || blob.contains("explicit")
+            || blob.contains("色情")
+            || blob.contains("成人")
+        {
+            return "r_18".to_string();
+        }
+
+        if blob.contains("mature")
+            || blob.contains("suggestive")
+            || blob.contains("violent")
+            || blob.contains("blood")
+            || blob.contains("暴力")
+            || blob.contains("血腥")
+        {
+            return "pg_13".to_string();
+        }
+
+        "g".to_string()
     }
 
     fn parse_total_results(payload: &Value) -> Option<u32> {
@@ -311,8 +402,17 @@ impl WorkshopService {
     }
 
     pub fn refresh_catalog() -> Result<WorkshopRefreshResult, String> {
+        let mut assessed = CompatibilityService::assess_catalog_entries(Self::scan_catalog()?);
+
+        for entry in &mut assessed {
+            if entry.project_metadata.inferred_age_rating.is_none() {
+                entry.project_metadata.inferred_age_rating =
+                    Some(Self::infer_local_entry_age_rating(entry));
+            }
+        }
+
         Ok(WorkshopRefreshResult {
-            catalog_entries: CompatibilityService::assess_catalog_entries(Self::scan_catalog()?),
+            catalog_entries: assessed,
             library_refresh_required: true,
         })
     }

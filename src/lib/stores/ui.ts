@@ -58,6 +58,89 @@ const createEmptyWorkshopOnlineCache = (): WorkshopOnlineCache => ({
 
 export const workshopOnlineCache = writable<WorkshopOnlineCache>(createEmptyWorkshopOnlineCache());
 
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+type ThemeState = {
+  preference: ThemePreference;
+  effective: 'light' | 'dark';
+};
+
+const getSystemTheme = (): 'light' | 'dark' => {
+  if (typeof window === 'undefined') {
+    return 'light';
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
+
+const createThemeState = (preference: ThemePreference): ThemeState => ({
+  preference,
+  effective: preference === 'system' ? getSystemTheme() : preference
+});
+
+export const themeState = writable<ThemeState>(createThemeState('system'));
+
+let systemThemeMediaQuery: MediaQueryList | null = null;
+let systemThemeListener: ((event: MediaQueryListEvent) => void) | null = null;
+
+const applyThemeClass = (effective: 'light' | 'dark') => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  document.documentElement.classList.toggle('dark', effective === 'dark');
+};
+
+const detachSystemThemeListener = () => {
+  if (!systemThemeMediaQuery || !systemThemeListener) {
+    return;
+  }
+
+  if (typeof systemThemeMediaQuery.removeEventListener === 'function') {
+    systemThemeMediaQuery.removeEventListener('change', systemThemeListener);
+  } else {
+    systemThemeMediaQuery.removeListener(systemThemeListener);
+  }
+
+  systemThemeListener = null;
+};
+
+const attachSystemThemeListener = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  systemThemeListener = (event: MediaQueryListEvent) => {
+    themeState.update((state) => {
+      if (state.preference !== 'system') {
+        return state;
+      }
+
+      const effective = event.matches ? 'dark' : 'light';
+      applyThemeClass(effective);
+      return { ...state, effective };
+    });
+  };
+
+  if (typeof systemThemeMediaQuery.addEventListener === 'function') {
+    systemThemeMediaQuery.addEventListener('change', systemThemeListener);
+  } else {
+    systemThemeMediaQuery.addListener(systemThemeListener);
+  }
+};
+
+export const applyThemePreference = (preference: ThemePreference) => {
+  detachSystemThemeListener();
+  const nextState = createThemeState(preference);
+  applyThemeClass(nextState.effective);
+  themeState.set(nextState);
+
+  if (preference === 'system') {
+    attachSystemThemeListener();
+  }
+};
+
 export const setWorkshopOnlineCache = (cache: WorkshopOnlineCache) => {
   workshopOnlineCache.set(cache);
 };

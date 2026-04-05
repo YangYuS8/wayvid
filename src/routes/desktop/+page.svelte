@@ -111,31 +111,31 @@
   {:else if actionError}
     <p class="lwe-warning-banner" role="alert" aria-live="assertive">{actionError}</p>
   {:else if loading && !$pageCache.desktop.snapshot}
-    <p class="text-sm text-slate-600" role="status" aria-live="polite">{$copy.desktop.loading}</p>
+    <p class="text-sm text-muted-foreground" role="status" aria-live="polite">{$copy.desktop.loading}</p>
   {:else if snapshot}
     <div class="grid gap-5">
       <Card class="lwe-panel gap-5">
         <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
           <div class="lwe-subpanel content-start gap-2.5">
             <p class="lwe-eyebrow">{$copy.desktop.monitorsDiscovered}</p>
-            <p class="text-[clamp(1.75rem,3vw,2.4rem)] font-semibold tracking-tight text-slate-950">
+            <p class="text-[clamp(1.75rem,3vw,2.4rem)] font-semibold tracking-tight text-foreground">
               {snapshot.monitors.length}
             </p>
           </div>
 
           <div class="lwe-subpanel content-start gap-2.5">
             <p class="lwe-eyebrow">{$copy.desktop.monitorDiscovery}</p>
-            <p class="text-sm leading-6 text-slate-600">{pageState?.monitorAvailabilityLabel ?? $copy.desktop.no}</p>
+            <p class="text-sm leading-6 text-muted-foreground">{pageState?.monitorAvailabilityLabel ?? $copy.desktop.no}</p>
           </div>
 
           <div class="lwe-subpanel content-start gap-2.5">
             <p class="lwe-eyebrow">{$copy.desktop.assignmentPersistence}</p>
-            <p class="text-sm leading-6 text-slate-600">{pageState?.assignmentAvailabilityLabel ?? $copy.desktop.no}</p>
+            <p class="text-sm leading-6 text-muted-foreground">{pageState?.assignmentAvailabilityLabel ?? $copy.desktop.no}</p>
           </div>
 
           <div class="lwe-subpanel content-start gap-2.5">
             <p class="lwe-eyebrow">{$copy.desktop.snapshotStale}</p>
-            <p class="text-sm leading-6 text-slate-600">{snapshot.stale ? $copy.desktop.yes : $copy.desktop.no}</p>
+            <p class="text-sm leading-6 text-muted-foreground">{snapshot.stale ? $copy.desktop.yes : $copy.desktop.no}</p>
           </div>
         </div>
 
@@ -152,7 +152,7 @@
         {/if}
 
         {#if pageState?.emptyMessage}
-          <p class="text-sm leading-6 text-slate-600">{pageState.emptyMessage}</p>
+          <p class="text-sm leading-6 text-muted-foreground">{pageState.emptyMessage}</p>
         {/if}
       </Card>
 
@@ -182,7 +182,7 @@
           </div>
         </section>
       {:else if monitorFilter === 'active'}
-        <p class="text-sm leading-6 text-slate-600" role="status" aria-live="polite">{filterEmptyMessage}</p>
+        <p class="text-sm leading-6 text-muted-foreground" role="status" aria-live="polite">{filterEmptyMessage}</p>
       {/if}
 
       {#if visibleMissingMonitorRestores.length > 0}
@@ -205,10 +205,10 @@
           </div>
         </section>
       {:else if monitorFilter === 'missing'}
-        <p class="text-sm leading-6 text-slate-600" role="status" aria-live="polite">{filterEmptyMessage}</p>
+        <p class="text-sm leading-6 text-muted-foreground" role="status" aria-live="polite">{filterEmptyMessage}</p>
       {/if}
 
-      <p class="text-sm leading-6 text-slate-500">
+      <p class="text-sm leading-6 text-muted-foreground">
         {$copy.desktop.runtimeDeferred}
       </p>
     </div>

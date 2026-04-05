@@ -75,7 +75,7 @@
   <div class="grid gap-4 px-1 pb-1">
     <div class="grid gap-3.5">
       <div class="flex flex-wrap items-center gap-2">
-        <StatusBadge label={desktopMonitorCardCopy.desktopBadge} />
+        <StatusBadge label={desktopMonitorCardCopy.desktopBadge} variantKey="desktop" />
         {#if missing && restoreState !== 'missing_monitor'}
           <StatusBadge label={missingBadgeLabel} variantKey="missing_monitor" />
         {/if}
@@ -86,20 +86,20 @@
       </div>
 
       <div class="grid gap-1.5">
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.monitor}</p>
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{desktopMonitorCardCopy.monitor}</p>
         <h3 class="lwe-heading-md lwe-wrap-safe">{displayName}</h3>
-        <p class="lwe-wrap-safe text-sm text-slate-600">
+        <p class="lwe-wrap-safe text-sm text-muted-foreground">
           {monitorId}
           {#if resolution}
-            <span class="text-slate-400"> • </span>{resolution}
+            <span class="text-muted-foreground/65"> • </span>{resolution}
           {/if}
         </p>
       </div>
     </div>
 
     <div class="lwe-subpanel">
-      <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.currentItem}</p>
-      <p class="lwe-wrap-safe text-sm leading-6 text-slate-800">{currentItemLabel}</p>
+      <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{desktopMonitorCardCopy.currentItem}</p>
+      <p class="lwe-wrap-safe text-sm leading-6 text-foreground/90">{currentItemLabel}</p>
 
       {#if clearSupported}
         <div class="mt-3">
@@ -118,10 +118,10 @@
     </div>
 
     {#if hasStateDetails}
-      <Separator class="bg-slate-200/80" />
+      <Separator class="bg-border/80" />
       <div class="lwe-subpanel gap-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.restoreState}</p>
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{desktopMonitorCardCopy.restoreState}</p>
 
           <Button
             variant="outline"
@@ -153,13 +153,13 @@
         {/if}
 
         {#if detailsExpanded}
-          <div class="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-4">
-            <Separator class="bg-slate-200/80" />
+          <div class="grid gap-4 rounded-2xl border border-border/80 bg-card/80 p-4">
+            <Separator class="bg-border/80" />
 
             <div class="grid gap-1.5">
-              <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{desktopMonitorCardCopy.monitorStatus}</p>
+              <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{desktopMonitorCardCopy.monitorStatus}</p>
               <h4 class="lwe-heading-md lwe-wrap-safe">{displayName}</h4>
-              <p class="lwe-wrap-safe text-sm text-slate-600">{monitorId}</p>
+              <p class="lwe-wrap-safe text-sm text-muted-foreground">{monitorId}</p>
             </div>
 
             {#if statusBadges.length > 0}
@@ -170,11 +170,11 @@
               </div>
             {/if}
 
-            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
+            <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">
               {restoreIssue ?? desktopMonitorCardCopy.noRestoreIssue}
             </p>
 
-            <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+            <p class="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
               {desktopMonitorCardCopy.expandStatusHint}
             </p>
           </div>

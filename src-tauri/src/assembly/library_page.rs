@@ -1,6 +1,6 @@
 use crate::assembly::compatibility::compatibility_summary;
 use crate::models::LibraryPageSnapshot;
-use crate::models::{ItemType, LibraryItemSummary, LibrarySource};
+use crate::models::{ItemType, LibraryItemSummary, LibrarySource, WorkshopAgeRating};
 use crate::policies::shared::cover_policy::{cover_art_source, CoverArtSource};
 use crate::results::desktop::DesktopPageResult;
 use crate::results::library::LibraryProjection;
@@ -30,11 +30,23 @@ fn cover_path(entry: &WorkshopCatalogEntry) -> Option<String> {
 }
 
 fn assemble_library_summary(entry: AssessedWorkshopCatalogEntry) -> LibraryItemSummary {
+    let age_rating = entry
+        .project_metadata
+        .inferred_age_rating
+        .as_ref()
+        .map(|rating| match rating.as_str() {
+            "r_18" => WorkshopAgeRating::R18,
+            "pg_13" => WorkshopAgeRating::Pg13,
+            _ => WorkshopAgeRating::G,
+        })
+        .unwrap_or(WorkshopAgeRating::G);
+
     LibraryItemSummary {
         id: entry.entry.library_item_id.clone().unwrap_or_default(),
         title: entry.entry.title.clone(),
         item_type: item_type_from_project_type(entry.entry.project_type),
         cover_path: cover_path(&entry.entry),
+        age_rating,
         source: LibrarySource::Workshop,
         compatibility: compatibility_summary(&entry.compatibility),
         favorite: false,

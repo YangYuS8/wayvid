@@ -34,10 +34,11 @@ import * as Select from '$lib/ui/select';
     'web',
     'application'
   ];
-  let onlineSearchResult: WorkshopOnlineSearchResult | null = null;
-  let onlineSearchPage = 1;
-  let onlineSearchPageSize = 24;
-  let onlineSearchPageSizeValue = '24';
+let onlineSearchResult: WorkshopOnlineSearchResult | null = null;
+let onlineSearchPage = 1;
+let onlineSearchPageSize = 24;
+let onlineSearchPageSizeValue = '24';
+let initialOnlineSearchLoading = false;
 
   const pageSizeOptions = [12, 24, 48, 96] as const;
 
@@ -45,13 +46,23 @@ import * as Select from '$lib/ui/select';
 
   let jumpToPageValue = '1';
 
-  const pageCount = (result: WorkshopOnlineSearchResult | null) => {
+const pageCount = (result: WorkshopOnlineSearchResult | null) => {
     if (!result?.totalApprox || result.pageSize <= 0) {
       return null;
     }
 
     return Math.max(1, Math.ceil(result.totalApprox / result.pageSize));
-  };
+};
+
+const ensureNonEmptyFilters = () => {
+  if (onlineSearchAgeRatings.length === 0) {
+    onlineSearchAgeRatings = ['g'];
+  }
+
+  if (onlineSearchItemTypes.length === 0) {
+    onlineSearchItemTypes = ['video'];
+  }
+};
 
   const persistOnlineSearchPreferences = async () => {
     try {
@@ -65,10 +76,13 @@ import * as Select from '$lib/ui/select';
     }
   };
 
-  const runOnlineSearch = async (options?: { page?: number }) => {
-    const requestToken = ++onlineSearchRequestToken;
-    onlineSearchLoading = true;
-    onlineSearchError = null;
+const runOnlineSearch = async (options?: { page?: number }) => {
+  const requestToken = ++onlineSearchRequestToken;
+  if (!onlineSearchResult) {
+    initialOnlineSearchLoading = true;
+  }
+  onlineSearchLoading = true;
+  onlineSearchError = null;
     const requestedPage = options?.page ?? 1;
 
     try {
@@ -111,25 +125,27 @@ import * as Select from '$lib/ui/select';
       }
 
       onlineSearchError = readError(error);
-    } finally {
-      if (
-        isLatestWorkshopOnlineSearchResponse({
-          requestToken,
-          responseToken: onlineSearchRequestToken
-        })
-      ) {
-        onlineSearchLoading = false;
-      }
+  } finally {
+    if (
+      isLatestWorkshopOnlineSearchResponse({
+        requestToken,
+        responseToken: onlineSearchRequestToken
+      })
+    ) {
+      onlineSearchLoading = false;
+      initialOnlineSearchLoading = false;
     }
-  };
+  }
+};
 
   const scheduleOnlineSearch = () => {
-    if (onlineSearchTimer) {
-      clearTimeout(onlineSearchTimer);
-    }
+  if (onlineSearchTimer) {
+    clearTimeout(onlineSearchTimer);
+  }
 
-    onlineSearchPage = 1;
-    jumpToPageValue = '1';
+  ensureNonEmptyFilters();
+  onlineSearchPage = 1;
+  jumpToPageValue = '1';
 
     onlineSearchTimer = setTimeout(() => {
       void runOnlineSearch({ page: 1 });
@@ -137,14 +153,15 @@ import * as Select from '$lib/ui/select';
   };
 
   const triggerOnlineSearchNow = async () => {
-    if (onlineSearchTimer) {
-      clearTimeout(onlineSearchTimer);
-      onlineSearchTimer = null;
-    }
+  if (onlineSearchTimer) {
+    clearTimeout(onlineSearchTimer);
+    onlineSearchTimer = null;
+  }
 
-    onlineSearchPage = 1;
-    jumpToPageValue = '1';
-    await runOnlineSearch({ page: 1 });
+  ensureNonEmptyFilters();
+  onlineSearchPage = 1;
+  jumpToPageValue = '1';
+  await runOnlineSearch({ page: 1 });
   };
 
   const changeOnlineSearchPage = async (direction: 'prev' | 'next') => {
@@ -242,17 +259,17 @@ import * as Select from '$lib/ui/select';
     subtitle={$copy.workshop.headerSubtitle}
   />
 
-  <section class="grid gap-4 rounded-[1.125rem] border border-slate-200/80 bg-white/90 p-4">
+  <section class="grid gap-4 rounded-[1.125rem] border border-border/80 bg-card/90 p-4">
     <p class="lwe-eyebrow">{$copy.workshop.onlineSearch}</p>
 
     <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
       <label class="grid gap-1.5">
-        <span class="text-sm font-medium text-slate-900">{$copy.workshop.searchLabel}</span>
+        <span class="text-sm font-medium text-foreground">{$copy.workshop.searchLabel}</span>
         <input
           type="text"
           bind:value={onlineSearchQuery}
           placeholder={$copy.workshop.searchPlaceholder}
-          class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+          class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
           on:input={scheduleOnlineSearch}
           on:keydown={(event) => {
             if (event.key === 'Enter') {
@@ -280,10 +297,10 @@ import * as Select from '$lib/ui/select';
 
     {#if filtersExpanded}
       <div class="grid gap-3 md:grid-cols-2">
-        <fieldset class="grid gap-2 rounded-[1rem] border border-slate-200/80 bg-slate-50/60 p-3">
-          <legend class="px-1 text-sm font-medium text-slate-900">{$copy.workshop.ageRatings}</legend>
+        <fieldset class="grid gap-2 rounded-[1rem] border border-border/80 bg-muted/60 p-3">
+          <legend class="px-1 text-sm font-medium text-foreground">{$copy.workshop.ageRatings}</legend>
           <div class="grid gap-2 sm:grid-cols-3">
-            <label class="flex items-center gap-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 text-sm text-foreground/85">
               <input
                 type="checkbox"
                 checked={onlineSearchAgeRatings.includes('g')}
@@ -297,13 +314,13 @@ import * as Select from '$lib/ui/select';
                   if (onlineSearchAgeRatings.length === 0) {
                     onlineSearchAgeRatings = ['g'];
                   }
-                  selectedAgePreset = deriveAgePreset(onlineSearchAgeRatings);
+                  onlineSearchResult = null;
                   scheduleOnlineSearch();
                 }}
               />
               <span>{$copy.workshop.ageRatingLabels.g}</span>
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 text-sm text-foreground/85">
               <input
                 type="checkbox"
                 checked={onlineSearchAgeRatings.includes('pg_13')}
@@ -317,13 +334,13 @@ import * as Select from '$lib/ui/select';
                   if (onlineSearchAgeRatings.length === 0) {
                     onlineSearchAgeRatings = ['pg_13'];
                   }
-                  selectedAgePreset = deriveAgePreset(onlineSearchAgeRatings);
+                  onlineSearchResult = null;
                   scheduleOnlineSearch();
                 }}
               />
               <span>{$copy.workshop.ageRatingLabels.pg_13}</span>
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 text-sm text-foreground/85">
               <input
                 type="checkbox"
                 checked={onlineSearchAgeRatings.includes('r_18')}
@@ -337,7 +354,7 @@ import * as Select from '$lib/ui/select';
                   if (onlineSearchAgeRatings.length === 0) {
                     onlineSearchAgeRatings = ['r_18'];
                   }
-                  selectedAgePreset = deriveAgePreset(onlineSearchAgeRatings);
+                  onlineSearchResult = null;
                   scheduleOnlineSearch();
                 }}
               />
@@ -346,10 +363,10 @@ import * as Select from '$lib/ui/select';
           </div>
         </fieldset>
 
-        <fieldset class="grid gap-2 rounded-[1rem] border border-slate-200/80 bg-slate-50/60 p-3">
-          <legend class="px-1 text-sm font-medium text-slate-900">{$copy.workshop.itemTypes}</legend>
+        <fieldset class="grid gap-2 rounded-[1rem] border border-border/80 bg-muted/60 p-3">
+          <legend class="px-1 text-sm font-medium text-foreground">{$copy.workshop.itemTypes}</legend>
           <div class="grid gap-2 sm:grid-cols-2">
-            <label class="flex items-center gap-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 text-sm text-foreground/85">
               <input
                 type="checkbox"
                 checked={onlineSearchItemTypes.includes('video')}
@@ -363,13 +380,13 @@ import * as Select from '$lib/ui/select';
                   if (onlineSearchItemTypes.length === 0) {
                     onlineSearchItemTypes = ['video'];
                   }
-                  selectedTypePreset = deriveTypePreset(onlineSearchItemTypes);
+                  onlineSearchResult = null;
                   scheduleOnlineSearch();
                 }}
               />
               <span>{$copy.labels.itemTypes.video}</span>
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 text-sm text-foreground/85">
               <input
                 type="checkbox"
                 checked={onlineSearchItemTypes.includes('scene')}
@@ -383,13 +400,13 @@ import * as Select from '$lib/ui/select';
                   if (onlineSearchItemTypes.length === 0) {
                     onlineSearchItemTypes = ['scene'];
                   }
-                  selectedTypePreset = deriveTypePreset(onlineSearchItemTypes);
+                  onlineSearchResult = null;
                   scheduleOnlineSearch();
                 }}
               />
               <span>{$copy.labels.itemTypes.scene}</span>
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 text-sm text-foreground/85">
               <input
                 type="checkbox"
                 checked={onlineSearchItemTypes.includes('web')}
@@ -403,13 +420,13 @@ import * as Select from '$lib/ui/select';
                   if (onlineSearchItemTypes.length === 0) {
                     onlineSearchItemTypes = ['web'];
                   }
-                  selectedTypePreset = deriveTypePreset(onlineSearchItemTypes);
+                  onlineSearchResult = null;
                   scheduleOnlineSearch();
                 }}
               />
               <span>{$copy.labels.itemTypes.web}</span>
             </label>
-            <label class="flex items-center gap-2 text-sm text-slate-700">
+            <label class="flex items-center gap-2 text-sm text-foreground/85">
               <input
                 type="checkbox"
                 checked={onlineSearchItemTypes.includes('application')}
@@ -423,7 +440,7 @@ import * as Select from '$lib/ui/select';
                   if (onlineSearchItemTypes.length === 0) {
                     onlineSearchItemTypes = ['application'];
                   }
-                  selectedTypePreset = deriveTypePreset(onlineSearchItemTypes);
+                  onlineSearchResult = null;
                   scheduleOnlineSearch();
                 }}
               />
@@ -434,22 +451,32 @@ import * as Select from '$lib/ui/select';
       </div>
     {/if}
 
-    {#if onlineSearchError}
+    {#if initialOnlineSearchLoading}
+      <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]" aria-busy="true" aria-live="polite">
+        {#each Array(6) as _, index (index)}
+          <div class="grid gap-2 rounded-[1rem] border border-border/80 bg-card p-3 animate-pulse">
+            <div class="aspect-square w-full rounded-[0.9rem] bg-muted"></div>
+            <div class="h-4 w-5/6 rounded bg-muted"></div>
+            <div class="h-9 w-28 rounded bg-muted"></div>
+          </div>
+        {/each}
+      </div>
+    {:else if onlineSearchError}
       <p class="lwe-warning-banner" role="alert" aria-live="assertive">{onlineSearchError}</p>
     {:else if onlineSearchResult}
       <div class="grid gap-2">
-        <p class="text-sm font-medium text-slate-900">{$copy.workshop.onlineResults}</p>
+        <p class="text-sm font-medium text-foreground">{$copy.workshop.onlineResults}</p>
         {#if onlineSearchResult.items.length}
           <div class="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {#each onlineSearchResult.items as item}
-              <div class="grid gap-2 rounded-[1rem] border border-slate-200/80 bg-white p-3">
+              <div class="grid gap-2 rounded-[1rem] border border-border/80 bg-card p-3">
                 <img
                   src={item.previewUrl ?? undefined}
                   alt={item.title}
-                  class="aspect-square w-full rounded-[0.9rem] border border-slate-200/80 bg-slate-100 object-cover"
+                  class="aspect-square w-full rounded-[0.9rem] border border-border/80 bg-muted object-cover"
                   loading="lazy"
                 />
-                <p class="line-clamp-2 text-sm font-semibold text-slate-900">{item.title}</p>
+                <p class="line-clamp-2 text-sm font-semibold text-foreground">{item.title}</p>
                 <Button variant="outline" onclick={() => openOnlineItemInSteam(item.id)}>
                   {$copy.components.workshopDetail.openInSteam}
                 </Button>
@@ -467,11 +494,11 @@ import * as Select from '$lib/ui/select';
             >
               {$copy.workshop.previousPage}
             </Button>
-            <p class="text-xs text-slate-600">{$copy.workshop.pageLabel} {onlineSearchPage}</p>
+            <p class="text-xs text-muted-foreground">{$copy.workshop.pageLabel} {onlineSearchPage}</p>
             {#if pageCount(onlineSearchResult) !== null}
-              <p class="text-xs text-slate-600">/ {pageCount(onlineSearchResult)}</p>
+              <p class="text-xs text-muted-foreground">/ {pageCount(onlineSearchResult)}</p>
             {/if}
-            <label class="flex items-center gap-2 text-xs text-slate-600">
+            <label class="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{$copy.workshop.pageSize}</span>
               <Select.Root
                 type="single"
@@ -494,13 +521,13 @@ import * as Select from '$lib/ui/select';
                 </Select.Content>
               </Select.Root>
             </label>
-            <label class="flex items-center gap-2 text-xs text-slate-600">
+            <label class="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{$copy.workshop.jumpToPage}</span>
               <input
                 type="number"
                 min="1"
                 bind:value={jumpToPageValue}
-                class="h-8 w-16 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900"
+                class="h-8 w-16 rounded-md border border-input bg-background px-2 text-xs text-foreground"
                 on:keydown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();
@@ -529,7 +556,7 @@ import * as Select from '$lib/ui/select';
             </Button>
           </div>
         {:else}
-          <p class="text-sm text-slate-600">{$copy.workshop.noOnlineResults}</p>
+          <p class="text-sm text-muted-foreground">{$copy.workshop.noOnlineResults}</p>
         {/if}
       </div>
     {/if}

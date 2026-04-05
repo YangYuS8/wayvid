@@ -5,6 +5,7 @@ use lwe_library::{WorkshopCatalogEntry, WorkshopSyncState};
 pub struct WorkshopProjectMetadata {
     pub description: Option<String>,
     pub tags: Vec<String>,
+    pub inferred_age_rating: Option<String>,
 }
 
 #[derive(Debug, Clone)]

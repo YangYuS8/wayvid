@@ -7,6 +7,7 @@
   import * as Select from '$lib/ui/select';
   import { loadSettingsPage, updateSettings } from '$lib/ipc';
   import {
+    applyThemePreference,
     needsPageLoad,
     pageCache,
     setCurrentPage,
@@ -60,6 +61,7 @@
   const applySnapshot = (snapshot: SettingsPageSnapshot) => {
     setSettingsSnapshot(snapshot);
     setPreferredLanguage(snapshot.language as 'en' | 'zh-CN' | 'system');
+    applyThemePreference(snapshot.theme as 'light' | 'dark' | 'system');
     draftSource = snapshot;
     draft = createDraft(snapshot);
   };
@@ -180,14 +182,14 @@
   {#if pageError}
     <p class="lwe-warning-banner" role="alert" aria-live="assertive">{pageError}</p>
   {:else if loading && !hasSnapshot}
-    <p class="text-sm text-slate-600" role="status" aria-live="polite">{$copy.settings.loading}</p>
+    <p class="text-sm text-muted-foreground" role="status" aria-live="polite">{$copy.settings.loading}</p>
   {:else if snapshot}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.9fr)] xl:items-start">
       <Card class="lwe-panel gap-5">
         <div class="grid gap-1.5">
           <p class="lwe-eyebrow">{isEditing ? $copy.settings.editableSettings : $copy.settings.currentSettings}</p>
           <h2 class="lwe-heading-md">{$copy.settings.preferences}</h2>
-          <p class="text-sm leading-6 text-slate-600">
+          <p class="text-sm leading-6 text-muted-foreground">
             {#if isEditing}
               {$copy.settings.editSubtitle}
             {:else}
@@ -233,28 +235,28 @@
             </label>
 
             {#if snapshot.launchOnLoginAvailable}
-              <label class="flex items-start gap-3 rounded-[1rem] border border-slate-200/80 bg-slate-50/80 p-4">
+              <label class="flex items-start gap-3 rounded-[1rem] border border-border/80 bg-muted/70 p-4">
                 <input
                   type="checkbox"
                   bind:checked={draft.launchOnLogin}
                   disabled={saving}
                   aria-label={$copy.settings.launchOnLogin}
-                  class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400"
+                  class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 />
                 <span class="grid gap-1.5">
                   <span class="lwe-eyebrow">{$copy.settings.launchOnLogin}</span>
-                  <span class="text-sm leading-6 text-slate-700">
+                  <span class="text-sm leading-6 text-foreground/85">
                     {$copy.settings.startOnSession}
                   </span>
                 </span>
               </label>
             {:else}
-              <div class="grid gap-2 rounded-[1rem] border border-dashed border-slate-200/80 bg-slate-50/60 p-4">
+              <div class="grid gap-2 rounded-[1rem] border border-dashed border-border/80 bg-muted/60 p-4">
                 <p class="lwe-eyebrow">{$copy.settings.launchOnLogin}</p>
-                <p class="text-sm leading-6 text-slate-700">
+                <p class="text-sm leading-6 text-foreground/85">
                   {$copy.settings.launchOnLoginUnavailable}
                 </p>
-                <p class="text-sm leading-6 text-slate-600">
+                <p class="text-sm leading-6 text-muted-foreground">
                   {$copy.settings.launchPreferencePrefix} {draft.launchOnLogin ? $copy.settings.preferEnabled.toLowerCase() : $copy.settings.preferDisabled.toLowerCase()}.
                 </p>
               </div>
@@ -267,9 +269,9 @@
                 bind:value={draft.steamWebApiKey}
                 autocomplete="off"
                 spellcheck={false}
-                class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                class="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
               />
-              <span class="text-xs text-slate-500">{$copy.settings.steamWebApiKeyHint}</span>
+              <span class="text-xs text-muted-foreground">{$copy.settings.steamWebApiKeyHint}</span>
             </label>
 
           </div>
@@ -281,16 +283,16 @@
             <Button onclick={cancelEditing} variant="outline" disabled={saving}>{$copy.settings.cancel}</Button>
 
             {#if hasChanges && !saving}
-              <p class="text-sm leading-6 text-slate-600" aria-live="polite">{$copy.settings.unsavedChanges}</p>
+              <p class="text-sm leading-6 text-muted-foreground" aria-live="polite">{$copy.settings.unsavedChanges}</p>
             {/if}
           </div>
         {:else}
-          <div class="grid gap-4 rounded-[1rem] border border-slate-200/80 bg-slate-50/60 p-4 text-sm leading-6 text-slate-700">
-            <p><span class="font-medium text-slate-950">{$copy.settings.language}:</span> {languageLabel(snapshot.language)}</p>
-            <p><span class="font-medium text-slate-950">{$copy.settings.theme}:</span> {themeLabel(snapshot.theme)}</p>
-            <p><span class="font-medium text-slate-950">{$copy.settings.steamWebApiKeySaved}</span> {maskApiKey(snapshot.steamWebApiKey)}</p>
+          <div class="grid gap-4 rounded-[1rem] border border-border/80 bg-muted/60 p-4 text-sm leading-6 text-foreground/85">
+            <p><span class="font-medium text-foreground">{$copy.settings.language}:</span> {languageLabel(snapshot.language)}</p>
+            <p><span class="font-medium text-foreground">{$copy.settings.theme}:</span> {themeLabel(snapshot.theme)}</p>
+            <p><span class="font-medium text-foreground">{$copy.settings.steamWebApiKeySaved}</span> {maskApiKey(snapshot.steamWebApiKey)}</p>
             <p>
-              <span class="font-medium text-slate-950">
+              <span class="font-medium text-foreground">
                 {snapshot.launchOnLoginAvailable ? $copy.settings.launchOnLoginSaved : $copy.settings.savedLaunchPreference}
               </span>
               {#if snapshot.launchOnLoginAvailable}
@@ -314,18 +316,18 @@
         </div>
 
         <div class="lwe-subpanel gap-2.5">
-          <p class="text-sm font-semibold tracking-tight text-slate-950">
+          <p class="text-sm font-semibold tracking-tight text-foreground">
             {snapshot.steamRequired ? $copy.settings.steamRequired : $copy.settings.steamOptional}
           </p>
-          <p class="text-sm leading-6 text-slate-600">{snapshot.steamStatusMessage}</p>
+          <p class="text-sm leading-6 text-muted-foreground">{snapshot.steamStatusMessage}</p>
         </div>
 
-        <div class="grid gap-1.5 text-sm leading-6 text-slate-600">
-          <p><span class="font-medium text-slate-950">{$copy.settings.savedLanguage}</span> {languageLabel(snapshot.language)}</p>
-          <p><span class="font-medium text-slate-950">{$copy.settings.savedTheme}</span> {themeLabel(snapshot.theme)}</p>
-          <p><span class="font-medium text-slate-950">{$copy.settings.steamWebApiKeySaved}</span> {maskApiKey(snapshot.steamWebApiKey)}</p>
+        <div class="grid gap-1.5 text-sm leading-6 text-muted-foreground">
+          <p><span class="font-medium text-foreground">{$copy.settings.savedLanguage}</span> {languageLabel(snapshot.language)}</p>
+          <p><span class="font-medium text-foreground">{$copy.settings.savedTheme}</span> {themeLabel(snapshot.theme)}</p>
+          <p><span class="font-medium text-foreground">{$copy.settings.steamWebApiKeySaved}</span> {maskApiKey(snapshot.steamWebApiKey)}</p>
           <p>
-            <span class="font-medium text-slate-950">
+            <span class="font-medium text-foreground">
               {snapshot.launchOnLoginAvailable ? $copy.settings.launchOnLoginSaved : $copy.settings.savedLaunchPreference}
             </span>
             {#if snapshot.launchOnLoginAvailable}

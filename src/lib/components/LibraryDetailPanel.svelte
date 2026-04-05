@@ -36,7 +36,7 @@
   {#if loading}
     <div class="lwe-subpanel gap-3" role="status" aria-live="polite">
       <p class="lwe-eyebrow">{libraryDetailCopy.title}</p>
-      <p class="text-sm leading-6 text-slate-600">{libraryDetailCopy.loading}</p>
+      <p class="text-sm leading-6 text-muted-foreground">{libraryDetailCopy.loading}</p>
     </div>
   {:else if error}
     <div class="lwe-subpanel gap-3">
@@ -49,16 +49,16 @@
     <div class="grid min-w-0 gap-4" data-detail-layout="compact-vertical">
       <section class="grid gap-3.5" data-detail-section="header">
         <div class="grid gap-2">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             {libraryDetailCopy.itemTitle}
           </p>
           <h2 class="lwe-heading-lg lwe-wrap-safe">{detail.title}</h2>
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <StatusBadge label={detailCompatibilityLabel} />
-          <StatusBadge label={detailSourceLabel} />
-          <StatusBadge label={detailItemTypeLabel} />
+          <StatusBadge label={detailCompatibilityLabel} variantKey={detail.compatibility.badge} />
+          <StatusBadge label={detailSourceLabel} variantKey={detail.source} />
+          <StatusBadge label={detailItemTypeLabel} variantKey={detail.itemType} />
         </div>
       </section>
 
@@ -75,26 +75,26 @@
 
         {#if assignedMonitorLabels.length > 0}
           <div class="lwe-subpanel" aria-live="polite">
-            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {libraryDetailCopy.assignedMonitors}
             </p>
-            <p class="lwe-wrap-safe text-sm text-slate-700">{assignedMonitorLabels.join(' • ')}</p>
+            <p class="lwe-wrap-safe text-sm text-foreground/85">{assignedMonitorLabels.join(' • ')}</p>
           </div>
         {/if}
       </section>
 
       <section class="lwe-subpanel gap-3.5" data-detail-section="actions" aria-label={libraryDetailCopy.actionsAriaLabel}>
         <div class="grid gap-1.5">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{libraryDetailCopy.actions}</p>
-          <h3 class="text-base font-semibold tracking-tight text-slate-950">{libraryDetailCopy.apply}</h3>
-          <p class="text-sm leading-6 text-slate-600">
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{libraryDetailCopy.actions}</p>
+          <h3 class="text-base font-semibold tracking-tight text-foreground">{libraryDetailCopy.apply}</h3>
+          <p class="text-sm leading-6 text-muted-foreground">
             {libraryDetailCopy.applyDescription}
           </p>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <label class="grid gap-1.5">
-            <span class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <span class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {libraryDetailCopy.monitor}
             </span>
 
@@ -140,8 +140,8 @@
       <section class="grid gap-3" data-detail-section="cover">
         <div class="grid max-w-sm gap-2">
           <div class="grid gap-2">
-            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{libraryDetailCopy.cover}</p>
-            <p class="text-sm leading-6 text-slate-600">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{libraryDetailCopy.cover}</p>
+            <p class="text-sm leading-6 text-muted-foreground">
               {libraryDetailCopy.coverDescription}
             </p>
           </div>
@@ -150,29 +150,33 @@
       </section>
 
       <section data-detail-section="compatibility">
-        <CompatibilityPanel compatibility={detail.compatibility} badgeLabel={detailCompatibilityLabel} />
+        <CompatibilityPanel
+          compatibility={detail.compatibility}
+          badgeLabel={detailCompatibilityLabel}
+          badgeVariantKey={detail.compatibility.badge}
+        />
       </section>
 
-      <Separator class="bg-slate-200/80" />
+      <Separator class="bg-border/80" />
 
       <section class="grid gap-4 sm:grid-cols-2" data-detail-section="metadata">
         <div class="lwe-subpanel">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{libraryDetailCopy.description}</p>
-          <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{libraryDetailCopy.description}</p>
+          <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">
             {detail.description ?? libraryDetailCopy.noDescription}
           </p>
         </div>
 
         <div class="lwe-subpanel">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{libraryDetailCopy.tags}</p>
-          <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{libraryDetailCopy.tags}</p>
+          <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">
             {detail.tags.length > 0 ? detail.tags.join(' • ') : libraryDetailCopy.noTags}
           </p>
         </div>
 
         <div class="lwe-subpanel sm:col-span-2">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{libraryDetailCopy.source}</p>
-          <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">{detailSourceLabel}</p>
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{libraryDetailCopy.source}</p>
+          <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">{detailSourceLabel}</p>
         </div>
       </section>
     </div>
@@ -190,7 +194,7 @@
 
       <div class="lwe-subpanel gap-3 border-dashed" role="status" aria-live="polite">
         <p class="lwe-eyebrow">{libraryDetailCopy.title}</p>
-        <p class="text-sm leading-6 text-slate-600">{libraryDetailCopy.empty}</p>
+        <p class="text-sm leading-6 text-muted-foreground">{libraryDetailCopy.empty}</p>
       </div>
     </div>
   {/if}

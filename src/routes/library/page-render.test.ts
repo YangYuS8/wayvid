@@ -37,6 +37,7 @@ describe('library page render', () => {
           title: 'Forest Scene',
           itemType: 'scene',
           coverPath: null,
+          ageRating: 'g',
           source: 'workshop',
           compatibility: {
             badge: 'fully_supported',
@@ -120,6 +121,7 @@ describe('library page render', () => {
           title: 'Forest Scene',
           itemType: 'scene',
           coverPath: null,
+          ageRating: 'g',
           source: 'workshop',
           compatibility: {
             badge: 'fully_supported',
@@ -165,7 +167,7 @@ describe('library page render', () => {
     const { body } = render(LibraryPage);
 
     expect(body).toContain('aria-label="选择内容项 Forest Scene"');
-    expect(body).toContain('显示 Forest Scene 的快捷操作');
+    expect(body).not.toContain('显示 Forest Scene 的快捷操作');
     expect(body).toContain('兼容性');
     expect(body).toContain('下一步：');
     expect(body).toContain('完全支持');

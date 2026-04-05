@@ -6,14 +6,18 @@
   import { cn } from '$lib/ui/utils';
 
 export const buttonVariants = cva(
-    'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50',
+    'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 dark:focus-visible:ring-offset-background',
     {
       variants: {
         variant: {
-          default: 'bg-primary text-primary-foreground hover:opacity-90',
-          secondary: 'bg-secondary text-secondary-foreground hover:opacity-90',
-          outline: 'border bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
-          ghost: 'text-foreground hover:bg-accent hover:text-accent-foreground'
+          default:
+            'bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/80',
+          secondary:
+            'bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/80',
+          outline:
+            'border bg-background text-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/70',
+          ghost:
+            'text-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/70'
         },
         size: {
           default: 'h-9 px-4 py-2',

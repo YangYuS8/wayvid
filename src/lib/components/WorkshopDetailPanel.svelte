@@ -23,7 +23,7 @@
   {#if loading}
     <div class="lwe-subpanel gap-3" role="status" aria-live="polite">
       <p class="lwe-eyebrow">{workshopDetailCopy.title}</p>
-      <p class="text-sm leading-6 text-slate-600">{workshopDetailCopy.loading}</p>
+      <p class="text-sm leading-6 text-muted-foreground">{workshopDetailCopy.loading}</p>
     </div>
   {:else if error}
     <div class="lwe-subpanel gap-3">
@@ -36,31 +36,31 @@
     <div class="grid min-w-0 gap-4" data-detail-layout="compact-vertical">
       <section class="grid gap-3.5" data-detail-section="header">
         <div class="grid gap-2">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             {workshopDetailCopy.itemTitle}
           </p>
           <h2 class="lwe-heading-lg lwe-wrap-safe">{detail.title}</h2>
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <StatusBadge label={detailCompatibilityLabel} />
-          <StatusBadge label={detailSyncStatusLabel} />
-          <StatusBadge label={detailItemTypeLabel} />
+          <StatusBadge label={detailCompatibilityLabel} variantKey={detail.compatibility.badge} />
+          <StatusBadge label={detailSyncStatusLabel} variantKey={detail.syncStatus} />
+          <StatusBadge label={detailItemTypeLabel} variantKey={detail.itemType} />
         </div>
       </section>
 
       <section class="lwe-subpanel gap-3" data-detail-section="quick-status">
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{workshopDetailCopy.quickStatus}</p>
-        <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{workshopDetailCopy.quickStatus}</p>
+        <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">
           {workshopDetailCopy.syncStatusPrefix} {detailSyncStatusLabel}. {workshopDetailCopy.compatibilityPrefix} {detail.compatibility.summaryCopy}.
         </p>
       </section>
 
       <section class="lwe-subpanel gap-3.5" data-detail-section="actions">
         <div class="grid gap-1.5">
-          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{workshopDetailCopy.actions}</p>
-          <h3 class="text-base font-semibold tracking-tight text-slate-950">{workshopDetailCopy.openSourcePage}</h3>
-          <p class="text-sm leading-6 text-slate-600">
+          <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{workshopDetailCopy.actions}</p>
+          <h3 class="text-base font-semibold tracking-tight text-foreground">{workshopDetailCopy.openSourcePage}</h3>
+          <p class="text-sm leading-6 text-muted-foreground">
             {workshopDetailCopy.openSourceDescription}
           </p>
         </div>
@@ -73,8 +73,8 @@
       <section class="grid gap-3" data-detail-section="cover">
         <div class="grid max-w-sm gap-2">
           <div class="grid gap-2">
-            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{workshopDetailCopy.cover}</p>
-            <p class="text-sm leading-6 text-slate-600">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{workshopDetailCopy.cover}</p>
+            <p class="text-sm leading-6 text-muted-foreground">
               {workshopDetailCopy.coverDescription}
             </p>
           </div>
@@ -83,38 +83,42 @@
       </section>
 
       <section data-detail-section="compatibility">
-        <CompatibilityPanel compatibility={detail.compatibility} badgeLabel={detailCompatibilityLabel} />
+        <CompatibilityPanel
+          compatibility={detail.compatibility}
+          badgeLabel={detailCompatibilityLabel}
+          badgeVariantKey={detail.compatibility.badge}
+        />
       </section>
 
-      <Separator class="bg-slate-200/80" />
+      <Separator class="bg-border/80" />
 
       <section class="grid gap-4 sm:grid-cols-2" data-detail-section="metadata">
           <div class="lwe-subpanel">
-            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {workshopDetailCopy.description}
             </p>
-            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
+            <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">
               {detail.description ?? workshopDetailCopy.noDescription}
             </p>
           </div>
 
           <div class="lwe-subpanel">
-            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{workshopDetailCopy.tags}</p>
-            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{workshopDetailCopy.tags}</p>
+            <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">
               {detail.tags.length > 0 ? detail.tags.join(' • ') : workshopDetailCopy.noTags}
             </p>
           </div>
 
           <div class="lwe-subpanel sm:col-span-2">
-            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-500">{workshopDetailCopy.syncState}</p>
-            <p class="lwe-wrap-safe text-sm leading-6 text-slate-700">{detailSyncStatusLabel}</p>
+            <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{workshopDetailCopy.syncState}</p>
+            <p class="lwe-wrap-safe text-sm leading-6 text-foreground/85">{detailSyncStatusLabel}</p>
           </div>
       </section>
     </div>
   {:else}
     <div class="lwe-subpanel gap-3 border-dashed" role="status" aria-live="polite">
       <p class="lwe-eyebrow">{workshopDetailCopy.title}</p>
-      <p class="text-sm leading-6 text-slate-600">{workshopDetailCopy.empty}</p>
+      <p class="text-sm leading-6 text-muted-foreground">{workshopDetailCopy.empty}</p>
     </div>
   {/if}
 </Card>

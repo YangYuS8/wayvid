@@ -10,6 +10,7 @@ impl CompatibilityService {
             .map(|project| WorkshopProjectMetadata {
                 description: project.description,
                 tags: project.tags,
+                inferred_age_rating: None,
             })
             .unwrap_or_default()
     }

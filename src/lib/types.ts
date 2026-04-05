@@ -105,6 +105,7 @@ export interface LibraryItemSummary {
   title: string;
   itemType: ItemType;
   coverPath: string | null;
+  ageRating: WorkshopAgeRating;
   source: LibrarySource;
   compatibility: CompatibilitySummaryModel;
   favorite: boolean;

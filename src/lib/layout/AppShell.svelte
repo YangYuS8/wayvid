@@ -53,8 +53,8 @@
     <aside class="lwe-shell-sidebar" aria-label={renderCopy.appShell.primaryLandmark}>
       <div class="grid gap-2 pb-1">
         <p class="lwe-kicker">LWE</p>
-        <p class="m-0 text-[1.35rem] font-semibold tracking-tight text-white">Wallpaper Engine</p>
-        <p class="m-0 text-sm leading-6 text-slate-300">
+        <p class="m-0 text-[1.35rem] font-semibold tracking-tight text-foreground">Wallpaper Engine</p>
+        <p class="m-0 text-sm leading-6 text-muted-foreground">
           {renderCopy.appShell.appDescription}
         </p>
       </div>
@@ -65,11 +65,11 @@
           {@const section = renderCopy[item.key]}
 
           <a class={navLinkClass(current)} href={item.href} aria-current={current ? 'page' : undefined}>
-            <span class="text-base font-semibold text-white">{section.navLabel}</span>
-            <span class="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-slate-300">
+            <span class="text-base font-semibold text-foreground">{section.navLabel}</span>
+            <span class="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {section.navShortLabel}
             </span>
-            <span class="text-sm leading-6 text-slate-300/90">{section.navDescription}</span>
+            <span class="text-sm leading-6 text-muted-foreground">{section.navDescription}</span>
           </a>
         {/each}
       </nav>
