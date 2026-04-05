@@ -10,6 +10,10 @@ concurrency:
   group: quality-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -25,6 +29,7 @@ jobs:
             build-essential \
             pkg-config \
             libssl-dev \
+            libmpv-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
@@ -45,6 +50,9 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.5
 
       - name: Cache Rust artifacts
         uses: swatinem/rust-cache@v2

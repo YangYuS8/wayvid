@@ -9,6 +9,10 @@ concurrency:
   group: release-stable-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
 jobs:
   build-release:
     runs-on: ubuntu-latest
@@ -29,6 +33,7 @@ jobs:
             build-essential \
             pkg-config \
             libssl-dev \
+            libmpv-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
@@ -50,8 +55,20 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.5
+
+      - name: Cache Tauri CLI binary
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cargo/bin/tauri
+          key: ${{ runner.os }}-tauri-cli-v2
+
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --locked
+        run: |
+          if ! command -v tauri >/dev/null 2>&1; then
+            cargo install tauri-cli --locked
+          fi
 
       - name: Cache Rust artifacts
         uses: swatinem/rust-cache@v2
