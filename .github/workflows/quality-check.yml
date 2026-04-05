@@ -29,6 +29,27 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry
+            /root/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-quality-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-quality-
+            ${{ runner.os }}-cargo-
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: /root/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-quality-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-quality-
+            ${{ runner.os }}-pnpm-
+
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 

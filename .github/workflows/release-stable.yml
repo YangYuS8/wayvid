@@ -33,6 +33,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry
+            /root/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-stable-
+            ${{ runner.os }}-cargo-
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: /root/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-stable-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-stable-
+            ${{ runner.os }}-pnpm-
+
       - name: Resolve version
         id: version
         shell: bash

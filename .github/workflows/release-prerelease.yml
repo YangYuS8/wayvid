@@ -46,6 +46,30 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Mark workspace as safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Cache Cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            /root/.cargo/registry
+            /root/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-prerelease-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-prerelease-
+            ${{ runner.os }}-cargo-
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: /root/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-prerelease-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-prerelease-
+            ${{ runner.os }}-pnpm-
+
       - name: Resolve prerelease version
         id: version
         shell: bash
