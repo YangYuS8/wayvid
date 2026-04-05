@@ -88,6 +88,7 @@ describe('ui page cache', () => {
           title: 'A',
           itemType: 'scene',
           coverPath: null,
+          ageRating: 'g',
           source: 'workshop',
           compatibility: compatibilitySummary,
           favorite: false
@@ -97,6 +98,7 @@ describe('ui page cache', () => {
           title: 'B',
           itemType: 'scene',
           coverPath: null,
+          ageRating: 'g',
           source: 'workshop',
           compatibility: compatibilitySummary,
           favorite: false

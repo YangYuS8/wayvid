@@ -243,7 +243,7 @@
       return;
     }
 
-    currentPage = Math.min(pageCount(), currentPage + 1);
+    currentPage = Math.min(totalPages, currentPage + 1);
     jumpToPageValue = String(currentPage);
   };
 
@@ -473,9 +473,7 @@
             {#each pagedItems as item}
               <ItemCard
                 title={item.title}
-                itemType={item.itemType}
                 coverPath={item.coverPath}
-                compatibility={item.compatibility}
                 selected={snapshot.selectedItemId === item.id}
                 assignedMonitorLabels={item.assignedMonitorLabels ?? []}
                 selectLabel={formatCopy($copy.library.selectItemLabel, { itemTitle: item.title })}
