@@ -63,8 +63,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-tauri
-        run: cargo install cargo-tauri --locked
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked
 
       - name: Cache Rust artifacts
         uses: swatinem/rust-cache@v2
