@@ -1,0 +1,36 @@
+name: Quality Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Install dependencies
+        run: pacman -Syu --noconfirm git nodejs pnpm rustup cargo base-devel appmenu-gtk-module libappindicator-gtk3 librsvg desktop-file-utils webkit2gtk
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run frontend type checks
+        run: pnpm check
+
+      - name: Run frontend tests
+        run: pnpm test
+
+      - name: Run Rust checks
+        run: cargo check --workspace

@@ -1,0 +1,147 @@
+name: Release Prerelease
+
+on:
+  workflow_run:
+    workflows:
+      - Quality Check
+    types:
+      - completed
+  workflow_dispatch:
+
+concurrency:
+  group: release-prerelease
+  cancel-in-progress: false
+
+jobs:
+  build-prerelease:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+
+    outputs:
+      prerelease_version: ${{ steps.version.outputs.prerelease_version }}
+      prerelease_tag: ${{ steps.version.outputs.prerelease_tag }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+
+    steps:
+      - name: Install dependencies
+        run: pacman -Syu --noconfirm git openssh nodejs pnpm rustup base-devel appmenu-gtk-module libappindicator-gtk3 librsvg desktop-file-utils webkit2gtk
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve prerelease version
+        id: version
+        shell: bash
+        run: |
+          base_version="$(sed -n 's/^version = "\([^"]\+\)"$/\1/p' Cargo.toml | head -n 1)"
+          short_sha="$(git rev-parse --short=7 HEAD)"
+          prerelease_version="${base_version}-beta.${GITHUB_RUN_NUMBER}+${short_sha}"
+          prerelease_tag="v${prerelease_version}"
+
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "prerelease_version=${prerelease_version}" >> "$GITHUB_OUTPUT"
+          echo "prerelease_tag=${prerelease_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Build bundles
+        run: cargo tauri build -b "deb,rpm,appimage"
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp -v src-tauri/target/release/bundle/deb/*.deb dist/
+          cp -v src-tauri/target/release/bundle/rpm/*.rpm dist/
+          cp -v src-tauri/target/release/bundle/appimage/*.AppImage dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prerelease-bundles
+          path: dist/*
+
+  publish-github-prerelease:
+    runs-on: ubuntu-latest
+    needs: build-prerelease
+    permissions:
+      contents: write
+
+    steps:
+      - name: Delete older prereleases for same commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          target_sha="${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}"
+          current_tag="${{ needs.build-prerelease.outputs.prerelease_tag }}"
+
+          gh api repos/${{ github.repository }}/releases --paginate --jq '.[] | select(.prerelease == true) | [.id, .tag_name, .target_commitish] | @tsv' |
+          while IFS=$'\t' read -r release_id tag_name target_commitish; do
+            if [ "$target_commitish" = "$target_sha" ] && [ "$tag_name" != "$current_tag" ]; then
+              gh api -X DELETE "repos/${{ github.repository }}/releases/${release_id}"
+              gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/${tag_name}" || true
+            fi
+          done
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: prerelease-bundles
+          path: dist
+
+      - name: Publish GitHub prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build-prerelease.outputs.prerelease_tag }}
+          name: LWE ${{ needs.build-prerelease.outputs.prerelease_version }}
+          target_commitish: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          prerelease: true
+          files: dist/*
+
+  publish-aur-git:
+    runs-on: ubuntu-latest
+    needs: build-prerelease
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Install runtime dependencies
+        run: pacman -Syu --noconfirm git openssh
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Prepare non-root makepkg user
+        run: |
+          useradd --create-home --shell /bin/bash aurbuilder
+          chown -R aurbuilder:aurbuilder "$GITHUB_WORKSPACE"
+
+      - name: Update AUR dev package version
+        shell: bash
+        run: |
+          short_sha="${{ needs.build-prerelease.outputs.short_sha }}"
+          base_version="$(sed -n 's/^version = "\([^"]\+\)"$/\1/p' Cargo.toml | head -n 1)"
+          aur_pkgver="${base_version}.beta.${GITHUB_RUN_NUMBER}.${short_sha}"
+          sed -i "s/^pkgver=.*/pkgver=${aur_pkgver}/" packaging/aur/lwe-git/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" packaging/aur/lwe-git/PKGBUILD
+          su -s /bin/bash aurbuilder -c 'cd "$GITHUB_WORKSPACE/packaging/aur/lwe-git" && makepkg --printsrcinfo > .SRCINFO'
+
+      - name: Setup SSH configuration
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          scripts/publish-aur-package.sh \
+            packaging/aur/lwe-git \
+            lwe-git \
+            "chore: prerelease ${{ needs.build-prerelease.outputs.prerelease_version }}"
