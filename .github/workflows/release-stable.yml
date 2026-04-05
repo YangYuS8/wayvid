@@ -54,6 +54,9 @@ jobs:
             ${{ runner.os }}-pnpm-stable-
             ${{ runner.os }}-pnpm-
 
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Resolve version
         id: version
         shell: bash
