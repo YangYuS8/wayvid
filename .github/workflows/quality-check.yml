@@ -26,6 +26,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate SvelteKit config
+        run: pnpm exec svelte-kit sync
+
       - name: Run frontend type checks
         run: pnpm check
 
