@@ -9,6 +9,8 @@ import type {
   SettingsPageSnapshot,
   SettingsUpdateInput,
   WorkshopItemDetail,
+  WorkshopOnlineSearchInput,
+  WorkshopOnlineSearchResult,
   WorkshopPageSnapshot
 } from '$lib/types';
 
@@ -35,6 +37,9 @@ export const refreshWorkshopCatalog = () =>
 
 export const openWorkshopInSteam = (workshopId: string) =>
   invokeCommand<ActionOutcome<null>>('open_workshop_in_steam', { workshopId });
+
+export const searchWorkshopOnline = (input: WorkshopOnlineSearchInput) =>
+  invokeCommand<WorkshopOnlineSearchResult>('search_workshop_online', { input });
 
 export const loadDesktopPage = () => invokeCommand<DesktopPageSnapshot>('load_desktop_page');
 

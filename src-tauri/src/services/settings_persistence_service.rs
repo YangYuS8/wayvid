@@ -155,6 +155,7 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use crate::models::{WorkshopAgeRating, WorkshopOnlineItemType};
     use crate::results::settings_persistence::{PersistedSettings, SettingsPersistenceLoad};
 
     use super::{atomic_write_path_for, settings_path_from_env, SettingsPersistenceService};
@@ -197,7 +198,7 @@ mod tests {
         let path = test_settings_path();
         std::fs::write(
             &path,
-            "language = \"en\" # user language\ntheme = \"dark\"\nlaunch_on_login = true\n",
+            "language = \"en\" # user language\ntheme = \"dark\"\nlaunch_on_login = true\nsteam_web_api_key = \"abc123\"\nworkshop_query = \"rain\"\nworkshop_age_ratings = [\"g\", \"pg_13\"]\nworkshop_item_types = [\"video\", \"application\"]\n",
         )
         .unwrap();
         let service = SettingsPersistenceService::for_test(path);
@@ -210,6 +211,13 @@ mod tests {
                 language: "en".to_string(),
                 theme: "dark".to_string(),
                 launch_on_login: true,
+                steam_web_api_key: "abc123".to_string(),
+                workshop_query: "rain".to_string(),
+                workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],
+                workshop_item_types: vec![
+                    WorkshopOnlineItemType::Video,
+                    WorkshopOnlineItemType::Application,
+                ],
             })
         );
     }
@@ -228,6 +236,15 @@ mod tests {
                 language: "fr".to_string(),
                 theme: "system".to_string(),
                 launch_on_login: false,
+                steam_web_api_key: String::new(),
+                workshop_query: String::new(),
+                workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],
+                workshop_item_types: vec![
+                    WorkshopOnlineItemType::Video,
+                    WorkshopOnlineItemType::Scene,
+                    WorkshopOnlineItemType::Web,
+                    WorkshopOnlineItemType::Application,
+                ],
             })
         );
     }
@@ -240,6 +257,13 @@ mod tests {
             language: "en".to_string(),
             theme: "dark".to_string(),
             launch_on_login: true,
+            steam_web_api_key: "key-123".to_string(),
+            workshop_query: "forest".to_string(),
+            workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::R18],
+            workshop_item_types: vec![
+                WorkshopOnlineItemType::Scene,
+                WorkshopOnlineItemType::Application,
+            ],
         };
 
         assert!(matches!(
@@ -251,6 +275,10 @@ mod tests {
         assert!(contents.contains("language = \"en\""));
         assert!(contents.contains("theme = \"dark\""));
         assert!(contents.contains("launch_on_login = true"));
+        assert!(contents.contains("steam_web_api_key = \"key-123\""));
+        assert!(contents.contains("workshop_query = \"forest\""));
+        assert!(contents.contains("workshop_age_ratings = [\"g\", \"r_18\"]"));
+        assert!(contents.contains("workshop_item_types = [\"scene\", \"application\"]"));
 
         let loaded = service.load_settings();
 

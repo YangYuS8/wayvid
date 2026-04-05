@@ -23,6 +23,7 @@
     language: string;
     theme: string;
     launchOnLogin: boolean;
+    steamWebApiKey: string;
   };
 
   const languageOptions = [
@@ -40,8 +41,21 @@
   const createDraft = (snapshot: SettingsPageSnapshot): SettingsDraft => ({
     language: snapshot.language,
     theme: snapshot.theme,
-    launchOnLogin: snapshot.launchOnLogin
+    launchOnLogin: snapshot.launchOnLogin,
+    steamWebApiKey: snapshot.steamWebApiKey
   });
+
+  const maskApiKey = (value: string) => {
+    if (!value) {
+      return $copy.settings.maskedKeyUnavailable;
+    }
+
+    if (value.length >= 8) {
+      return `${value.slice(0, 4)}...${value.slice(-4)}`;
+    }
+
+    return '********';
+  };
 
   const applySnapshot = (snapshot: SettingsPageSnapshot) => {
     setSettingsSnapshot(snapshot);
@@ -62,7 +76,8 @@
   let draft: SettingsDraft = {
     language: 'en',
     theme: 'system',
-    launchOnLogin: false
+    launchOnLogin: false,
+    steamWebApiKey: ''
   };
 
   $: snapshot = $pageCache.settings.snapshot;
@@ -75,7 +90,8 @@
     snapshot !== null &&
     (draft.language !== snapshot.language ||
       draft.theme !== snapshot.theme ||
-      draft.launchOnLogin !== snapshot.launchOnLogin);
+      draft.launchOnLogin !== snapshot.launchOnLogin ||
+      draft.steamWebApiKey !== snapshot.steamWebApiKey);
 
   const ensurePage = async () => {
     if (!needsPageLoad('settings')) {
@@ -109,7 +125,9 @@
         language: draft.language !== snapshot.language ? draft.language : null,
         theme: draft.theme !== snapshot.theme ? draft.theme : null,
         launchOnLogin:
-          draft.launchOnLogin !== snapshot.launchOnLogin ? draft.launchOnLogin : null
+          draft.launchOnLogin !== snapshot.launchOnLogin ? draft.launchOnLogin : null,
+        steamWebApiKey:
+          draft.steamWebApiKey !== snapshot.steamWebApiKey ? draft.steamWebApiKey : null
       });
 
       if (outcome.currentUpdate) {
@@ -241,6 +259,19 @@
                 </p>
               </div>
             {/if}
+
+            <label class="grid gap-1.5">
+              <span class="lwe-eyebrow">{$copy.settings.steamWebApiKey}</span>
+              <input
+                type="password"
+                bind:value={draft.steamWebApiKey}
+                autocomplete="off"
+                spellcheck={false}
+                class="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+              />
+              <span class="text-xs text-slate-500">{$copy.settings.steamWebApiKeyHint}</span>
+            </label>
+
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
@@ -257,6 +288,7 @@
           <div class="grid gap-4 rounded-[1rem] border border-slate-200/80 bg-slate-50/60 p-4 text-sm leading-6 text-slate-700">
             <p><span class="font-medium text-slate-950">{$copy.settings.language}:</span> {languageLabel(snapshot.language)}</p>
             <p><span class="font-medium text-slate-950">{$copy.settings.theme}:</span> {themeLabel(snapshot.theme)}</p>
+            <p><span class="font-medium text-slate-950">{$copy.settings.steamWebApiKeySaved}</span> {maskApiKey(snapshot.steamWebApiKey)}</p>
             <p>
               <span class="font-medium text-slate-950">
                 {snapshot.launchOnLoginAvailable ? $copy.settings.launchOnLoginSaved : $copy.settings.savedLaunchPreference}
@@ -291,6 +323,7 @@
         <div class="grid gap-1.5 text-sm leading-6 text-slate-600">
           <p><span class="font-medium text-slate-950">{$copy.settings.savedLanguage}</span> {languageLabel(snapshot.language)}</p>
           <p><span class="font-medium text-slate-950">{$copy.settings.savedTheme}</span> {themeLabel(snapshot.theme)}</p>
+          <p><span class="font-medium text-slate-950">{$copy.settings.steamWebApiKeySaved}</span> {maskApiKey(snapshot.steamWebApiKey)}</p>
           <p>
             <span class="font-medium text-slate-950">
               {snapshot.launchOnLoginAvailable ? $copy.settings.launchOnLoginSaved : $copy.settings.savedLaunchPreference}

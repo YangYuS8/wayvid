@@ -13,6 +13,10 @@ pub(crate) struct SettingsPageData {
     pub theme: String,
     pub launch_on_login: bool,
     pub launch_on_login_available: bool,
+    pub steam_web_api_key: String,
+    pub workshop_query: String,
+    pub workshop_age_ratings: Vec<crate::models::WorkshopAgeRating>,
+    pub workshop_item_types: Vec<crate::models::WorkshopOnlineItemType>,
     pub steam_required: bool,
     pub steam_status_message: String,
     pub stale: bool,
@@ -57,6 +61,22 @@ impl SettingsService {
 
         if let Some(launch_on_login) = input.launch_on_login {
             settings.launch_on_login = launch_on_login;
+        }
+
+        if let Some(steam_web_api_key) = input.steam_web_api_key {
+            settings.steam_web_api_key = steam_web_api_key;
+        }
+
+        if let Some(workshop_query) = input.workshop_query {
+            settings.workshop_query = workshop_query;
+        }
+
+        if let Some(workshop_age_ratings) = input.workshop_age_ratings {
+            settings.workshop_age_ratings = workshop_age_ratings;
+        }
+
+        if let Some(workshop_item_types) = input.workshop_item_types {
+            settings.workshop_item_types = workshop_item_types;
         }
 
         match persistence.save_settings(&settings) {
@@ -106,6 +126,10 @@ impl SettingsService {
             theme: settings.theme,
             launch_on_login,
             launch_on_login_available,
+            steam_web_api_key: settings.steam_web_api_key,
+            workshop_query: settings.workshop_query,
+            workshop_age_ratings: settings.workshop_age_ratings,
+            workshop_item_types: settings.workshop_item_types,
             steam_required,
             steam_status_message,
             stale: !launch_on_login_available,
@@ -152,6 +176,22 @@ impl SettingsService {
 
         if let Some(launch_on_login) = input.launch_on_login {
             settings.launch_on_login = launch_on_login;
+        }
+
+        if let Some(steam_web_api_key) = input.steam_web_api_key {
+            settings.steam_web_api_key = steam_web_api_key;
+        }
+
+        if let Some(workshop_query) = input.workshop_query {
+            settings.workshop_query = workshop_query;
+        }
+
+        if let Some(workshop_age_ratings) = input.workshop_age_ratings {
+            settings.workshop_age_ratings = workshop_age_ratings;
+        }
+
+        if let Some(workshop_item_types) = input.workshop_item_types {
+            settings.workshop_item_types = workshop_item_types;
         }
 
         match persistence.save_settings(&settings) {
@@ -282,6 +322,10 @@ mod tests {
                 language: "system".to_string(),
                 theme: "system".to_string(),
                 launch_on_login: true,
+                steam_web_api_key: "api-key".to_string(),
+                workshop_query: "nature".to_string(),
+                workshop_age_ratings: vec![crate::models::WorkshopAgeRating::G],
+                workshop_item_types: vec![crate::models::WorkshopOnlineItemType::Video],
             },
             AutostartState::Unavailable {
                 reason: "missing XDG config root".to_string(),
@@ -291,6 +335,10 @@ mod tests {
         assert!(result.launch_on_login);
         assert!(!result.launch_on_login_available);
         assert!(result.stale);
+        assert_eq!(result.steam_web_api_key, "api-key");
+        assert_eq!(result.workshop_query, "nature");
+        assert_eq!(result.workshop_age_ratings.len(), 1);
+        assert_eq!(result.workshop_item_types.len(), 1);
     }
 
     #[test]
@@ -305,6 +353,16 @@ mod tests {
                 language: Some("fr".to_string()),
                 theme: Some("dark".to_string()),
                 launch_on_login: Some(true),
+                steam_web_api_key: Some("test-key".to_string()),
+                workshop_query: Some("forest".to_string()),
+                workshop_age_ratings: Some(vec![
+                    crate::models::WorkshopAgeRating::G,
+                    crate::models::WorkshopAgeRating::Pg13,
+                ]),
+                workshop_item_types: Some(vec![
+                    crate::models::WorkshopOnlineItemType::Video,
+                    crate::models::WorkshopOnlineItemType::Application,
+                ]),
             },
         )
         .unwrap();
@@ -312,11 +370,15 @@ mod tests {
         assert_eq!(result.language, "fr");
         assert_eq!(result.theme, "dark");
         assert!(result.launch_on_login);
+        assert_eq!(result.steam_web_api_key, "test-key");
+        assert_eq!(result.workshop_query, "forest");
 
         let contents = std::fs::read_to_string(settings_path).unwrap();
         assert!(contents.contains("language = \"fr\""));
         assert!(contents.contains("theme = \"dark\""));
         assert!(contents.contains("launch_on_login = true"));
+        assert!(contents.contains("steam_web_api_key = \"test-key\""));
+        assert!(contents.contains("workshop_query = \"forest\""));
 
         assert_eq!(
             AutostartService::for_test(config_root)
@@ -355,6 +417,10 @@ mod tests {
                 language: None,
                 theme: None,
                 launch_on_login: Some(true),
+                steam_web_api_key: None,
+                workshop_query: None,
+                workshop_age_ratings: None,
+                workshop_item_types: None,
             },
         )
         .expect_err("save failure should abort settings update");
@@ -387,6 +453,10 @@ mod tests {
                 language: Some("fr".to_string()),
                 theme: None,
                 launch_on_login: Some(true),
+                steam_web_api_key: Some("new-key".to_string()),
+                workshop_query: Some("new-query".to_string()),
+                workshop_age_ratings: Some(vec![crate::models::WorkshopAgeRating::R18]),
+                workshop_item_types: Some(vec![crate::models::WorkshopOnlineItemType::Web]),
             },
         )
         .expect_err("autostart failure should roll back saved settings");
@@ -397,5 +467,7 @@ mod tests {
         assert!(contents.contains("language = \"en\""));
         assert!(contents.contains("theme = \"system\""));
         assert!(contents.contains("launch_on_login = false"));
+        assert!(!contents.contains("steam_web_api_key = \"new-key\""));
+        assert!(!contents.contains("workshop_query = \"new-query\""));
     }
 }

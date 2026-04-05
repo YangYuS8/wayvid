@@ -1,5 +1,7 @@
 export type InvalidatedPage = 'library' | 'workshop' | 'desktop' | 'settings';
-export type ItemType = 'video' | 'scene' | 'web' | 'other';
+export type ItemType = 'video' | 'scene' | 'web' | 'application' | 'other';
+export type WorkshopAgeRating = 'g' | 'pg_13' | 'r_18';
+export type WorkshopOnlineItemType = 'video' | 'scene' | 'web' | 'application';
 export type WorkshopSyncStatus = 'synced' | 'missing_project' | 'missing_asset' | 'unsupported_type';
 export type CompatibilityBadge = 'fully_supported' | 'partially_supported' | 'unsupported';
 export type CompatibilityNextStep =
@@ -71,6 +73,33 @@ export interface WorkshopItemDetail {
   description: string | null;
 }
 
+export interface WorkshopOnlineSearchInput {
+  query: string;
+  ageRatings: WorkshopAgeRating[];
+  itemTypes: WorkshopOnlineItemType[];
+  page: number;
+  pageSize: number;
+}
+
+export interface WorkshopOnlineItem {
+  id: string;
+  title: string;
+  previewUrl: string | null;
+  tags: string[];
+  itemType: WorkshopOnlineItemType;
+  ageRating: WorkshopAgeRating;
+  ageRatingReason: string;
+}
+
+export interface WorkshopOnlineSearchResult {
+  query: string;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+  totalApprox: number | null;
+  items: WorkshopOnlineItem[];
+}
+
 export interface LibraryItemSummary {
   id: string;
   title: string;
@@ -137,6 +166,10 @@ export interface SettingsPageSnapshot {
   theme: string;
   launchOnLogin: boolean;
   launchOnLoginAvailable: boolean;
+  steamWebApiKey: string;
+  workshopQuery: string;
+  workshopAgeRatings: WorkshopAgeRating[];
+  workshopItemTypes: WorkshopOnlineItemType[];
   steamRequired: boolean;
   steamStatusMessage: string;
   stale: boolean;
@@ -146,6 +179,10 @@ export interface SettingsUpdateInput {
   language?: string | null;
   theme?: string | null;
   launchOnLogin?: boolean | null;
+  steamWebApiKey?: string | null;
+  workshopQuery?: string | null;
+  workshopAgeRatings?: WorkshopAgeRating[] | null;
+  workshopItemTypes?: WorkshopOnlineItemType[] | null;
 }
 
 export interface AppShellPatch {

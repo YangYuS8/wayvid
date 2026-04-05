@@ -11,6 +11,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 import {
   applyLibraryItemToMonitor,
   clearLibraryItemFromMonitor,
+  searchWorkshopOnline,
   updateSettings
 } from './ipc';
 
@@ -42,14 +43,42 @@ describe('ipc settings flow bridge', () => {
     await updateSettings({
       language: 'en',
       theme: 'dark',
-      launchOnLogin: true
+      launchOnLogin: true,
+      steamWebApiKey: 'test-key',
+      workshopQuery: 'forest',
+      workshopAgeRatings: ['g', 'pg_13'],
+      workshopItemTypes: ['video', 'application']
     });
 
     expect(invoke).toHaveBeenCalledWith('update_settings', {
       input: {
         language: 'en',
         theme: 'dark',
-        launchOnLogin: true
+        launchOnLogin: true,
+        steamWebApiKey: 'test-key',
+        workshopQuery: 'forest',
+        workshopAgeRatings: ['g', 'pg_13'],
+        workshopItemTypes: ['video', 'application']
+      }
+    });
+  });
+
+  it('invokes the online workshop search command with filters', async () => {
+    await searchWorkshopOnline({
+      query: 'neon',
+      ageRatings: ['g', 'pg_13'],
+      itemTypes: ['video', 'scene'],
+      page: 2,
+      pageSize: 48
+    });
+
+    expect(invoke).toHaveBeenCalledWith('search_workshop_online', {
+      input: {
+        query: 'neon',
+        ageRatings: ['g', 'pg_13'],
+        itemTypes: ['video', 'scene'],
+        page: 2,
+        pageSize: 48
       }
     });
   });

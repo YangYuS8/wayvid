@@ -7,6 +7,16 @@ type WorkshopRefreshStateInput = {
   detailError: string | null;
 };
 
+type WorkshopOnlineSearchTokenInput = {
+  requestToken: number;
+  responseToken: number;
+};
+
+type WorkshopOnlineSearchPageInput = {
+  currentPage: number;
+  hasMore: boolean;
+};
+
 type WorkshopRefreshState = {
   nextSelection: string | null;
   detailLoading: boolean;
@@ -50,3 +60,13 @@ export const resolveWorkshopRefreshState = ({
     detailError
   };
 };
+
+export const isLatestWorkshopOnlineSearchResponse = ({
+  requestToken,
+  responseToken
+}: WorkshopOnlineSearchTokenInput) => requestToken === responseToken;
+
+export const nextWorkshopOnlineSearchPage = ({
+  currentPage,
+  hasMore
+}: WorkshopOnlineSearchPageInput) => (hasMore ? currentPage + 1 : currentPage);

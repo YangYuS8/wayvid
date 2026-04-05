@@ -6,7 +6,60 @@ pub enum ItemType {
     Video,
     Scene,
     Web,
+    Application,
     Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkshopAgeRating {
+    G,
+    #[serde(rename = "pg_13")]
+    Pg13,
+    #[serde(rename = "r_18")]
+    R18,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WorkshopOnlineItemType {
+    Video,
+    Scene,
+    Web,
+    Application,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkshopOnlineSearchInput {
+    pub query: String,
+    pub age_ratings: Vec<WorkshopAgeRating>,
+    pub item_types: Vec<WorkshopOnlineItemType>,
+    pub page: u32,
+    pub page_size: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkshopOnlineItem {
+    pub id: String,
+    pub title: String,
+    pub preview_url: Option<String>,
+    pub tags: Vec<String>,
+    pub item_type: WorkshopOnlineItemType,
+    pub age_rating: WorkshopAgeRating,
+    pub age_rating_reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkshopOnlineSearchResult {
+    pub query: String,
+    pub page: u32,
+    pub page_size: u32,
+    pub has_more: bool,
+    pub total_approx: Option<u32>,
+    pub items: Vec<WorkshopOnlineItem>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -212,6 +265,10 @@ pub struct SettingsUpdateInput {
     pub language: Option<String>,
     pub theme: Option<String>,
     pub launch_on_login: Option<bool>,
+    pub steam_web_api_key: Option<String>,
+    pub workshop_query: Option<String>,
+    pub workshop_age_ratings: Option<Vec<WorkshopAgeRating>>,
+    pub workshop_item_types: Option<Vec<WorkshopOnlineItemType>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,6 +278,10 @@ pub struct SettingsPageSnapshot {
     pub theme: String,
     pub launch_on_login: bool,
     pub launch_on_login_available: bool,
+    pub steam_web_api_key: String,
+    pub workshop_query: String,
+    pub workshop_age_ratings: Vec<WorkshopAgeRating>,
+    pub workshop_item_types: Vec<WorkshopOnlineItemType>,
     pub steam_required: bool,
     pub steam_status_message: String,
     pub stale: bool,
@@ -346,6 +407,13 @@ mod tests {
             language: Some("en".to_string()),
             theme: Some("system".to_string()),
             launch_on_login: Some(true),
+            steam_web_api_key: Some("test-api-key".to_string()),
+            workshop_query: Some("forest".to_string()),
+            workshop_age_ratings: Some(vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13]),
+            workshop_item_types: Some(vec![
+                WorkshopOnlineItemType::Video,
+                WorkshopOnlineItemType::Scene,
+            ]),
         };
 
         let snapshot = SettingsPageSnapshot {
@@ -353,6 +421,10 @@ mod tests {
             theme: "system".to_string(),
             launch_on_login: true,
             launch_on_login_available: true,
+            steam_web_api_key: "abcd1234".to_string(),
+            workshop_query: "forest".to_string(),
+            workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],
+            workshop_item_types: vec![WorkshopOnlineItemType::Video, WorkshopOnlineItemType::Scene],
             steam_required: true,
             steam_status_message: "Steam is required for Workshop features".to_string(),
             stale: false,
@@ -364,16 +436,68 @@ mod tests {
         assert_eq!(update_value["language"], "en");
         assert_eq!(update_value["theme"], "system");
         assert_eq!(update_value["launchOnLogin"], true);
+        assert_eq!(update_value["steamWebApiKey"], "test-api-key");
+        assert_eq!(update_value["workshopQuery"], "forest");
+        assert_eq!(update_value["workshopAgeRatings"][0], "g");
+        assert_eq!(update_value["workshopAgeRatings"][1], "pg_13");
+        assert_eq!(update_value["workshopItemTypes"][0], "video");
+        assert_eq!(update_value["workshopItemTypes"][1], "scene");
         assert_eq!(snapshot_value["language"], "en");
         assert_eq!(snapshot_value["theme"], "system");
         assert_eq!(snapshot_value["launchOnLogin"], true);
         assert_eq!(snapshot_value["launchOnLoginAvailable"], true);
+        assert_eq!(snapshot_value["steamWebApiKey"], "abcd1234");
+        assert_eq!(snapshot_value["workshopQuery"], "forest");
+        assert_eq!(snapshot_value["workshopAgeRatings"][0], "g");
+        assert_eq!(snapshot_value["workshopAgeRatings"][1], "pg_13");
+        assert_eq!(snapshot_value["workshopItemTypes"][0], "video");
+        assert_eq!(snapshot_value["workshopItemTypes"][1], "scene");
         assert_eq!(snapshot_value["steamRequired"], true);
         assert_eq!(
             snapshot_value["steamStatusMessage"],
             "Steam is required for Workshop features"
         );
         assert_eq!(snapshot_value["stale"], false);
+    }
+
+    #[test]
+    fn online_workshop_models_serialize_requested_filters_and_reason() {
+        let input = WorkshopOnlineSearchInput {
+            query: "neon".to_string(),
+            age_ratings: vec![WorkshopAgeRating::Pg13],
+            item_types: vec![WorkshopOnlineItemType::Application],
+            page: 1,
+            page_size: 24,
+        };
+        let result = WorkshopOnlineSearchResult {
+            query: "neon".to_string(),
+            page: 1,
+            page_size: 24,
+            has_more: false,
+            total_approx: Some(1),
+            items: vec![WorkshopOnlineItem {
+                id: "123".to_string(),
+                title: "Neon App".to_string(),
+                preview_url: Some("https://example.com/cover.jpg".to_string()),
+                tags: vec!["Application".to_string()],
+                item_type: WorkshopOnlineItemType::Application,
+                age_rating: WorkshopAgeRating::Pg13,
+                age_rating_reason: "Contains mature content markers: suggestive".to_string(),
+            }],
+        };
+
+        let input_value = serde_json::to_value(&input).unwrap();
+        let result_value = serde_json::to_value(&result).unwrap();
+
+        assert_eq!(input_value["query"], "neon");
+        assert_eq!(input_value["ageRatings"][0], "pg_13");
+        assert_eq!(input_value["itemTypes"][0], "application");
+        assert_eq!(result_value["items"][0]["itemType"], "application");
+        assert_eq!(result_value["items"][0]["ageRating"], "pg_13");
+        assert_eq!(
+            result_value["items"][0]["ageRatingReason"],
+            "Contains mature content markers: suggestive"
+        );
     }
 
     #[test]

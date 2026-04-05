@@ -2,7 +2,9 @@ use crate::action_outcome::ActionOutcome;
 use crate::assembly::action_outcome::assemble_workshop_refresh_outcome;
 use crate::assembly::workshop_detail::assemble_workshop_detail;
 use crate::assembly::workshop_page::assemble_workshop_page;
-use crate::models::{WorkshopItemDetail, WorkshopPageSnapshot};
+use crate::models::{
+    WorkshopItemDetail, WorkshopOnlineSearchInput, WorkshopOnlineSearchResult, WorkshopPageSnapshot,
+};
 use crate::services::workshop_service::WorkshopService;
 
 fn workshop_item_url(workshop_id: &str) -> String {
@@ -30,6 +32,13 @@ pub fn refresh_workshop_catalog() -> Result<ActionOutcome<WorkshopPageSnapshot>,
     Ok(assemble_workshop_refresh_outcome(
         &WorkshopService::refresh_catalog()?,
     ))
+}
+
+#[tauri::command]
+pub fn search_workshop_online(
+    input: WorkshopOnlineSearchInput,
+) -> Result<WorkshopOnlineSearchResult, String> {
+    WorkshopService::search_online(input)
 }
 
 #[tauri::command]

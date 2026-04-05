@@ -84,6 +84,7 @@ pub fn register_commands(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<
         commands::workshop::load_workshop_page,
         commands::workshop::load_workshop_item_detail,
         commands::workshop::refresh_workshop_catalog,
+        commands::workshop::search_workshop_online,
         commands::workshop::open_workshop_in_steam,
         commands::library::load_library_page,
         commands::library::load_library_item_detail,

@@ -26,6 +26,10 @@ describe('settings page render', () => {
       theme: 'system',
       launchOnLogin: true,
       launchOnLoginAvailable: true,
+      steamWebApiKey: 'abcd1234wxyz',
+      workshopQuery: 'forest',
+      workshopAgeRatings: ['g', 'pg_13'],
+      workshopItemTypes: ['video', 'scene', 'web', 'application'],
       steamRequired: true,
       steamStatusMessage: 'Steam is required to launch Wallpaper Engine content.',
       stale: false
@@ -39,6 +43,8 @@ describe('settings page render', () => {
     expect(body).toContain('Steam is required to launch Wallpaper Engine content.');
     expect(body).toContain('English');
     expect(body).toContain('Follow system theme');
+    expect(body).toContain('Steam Web API key:');
+    expect(body).toContain('abcd...wxyz');
     expect(body).toContain('Launch on login:');
     expect(body).toContain('enabled');
     expect(body).not.toContain('Save changes');
@@ -53,6 +59,10 @@ describe('settings page render', () => {
       theme: 'dark',
       launchOnLogin: false,
       launchOnLoginAvailable: true,
+      steamWebApiKey: 'test-key',
+      workshopQuery: 'city',
+      workshopAgeRatings: ['g', 'pg_13'],
+      workshopItemTypes: ['video', 'scene', 'web', 'application'],
       steamRequired: false,
       steamStatusMessage: 'Steam is optional for the current setup.',
       stale: false
@@ -61,6 +71,7 @@ describe('settings page render', () => {
     const { body } = render(SettingsPage, { props: { initialEditing: true } });
 
     expect(body).toContain('Language');
+    expect(body).toContain('Steam Web API key');
     expect(body).toContain('Simplified Chinese');
     expect(body).toContain('Save changes');
     expect(body).toContain('Cancel');
@@ -74,6 +85,10 @@ describe('settings page render', () => {
       theme: 'dark',
       launchOnLogin: false,
       launchOnLoginAvailable: true,
+      steamWebApiKey: 'test-key',
+      workshopQuery: 'city',
+      workshopAgeRatings: ['g', 'pg_13'],
+      workshopItemTypes: ['video', 'scene', 'web', 'application'],
       steamRequired: false,
       steamStatusMessage: 'Steam is optional for the current setup.',
       stale: false
@@ -93,6 +108,10 @@ describe('settings page render', () => {
       theme: 'dark',
       launchOnLogin: true,
       launchOnLoginAvailable: false,
+      steamWebApiKey: '',
+      workshopQuery: '',
+      workshopAgeRatings: ['g', 'pg_13'],
+      workshopItemTypes: ['video', 'scene', 'web', 'application'],
       steamRequired: false,
       steamStatusMessage: 'Steam is optional for the current setup.',
       stale: false

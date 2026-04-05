@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveWorkshopRefreshState } from './page-state';
+import {
+  isLatestWorkshopOnlineSearchResponse,
+  nextWorkshopOnlineSearchPage,
+  resolveWorkshopRefreshState
+} from './page-state';
 
 describe('workshop refresh state', () => {
   it('preserves a newer in-flight selection during refresh when the item still exists', () => {
@@ -55,5 +59,33 @@ describe('workshop refresh state', () => {
       detailRequestToken: 5,
       detailError: null
     });
+  });
+});
+
+describe('workshop online search token guard', () => {
+  it('accepts only the latest response token', () => {
+    expect(
+      isLatestWorkshopOnlineSearchResponse({
+        requestToken: 4,
+        responseToken: 4
+      })
+    ).toBe(true);
+
+    expect(
+      isLatestWorkshopOnlineSearchResponse({
+        requestToken: 3,
+        responseToken: 4
+      })
+    ).toBe(false);
+  });
+});
+
+describe('workshop online pagination helper', () => {
+  it('increments page when more results are available', () => {
+    expect(nextWorkshopOnlineSearchPage({ currentPage: 2, hasMore: true })).toBe(3);
+  });
+
+  it('keeps page unchanged when no more results are available', () => {
+    expect(nextWorkshopOnlineSearchPage({ currentPage: 2, hasMore: false })).toBe(2);
   });
 });

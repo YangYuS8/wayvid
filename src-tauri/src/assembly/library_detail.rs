@@ -11,7 +11,7 @@ fn item_type_from_project_type(project_type: WorkshopProjectType) -> ItemType {
         WorkshopProjectType::Video => ItemType::Video,
         WorkshopProjectType::Scene => ItemType::Scene,
         WorkshopProjectType::Web => ItemType::Web,
-        WorkshopProjectType::Other => ItemType::Other,
+        WorkshopProjectType::Other => ItemType::Application,
     }
 }
 

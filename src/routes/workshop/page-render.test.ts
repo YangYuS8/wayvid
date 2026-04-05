@@ -24,7 +24,8 @@ describe('workshop page render', () => {
     const { body } = render(WorkshopPage);
 
     expect(body).toContain('Local Workshop sync');
-    expect(body).toContain('Review the current Steam Workshop items synced into Wayvid from this machine. This is not a full online Workshop browser.');
+    expect(body).toContain('Review local sync state and search Steam Workshop online with saved filters.');
+    expect(body).toContain('Online search');
     expect(body).not.toContain('No Workshop items are available in the current snapshot.');
     expect(body).not.toContain('Select a Workshop item to inspect its current detail payload.');
   });
@@ -32,25 +33,13 @@ describe('workshop page render', () => {
   it('renders route and detail placeholder copy in Simplified Chinese when zh-CN is active', () => {
     setPreferredLanguage('zh-CN');
 
-    pageCache.update((cache) => ({
-      ...cache,
-      workshop: {
-        ...cache.workshop,
-        snapshot: {
-          items: [],
-          selectedItemId: null,
-          stale: false
-        }
-      }
-    }));
-
     const { body } = render(WorkshopPage);
 
     expect(body).toContain('创意工坊');
     expect(body).toContain('本地创意工坊同步');
-    expect(body).toContain('刷新目录');
-    expect(body).toContain('当前快照中没有可用的创意工坊项目。');
-    expect(body).toContain('工坊详情');
-    expect(body).toContain('选择一个创意工坊项目以查看当前详情。');
+    expect(body).toContain('在线搜索');
+    expect(body).toContain('显示筛选');
+    expect(body).not.toContain('当前快照中没有可用的创意工坊项目。');
+    expect(body).not.toContain('工坊详情');
   });
 });

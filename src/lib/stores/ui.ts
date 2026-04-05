@@ -6,7 +6,10 @@ import type {
   LibraryItemDetail,
   LibraryPageSnapshot,
   SettingsPageSnapshot,
+  WorkshopAgeRating,
   WorkshopItemDetail,
+  WorkshopOnlineItemType,
+  WorkshopOnlineSearchResult,
   WorkshopPageSnapshot
 } from '$lib/types';
 
@@ -36,6 +39,28 @@ const createEmptyCache = (): PageCache => ({
 
 export const currentPage = writable<PageKey>('library');
 export const pageCache = writable<PageCache>(createEmptyCache());
+
+type WorkshopOnlineCache = {
+  query: string;
+  ageRatings: WorkshopAgeRating[];
+  itemTypes: WorkshopOnlineItemType[];
+  pageSize: number;
+  result: WorkshopOnlineSearchResult | null;
+};
+
+const createEmptyWorkshopOnlineCache = (): WorkshopOnlineCache => ({
+  query: '',
+  ageRatings: ['g', 'pg_13'],
+  itemTypes: ['video', 'scene', 'web', 'application'],
+  pageSize: 24,
+  result: null
+});
+
+export const workshopOnlineCache = writable<WorkshopOnlineCache>(createEmptyWorkshopOnlineCache());
+
+export const setWorkshopOnlineCache = (cache: WorkshopOnlineCache) => {
+  workshopOnlineCache.set(cache);
+};
 
 export const setCurrentPage = (page: PageKey) => currentPage.set(page);
 
