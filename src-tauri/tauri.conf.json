@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LWE",
+  "productName": "lwe",
   "identifier": "dev.lwe.app",
   "build": {
     "beforeBuildCommand": "pnpm run build",
