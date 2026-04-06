@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build-release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, agent]
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -24,18 +24,36 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            pkg-config \
-            libssl-dev \
-            libmpv-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libsoup-3.0-dev \
-            libwebkit2gtk-4.1-dev \
-            patchelf
+          if command -v apt-get >/dev/null 2>&1; then
+            if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
+            $SUDO apt-get update
+            $SUDO apt-get install -y \
+              build-essential \
+              pkg-config \
+              libssl-dev \
+              libmpv-dev \
+              libgtk-3-dev \
+              libayatana-appindicator3-dev \
+              librsvg2-dev \
+              libsoup-3.0-dev \
+              libwebkit2gtk-4.1-dev \
+              patchelf
+          elif command -v pacman >/dev/null 2>&1; then
+            pacman -Syu --noconfirm \
+              base-devel \
+              pkgconf \
+              openssl \
+              mpv \
+              gtk3 \
+              libayatana-appindicator \
+              librsvg \
+              libsoup3 \
+              webkit2gtk-4.1 \
+              patchelf
+          else
+            echo "Unsupported package manager (need apt-get or pacman)"
+            exit 1
+          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -87,10 +105,21 @@ jobs:
       - name: Collect artifacts
         shell: bash
         run: |
+          shopt -s nullglob
           mkdir -p dist
-          cp -v src-tauri/target/release/bundle/deb/*.deb dist/
-          cp -v src-tauri/target/release/bundle/rpm/*.rpm dist/
-          cp -v src-tauri/target/release/bundle/appimage/*.AppImage dist/
+          deb_files=(target/release/bundle/deb/*.deb src-tauri/target/release/bundle/deb/*.deb)
+          rpm_files=(target/release/bundle/rpm/*.rpm src-tauri/target/release/bundle/rpm/*.rpm)
+          appimage_files=(target/release/bundle/appimage/*.AppImage src-tauri/target/release/bundle/appimage/*.AppImage)
+
+          if [ "${#deb_files[@]}" -eq 0 ] || [ "${#rpm_files[@]}" -eq 0 ] || [ "${#appimage_files[@]}" -eq 0 ]; then
+            echo "Expected bundle artifacts not found"
+            echo "deb: ${#deb_files[@]}, rpm: ${#rpm_files[@]}, appimage: ${#appimage_files[@]}"
+            exit 1
+          fi
+
+          cp -v "${deb_files[@]}" dist/
+          cp -v "${rpm_files[@]}" dist/
+          cp -v "${appimage_files[@]}" dist/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -99,7 +128,7 @@ jobs:
           path: dist/*
 
   publish-release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, agent]
     needs: build-release
     permissions:
       contents: write
@@ -119,14 +148,22 @@ jobs:
           files: dist/*
 
   publish-aur-stable:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, agent]
     needs: build-release
 
     steps:
       - name: Install runtime dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git openssh-client
+          if command -v apt-get >/dev/null 2>&1; then
+            if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
+            $SUDO apt-get update
+            $SUDO apt-get install -y git openssh-client
+          elif command -v pacman >/dev/null 2>&1; then
+            pacman -Syu --noconfirm git openssh
+          else
+            echo "Unsupported package manager (need apt-get or pacman)"
+            exit 1
+          fi
 
       - name: Checkout source
         uses: actions/checkout@v4
