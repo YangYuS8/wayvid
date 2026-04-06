@@ -202,8 +202,13 @@ jobs:
 
       - name: Prepare non-root makepkg user
         run: |
-          useradd --create-home --shell /bin/bash aurbuilder
-          chown -R aurbuilder:aurbuilder "$GITHUB_WORKSPACE"
+          if command -v sudo >/dev/null 2>&1; then
+            sudo useradd --create-home --shell /bin/bash aurbuilder || true
+            sudo chown -R aurbuilder:aurbuilder "$GITHUB_WORKSPACE"
+          else
+            useradd --create-home --shell /bin/bash aurbuilder || true
+            chown -R aurbuilder:aurbuilder "$GITHUB_WORKSPACE"
+          fi
 
       - name: Update AUR dev package version
         shell: bash
@@ -213,7 +218,11 @@ jobs:
           aur_pkgver="${base_version}.beta.${GITHUB_RUN_NUMBER}.${short_sha}"
           sed -i "s/^pkgver=.*/pkgver=${aur_pkgver}/" packaging/aur/lwe-git/PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" packaging/aur/lwe-git/PKGBUILD
-          su -s /bin/bash aurbuilder -c 'cd "$GITHUB_WORKSPACE/packaging/aur/lwe-git" && makepkg --printsrcinfo > .SRCINFO'
+          if command -v sudo >/dev/null 2>&1; then
+            sudo -u aurbuilder bash -lc 'cd "$GITHUB_WORKSPACE/packaging/aur/lwe-git" && makepkg --printsrcinfo > .SRCINFO'
+          else
+            su -s /bin/bash aurbuilder -c 'cd "$GITHUB_WORKSPACE/packaging/aur/lwe-git" && makepkg --printsrcinfo > .SRCINFO'
+          fi
 
       - name: Setup SSH configuration
         env:
