@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   quality:
-    runs-on: [self-hosted, agent]
+    runs-on: [self-hosted, linux, x64]
 
     steps:
       - name: Checkout source

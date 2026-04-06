@@ -21,7 +21,7 @@ jobs:
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_branch == 'main'
       )
-    runs-on: [self-hosted, agent]
+    runs-on: [self-hosted, linux, x64]
 
     outputs:
       prerelease_version: ${{ steps.version.outputs.prerelease_version }}
