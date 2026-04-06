@@ -21,7 +21,7 @@ jobs:
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_branch == 'main'
       )
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
 
     outputs:
       prerelease_version: ${{ steps.version.outputs.prerelease_version }}
@@ -142,7 +142,7 @@ jobs:
           path: dist/*
 
   publish-github-prerelease:
-    runs-on: [self-hosted, agent]
+    runs-on: ubuntu-latest
     needs: build-prerelease
     permissions:
       contents: write
@@ -180,7 +180,7 @@ jobs:
           files: dist/*
 
   publish-aur-git:
-    runs-on: [self-hosted, agent]
+    runs-on: ubuntu-latest
     needs: build-prerelease
 
     steps:
