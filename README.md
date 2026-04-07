@@ -29,6 +29,26 @@ LWE is currently tested on:
 
 - Wayland session with `niri`
 
+## Prerequisites
+
+LWE relies on Wallpaper Engine content from Steam Workshop. To use it properly, make sure:
+
+- Your Steam library owns Wallpaper Engine
+- Steam client is installed on your device
+- Wallpaper Engine client is installed on your device
+
+## Workshop setup (Steam Web API key)
+
+LWE Workshop features require a Steam Web API key configured in Settings.
+
+- Open LWE `Settings` and fill in `Steam Web API Key`
+- Without this key, in-app Workshop browsing/search will not work correctly
+
+How to get a Steam Web API key:
+
+- Official page: https://steamcommunity.com/dev/apikey
+- You must sign in with your Steam account first
+
 ## Wallpaper support scope
 
 First-release runtime focus:

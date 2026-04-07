@@ -29,6 +29,26 @@ LWE 是一个 Linux 桌面应用，用于浏览、管理并应用 Wallpaper Engi
 
 - `niri` + Wayland 会话
 
+## 使用前提
+
+LWE 的壁纸内容依赖 Steam 上的 Wallpaper Engine 创意工坊。为正常使用，请确保：
+
+- 你的 Steam 账号库中已拥有 Wallpaper Engine
+- 设备上已安装 Steam 客户端
+- 设备上已安装 Wallpaper Engine 客户端
+
+## 创意工坊配置（Steam Web API 密钥）
+
+LWE 的创意工坊功能需要在设置中配置 Steam Web API 密钥。
+
+- 打开 LWE 的 `设置`，填写 `Steam Web API Key`
+- 未配置该密钥时，应用内创意工坊浏览/搜索将无法正常工作
+
+获取 Steam Web API 密钥的方法：
+
+- 官方页面：https://steamcommunity.com/dev/apikey
+- 需要先登录你的 Steam 账号
+
 ## 壁纸支持范围
 
 首发运行时重点支持：
