@@ -6,6 +6,7 @@ pub struct WorkshopProjectMetadata {
     pub description: Option<String>,
     pub tags: Vec<String>,
     pub inferred_age_rating: Option<String>,
+    pub scene_assessment: Option<crate::results::scene::SceneAssessment>,
 }
 
 #[derive(Debug, Clone)]

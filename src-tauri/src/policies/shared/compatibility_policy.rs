@@ -15,10 +15,45 @@ pub enum CompatibilityLevel {
 pub enum CompatibilityReason {
     ReadyForLibrary,
     RecognizedButRuntimeUnsupported,
+    SceneExperimental,
+    SceneUnsupportedFeatures,
+    SceneAssessmentFailed,
     MissingProjectMetadata,
     MissingPrimaryAsset,
     UnsupportedWebItem,
     UnsupportedProjectType,
+}
+
+pub fn scene_compatibility_decision(
+    assessment: &crate::results::scene::SceneAssessment,
+) -> CompatibilityDecision {
+    CompatibilityDecision {
+        // Passing asset validation does not claim complete Scene parity or
+        // real-desktop acceptance of the experimental renderer.
+        level: CompatibilityLevel::PartiallySupported,
+        reason: if assessment.runnable {
+            CompatibilityReason::SceneExperimental
+        } else if assessment
+            .issues
+            .iter()
+            .any(|issue| issue.code.starts_with("unsupported_"))
+        {
+            CompatibilityReason::SceneUnsupportedFeatures
+        } else {
+            CompatibilityReason::SceneAssessmentFailed
+        },
+        next_step: if assessment.runnable {
+            CompatibilityNextStep::None
+        } else if assessment
+            .issues
+            .iter()
+            .any(|issue| issue.code.starts_with("unsupported_"))
+        {
+            CompatibilityNextStep::WaitForFutureSupport
+        } else {
+            CompatibilityNextStep::ResyncWorkshopItem
+        },
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,0 +1,2065 @@
+//! A deliberately bounded native Scene renderer.
+//!
+//! Preparation performs all I/O and decoding without a GL context. Initialization,
+//! drawing, and destruction belong to the engine thread with its context current.
+
+mod audio;
+mod dynamic_script;
+mod particles;
+mod postprocess;
+mod properties;
+mod renderer;
+mod script;
+mod shader;
+mod spectrum;
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
+use std::sync::Arc;
+
+use anyhow::{Context, Result, bail, ensure};
+use lwe_scene::{SceneAssets, Texture};
+use properties::ProjectProperties;
+use serde_json::Value;
+
+pub(crate) use audio::SceneAudio;
+pub use properties::{
+    PropertyDefinition, PropertyKind, PropertyOption, PropertyValue, apply_property_overrides,
+    property_definitions,
+};
+pub use renderer::SceneRenderer;
+
+const MAX_JSON: usize = 4 * 1024 * 1024;
+const MAX_TEXTURE: usize = 256 * 1024 * 1024;
+const MAX_SCENE_RGBA: usize = 512 * 1024 * 1024;
+const MAX_LAYERS: usize = 32;
+const MAX_PASSES: usize = 64;
+pub(crate) const TEXTURE_SLOTS: usize = 8;
+
+#[derive(Debug)]
+pub struct UnsupportedFeature {
+    pub code: &'static str,
+    pub detail: String,
+}
+
+impl std::fmt::Display for UnsupportedFeature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Unsupported Scene feature ({}): {}",
+            self.code, self.detail
+        )
+    }
+}
+impl std::error::Error for UnsupportedFeature {}
+
+fn unsupported(code: &'static str, detail: impl Into<String>) -> anyhow::Error {
+    UnsupportedFeature {
+        code,
+        detail: detail.into(),
+    }
+    .into()
+}
+
+pub fn unsupported_feature_code(error: &anyhow::Error) -> Option<&'static str> {
+    error
+        .downcast_ref::<UnsupportedFeature>()
+        .map(|feature| feature.code)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SceneSummary {
+    pub layer_count: usize,
+    pub effect_count: usize,
+    pub pass_count: usize,
+    pub animated: bool,
+}
+
+pub struct PreparedScene {
+    pub(crate) canvas: [f32; 2],
+    pub(crate) clear: [f32; 4],
+    pub(crate) textures: Vec<PreparedTexture>,
+    pub(crate) layers: Vec<PreparedLayer>,
+    audio: Vec<audio::PreparedAudio>,
+    bloom: Option<Arc<postprocess::PreparedBloom>>,
+    pub(crate) particles: Vec<PreparedParticleLayer>,
+    pub(crate) draw_order: Vec<DrawObject>,
+    summary: SceneSummary,
+    scripts: Option<Arc<dynamic_script::PreparedScripts>>,
+    script_layers: BTreeMap<usize, usize>,
+}
+
+pub(crate) struct PreparedParticleLayer {
+    simulation: particles::PreparedParticles,
+    materials: Vec<PreparedPass>,
+    aspects: Vec<f32>,
+    animations: Vec<Option<lwe_scene::AnimationMetadata>>,
+    vertex_capacity: usize,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum DrawObject {
+    Image(usize),
+    Particles(usize),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MaterialKind {
+    Image,
+    Effect,
+    Particle,
+}
+
+impl std::fmt::Debug for PreparedScene {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreparedScene")
+            .field("canvas", &self.canvas)
+            .field("summary", &self.summary)
+            .field("texture_count", &self.textures.len())
+            .finish()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct PreparedTexture {
+    pub width: u32,
+    pub height: u32,
+    pub image_width: u32,
+    pub image_height: u32,
+    pub source_format: u32,
+    pub source_flags: u32,
+    pub rgba: Vec<u8>,
+    pub animation: Option<lwe_scene::AnimationMetadata>,
+}
+
+#[derive(Debug)]
+pub(crate) struct PreparedLayer {
+    pub size: [f32; 2],
+    pub origin: [f32; 2],
+    pub scale: [f32; 2],
+    pub angle: f32,
+    pub tint: [f32; 4],
+    pub blend: Blend,
+    pub composite: Option<shader::Shader>,
+    pub stages: Vec<PreparedStage>,
+}
+
+#[derive(Debug)]
+pub(crate) struct PreparedStage {
+    pub targets: BTreeMap<String, f32>,
+    pub passes: Vec<PreparedPass>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Blend {
+    Replace,
+    Alpha,
+    Add,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum TextureBinding {
+    Static(usize),
+    Input,
+    Named(String),
+    Black,
+    FullFrame,
+}
+
+#[derive(Debug)]
+pub(crate) struct PreparedPass {
+    pub label: String,
+    pub shader: shader::Shader,
+    pub textures: Vec<TextureBinding>,
+    pub constants: BTreeMap<String, Vec<f32>>,
+    pub target: Option<String>,
+    pub blend: Blend,
+}
+
+fn json(assets: &SceneAssets, name: &str, properties: &ProjectProperties<'_>) -> Result<Value> {
+    let mut value = serde_json::from_slice(&assets.read(name, MAX_JSON)?)
+        .with_context(|| format!("Invalid Scene JSON resource {name}"))?;
+    properties.resolve_document(&mut value)?;
+    Ok(value)
+}
+
+fn has_script(value: &Value) -> bool {
+    match value {
+        Value::Object(object) => object.iter().any(|(key, value)| {
+            matches!(key.to_ascii_lowercase().as_str(), "script" | "scenescript")
+                || has_script(value)
+        }),
+        Value::Array(array) => array.iter().any(has_script),
+        _ => false,
+    }
+}
+
+/// Runtime bindings are admitted only on modeled image-layer properties.
+/// Resource/material/general scripts still pass through the existing gate.
+fn extract_runtime_bindings(
+    scene: &mut Value,
+    project: &Value,
+) -> Result<Vec<dynamic_script::Binding>> {
+    let scalar_properties: script::PropertySnapshot = property_definitions(project)?
+        .into_iter()
+        .filter_map(|property| {
+            let value = match property.value {
+                PropertyValue::Bool(value) => script::ScalarProperty::Bool(value),
+                PropertyValue::Slider(value) => script::ScalarProperty::Number(value),
+                PropertyValue::Color(_) | PropertyValue::Combo(_) => return None,
+            };
+            Some((property.name, value))
+        })
+        .collect();
+    let mut bindings = Vec::new();
+    let objects = scene["objects"]
+        .as_array_mut()
+        .context("Scene has no objects")?;
+    for (index, object) in objects.iter_mut().enumerate() {
+        let image = object.get("image").is_some();
+        let Some(fields) = object.as_object_mut() else {
+            bail!("Invalid Scene object");
+        };
+        for (property, value) in fields.iter_mut() {
+            let Some(wrapper) = value.as_object_mut() else {
+                continue;
+            };
+            let Some(source) = wrapper.get("script").and_then(Value::as_str) else {
+                continue;
+            };
+            let input = wrapper
+                .get("value")
+                .ok_or_else(|| unsupported("scenescript", "script binding has no input value"))?;
+            if let Some(number) = input.as_f64()
+                && script::evaluate(source, number, &scalar_properties).is_ok()
+            {
+                continue;
+            }
+            if !image
+                || !matches!(
+                    property.as_str(),
+                    "visible" | "origin" | "scale" | "angles" | "color" | "alpha"
+                )
+                || wrapper
+                    .keys()
+                    .any(|key| !matches!(key.as_str(), "script" | "value" | "user"))
+            {
+                return Err(unsupported(
+                    "scenescript",
+                    "runtime scripts require a modeled image-layer property",
+                ));
+            }
+            bindings.push(dynamic_script::Binding {
+                layer: index + 1,
+                property: property.clone(),
+                source: source.to_owned(),
+                input: input.clone(),
+            });
+            wrapper.remove("script");
+            if !wrapper.contains_key("user") {
+                *value = wrapper.remove("value").expect("script input checked");
+            }
+        }
+    }
+    Ok(bindings)
+}
+
+fn static_value(value: &Value) -> Result<&Value> {
+    if let Some(object) = value.as_object() {
+        if object.contains_key("script") || object.contains_key("scenescript") {
+            return Err(unsupported(
+                "scenescript",
+                "script-driven property bindings are not supported",
+            ));
+        }
+        if object.contains_key("user") || object.contains_key("binding") {
+            return Err(unsupported(
+                "property_binding",
+                "dynamic user property bindings are not supported",
+            ));
+        }
+        return object.get("value").context("Invalid static Scene property");
+    }
+    Ok(value)
+}
+
+fn boolean(object: &Value, key: &str, default: bool) -> Result<bool> {
+    object
+        .get(key)
+        .map(|value| {
+            static_value(value)?
+                .as_bool()
+                .with_context(|| format!("Invalid Scene boolean property {key}"))
+        })
+        .transpose()
+        .map(|value| value.unwrap_or(default))
+}
+
+fn numbers(value: &Value) -> Result<Vec<f32>> {
+    let value = static_value(value)?;
+    let values = match value {
+        Value::Number(number) => vec![number.as_f64().context("Invalid Scene number")? as f32],
+        Value::String(string) => string
+            .split_whitespace()
+            .map(str::parse::<f32>)
+            .collect::<std::result::Result<Vec<_>, _>>()?,
+        Value::Array(array) => array
+            .iter()
+            .map(|value| {
+                value
+                    .as_f64()
+                    .map(|number| number as f32)
+                    .context("Invalid numeric Scene array")
+            })
+            .collect::<Result<Vec<_>>>()?,
+        _ => bail!("Invalid numeric Scene property"),
+    };
+    ensure!(
+        !values.is_empty() && values.len() <= 16 && values.iter().all(|value| value.is_finite()),
+        "Invalid or non-finite Scene numeric property"
+    );
+    Ok(values)
+}
+
+fn vector<const N: usize>(object: &Value, key: &str, default: [f32; N]) -> Result<[f32; N]> {
+    let Some(value) = object.get(key) else {
+        return Ok(default);
+    };
+    numbers(value)?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Scene property {key} must have {N} components"))
+}
+
+fn combos(value: Option<&Value>) -> Result<BTreeMap<String, i32>> {
+    let Some(value) = value else {
+        return Ok(BTreeMap::new());
+    };
+    let object = value.as_object().context("Invalid shader combos")?;
+    object
+        .iter()
+        .map(|(key, value)| {
+            let value = value.as_i64().context("Invalid shader combo value")?;
+            Ok((key.clone(), i32::try_from(value)?))
+        })
+        .collect()
+}
+
+fn blend(value: Option<&Value>) -> Result<Blend> {
+    match value.and_then(Value::as_str).unwrap_or("normal") {
+        "normal" => Ok(Blend::Replace),
+        "translucent" | "alpha" => Ok(Blend::Alpha),
+        "additive" | "add" => Ok(Blend::Add),
+        other => Err(unsupported("shader", format!("blend mode {other}"))),
+    }
+}
+
+fn validate_pass(pass: &Value) -> Result<()> {
+    for key in ["depthtest", "depthwrite"] {
+        if pass
+            .get(key)
+            .and_then(Value::as_str)
+            .is_some_and(|value| value != "disabled")
+        {
+            return Err(unsupported("model", format!("material {key}")));
+        }
+    }
+    if pass
+        .get("cullmode")
+        .and_then(Value::as_str)
+        .is_some_and(|value| value != "nocull")
+    {
+        return Err(unsupported("model", "material face culling"));
+    }
+    Ok(())
+}
+
+struct Preparation<'a> {
+    assets: &'a SceneAssets,
+    properties: &'a ProjectProperties<'a>,
+    textures: Vec<PreparedTexture>,
+    texture_indices: BTreeMap<String, usize>,
+    rgba_bytes: usize,
+    pass_count: usize,
+    pass_limit: usize,
+}
+
+impl Preparation<'_> {
+    fn texture(&mut self, name: &str, atlas: bool) -> Result<TextureBinding> {
+        if name == "_rt_FullFrameBuffer" {
+            return Ok(TextureBinding::FullFrame);
+        }
+        if name.starts_with("_rt_") || name.starts_with("_alias_") {
+            return Err(unsupported(
+                "shader",
+                format!("implicit runtime texture {name}"),
+            ));
+        }
+        if let Some(index) = self.texture_indices.get(name) {
+            if !atlas && self.textures[*index].animation.is_some() {
+                return Err(unsupported(
+                    "animated_texture",
+                    "image animation has no runtime implementation",
+                ));
+            }
+            return Ok(TextureBinding::Static(*index));
+        }
+        let path = if name.starts_with("materials/") && name.ends_with(".tex") {
+            name.to_owned()
+        } else {
+            format!("materials/{name}.tex")
+        };
+        let bytes = self
+            .assets
+            .read(&path, MAX_TEXTURE)
+            .with_context(|| format!("Missing Scene texture {path}"))?;
+        let decoded = if atlas {
+            Texture::decode_atlas(&bytes)
+        } else {
+            Texture::decode(&bytes)
+        }
+        .with_context(|| format!("Cannot decode Scene texture {path}"))?;
+        self.rgba_bytes = self
+            .rgba_bytes
+            .checked_add(decoded.rgba.len())
+            .context("Scene texture memory overflow")?;
+        ensure!(
+            self.rgba_bytes <= MAX_SCENE_RGBA,
+            "Scene decoded textures exceed the memory budget"
+        );
+        let index = self.textures.len();
+        self.textures.push(PreparedTexture {
+            width: decoded.width,
+            height: decoded.height,
+            image_width: decoded.metadata.image_width,
+            image_height: decoded.metadata.image_height,
+            source_format: decoded.metadata.format,
+            source_flags: decoded.metadata.flags,
+            rgba: decoded.rgba,
+            animation: decoded.metadata.animation,
+        });
+        self.texture_indices.insert(name.to_owned(), index);
+        Ok(TextureBinding::Static(index))
+    }
+
+    fn material(
+        &mut self,
+        path: &str,
+        override_pass: &Value,
+        kind: MaterialKind,
+        target: Option<String>,
+        bindings: &BTreeMap<usize, TextureBinding>,
+    ) -> Result<Vec<PreparedPass>> {
+        let material = json(self.assets, path, self.properties)?;
+        if has_script(&material) {
+            return Err(unsupported("scenescript", format!("material {path}")));
+        }
+        let passes = material["passes"]
+            .as_array()
+            .context("Scene material has no passes")?;
+        ensure!(!passes.is_empty(), "Scene material has no passes");
+        if kind == MaterialKind::Particle {
+            ensure!(
+                passes.len() == 1,
+                "Unsupported multi-pass particle material"
+            );
+        }
+        let mut result = Vec::new();
+        for pass in passes {
+            self.pass_count += 1;
+            ensure!(
+                self.pass_count <= self.pass_limit,
+                "Scene exceeds the render pass budget"
+            );
+            validate_pass(pass)?;
+            let shader_name = pass["shader"]
+                .as_str()
+                .context("Scene material has no shader")?;
+            let mut shader_combos = combos(pass.get("combos"))?;
+            shader_combos.extend(combos(override_pass.get("combos"))?);
+            let mut textures = vec![TextureBinding::Black; TEXTURE_SLOTS];
+            let mut bound_slots = BTreeSet::new();
+            for values in [pass.get("textures"), override_pass.get("textures")]
+                .into_iter()
+                .flatten()
+            {
+                let values = values
+                    .as_array()
+                    .context("Invalid Scene texture bindings")?;
+                ensure!(
+                    values.len() <= TEXTURE_SLOTS,
+                    "Scene has too many texture bindings"
+                );
+                for (slot, value) in values.iter().enumerate() {
+                    if value.is_null() {
+                        continue;
+                    }
+                    textures[slot] = self.texture(
+                        value.as_str().context("Invalid texture reference")?,
+                        kind == MaterialKind::Particle,
+                    )?;
+                    bound_slots.insert(slot);
+                }
+            }
+            for (slot, binding) in bindings {
+                ensure!(
+                    *slot < TEXTURE_SLOTS,
+                    "Scene texture binding slot exceeds limit"
+                );
+                textures[*slot] = binding.clone();
+                bound_slots.insert(*slot);
+            }
+            if kind == MaterialKind::Effect && !bound_slots.contains(&0) {
+                textures[0] = TextureBinding::Input;
+            }
+            if kind == MaterialKind::Image && shader_name == "genericimage4" {
+                textures[1] = TextureBinding::Input;
+            }
+            let shader = if shader_name == "genericimage4" {
+                ensure!(
+                    kind == MaterialKind::Image,
+                    "unsupported_scene: genericimage4 non-image material"
+                );
+                for (name, value) in &shader_combos {
+                    if *value != 0 {
+                        return Err(unsupported(
+                            "shader",
+                            format!("genericimage4 combo {name}={value}"),
+                        ));
+                    }
+                }
+                ensure!(
+                    bound_slots.contains(&0),
+                    "Image material has no primary texture"
+                );
+                if bound_slots.iter().any(|slot| *slot != 0) {
+                    return Err(unsupported(
+                        "shader",
+                        "genericimage4 extra texture bindings",
+                    ));
+                }
+                shader::image_material()
+            } else if shader_name == "genericimage2" {
+                ensure!(
+                    kind == MaterialKind::Image,
+                    "Card image shader requires an image material"
+                );
+                shader::load_card_image(self.assets, shader_name, &shader_combos, &bound_slots)?
+            } else if shader::is_legacy_image(shader_name) {
+                ensure!(
+                    kind == MaterialKind::Image,
+                    "unsupported_scene: legacy image shader used by a non-image material"
+                );
+                for slot in &bound_slots {
+                    let TextureBinding::Static(index) = textures[*slot] else {
+                        return Err(unsupported(
+                            "shader",
+                            "legacy image requires static textures",
+                        ));
+                    };
+                    if !matches!(self.textures[index].source_flags, 0 | 2) {
+                        return Err(unsupported("shader", "legacy image texture sampling flags"));
+                    }
+                }
+                if shader_name == "flag" {
+                    let TextureBinding::Static(index) = textures[1] else {
+                        return Err(unsupported("shader", "flag requires a normal texture"));
+                    };
+                    let format = i32::try_from(self.textures[index].source_format)?;
+                    if shader_combos
+                        .get("TEX1FORMAT")
+                        .is_some_and(|value| *value != format)
+                    {
+                        return Err(unsupported("shader", "flag normal texture format mismatch"));
+                    }
+                    shader_combos.insert("TEX1FORMAT".to_owned(), format);
+                }
+                shader::load_legacy_image(self.assets, shader_name, &shader_combos, &bound_slots)
+                    .map_err(|error| {
+                        if error.downcast_ref::<lwe_scene::SceneAssetError>().is_some() {
+                            error
+                        } else {
+                            unsupported("shader", error.to_string())
+                        }
+                    })?
+            } else if shader_name == "genericparticle" {
+                ensure!(
+                    kind == MaterialKind::Particle,
+                    "unsupported_scene: genericparticle non-particle material"
+                );
+                let TextureBinding::Static(index) = textures[0] else {
+                    bail!("Particle material requires a static texture atlas");
+                };
+                let texture = &self.textures[index];
+                // RGBA upload retains red-channel masks. The original fragment
+                // owns R8 alpha interpretation and atlas interpolation.
+                shader_combos.insert(
+                    "TEX0FORMAT".into(),
+                    if texture.source_format == 9 { 9 } else { 0 },
+                );
+                if texture.animation.is_some() {
+                    shader_combos.insert("SPRITESHEET".into(), 1);
+                    shader_combos.insert("SPRITESHEETBLEND".into(), 1);
+                }
+                shader::load_particle(self.assets, &shader_combos, &bound_slots)?
+            } else {
+                ensure!(
+                    kind != MaterialKind::Particle,
+                    "unsupported_scene: unsupported particle shader"
+                );
+                ensure!(
+                    matches!(
+                        shader_name,
+                        "passthrough"
+                            | "effects/scroll"
+                            | "effects/pulse"
+                            | "effects/shake"
+                            | "effects/shine_downsample2"
+                            | "effects/shine_cast"
+                            | "effects/shine_gaussian"
+                            | "effects/shine_combine"
+                            | "effects/waterripple"
+                            | "effects/iris"
+                    ) || shader::is_bounded_project_effect(shader_name),
+                    "unsupported_scene: unvalidated Scene shader {shader_name}"
+                );
+                shader::load(self.assets, shader_name, &shader_combos, &bound_slots).map_err(
+                    |error| {
+                        if error.downcast_ref::<lwe_scene::SceneAssetError>().is_some() {
+                            error
+                        } else {
+                            unsupported("shader", error.to_string())
+                        }
+                    },
+                )?
+            };
+            let mut constants = BTreeMap::new();
+            let overrides = override_pass
+                .get("constantshadervalues")
+                .map(|value| value.as_object().context("Invalid shader constants"))
+                .transpose()?;
+            let defaults = pass
+                .get("constantshadervalues")
+                .map(|value| value.as_object().context("Invalid shader constants"))
+                .transpose()?;
+            let mut user_values = BTreeMap::new();
+            for mapping in [
+                pass.get("usershadervalues"),
+                override_pass.get("usershadervalues"),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                ensure!(
+                    shader::is_legacy_image(shader_name),
+                    "unsupported_scene: user shader mappings outside legacy images"
+                );
+                let mapping = mapping.as_object().context("Invalid user shader mapping")?;
+                let mut targets = BTreeSet::new();
+                for (property, target) in mapping {
+                    let target = target
+                        .as_str()
+                        .filter(|target| !target.is_empty() && target.len() <= 256)
+                        .context("Invalid user shader mapping target")?;
+                    ensure!(
+                        targets.insert(target),
+                        "Ambiguous user shader mapping target"
+                    );
+                    user_values.insert(target.to_owned(), self.properties.shader_value(property)?);
+                }
+            }
+            let mut consumed = BTreeSet::new();
+            for uniform in &shader.uniforms {
+                if shader::is_audio_spectrum(uniform) {
+                    continue;
+                }
+                if uniform.array {
+                    return Err(unsupported(
+                        "shader",
+                        format!("uniform array {}", uniform.name),
+                    ));
+                }
+                if uniform.kind == "sampler2D" {
+                    let slot = uniform
+                        .name
+                        .strip_prefix("g_Texture")
+                        .and_then(|slot| slot.parse::<usize>().ok())
+                        .context("Unsupported Scene sampler name")?;
+                    ensure!(slot < TEXTURE_SLOTS, "Scene sampler slot exceeds limit");
+                    if !bound_slots.contains(&slot)
+                        && let Some(name) = &uniform.texture_default
+                    {
+                        textures[slot] = self.texture(name, false)?;
+                    }
+                    if matches!(textures[slot], TextureBinding::Black) {
+                        return Err(unsupported(
+                            "shader",
+                            format!("sampler {} has no bound texture", uniform.name),
+                        ));
+                    }
+                    continue;
+                }
+                if let Some(material_key) = &uniform.material {
+                    let value = user_values
+                        .get(material_key)
+                        .or_else(|| {
+                            overrides
+                                .and_then(|values| values.get(material_key))
+                                .or_else(|| defaults.and_then(|values| values.get(material_key)))
+                        })
+                        .or(uniform.default.as_ref());
+                    if let Some(value) = value {
+                        let values = numbers(value)?;
+                        let count = match uniform.kind.as_str() {
+                            "float" => 1,
+                            "vec2" => 2,
+                            "vec3" => 3,
+                            "vec4" => 4,
+                            other => {
+                                return Err(unsupported(
+                                    "shader",
+                                    format!("material uniform type {other}"),
+                                ));
+                            }
+                        };
+                        ensure!(
+                            values.len() == count,
+                            "Scene uniform {} requires {count} components",
+                            uniform.name
+                        );
+                        if count == 1
+                            && shader::is_bounded_project_effect(shader_name)
+                            && let Some([minimum, maximum]) = uniform.material_range
+                        {
+                            ensure!(
+                                (minimum..=maximum).contains(&values[0]),
+                                "Project effect scalar exceeds its declared bounds"
+                            );
+                        }
+                        constants.insert(uniform.name.clone(), values);
+                    } else {
+                        return Err(unsupported(
+                            "shader",
+                            format!("material uniform {} has no value or default", uniform.name),
+                        ));
+                    }
+                    consumed.insert(material_key.clone());
+                } else {
+                    let expected = match uniform.name.as_str() {
+                        "g_ModelViewProjectionMatrix" | "g_ModelMatrix" => Some("mat4"),
+                        "g_Time" => Some("float"),
+                        "g_Color4" => Some("vec4"),
+                        "g_TexelSize" => Some("vec2"),
+                        "g_ModelViewProjectionMatrixInverse" => Some("mat4"),
+                        "g_PointerPosition" => Some("vec2"),
+                        name if name
+                            .strip_prefix("g_Texture")
+                            .and_then(|name| name.strip_suffix("Resolution"))
+                            .and_then(|slot| slot.parse::<usize>().ok())
+                            .is_some_and(|slot| slot < TEXTURE_SLOTS) =>
+                        {
+                            Some("vec4")
+                        }
+                        _ => None,
+                    };
+                    if expected != Some(uniform.kind.as_str()) {
+                        return Err(unsupported(
+                            "shader",
+                            format!(
+                                "unbound or invalid runtime uniform {} ({})",
+                                uniform.name, uniform.kind
+                            ),
+                        ));
+                    }
+                }
+            }
+            for values in [overrides, defaults].into_iter().flatten() {
+                for (name, value) in values {
+                    if !consumed.contains(name) {
+                        if shader::legacy_constant_is_inert(shader_name, name) {
+                            ensure!(
+                                numbers(value)?.len() == 1,
+                                "Invalid inert legacy scalar constant"
+                            );
+                            continue;
+                        }
+                        return Err(unsupported(
+                            "shader",
+                            format!("unbound shader constant {name} in {path}"),
+                        ));
+                    }
+                }
+            }
+            if user_values.keys().any(|name| !consumed.contains(name)) {
+                return Err(unsupported(
+                    "property_binding",
+                    "unbound user shader mapping target",
+                ));
+            }
+            if shader_name == "effects/shake"
+                && constants
+                    .get("g_Bounds")
+                    .is_some_and(|bounds| bounds.len() != 2 || bounds[1] <= bounds[0])
+            {
+                bail!("Invalid shake bounds: maximum must exceed minimum");
+            }
+            if constants
+                .get("u_pointerSpeed")
+                .is_some_and(|value| value.as_slice() != [0.0])
+            {
+                return Err(unsupported(
+                    "shader",
+                    "pointer-driven material needs a pointer input host",
+                ));
+            }
+            for name in ["g_AudioFrequencyMin", "g_AudioFrequencyMax"] {
+                if let Some(value) = constants.get(name) {
+                    ensure!(
+                        value.len() == 1
+                            && (0.0..=15.0).contains(&value[0])
+                            && value[0].fract() == 0.0,
+                        "Invalid audio spectrum band index"
+                    );
+                }
+            }
+            if let (Some(minimum), Some(maximum)) = (
+                constants.get("g_AudioFrequencyMin"),
+                constants.get("g_AudioFrequencyMax"),
+            ) {
+                ensure!(
+                    minimum[0] <= maximum[0],
+                    "Reversed audio spectrum band range"
+                );
+            }
+            result.push(PreparedPass {
+                label: shader_name.to_owned(),
+                shader,
+                textures,
+                constants,
+                target: target.clone(),
+                blend: blend(pass.get("blending"))?,
+            });
+        }
+        Ok(result)
+    }
+
+    fn effects(&mut self, object: &Value) -> Result<Vec<PreparedStage>> {
+        let Some(effects) = object.get("effects") else {
+            return Ok(Vec::new());
+        };
+        let effects = effects.as_array().context("Invalid image effects")?;
+        ensure!(effects.len() <= MAX_PASSES, "Too many image effects");
+        let mut result = Vec::new();
+        for effect in effects {
+            if !boolean(effect, "visible", true)? {
+                continue;
+            }
+            let file = effect["file"]
+                .as_str()
+                .context("Effect has no resource file")?;
+            let definition = json(self.assets, file, self.properties)?;
+            if has_script(&definition) || has_script(effect) {
+                return Err(unsupported("scenescript", format!("effect {file}")));
+            }
+            let mut targets = BTreeMap::new();
+            if let Some(fbos) = definition.get("fbos") {
+                for fbo in fbos.as_array().context("Invalid effect render targets")? {
+                    let name = fbo["name"].as_str().context("Render target has no name")?;
+                    let scale = fbo["scale"].as_f64().unwrap_or(1.0) as f32;
+                    ensure!(
+                        scale.is_finite() && (1.0..=16.0).contains(&scale),
+                        "Invalid render target scale"
+                    );
+                    if fbo["format"].as_str().unwrap_or("rgba_backbuffer") != "rgba_backbuffer" {
+                        return Err(unsupported("shader", "effect render target format"));
+                    }
+                    ensure!(
+                        targets.insert(name.to_owned(), scale).is_none(),
+                        "Duplicate effect render target"
+                    );
+                }
+            }
+            ensure!(targets.len() <= 8, "Too many effect render targets");
+            let overrides = effect.get("passes").and_then(Value::as_array);
+            let definitions = definition["passes"]
+                .as_array()
+                .context("Effect has no passes")?;
+            ensure!(
+                overrides.is_none_or(|overrides| overrides.len() <= definitions.len()),
+                "Effect overrides reference unknown passes"
+            );
+            let mut passes = Vec::new();
+            let mut written = BTreeSet::new();
+            for (index, pass) in definitions.iter().enumerate() {
+                let material = pass["material"]
+                    .as_str()
+                    .context("Effect pass has no material")?;
+                let target = pass["target"].as_str().map(str::to_owned);
+                if let Some(target) = &target {
+                    ensure!(
+                        targets.contains_key(target),
+                        "Unknown effect render target {target}"
+                    );
+                }
+                let mut bindings = BTreeMap::new();
+                if let Some(bind) = pass.get("bind") {
+                    for bind in bind.as_array().context("Invalid effect pass bindings")? {
+                        let slot = bind["index"]
+                            .as_u64()
+                            .context("Invalid effect texture slot")?
+                            as usize;
+                        let name = bind["name"]
+                            .as_str()
+                            .context("Invalid effect texture binding")?;
+                        let binding = if name == "previous" {
+                            TextureBinding::Input
+                        } else {
+                            ensure!(
+                                written.contains(name),
+                                "Effect reads unwritten target {name}"
+                            );
+                            ensure!(
+                                target.as_deref() != Some(name),
+                                "Effect samples its own render target {name}"
+                            );
+                            TextureBinding::Named(name.to_owned())
+                        };
+                        ensure!(
+                            bindings.insert(slot, binding).is_none(),
+                            "Duplicate effect texture slot"
+                        );
+                    }
+                }
+                let override_pass = overrides
+                    .and_then(|passes| passes.get(index))
+                    .unwrap_or(&Value::Null);
+                passes.extend(self.material(
+                    material,
+                    override_pass,
+                    MaterialKind::Effect,
+                    target.clone(),
+                    &bindings,
+                )?);
+                if let Some(target) = target {
+                    written.insert(target);
+                }
+            }
+            ensure!(
+                passes.last().is_some_and(|pass| pass.target.is_none()),
+                "Effect must produce a final layer output"
+            );
+            result.push(PreparedStage { targets, passes });
+        }
+        Ok(result)
+    }
+}
+
+impl PreparedScene {
+    pub fn prepare(project_dir: &Path, assets_root: Option<&Path>) -> Result<Self> {
+        Self::prepare_with_properties(project_dir, assets_root, &BTreeMap::new())
+    }
+
+    pub fn property_definitions(
+        project_dir: &Path,
+        assets_root: Option<&Path>,
+    ) -> Result<Vec<PropertyDefinition>> {
+        let assets = SceneAssets::open(project_dir, assets_root)?;
+        let project: Value = serde_json::from_slice(&assets.read("project.json", MAX_JSON)?)
+            .context("Invalid Scene project metadata")?;
+        ensure!(
+            project["type"]
+                .as_str()
+                .is_some_and(|kind| kind.eq_ignore_ascii_case("scene")),
+            "Project is not a Scene wallpaper"
+        );
+        property_definitions(&project)
+    }
+
+    pub fn prepare_with_properties(
+        project_dir: &Path,
+        assets_root: Option<&Path>,
+        overrides: &BTreeMap<String, Value>,
+    ) -> Result<Self> {
+        let assets = SceneAssets::open(project_dir, assets_root)?;
+        let mut project: Value = serde_json::from_slice(&assets.read("project.json", MAX_JSON)?)
+            .context("Invalid Scene project metadata")?;
+        ensure!(
+            project["type"]
+                .as_str()
+                .is_some_and(|kind| kind.eq_ignore_ascii_case("scene")),
+            "Project is not a Scene wallpaper"
+        );
+        if !overrides.is_empty() {
+            apply_property_overrides(&mut project, overrides)?;
+        }
+        let scene_file = project["file"]
+            .as_str()
+            .context("Scene project has no entry resource")?;
+        let properties = ProjectProperties::from_project(&project)?;
+        let mut scene: Value = serde_json::from_slice(&assets.read(scene_file, MAX_JSON)?)
+            .context("Invalid Scene entry JSON")?;
+        let mut bindings = extract_runtime_bindings(&mut scene, &project)?;
+        properties.resolve_document(&mut scene)?;
+        if has_script(&scene) {
+            return Err(unsupported("scenescript", "scene contains script bindings"));
+        }
+        let general = &scene["general"];
+        for (key, code) in [
+            ("hdr", "hdr"),
+            ("cameraparallax", "camera"),
+            ("camerashake", "camera"),
+            ("fogdistance", "shader"),
+            ("fogheight", "shader"),
+        ] {
+            if boolean(general, key, false)? {
+                return Err(unsupported(code, key));
+            }
+        }
+        if general
+            .get("zoom")
+            .is_some_and(|value| value.as_f64() != Some(1.0))
+        {
+            return Err(unsupported("camera", "camera zoom"));
+        }
+        let projection = &general["orthogonalprojection"];
+        if boolean(projection, "auto", false)? {
+            return Err(unsupported("camera", "automatic orthographic projection"));
+        }
+        let width = projection["width"]
+            .as_f64()
+            .ok_or_else(|| unsupported("camera", "perspective projection"))?
+            as f32;
+        let height = projection["height"]
+            .as_f64()
+            .ok_or_else(|| unsupported("camera", "perspective projection"))?
+            as f32;
+        ensure!(
+            [width, height]
+                .iter()
+                .all(|value| value.is_finite() && (1.0..=16384.0).contains(value)),
+            "Invalid orthographic Scene dimensions"
+        );
+        if let Some(camera) = scene.get("camera") {
+            if let Some(paths) = camera.get("paths")
+                && !paths.as_array().is_some_and(Vec::is_empty)
+            {
+                return Err(unsupported("camera", "camera paths are not supported"));
+            }
+            let eye = vector(camera, "eye", [0.0, 0.0, 1.0])?;
+            let center = vector(camera, "center", [0.0; 3])?;
+            let up = vector(camera, "up", [0.0, 1.0, 0.0])?;
+            // The inspected native runtime loader resets eye/center/up for a
+            // fixed orthographic scene without camera paths. Parallel saved XY
+            // therefore does not translate runtime layers (it is not a lookAt
+            // input here). Keep tilted/path/automatic cases outside this subset.
+            if eye[..2] != center[..2] {
+                return Err(unsupported(
+                    "camera",
+                    "tilted orthographic camera is not supported",
+                ));
+            }
+            if eye[2] <= center[2] || up != [0.0, 1.0, 0.0] {
+                return Err(unsupported(
+                    "camera",
+                    "tilted or reversed orthographic camera",
+                ));
+            }
+        }
+        let clear = vector(general, "clearcolor", [0.0; 3])?;
+        let objects = scene["objects"]
+            .as_array()
+            .context("Scene has no objects")?;
+        ensure!(
+            !objects.is_empty() && objects.len() <= MAX_LAYERS,
+            "Scene layer count exceeds supported range"
+        );
+        for binding in &mut bindings {
+            binding.input = objects[binding.layer - 1][&binding.property].clone();
+            if matches!(
+                binding.property.as_str(),
+                "origin" | "scale" | "angles" | "color"
+            ) {
+                let values = numbers(&binding.input)?;
+                let vector = match values.as_slice() {
+                    [scalar] => [*scalar; 3],
+                    [x, y, z] => [*x, *y, *z],
+                    _ => bail!("Invalid vector script binding input"),
+                };
+                binding.input = serde_json::json!(vector);
+            }
+        }
+        let mut controlled_handles: BTreeSet<_> =
+            bindings.iter().map(|binding| binding.layer).collect();
+        let scripts = if bindings.is_empty() {
+            None
+        } else {
+            let states = objects
+                .iter()
+                .enumerate()
+                .map(|(index, object)| {
+                    let alpha = object
+                        .get("alpha")
+                        .map(numbers)
+                        .transpose()?
+                        .map(|v| v[0])
+                        .unwrap_or(1.0);
+                    Ok(dynamic_script::LayerState {
+                        handle: index + 1,
+                        origin: vector(object, "origin", [width / 2.0, height / 2.0, 0.0])?,
+                        scale: vector(object, "scale", [1.0; 3])?,
+                        angles: vector(object, "angles", [0.0; 3])?,
+                        color: vector(object, "color", [1.0; 3])?,
+                        alpha,
+                        visible: boolean(object, "visible", true)?,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let snapshot = property_definitions(&project)?
+                .into_iter()
+                .map(|property| Ok((property.name, serde_json::to_value(property.value)?)))
+                .collect::<Result<serde_json::Map<_, _>>>()?;
+            Some(Arc::new(dynamic_script::PreparedScripts::prepare(
+                bindings,
+                states,
+                Value::Object(snapshot),
+            )?))
+        };
+        let pass_limit = if scripts.is_some() { 128 } else { MAX_PASSES };
+        let mut authored_objects = objects.clone();
+        let mut handles: Vec<_> = (1..=authored_objects.len()).collect();
+        if let Some(scripts) = &scripts {
+            for created in scripts.created_layers() {
+                let state = &created.state;
+                controlled_handles.insert(state.handle);
+                handles.push(state.handle);
+                authored_objects.push(serde_json::json!({ "image": created.path, "origin": state.origin, "scale": state.scale, "angles": state.angles, "color": state.color, "alpha": state.alpha, "visible": state.visible }));
+            }
+            ensure!(
+                authored_objects.len() <= 128,
+                "Dynamic Scene layer count exceeds its budget"
+            );
+        }
+        let mut script_layers = BTreeMap::new();
+        let mut preparation = Preparation {
+            assets: &assets,
+            properties: &properties,
+            textures: Vec::new(),
+            texture_indices: BTreeMap::new(),
+            rgba_bytes: 0,
+            pass_count: 0,
+            pass_limit,
+        };
+        let mut layers = Vec::new();
+        let mut particles = Vec::new();
+        let mut draw_order = Vec::new();
+        let mut particle_vertices = 0_usize;
+        let mut particle_work = 0_usize;
+        let bloom = postprocess::PreparedBloom::prepare(&assets, general, &mut |path| {
+            json(&assets, path, &properties)
+        })?
+        .map(Arc::new);
+        let mut effect_count = 0;
+        for (object, handle) in authored_objects.iter().zip(handles) {
+            let script_state = if controlled_handles.contains(&handle) {
+                scripts.as_ref().and_then(|scripts| {
+                    scripts
+                        .initial_states()
+                        .iter()
+                        .find(|state| state.handle == handle)
+                })
+            } else {
+                None
+            };
+            // Keep runtime-owned images allocated even when initially hidden.
+            if (!boolean(object, "visible", true)? && script_state.is_none())
+                || object.get("sound").is_some()
+            {
+                continue;
+            }
+            if object.get("particle").is_some() {
+                let simulation = particles::PreparedParticles::prepare(object, &mut |path| {
+                    json(&assets, path, &properties)
+                })?;
+                simulation.validate_runtime()?;
+                let vertex_capacity = simulation.max_vertices()?;
+                particle_vertices = particle_vertices
+                    .checked_add(vertex_capacity)
+                    .context("Scene particle vertex total overflow")?;
+                particle_work = particle_work
+                    .checked_add(simulation.max_work()?)
+                    .context("Scene particle work total overflow")?;
+                ensure!(
+                    particle_vertices <= 1_000_000 && particle_work <= 1_000_000,
+                    "Scene particles exceed combined work or vertex budget"
+                );
+                let materials = simulation
+                    .material_paths()
+                    .map(|path| {
+                        let mut passes = preparation.material(
+                            path,
+                            &Value::Null,
+                            MaterialKind::Particle,
+                            None,
+                            &BTreeMap::new(),
+                        )?;
+                        Ok(passes.remove(0))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let aspects = materials
+                    .iter()
+                    .map(|pass| {
+                        let TextureBinding::Static(texture) = pass.textures[0] else {
+                            bail!("Particle material has no static primary texture")
+                        };
+                        let texture = &preparation.textures[texture];
+                        Ok(texture.height as f32 / texture.width as f32)
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let animations = materials
+                    .iter()
+                    .map(|pass| match pass.textures[0] {
+                        TextureBinding::Static(index) => {
+                            preparation.textures[index].animation.clone()
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                draw_order.push(DrawObject::Particles(particles.len()));
+                particles.push(PreparedParticleLayer {
+                    simulation,
+                    materials,
+                    aspects,
+                    animations,
+                    vertex_capacity,
+                });
+                continue;
+            }
+            let Some(image) = object.get("image").and_then(Value::as_str) else {
+                let feature = if object.get("particle").is_some() {
+                    "particle"
+                } else if object.get("sound").is_some() || object.get("audio").is_some() {
+                    "audio"
+                } else if object.get("text").is_some() {
+                    "text"
+                } else if object.get("model").is_some() {
+                    "model"
+                } else {
+                    "unknown_object"
+                };
+                return Err(unsupported(
+                    feature,
+                    "only 2D image layers are currently supported",
+                ));
+            };
+            if object.get("parent").is_some() {
+                return Err(unsupported(
+                    "hierarchy",
+                    "image parent bindings are not supported",
+                ));
+            }
+            let perspective = boolean(object, "perspective", false)?;
+            for key in ["puppet", "animation", "mesh"] {
+                if object.get(key).is_some() {
+                    return Err(unsupported("puppet", format!("image {key}")));
+                }
+            }
+            let model = json(&assets, image, &properties)?;
+            if boolean(&model, "perspective", false)? {
+                return Err(unsupported("camera", "perspective image model"));
+            }
+            for key in ["puppet", "animation", "mesh"] {
+                if model.get(key).is_some() {
+                    return Err(unsupported("puppet", format!("image model {key}")));
+                }
+            }
+            if model.get("parent").is_some() || model["options"].get("parent").is_some() {
+                return Err(unsupported(
+                    "hierarchy",
+                    "image model parent bindings are not supported",
+                ));
+            }
+            if has_script(&model) {
+                return Err(unsupported("scenescript", format!("image model {image}")));
+            }
+            let material = model["material"]
+                .as_str()
+                .context("Image model has no material")?;
+            let fullscreen = boolean(&model, "fullscreen", false)?;
+            let passthrough = boolean(&model, "passthrough", false)?;
+            ensure!(
+                fullscreen == passthrough,
+                "Unsupported partial fullscreen model"
+            );
+            let base_passes = preparation.material(
+                material,
+                &Value::Null,
+                MaterialKind::Image,
+                None,
+                &BTreeMap::new(),
+            )?;
+            let effects = preparation.effects(object)?;
+            effect_count += effects.len();
+            let mut stages = vec![PreparedStage {
+                targets: BTreeMap::new(),
+                passes: base_passes,
+            }];
+            stages.extend(effects);
+            let model_size = match (model.get("width"), model.get("height")) {
+                (Some(width), Some(height)) => {
+                    let width = numbers(width)?;
+                    let height = numbers(height)?;
+                    ensure!(
+                        width.len() == 1 && height.len() == 1,
+                        "Invalid image model dimensions"
+                    );
+                    [width[0], height[0]]
+                }
+                (None, None) if boolean(&model, "autosize", false)? && !fullscreen => {
+                    let TextureBinding::Static(index) = stages[0].passes[0].textures[0] else {
+                        bail!("Autosized image requires a static primary texture");
+                    };
+                    let texture = &preparation.textures[index];
+                    [texture.image_width as f32, texture.image_height as f32]
+                }
+                (None, None) => [width, height],
+                _ => bail!("Incomplete image model dimensions"),
+            };
+            let size = vector(object, "size", model_size)?;
+            if fullscreen {
+                ensure!(
+                    size == [width, height],
+                    "Fullscreen model must retain canvas dimensions"
+                );
+            }
+            ensure!(
+                size.iter()
+                    .all(|value| value.is_finite() && (1.0..=16384.0).contains(value)),
+                "Invalid image layer size"
+            );
+            let origin = vector(object, "origin", [width / 2.0, height / 2.0, 0.0])?;
+            let angles = vector(object, "angles", [0.0; 3])?;
+            // Under this fixed orthographic camera, a coplanar image has the
+            // same affine XY projection. Depth or out-of-plane rotation still
+            // requires a separate 3D camera/model path.
+            if perspective && (origin[2] != 0.0 || angles[0] != 0.0 || angles[1] != 0.0) {
+                return Err(unsupported(
+                    "camera",
+                    "perspective image requires a coplanar orthographic transform",
+                ));
+            }
+            if angles[0] != 0.0 || angles[1] != 0.0 {
+                return Err(unsupported("model", "3D image rotation"));
+            }
+            let scale = vector(object, "scale", [1.0; 3])?;
+            ensure!(
+                script_state.is_some() || (scale[0] != 0.0 && scale[1] != 0.0),
+                "Invalid zero image scale"
+            );
+            let tint = vector(object, "color", [1.0; 3])?;
+            let alpha = object
+                .get("alpha")
+                .map(numbers)
+                .transpose()?
+                .map(|values| values[0])
+                .unwrap_or(1.0);
+            ensure!((0.0..=1.0).contains(&alpha), "Invalid image alpha");
+            let color_mode = object
+                .get("colorBlendMode")
+                .map(|value| value.as_u64().context("Invalid image color blend mode"))
+                .transpose()?
+                .unwrap_or(0);
+            let composite = if color_mode == 0 {
+                None
+            } else {
+                ensure!(
+                    matches!(color_mode, 30 | 31),
+                    "Unsupported image color blend mode"
+                );
+                Some(shader::load_image_composite(&assets, color_mode as i32)?)
+            };
+            let layer_blend = if fullscreen || composite.is_some() {
+                Blend::Replace
+            } else {
+                stages[0].passes[0].blend
+            };
+            draw_order.push(DrawObject::Image(layers.len()));
+            if script_state.is_some() {
+                script_layers.insert(handle, layers.len());
+            }
+            layers.push(PreparedLayer {
+                size,
+                origin: [origin[0], origin[1]],
+                scale: [scale[0], scale[1]],
+                angle: angles[2],
+                tint: [tint[0], tint[1], tint[2], alpha],
+                blend: layer_blend,
+                composite,
+                stages,
+            });
+        }
+        ensure!(
+            !draw_order.is_empty(),
+            "Scene has no visible renderable layers"
+        );
+        let audio = audio::prepare_audio(&assets, &scene)?;
+        let pass_count = preparation.pass_count + usize::from(bloom.is_some()) * 4;
+        ensure!(
+            pass_count <= pass_limit,
+            "Scene exceeds the render pass budget including bloom"
+        );
+        let legacy_animated = layers
+            .iter()
+            .flat_map(|layer| &layer.stages)
+            .flat_map(|stage| &stage.passes)
+            .any(|pass| shader::legacy_is_animated(&pass.label, &pass.shader, &pass.constants));
+        let summary = SceneSummary {
+            layer_count: draw_order.len(),
+            effect_count,
+            pass_count,
+            animated: scripts.is_some()
+                || effect_count != 0
+                || !particles.is_empty()
+                || legacy_animated
+                || layers
+                    .iter()
+                    .flat_map(|layer| &layer.stages)
+                    .flat_map(|stage| &stage.passes)
+                    .flat_map(|pass| &pass.shader.uniforms)
+                    .any(shader::is_audio_spectrum),
+        };
+        let prepared = Self {
+            canvas: [width, height],
+            clear: [
+                clear[0],
+                clear[1],
+                clear[2],
+                if boolean(general, "clearenabled", true)? {
+                    1.0
+                } else {
+                    0.0
+                },
+            ],
+            textures: preparation.textures,
+            layers,
+            audio,
+            bloom,
+            particles,
+            draw_order,
+            summary,
+            scripts,
+            script_layers,
+        };
+        renderer::validate_gpu_budget(&prepared)?;
+        Ok(prepared)
+    }
+
+    pub fn summary(&self) -> SceneSummary {
+        self.summary
+    }
+
+    pub fn prepared_audio_bytes(&self) -> u64 {
+        audio::prepared_audio_bytes(&self.audio)
+    }
+
+    pub(crate) fn initialize_audio(&self) -> Result<SceneAudio> {
+        SceneAudio::new(&self.audio)
+    }
+
+    pub(crate) fn audio_allocations(&self) -> impl Iterator<Item = (usize, u64)> + '_ {
+        self.audio
+            .iter()
+            .map(|sound| (sound.clip_identity(), sound.payload_bytes()))
+    }
+
+    pub fn estimated_gpu_bytes_for_output(&self, width: i32, height: i32) -> Result<u64> {
+        let base = self.estimated_gpu_bytes()?;
+        base.checked_add(
+            self.bloom
+                .as_ref()
+                .map(|bloom| bloom.estimated_bytes(width, height))
+                .transpose()?
+                .unwrap_or_default(),
+        )
+        .context("Scene output allocation estimate overflow")
+    }
+
+    /// Logical texture/FBO payload; excludes driver and output back buffers.
+    pub fn estimated_gpu_bytes(&self) -> Result<u64> {
+        renderer::estimated_gpu_bytes(self)
+    }
+
+    /// Requires a current OpenGL context on the calling engine thread.
+    pub fn initialize(&self) -> Result<SceneRenderer> {
+        SceneRenderer::initialize(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    struct Fixture(PathBuf);
+    impl Fixture {
+        fn new() -> Self {
+            static NEXT: AtomicU64 = AtomicU64::new(0);
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let directory = std::env::temp_dir().join(format!(
+                "lwe-scene-ir-{}-{stamp}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            std::fs::create_dir(&directory).unwrap();
+            let fixture = Self(directory);
+            fixture.write("project.json", br#"{"type":"scene","file":"scene.json"}"#);
+            fixture.scene(
+                serde_json::json!([{"image":"models/image.json","size":"16 16","origin":"8 8 0"}]),
+            );
+            fixture.write(
+                "models/image.json",
+                br#"{"autosize":true,"material":"materials/image.json"}"#,
+            );
+            fixture.write("materials/image.json", br#"{"passes":[{"shader":"genericimage4","blending":"translucent","textures":["image"]}]}"#);
+            let mut texture = b"TEXV0005\0TEXI0001\0".to_vec();
+            for value in [0_u32, 0, 1, 1, 1, 1, 0] {
+                texture.extend_from_slice(&value.to_le_bytes());
+            }
+            texture.extend_from_slice(b"TEXB0001\0");
+            for value in [1_u32, 1, 1, 1, 4] {
+                texture.extend_from_slice(&value.to_le_bytes());
+            }
+            texture.extend_from_slice(&[255, 0, 0, 255]);
+            fixture.write("materials/image.tex", &texture);
+            fixture
+        }
+        fn write(&self, path: &str, bytes: &[u8]) {
+            let path = self.0.join(path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+        }
+        fn scene(&self, objects: Value) {
+            let scene = serde_json::json!({"general":{"orthogonalprojection":{"width":16,"height":16}},"objects":objects});
+            self.write("scene.json", &serde_json::to_vec(&scene).unwrap());
+        }
+        fn shake_shader(&self) {
+            self.write("shaders/effects/shake.vert", b"uniform mat4 g_ModelViewProjectionMatrix;\nuniform vec2 g_Bounds; // {\"material\":\"bounds\",\"default\":\"0 1\"}\nattribute vec3 a_Position;\nvoid main(){gl_Position=mul(vec4(a_Position,1),g_ModelViewProjectionMatrix);}");
+            self.write("shaders/effects/shake.frag", b"uniform sampler2D g_Texture0;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,vec2(0));}");
+            self.write(
+                "materials/effects/shake.json",
+                br#"{"passes":[{"shader":"effects/shake"}]}"#,
+            );
+        }
+
+        fn legacy_shader(&self, name: &str, fragment: &str) {
+            self.write(&format!("shaders/{name}.vert"), b"uniform mat4 g_ModelViewProjectionMatrix;\nattribute vec3 a_Position;\nattribute vec2 a_TexCoord;\nvarying vec2 v_TexCoord;\nvoid main(){v_TexCoord=a_TexCoord;gl_Position=mul(vec4(a_Position,1),g_ModelViewProjectionMatrix);}");
+            self.write(&format!("shaders/{name}.frag"), fragment.as_bytes());
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn dynamic_init_preloads_created_images_without_losing_layer_states() {
+        let fixture = Fixture::new();
+        let source = "let parts=[];let sound=engine.registerAudioBuffers(64);export function init(){parts.push(thisLayer);for(let i=1;i<4;i++){parts.push(thisScene.createLayer('models/image.json'));}}export function update(){for(let i=0;i<4;i++){let part=parts[i];part.origin=new Vec3(10+i*4,8,0);part.scale=new Vec3(1,sound.average[i]*2,1);}}";
+        fixture.scene(serde_json::json!([{"image":"models/image.json","size":"4 4","origin":"8 8 0","scale":"0 0 0","visible":{"script":source,"value":true}}]));
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(prepared.summary().layer_count, 4);
+        assert_eq!(prepared.summary().pass_count, 4);
+        assert!(prepared.summary().animated);
+        assert_eq!(prepared.textures.len(), 1);
+        assert_eq!(prepared.script_layers.len(), 4);
+        assert_eq!(prepared.layers[1].size, [1.0; 2]);
+        let states = prepared.scripts.as_ref().unwrap().initial_states();
+        assert_eq!(states[3].origin, [22.0, 8.0, 0.0]);
+        assert_eq!(states[3].scale, [1.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn dynamic_init_does_not_admit_missing_or_unsupported_created_resources() {
+        let fixture = Fixture::new();
+        fixture.scene(serde_json::json!([{"image":"models/image.json","size":"4 4","visible":{"script":"export function init(){thisScene.createLayer('models/missing.json');}export function update(){}","value":true}}]));
+        assert!(PreparedScene::prepare(&fixture.0, None).is_err());
+        fixture.scene(serde_json::json!([{"image":"models/image.json","size":"4 4","visible":{"script":"export function init(){thisScene.createLayer('../private.json');}export function update(){}","value":true}}]));
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("scenescript"));
+    }
+
+    #[test]
+    fn orthographic_perspective_images_require_a_coplanar_transform() {
+        let fixture = Fixture::new();
+        fixture.scene(serde_json::json!([{"image":"models/image.json","size":"4 4","perspective":true,"origin":"8 8 0"}]));
+        assert!(PreparedScene::prepare(&fixture.0, None).is_ok());
+        for origin in ["8 8 1", "8 8 -1"] {
+            fixture.scene(serde_json::json!([{"image":"models/image.json","size":"4 4","perspective":true,"origin":origin}]));
+            let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+            assert_eq!(unsupported_feature_code(&error), Some("camera"));
+        }
+    }
+
+    #[test]
+    fn prepares_authored_image_fixture_without_a_desktop_or_gl_context() {
+        let fixture = Fixture::new();
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(
+            prepared.summary(),
+            SceneSummary {
+                layer_count: 1,
+                effect_count: 0,
+                pass_count: 1,
+                animated: false
+            }
+        );
+        assert_eq!(prepared.textures[0].rgba, [255, 0, 0, 255]);
+        let debug = format!("{prepared:?}");
+        assert!(!debug.contains("rgba"));
+    }
+
+    #[test]
+    fn project_defaults_are_shared_by_scene_and_effect_resources() {
+        let fixture = Fixture::new();
+        fixture.write(
+            "project.json",
+            br#"{"type":"scene","file":"scene.json","general":{"properties":{
+            "hidden":{"type":"bool","value":false},
+            "opacity":{"type":"slider","value":0.25,"min":0,"max":1},
+            "tint":{"type":"color","value":"0.1 0.2 0.3"},
+            "scale":{"type":"slider","value":2,"min":1,"max":4}
+        }}}"#,
+        );
+        fixture.shake_shader();
+        fixture.write("effects/shake/effect.json", br#"{"fbos":[{"name":"unused","scale":{"user":"scale","value":1}}],"passes":[{"material":"materials/effects/shake.json"}]}"#);
+        fixture.scene(serde_json::json!([
+            {"image":"models/hidden-missing.json","visible":{"user":"hidden","value":true}},
+            {"image":"models/image.json","alpha":{"user":"opacity","value":1},
+             "color":{"user":"tint","value":"1 1 1"},
+             "effects":[{"file":"effects/shake/effect.json"}]}
+        ]));
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(prepared.summary().layer_count, 1);
+        assert_eq!(prepared.layers[0].tint, [0.1, 0.2, 0.3, 0.25]);
+        assert_eq!(prepared.layers[0].stages[1].targets["unused"], 2.0);
+    }
+
+    #[test]
+    fn authored_visibility_skips_hidden_objects_and_regates_enabled_ones() {
+        let fixture = Fixture::new();
+        fixture.write(
+            "project.json",
+            br#"{"type":"scene","file":"scene.json","general":{"properties":{
+            "hdr":{"type":"bool","value":true},
+            "visible":{"type":"bool","value":false}
+        }}}"#,
+        );
+        fixture.write("scene.json", br#"{"general":{"hdr":{"user":"hdr","value":false},"orthogonalprojection":{"width":16,"height":16}},"objects":[{"image":"models/image.json"}]}"#);
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("hdr"));
+        assert!(error.to_string().contains("hdr"));
+        fixture.scene(serde_json::json!([
+            {"particle":"particles/unsupported.json","visible":{"user":"visible","value":true}},
+            {"image":"models/image.json"}
+        ]));
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(prepared.summary().layer_count, 1);
+        fixture.scene(serde_json::json!([
+            {"particle":"particles/unsupported.json","visible":true},
+            {"image":"models/image.json"}
+        ]));
+        fixture.write(
+            "particles/unsupported.json",
+            br#"{"unknown_behavior":true}"#,
+        );
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("particle"));
+    }
+
+    #[test]
+    fn scene_image_rotation_preserves_radians() {
+        let fixture = Fixture::new();
+        fixture.scene(serde_json::json!([{
+            "image":"models/image.json", "angles":"0 0 1.5707963267948966"
+        }]));
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert!((prepared.layers[0].angle - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+    }
+
+    #[test]
+    fn project_property_overrides_change_the_prepared_layer_without_editing_assets() {
+        let fixture = Fixture::new();
+        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"opacity":{"type":"slider","value":1,"min":0,"max":1}}}}"#);
+        fixture.scene(
+            serde_json::json!([{"image":"models/image.json","alpha":{"user":"opacity","value":1}}]),
+        );
+        let before = std::fs::read(fixture.0.join("project.json")).unwrap();
+        let prepared = PreparedScene::prepare_with_properties(
+            &fixture.0,
+            None,
+            &BTreeMap::from([("opacity".into(), serde_json::json!(0.25))]),
+        )
+        .unwrap();
+        assert_eq!(prepared.layers[0].tint[3], 0.25);
+        assert_eq!(
+            std::fs::read(fixture.0.join("project.json")).unwrap(),
+            before
+        );
+        assert!(
+            PreparedScene::prepare_with_properties(
+                &fixture.0,
+                None,
+                &BTreeMap::from([("opacity".into(), serde_json::json!(1.01))])
+            )
+            .is_err()
+        );
+        assert_eq!(
+            PreparedScene::prepare(&fixture.0, None).unwrap().layers[0].tint[3],
+            1.0
+        );
+    }
+
+    #[test]
+    fn invalid_reachable_property_resources_fail_before_gl_initialization() {
+        let fixture = Fixture::new();
+        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"flag":{"type":"bool","value":true}}}}"#);
+        fixture.write(
+            "models/image.json",
+            br#"{"material":"materials/image.json","ignored":{"user":"missing","value":true}}"#,
+        );
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("property_binding"));
+        fixture.write(
+            "models/image.json",
+            br#"{"material":"materials/image.json"}"#,
+        );
+        fixture.write("materials/image.json", br#"{"passes":[{"shader":"genericimage4","blending":"translucent","textures":["image"],"ignored":{"user":"flag","value":true,"binding":"expression"}}]}"#);
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("property_binding"));
+    }
+
+    #[test]
+    fn rejects_framebuffer_budget_before_any_gl_allocation() {
+        let fixture = Fixture::new();
+        fixture.scene(serde_json::json!([{
+            "image": "models/image.json", "size": "16384 16384"
+        }]));
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert!(matches!(
+            error.downcast_ref::<lwe_scene::SceneAssetError>(),
+            Some(lwe_scene::SceneAssetError::LimitExceeded { limit, .. })
+                if *limit == renderer::MAX_SCENE_GPU_BYTES
+        ));
+    }
+
+    #[test]
+    fn repeated_effects_are_preserved_in_order_with_per_pass_constants() {
+        let fixture = Fixture::new();
+        fixture.shake_shader();
+        fixture.write(
+            "effects/shake/effect.json",
+            br#"{"passes":[{"material":"materials/effects/shake.json"}]}"#,
+        );
+        fixture.scene(serde_json::json!([{"image":"models/image.json","effects":[
+            {"file":"effects/shake/effect.json","passes":[{"constantshadervalues":{"bounds":"0 1"}}]},
+            {"file":"effects/shake/effect.json","passes":[{"constantshadervalues":{"bounds":"0.2 0.8"}}]}
+        ]}]));
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(prepared.summary().pass_count, 3);
+        assert_eq!(
+            prepared.layers[0].stages[2].passes[0].constants["g_Bounds"],
+            [0.2, 0.8]
+        );
+    }
+
+    #[test]
+    fn rejects_unwritten_effect_targets_and_framebuffer_feedback() {
+        let fixture = Fixture::new();
+        fixture.shake_shader();
+        fixture.scene(serde_json::json!([{"image":"models/image.json","effects":[{"file":"effects/shake/effect.json"}]}]));
+        fixture.write("effects/shake/effect.json", br#"{"fbos":[{"name":"buffer","scale":2}],"passes":[{"material":"materials/effects/shake.json","bind":[{"name":"buffer","index":0}]}]}"#);
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert!(error.to_string().contains("unwritten target"));
+        fixture.write("effects/shake/effect.json", br#"{"fbos":[{"name":"buffer","scale":2}],"passes":[{"material":"materials/effects/shake.json","target":"buffer"},{"material":"materials/effects/shake.json","target":"buffer","bind":[{"name":"buffer","index":0}]}]}"#);
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert!(error.to_string().contains("own render target"));
+    }
+
+    #[test]
+    fn unsupported_object_and_shader_combo_do_not_receive_runnable_reports() {
+        let fixture = Fixture::new();
+        fixture.scene(serde_json::json!([{"particle":"particles/snow.json"}]));
+        fixture.write("particles/snow.json", br#"{"unknown_behavior":true}"#);
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("particle"));
+        fixture.scene(serde_json::json!([{"image":"models/image.json"}]));
+        fixture.write("materials/image.json", br#"{"passes":[{"shader":"genericimage4","textures":["image"],"combos":{"SKINNING":1}}]}"#);
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("shader"));
+    }
+
+    #[test]
+    fn material_uniform_types_are_validated_before_opengl_binding() {
+        let fixture = Fixture::new();
+        fixture.shake_shader();
+        fixture.scene(serde_json::json!([{"image":"models/image.json","effects":[{"file":"effects/shake/effect.json"}]}]));
+        fixture.write(
+            "effects/shake/effect.json",
+            br#"{"passes":[{"material":"materials/effects/shake.json"}]}"#,
+        );
+        fixture.write("shaders/effects/shake.vert",b"uniform int g_Bounds; // {\"material\":\"bounds\",\"default\":1}\nvoid main(){gl_Position=vec4(0);}");
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("shader"));
+        assert!(error.to_string().contains("uniform type int"));
+    }
+
+    #[test]
+    fn material_passes_keep_their_source_texture_and_read_the_prior_composite() {
+        let fixture = Fixture::new();
+        fixture.write("materials/image.json",br#"{"passes":[{"shader":"genericimage4","blending":"translucent","textures":["image"]},{"shader":"genericimage4","blending":"translucent","textures":["image"]}]}"#);
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(prepared.summary().pass_count, 2);
+        let second = &prepared.layers[0].stages[0].passes[1];
+        assert!(matches!(second.textures[0], TextureBinding::Static(0)));
+        assert!(matches!(second.textures[1], TextureBinding::Input));
+    }
+
+    #[test]
+    fn legacy_flow_preserves_mask_sampling_metadata_and_time_animation() {
+        let fixture = Fixture::new();
+        fixture.legacy_shader("flowimage", "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;\nuniform float g_Time;\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord+vec2(g_Time*.01,0))*texSample2D(g_Texture1,v_TexCoord);}");
+        fixture.write("materials/image.json", br#"{"passes":[{"shader":"flowimage","textures":["image","mask"],"constantshadervalues":{"Power":1}}]}"#);
+        let mut texture = std::fs::read(fixture.0.join("materials/image.tex")).unwrap();
+        texture[22..26].copy_from_slice(&2_u32.to_le_bytes());
+        fixture.write("materials/mask.tex", &texture);
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert!(prepared.summary().animated);
+        let pass = &prepared.layers[0].stages[0].passes[0];
+        assert!(matches!(pass.textures[1], TextureBinding::Static(1)));
+        assert_eq!(prepared.textures[1].source_format, 0);
+        assert_eq!(prepared.textures[0].source_flags, 0);
+        assert_eq!(prepared.textures[1].source_flags, 2);
+        texture[22..26].copy_from_slice(&1_u32.to_le_bytes());
+        fixture.write("materials/mask.tex", &texture);
+        assert!(
+            PreparedScene::prepare(&fixture.0, None)
+                .unwrap_err()
+                .to_string()
+                .contains("sampling flags")
+        );
+    }
+
+    #[test]
+    fn legacy_model_dimensions_and_scrolling_are_used_without_object_size() {
+        let fixture = Fixture::new();
+        fixture.scene(serde_json::json!([{"image":"models/image.json"}]));
+        fixture.write(
+            "models/image.json",
+            br#"{"width":256,"height":128,"material":"materials/image.json"}"#,
+        );
+        fixture.legacy_shader("genericimage", "uniform sampler2D g_Texture0;\nuniform float g_Time;\nuniform float g_ScrollX; // {\"material\":\"Scroll 1 X\",\"default\":0}\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord+vec2(g_Time*g_ScrollX,0));}");
+        fixture.write(
+            "materials/image.json",
+            br#"{"passes":[{"shader":"genericimage","textures":["image"]}]}"#,
+        );
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(prepared.layers[0].size, [256.0, 128.0]);
+        assert!(!prepared.summary().animated);
+        fixture.write("materials/image.json", br#"{"passes":[{"shader":"genericimage","textures":["image"],"constantshadervalues":{"Scroll 1 X":-0.06}}]}"#);
+        assert!(
+            PreparedScene::prepare(&fixture.0, None)
+                .unwrap()
+                .summary()
+                .animated
+        );
+        fixture.scene(serde_json::json!([{"image":"models/image.json","size":"32 64"}]));
+        assert_eq!(
+            PreparedScene::prepare(&fixture.0, None).unwrap().layers[0].size,
+            [32.0, 64.0]
+        );
+        fixture.write(
+            "models/image.json",
+            br#"{"width":256,"material":"materials/image.json"}"#,
+        );
+        assert!(PreparedScene::prepare(&fixture.0, None).is_err());
+    }
+
+    #[test]
+    fn legacy_user_shader_colors_use_validated_project_choices() {
+        let fixture = Fixture::new();
+        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"flagcolor":{"type":"color","value":"0.1 0.2 0.3"}}}}"#);
+        fixture.legacy_shader("flag", "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;\nuniform sampler2D g_Texture2;\nuniform vec3 g_Color1; // {\"material\":\"color1\",\"default\":\"1 1 1\"}\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord)*texSample2D(g_Texture1,v_TexCoord)*texSample2D(g_Texture2,v_TexCoord)*vec4(g_Color1,1);}");
+        fixture.write("materials/image.json", br#"{"passes":[{"shader":"flag","textures":["image","image","image"],"constantshadervalues":{"color1":"1 0 0"},"usershadervalues":{"flagcolor":"color1"}}]}"#);
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(
+            prepared.layers[0].stages[0].passes[0].constants["g_Color1"],
+            [0.1, 0.2, 0.3]
+        );
+        let choices =
+            BTreeMap::from([("flagcolor".to_owned(), serde_json::json!([0.4, 0.5, 0.6]))]);
+        let prepared = PreparedScene::prepare_with_properties(&fixture.0, None, &choices).unwrap();
+        assert_eq!(
+            prepared.layers[0].stages[0].passes[0].constants["g_Color1"],
+            [0.4, 0.5, 0.6]
+        );
+        for mapping in [
+            serde_json::json!({"missing":"color1"}),
+            serde_json::json!({"flagcolor":"unknown"}),
+            serde_json::json!({"flagcolor":{}}),
+        ] {
+            fixture.write("materials/image.json", &serde_json::to_vec(&serde_json::json!({"passes":[{"shader":"flag","textures":["image","image","image"],"usershadervalues":mapping}]})).unwrap());
+            assert!(PreparedScene::prepare(&fixture.0, None).is_err());
+        }
+        fixture.write("materials/image.json", br#"{"passes":[{"shader":"flag","textures":["image","image","image"],"combos":{"TEX1FORMAT":4}}]}"#);
+        assert!(
+            PreparedScene::prepare(&fixture.0, None)
+                .unwrap_err()
+                .to_string()
+                .contains("format mismatch")
+        );
+    }
+
+    #[test]
+    fn legacy_inert_keys_do_not_admit_unknown_or_malformed_constants() {
+        let fixture = Fixture::new();
+        fixture.legacy_shader("flowimage", "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord)*texSample2D(g_Texture1,v_TexCoord);}");
+        for constants in [
+            serde_json::json!({"Power":[1,2]}),
+            serde_json::json!({"Other":1}),
+            serde_json::json!([]),
+            serde_json::json!({"Power":"NaN"}),
+        ] {
+            fixture.write("materials/image.json", &serde_json::to_vec(&serde_json::json!({"passes":[{"shader":"flowimage","textures":["image","image"],"constantshadervalues":constants}]})).unwrap());
+            assert!(PreparedScene::prepare(&fixture.0, None).is_err());
+        }
+    }
+
+    #[test]
+    fn optional_mask_samplers_require_textures_only_when_the_mask_branch_is_used() {
+        for (shader_name, slot) in [("effects/shake", 3), ("effects/shine_downsample2", 1)] {
+            let fixture = Fixture::new();
+            fixture.shake_shader();
+            fixture.scene(serde_json::json!([{"image":"models/image.json","effects":[{"file":"effects/test/effect.json"}]}]));
+            fixture.write(
+                "effects/test/effect.json",
+                br#"{"passes":[{"material":"materials/effects/test.json"}]}"#,
+            );
+            fixture.write(
+                "materials/effects/test.json",
+                &serde_json::to_vec(&serde_json::json!({"passes":[{"shader":shader_name}]}))
+                    .unwrap(),
+            );
+            fixture.write(&format!("shaders/{shader_name}.vert"),b"uniform mat4 g_ModelViewProjectionMatrix;\nattribute vec3 a_Position;\nvoid main(){gl_Position=mul(vec4(a_Position,1),g_ModelViewProjectionMatrix);}");
+            let source = format!(
+                "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture{slot}; // {{\"combo\":\"MASK\"}}\nvoid main(){{\nvec4 color=texSample2D(g_Texture0,vec2(0));\n#if MASK\ncolor.rgb*=texSample2D(g_Texture{slot},vec2(0)).r;\n#endif\ngl_FragColor=color;\n}}"
+            );
+            fixture.write(&format!("shaders/{shader_name}.frag"), source.as_bytes());
+            assert!(
+                PreparedScene::prepare(&fixture.0, None).is_ok(),
+                "MASK=0 incorrectly required slot {slot}"
+            );
+            fixture.scene(serde_json::json!([{"image":"models/image.json","effects":[{"file":"effects/test/effect.json","passes":[{"combos":{"MASK":1}}]}]}]));
+            let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+            assert_eq!(unsupported_feature_code(&error), Some("shader"));
+            assert!(
+                error
+                    .to_string()
+                    .contains(&format!("g_Texture{slot} has no bound texture"))
+            );
+        }
+    }
+
+    #[test]
+    fn image_and_model_parent_fields_are_not_silently_ignored() {
+        let fixture = Fixture::new();
+        for parent in [
+            serde_json::json!(17),
+            serde_json::json!(-1),
+            serde_json::json!(0),
+            Value::Null,
+        ] {
+            fixture.scene(serde_json::json!([{"image":"models/image.json","parent":parent}]));
+            let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+            assert_eq!(unsupported_feature_code(&error), Some("hierarchy"));
+        }
+        fixture.scene(serde_json::json!([{"image":"models/image.json"}]));
+        for model in [
+            serde_json::json!({"autosize":true,"parent":5,"material":"materials/image.json"}),
+            serde_json::json!({"autosize":true,"options":{"parent":"layer"},"material":"materials/image.json"}),
+        ] {
+            fixture.write("models/image.json", &serde_json::to_vec(&model).unwrap());
+            let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+            assert_eq!(unsupported_feature_code(&error), Some("hierarchy"));
+        }
+    }
+
+    #[test]
+    fn canonical_static_camera_ignores_parallel_saved_xy_but_rejects_other_modes() {
+        let fixture = Fixture::new();
+        let mut scene = serde_json::json!({
+            "general":{"orthogonalprojection":{"width":16,"height":16}},
+            "objects":[{"image":"models/image.json"}]
+        });
+        for camera in [
+            serde_json::json!({"eye":"1 0 1","center":"0 0 0"}),
+            serde_json::json!({"eye":"0 0 1","center":"1 0 0"}),
+            serde_json::json!({"eye":"0 0 1","center":"0 0 0","paths":["camera/path.json"]}),
+            serde_json::json!({"paths":null}),
+            serde_json::json!({"up":"0 0 1"}),
+        ] {
+            scene["camera"] = camera;
+            fixture.write("scene.json", &serde_json::to_vec(&scene).unwrap());
+            let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+            assert_eq!(unsupported_feature_code(&error), Some("camera"));
+        }
+        for camera in [
+            serde_json::json!({"eye":"0 0 1","center":"0 0 0","up":"0 1 0"}),
+            serde_json::json!({"eye":"175.39784 95.07546 0","center":"175.39784 95.07546 -1","up":"0 1 0"}),
+            serde_json::json!({"eye":"0 1 1","center":"0 1 0","paths":[]}),
+        ] {
+            scene["camera"] = camera;
+            fixture.write("scene.json", &serde_json::to_vec(&scene).unwrap());
+            let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+            assert_eq!(prepared.layers[0].origin, [8.0, 8.0]);
+        }
+        scene["general"]["orthogonalprojection"]["auto"] = Value::Bool(true);
+        fixture.write("scene.json", &serde_json::to_vec(&scene).unwrap());
+        let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("camera"));
+    }
+
+    #[test]
+    fn numeric_properties_reject_nan_and_wrong_dimensions() {
+        assert!(numbers(&Value::String("NaN 1".into())).is_err());
+        assert!(vector::<2>(&serde_json::json!({"size":"1 2 3"}), "size", [1.0; 2]).is_err());
+        assert_eq!(
+            vector::<3>(&serde_json::json!({"origin":"1 2 0"}), "origin", [0.0; 3]).unwrap(),
+            [1.0, 2.0, 0.0]
+        );
+    }
+
+    #[test]
+    fn dynamic_property_bindings_are_not_silently_defaulted() {
+        let value = serde_json::json!({"value":0.5,"user":"slider"});
+        let error = numbers(&value).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("property_binding"));
+        for key in ["script", "scenescript"] {
+            let error = numbers(&serde_json::json!({"value":0.5,(key):"program"})).unwrap_err();
+            assert_eq!(unsupported_feature_code(&error), Some("scenescript"));
+        }
+        assert!(has_script(
+            &serde_json::json!({"effects":[{"passes":[{"script":"x"}]}]})
+        ));
+    }
+
+    #[test]
+    fn unsupported_blending_and_depth_have_explicit_feature_codes() {
+        let error = blend(Some(&Value::String("mystery".into()))).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("shader"));
+        let error = validate_pass(&serde_json::json!({"depthtest":"enabled"})).unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("model"));
+    }
+}

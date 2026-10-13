@@ -29,7 +29,8 @@ pub fn assemble_workshop_detail(result: WorkshopInspection) -> WorkshopItemDetai
     let item_type = item_type_from_project_type(entry.entry.project_type);
     let cover_path = detail_cover_path(&entry.entry);
     let sync_status = sync_status(&entry.entry);
-    let compatibility = compatibility_explanation(&entry.compatibility);
+    let mut compatibility = compatibility_explanation(&entry.compatibility);
+    compatibility.scene_assessment = entry.project_metadata.scene_assessment.clone();
     let description = entry.project_metadata.description.clone();
     let tags = entry.project_metadata.tags.clone();
 
@@ -78,6 +79,7 @@ mod tests {
                     description: Some("A web wallpaper".to_string()),
                     tags: vec!["web".to_string()],
                     inferred_age_rating: None,
+                    scene_assessment: None,
                 },
             },
         }

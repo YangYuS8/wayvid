@@ -97,6 +97,8 @@ pub struct CompatibilityExplanationModel {
     pub detail: String,
     pub next_step: crate::results::compatibility::CompatibilityNextStep,
     pub next_step_copy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_assessment: Option<crate::results::scene::SceneAssessment>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -267,12 +269,15 @@ pub struct DesktopPageSnapshot {
     pub stale: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsUpdateInput {
     pub language: Option<String>,
     pub theme: Option<String>,
     pub launch_on_login: Option<bool>,
+    /// 0 selects compositor pacing; null/omission leaves the preference unchanged.
+    pub fps_limit: Option<u32>,
+    pub pause_on_battery: Option<bool>,
     pub steam_web_api_key: Option<String>,
     pub workshop_query: Option<String>,
     pub workshop_age_ratings: Option<Vec<WorkshopAgeRating>>,
@@ -286,6 +291,10 @@ pub struct SettingsPageSnapshot {
     pub theme: String,
     pub launch_on_login: bool,
     pub launch_on_login_available: bool,
+    pub fps_limit: Option<u32>,
+    pub pause_on_battery: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub playback_settings_issue: Option<String>,
     pub steam_web_api_key: String,
     pub workshop_query: String,
     pub workshop_age_ratings: Vec<WorkshopAgeRating>,
@@ -369,6 +378,7 @@ mod tests {
                         .to_string(),
                 next_step: CompatibilityNextStep::None,
                 next_step_copy: None,
+                scene_assessment: None,
             },
             tags: Vec::new(),
             description: None,
@@ -421,6 +431,8 @@ mod tests {
             language: Some("en".to_string()),
             theme: Some("system".to_string()),
             launch_on_login: Some(true),
+            fps_limit: None,
+            pause_on_battery: None,
             steam_web_api_key: Some("test-api-key".to_string()),
             workshop_query: Some("forest".to_string()),
             workshop_age_ratings: Some(vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13]),
@@ -435,6 +447,9 @@ mod tests {
             theme: "system".to_string(),
             launch_on_login: true,
             launch_on_login_available: true,
+            fps_limit: Some(30),
+            pause_on_battery: true,
+            playback_settings_issue: None,
             steam_web_api_key: "abcd1234".to_string(),
             workshop_query: "forest".to_string(),
             workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],
@@ -460,6 +475,8 @@ mod tests {
         assert_eq!(snapshot_value["theme"], "system");
         assert_eq!(snapshot_value["launchOnLogin"], true);
         assert_eq!(snapshot_value["launchOnLoginAvailable"], true);
+        assert_eq!(snapshot_value["fpsLimit"], 30);
+        assert_eq!(snapshot_value["pauseOnBattery"], true);
         assert_eq!(snapshot_value["steamWebApiKey"], "abcd1234");
         assert_eq!(snapshot_value["workshopQuery"], "forest");
         assert_eq!(snapshot_value["workshopAgeRatings"][0], "g");
@@ -472,6 +489,26 @@ mod tests {
             "Steam is required for Workshop features"
         );
         assert_eq!(snapshot_value["stale"], false);
+    }
+
+    #[test]
+    fn settings_playback_input_distinguishes_unlimited_from_unchanged() {
+        let zero: SettingsUpdateInput =
+            serde_json::from_value(serde_json::json!({ "fpsLimit": 0, "pauseOnBattery": true }))
+                .unwrap();
+        assert_eq!(zero.fps_limit, Some(0));
+        assert_eq!(zero.pause_on_battery, Some(true));
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({ "fpsLimit": null }),
+        ] {
+            let unchanged: SettingsUpdateInput = serde_json::from_value(value).unwrap();
+            assert_eq!(unchanged.fps_limit, None);
+        }
+        assert!(
+            serde_json::from_value::<SettingsUpdateInput>(serde_json::json!({ "fpsLimit": -1 }))
+                .is_err()
+        );
     }
 
     #[test]
@@ -608,4 +645,11 @@ mod tests {
         );
         assert_eq!(library_value["assignedMonitorLabels"][0], "Primary");
     }
+}
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScenePropertiesSnapshot {
+    pub item_id: String,
+    pub monitor_id: String,
+    pub properties: Vec<lwe_engine::scene::PropertyDefinition>,
 }

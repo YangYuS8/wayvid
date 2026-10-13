@@ -2,6 +2,7 @@ import { derived, writable } from 'svelte/store';
 
 import type {
   CompatibilityBadge,
+  CompatibilityExplanationModel,
   DesktopRestoreState,
   ItemType,
   LibrarySource,
@@ -90,9 +91,9 @@ const dictionaries = {
         unsupported: 'Unsupported runtime'
       },
       runtimeDescriptions: {
-        video: 'Video items are the only current runnable runtime type after Steam syncs them locally.',
-        scene: 'Scene items are recognized for metadata and compatibility reporting, but are not runnable by the current video runtime.',
-        web: 'Web items are recognized for reporting only and are not runnable by the current video runtime.',
+        video: 'Video items can run after Steam syncs them locally and the desktop runtime is available.',
+        scene: 'Scene compatibility is assessed after local sync. Eligible 2D items may use experimental playback; other features remain unavailable.',
+        web: 'Web items are recognized for reporting only and do not have a playback backend.',
         application: 'Application items are outside the current runtime scope.'
       },
       syncStatusDescriptions: {
@@ -162,6 +163,14 @@ const dictionaries = {
       editSubtitle: 'Update language, theme, and startup behavior, then save when you are ready.',
       language: 'Language',
       theme: 'Theme',
+      fpsLimit: 'Wallpaper frame rate',
+      fpsLimitHint: 'Choose 30 FPS to save power or 60 FPS for smoother motion. The limit applies to video and Scene wallpapers.',
+      compositorPacing: 'Follow display refresh rate',
+      fpsValue: '{fps} FPS',
+      pauseOnBattery: 'Pause on battery power',
+      pauseOnBatteryHint: 'Pause animated wallpapers while the battery is discharging. Playback resumes on AC power unless you paused it manually.',
+      playbackSettingsIssue: 'Playback settings were saved, but could not be applied to the running wallpaper.',
+      retryPlaybackSettings: 'Retry playback settings',
       launchOnLogin: 'Launch on login',
       steamWebApiKey: 'Steam Web API key',
       steamWebApiKeyHint: 'Required for online Workshop search via Steam Web API QueryFiles. LWE never downloads Workshop content directly.',
@@ -243,12 +252,60 @@ const dictionaries = {
       compatibilityPanel: {
         ariaLabel: 'Compatibility explanation',
         title: 'Compatibility',
-        nextStepPrefix: 'Next step: '
+        nextStepPrefix: 'Next step: ',
+        scene: {
+          experimentalHeadline: 'Experimental Scene',
+          experimentalDetail: 'This item passed asset validation for experimental 2D Scene playback. It still needs a working desktop and GPU runtime; full Wallpaper Engine compatibility is not established.',
+          unsupportedHeadline: 'Scene features unavailable',
+          unsupportedDetail: 'This Scene item remains in Library, but cannot play because it uses an unavailable feature. The first blocking feature is listed below.',
+          failedHeadline: 'Scene validation failed',
+          failedDetail: 'LWE could not validate this Scene item’s resources. Playback is disabled; the resource error is listed below.',
+          blockers: 'Playback blockers',
+          resourcesNextStep: 'Check the local files and original Wallpaper Engine assets, then refresh the Library.',
+          featuresNextStep: 'This item needs additional Scene runtime features before it can play.',
+          features: {
+            unsupported_script: 'SceneScript',
+            unsupported_properties: 'Unsupported or invalid user property bindings',
+            unsupported_particles: 'Particle systems',
+            unsupported_audio: 'Audio playback or audio-reactive effects',
+            unsupported_text: 'Text layers',
+            unsupported_model: '3D models or lighting',
+            unsupported_puppet: 'Puppet animation',
+            unsupported_animated_texture: 'Animated TEXS textures',
+            unsupported_video_texture: 'Video textures',
+            unsupported_hdr: 'HDR or global bloom',
+            unsupported_camera: 'Automatic, tilted or moving camera, or parallax',
+            unsupported_hierarchy: 'Layer hierarchy or parent bindings',
+            unsupported_shader: 'Shader or effect features',
+            unsupported_scene: 'Scene feature outside the current renderer',
+            missing_resource: 'Missing scene resource',
+            unsafe_resource: 'Unsafe resource path',
+            invalid_package: 'Invalid scene package',
+            invalid_texture: 'Invalid texture',
+            resource_limit: 'Resource size limit',
+            resource_access: 'Resource access failed',
+            validation_failed: 'Scene validation failed'
+          }
+        }
       },
       coverImage: {
         placeholderAriaLabel: '{label} placeholder',
         noCover: 'No Cover',
         placeholderDescription: 'Artwork will appear here when available.'
+      },
+      sceneProperties: {
+        title: 'Scene properties',
+        description: 'Saving changes or resetting defaults applies this wallpaper to the selected monitor.',
+        loading: 'Loading scene properties…',
+        empty: 'This scene has no supported editable properties.',
+        save: 'Save and apply',
+        saving: 'Saving and applying…',
+        reset: 'Reset defaults',
+        saved: 'Properties saved and applied.',
+        refreshFailed: 'The properties were applied, but the latest values could not be loaded:',
+        invalidSnapshot: 'Invalid scene property data.',
+        invalidOutcome: 'Invalid action result.',
+        invalidValues: 'Enter valid values within the declared limits and options.'
       },
       libraryDetail: {
         title: 'Library detail',
@@ -258,7 +315,8 @@ const dictionaries = {
         actions: 'Actions',
         apply: 'Apply',
         applyDescription: 'Choose a monitor, then apply this item without leaving Library.',
-        applyUnsupported: 'This item is recognized for Library and compatibility reporting, but the current verified runtime can only apply video wallpapers.',
+        applyUnsupported: 'This item is available for compatibility reporting, but its type or resources do not meet the current playback requirements.',
+        applySceneUnsupported: 'This Scene wallpaper cannot play with the current resources and features. Review its compatibility report below.',
         monitor: 'Monitor',
         applyTargetMonitor: 'Apply target monitor',
         selectMonitor: 'Select a monitor',
@@ -329,8 +387,9 @@ const dictionaries = {
       itemCard: {
         assignedTo: 'Assigned to',
         runtimeRunnable: 'Runnable video',
+        runtimeExperimentalScene: 'Experimental Scene',
         runtimeUnavailable: 'Recognized only',
-        runtimeUnavailableDetail: 'Recognized for Library and compatibility reporting; not runnable by the current video runtime.'
+        runtimeUnavailableDetail: 'Review the compatibility report for missing resources and unavailable playback features.'
       }
     }
   },
@@ -408,9 +467,9 @@ const dictionaries = {
         unsupported: '运行时不支持'
       },
       runtimeDescriptions: {
-        video: '视频项目在通过 Steam 同步到本地后，是当前唯一可运行的运行时类型。',
-        scene: '场景项目可用于元数据和兼容性报告，但当前视频运行时不可运行。',
-        web: '网页项目仅用于报告识别，当前视频运行时不可运行。',
+        video: '视频项目通过 Steam 同步到本地，并具备桌面运行环境后可播放。',
+        scene: '场景项目同步到本地后会逐项评估。通过验证的 2D 项目可尝试实验性播放；其他特性仍不可用。',
+        web: '网页项目仅用于报告识别，尚无播放后端。',
         application: '应用程序项目不在当前运行时范围内。'
       },
       syncStatusDescriptions: {
@@ -478,6 +537,14 @@ const dictionaries = {
       editSubtitle: '修改语言、主题和启动行为，准备好后再保存。',
       language: '语言',
       theme: '主题',
+      fpsLimit: '壁纸帧率',
+      fpsLimitHint: '选择 30 FPS 可节省电量，60 FPS 可获得更流畅的动画。此上限适用于视频和场景壁纸。',
+      compositorPacing: '跟随显示器刷新率',
+      fpsValue: '{fps} FPS',
+      pauseOnBattery: '使用电池时暂停',
+      pauseOnBatteryHint: '电池放电时暂停动态壁纸。接通电源后恢复播放，手动暂停的壁纸仍会保持暂停。',
+      playbackSettingsIssue: '播放设置已保存，但未能应用到当前运行的壁纸。',
+      retryPlaybackSettings: '重试播放设置',
       launchOnLogin: '登录时启动',
       steamWebApiKey: 'Steam Web API 密钥',
       steamWebApiKeyHint: '用于通过 Steam Web API QueryFiles 进行在线工坊搜索。LWE 不会直接下载创意工坊内容。',
@@ -558,12 +625,60 @@ const dictionaries = {
       compatibilityPanel: {
         ariaLabel: '兼容性说明',
         title: '兼容性',
-        nextStepPrefix: '下一步：'
+        nextStepPrefix: '下一步：',
+        scene: {
+          experimentalHeadline: '实验性场景',
+          experimentalDetail: '此项目已通过实验性 2D 场景播放的资源验证。仍需要可用的桌面与 GPU 运行环境；这不代表完整兼容 Wallpaper Engine。',
+          unsupportedHeadline: '场景特性不可用',
+          unsupportedDetail: '此场景项目保留在内容库中，但使用了不可用的特性，暂时无法播放。下方列出首次阻断播放的特性。',
+          failedHeadline: '场景验证失败',
+          failedDetail: 'LWE 无法验证此场景项目的资源，因此禁用播放。下方列出资源错误。',
+          blockers: '播放阻断原因',
+          resourcesNextStep: '检查本地文件和原版 Wallpaper Engine 的资源，再刷新内容库。',
+          featuresNextStep: '此项目需要补充相应的场景运行时特性才能播放。',
+          features: {
+            unsupported_script: 'SceneScript 脚本',
+            unsupported_properties: '不受支持或无效的用户属性绑定',
+            unsupported_particles: '粒子系统',
+            unsupported_audio: '音频播放或音频响应效果',
+            unsupported_text: '文字图层',
+            unsupported_model: '3D 模型或光照',
+            unsupported_puppet: '骨骼动画',
+            unsupported_animated_texture: 'TEXS 动态纹理',
+            unsupported_video_texture: '视频纹理',
+            unsupported_hdr: 'HDR 或全局泛光',
+            unsupported_camera: '自动、倾斜或运动相机，或视差',
+            unsupported_hierarchy: '图层层级或父级绑定',
+            unsupported_shader: '着色器或特效能力',
+            unsupported_scene: '当前渲染器范围之外的场景特性',
+            missing_resource: '场景资源缺失',
+            unsafe_resource: '不安全的资源路径',
+            invalid_package: '场景包格式错误',
+            invalid_texture: '纹理格式错误',
+            resource_limit: '资源大小超出限制',
+            resource_access: '无法访问资源',
+            validation_failed: '场景验证失败'
+          }
+        }
       },
       coverImage: {
         placeholderAriaLabel: '{label} 占位图',
         noCover: '无封面',
         placeholderDescription: '有封面时会在这里显示。'
+      },
+      sceneProperties: {
+        title: '场景属性',
+        description: '保存修改或恢复默认值会将此壁纸应用到所选显示器。',
+        loading: '正在加载场景属性…',
+        empty: '此场景没有受支持的可编辑属性。',
+        save: '保存并应用',
+        saving: '正在保存并应用…',
+        reset: '恢复默认值',
+        saved: '属性已保存并应用。',
+        refreshFailed: '属性已应用，但无法加载最新值：',
+        invalidSnapshot: '场景属性数据无效。',
+        invalidOutcome: '操作结果无效。',
+        invalidValues: '请输入声明范围内的有效值，并选择声明的选项。'
       },
       libraryDetail: {
         title: '内容详情',
@@ -573,7 +688,8 @@ const dictionaries = {
         actions: '操作',
         apply: '应用',
         applyDescription: '选择一个显示器，然后直接在内容库中应用这个内容项。',
-        applyUnsupported: '此内容项可用于本地库和兼容性报告，但当前已验证运行时只能应用视频壁纸。',
+        applyUnsupported: '此内容项可用于兼容性报告，但其类型或资源不满足当前播放要求。',
+        applySceneUnsupported: '此场景壁纸的资源或特性不满足当前播放要求。请查看下方的兼容性报告。',
         monitor: '显示器',
         applyTargetMonitor: '选择要应用到的显示器',
         selectMonitor: '选择一个显示器',
@@ -642,8 +758,9 @@ const dictionaries = {
       itemCard: {
         assignedTo: '已分配到',
         runtimeRunnable: '可运行视频',
+        runtimeExperimentalScene: '实验性场景',
         runtimeUnavailable: '仅识别',
-        runtimeUnavailableDetail: '可用于 Library 和兼容性报告；当前视频运行时不可运行。'
+        runtimeUnavailableDetail: '请查看兼容性报告中的缺失资源和不可用播放特性。'
       }
     }
   }
@@ -668,6 +785,43 @@ export const getCompatibilityBadgeLabel = (
   copyValue: CopyDictionary,
   badge: CompatibilityBadge
 ) => copyValue.labels.compatibilityBadges[badge];
+
+export const getSceneIssueLabel = (copyValue: CopyDictionary, code: string) => {
+  const labels = copyValue.components.compatibilityPanel.scene.features;
+  return labels[code as keyof typeof labels] ?? labels.validation_failed;
+};
+
+export const localizeSceneCompatibility = (
+  copyValue: CopyDictionary,
+  compatibility: CompatibilityExplanationModel
+): CompatibilityExplanationModel => {
+  const sceneCopy = copyValue.components.compatibilityPanel.scene;
+  switch (compatibility.reasonCode) {
+    case 'scene_experimental':
+      return {
+        ...compatibility,
+        headline: sceneCopy.experimentalHeadline,
+        detail: sceneCopy.experimentalDetail,
+        nextStepCopy: null
+      };
+    case 'scene_unsupported_features':
+      return {
+        ...compatibility,
+        headline: sceneCopy.unsupportedHeadline,
+        detail: sceneCopy.unsupportedDetail,
+        nextStepCopy: sceneCopy.featuresNextStep
+      };
+    case 'scene_assessment_failed':
+      return {
+        ...compatibility,
+        headline: sceneCopy.failedHeadline,
+        detail: sceneCopy.failedDetail,
+        nextStepCopy: sceneCopy.resourcesNextStep
+      };
+    default:
+      return compatibility;
+  }
+};
 
 export const getLibrarySourceLabel = (copyValue: CopyDictionary, source: LibrarySource) =>
   copyValue.labels.librarySources[source];

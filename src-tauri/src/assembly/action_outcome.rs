@@ -184,7 +184,8 @@ mod tests {
     fn desktop_apply_flow_action_outcome_explains_unsupported_items() {
         let outcome = assemble_desktop_apply_outcome(DesktopApplyResult::UnsupportedItem {
             item_id: "scene-7".to_string(),
-            reason: "Scene wallpapers are recognized for compatibility reporting, but the current verified runtime can only apply video wallpapers.".to_string(),
+            reason: "This Scene uses particle systems, which the current renderer cannot execute."
+                .to_string(),
         });
 
         assert!(!outcome.ok);
@@ -192,7 +193,7 @@ mod tests {
         assert_eq!(
             outcome.message.as_deref(),
             Some(
-                "Library item scene-7 cannot be applied: Scene wallpapers are recognized for compatibility reporting, but the current verified runtime can only apply video wallpapers."
+                "Library item scene-7 cannot be applied: This Scene uses particle systems, which the current renderer cannot execute."
             )
         );
     }

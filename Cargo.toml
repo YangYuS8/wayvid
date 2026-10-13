@@ -6,6 +6,7 @@
 resolver = "2"
 members = [
     "crates/lwe-core",
+    "crates/lwe-scene",
     "crates/lwe-engine",
     "crates/lwe-library",
     "src-tauri",

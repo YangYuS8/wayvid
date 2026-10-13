@@ -56,7 +56,26 @@ describe('ItemCard', () => {
     expect(body).toContain('Scene');
     expect(body).toContain('Partially Supported');
     expect(body).toContain('Recognized only');
-    expect(body).toContain('not runnable by the current video runtime');
+    expect(body).toContain('Review the compatibility report for missing resources');
+  });
+
+  it.each(['en', 'zh-CN'] as const)('labels eligible Scene playback as experimental in %s', (language) => {
+    setPreferredLanguage(language);
+    const { body } = render(ItemCard, {
+      props: {
+        title: 'Eligible Scene',
+        itemType: 'scene',
+        applySupported: true,
+        compatibility: {
+          badge: 'partially_supported',
+          reasonCode: 'scene_experimental',
+          summaryCopy: 'Experimental Scene'
+        }
+      }
+    });
+    expect(body).toContain(language === 'en' ? 'Experimental Scene' : '实验性场景');
+    expect(body).not.toContain(language === 'en' ? 'Runnable video' : '可运行视频');
+    expect(body).not.toContain(language === 'en' ? 'Recognized only' : '仅识别');
   });
 
   it('renders assigned monitor labels from the assembled library quick status', () => {

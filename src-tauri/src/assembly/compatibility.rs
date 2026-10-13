@@ -16,6 +16,9 @@ fn reason_code(reason: CompatibilityReason) -> String {
         CompatibilityReason::RecognizedButRuntimeUnsupported => {
             "recognized_but_runtime_unsupported".to_string()
         }
+        CompatibilityReason::SceneExperimental => "scene_experimental".to_string(),
+        CompatibilityReason::SceneUnsupportedFeatures => "scene_unsupported_features".to_string(),
+        CompatibilityReason::SceneAssessmentFailed => "scene_assessment_failed".to_string(),
         CompatibilityReason::MissingProjectMetadata => "missing_project_metadata".to_string(),
         CompatibilityReason::MissingPrimaryAsset => "missing_primary_asset".to_string(),
         CompatibilityReason::UnsupportedWebItem => "unsupported_web_item".to_string(),
@@ -29,6 +32,9 @@ fn summary_copy(reason: CompatibilityReason) -> String {
         CompatibilityReason::RecognizedButRuntimeUnsupported => {
             "Recognized, runtime pending".to_string()
         }
+        CompatibilityReason::SceneExperimental => "Experimental Scene".to_string(),
+        CompatibilityReason::SceneUnsupportedFeatures => "Scene features unavailable".to_string(),
+        CompatibilityReason::SceneAssessmentFailed => "Scene validation failed".to_string(),
         CompatibilityReason::MissingProjectMetadata => "Needs project metadata".to_string(),
         CompatibilityReason::MissingPrimaryAsset => "Needs primary asset".to_string(),
         CompatibilityReason::UnsupportedWebItem => "Web runtime unsupported".to_string(),
@@ -68,7 +74,22 @@ pub fn compatibility_explanation(
         ),
         CompatibilityReason::RecognizedButRuntimeUnsupported => (
             "Recognized, runtime pending".to_string(),
-            "LWE recognizes this item for Library and compatibility reporting, but the current verified runtime path only applies video wallpapers."
+            "LWE recognizes this item for Library and compatibility reporting, but its type or resources do not meet the current playback requirements."
+                .to_string(),
+        ),
+        CompatibilityReason::SceneExperimental => (
+            "Experimental Scene".to_string(),
+            "This item's assets passed validation for the experimental 2D Scene renderer. Playback still requires the desktop and GPU runtime; this does not establish full Wallpaper Engine compatibility."
+                .to_string(),
+        ),
+        CompatibilityReason::SceneUnsupportedFeatures => (
+            "Scene features unavailable".to_string(),
+            "This Scene item is available in Library, but uses features the current Scene renderer cannot execute. Review the blocking feature below."
+                .to_string(),
+        ),
+        CompatibilityReason::SceneAssessmentFailed => (
+            "Scene validation failed".to_string(),
+            "LWE could not validate this Scene item's resources. Playback is disabled; review the resource error below."
                 .to_string(),
         ),
         CompatibilityReason::MissingProjectMetadata => (
@@ -101,6 +122,7 @@ pub fn compatibility_explanation(
         detail,
         next_step: assessment.next_step,
         next_step_copy: next_step_copy(assessment.next_step),
+        scene_assessment: None,
     }
 }
 
@@ -146,6 +168,10 @@ mod tests {
 
         assert_eq!(summary.reason_code, "recognized_but_runtime_unsupported");
         assert_eq!(summary.summary_copy, "Recognized, runtime pending");
-        assert!(explanation.detail.contains("only applies video wallpapers"));
+        assert!(
+            explanation
+                .detail
+                .contains("type or resources do not meet the current playback requirements")
+        );
     }
 }

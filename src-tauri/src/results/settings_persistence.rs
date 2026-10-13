@@ -6,6 +6,8 @@ pub struct PersistedSettings {
     pub language: String,
     pub theme: String,
     pub launch_on_login: bool,
+    pub fps_limit: Option<u32>,
+    pub pause_on_battery: bool,
     pub steam_web_api_key: String,
     pub workshop_query: String,
     pub workshop_age_ratings: Vec<WorkshopAgeRating>,
@@ -18,6 +20,8 @@ impl Default for PersistedSettings {
             language: "system".to_string(),
             theme: "system".to_string(),
             launch_on_login: false,
+            fps_limit: None,
+            pause_on_battery: false,
             steam_web_api_key: String::new(),
             workshop_query: String::new(),
             workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],
@@ -27,6 +31,15 @@ impl Default for PersistedSettings {
                 WorkshopOnlineItemType::Web,
                 WorkshopOnlineItemType::Application,
             ],
+        }
+    }
+}
+
+impl PersistedSettings {
+    pub fn playback_settings(&self) -> lwe_engine::PlaybackSettings {
+        lwe_engine::PlaybackSettings {
+            fps_limit: self.fps_limit,
+            pause_on_battery: self.pause_on_battery,
         }
     }
 }

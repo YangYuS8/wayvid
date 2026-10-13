@@ -57,14 +57,13 @@ How to get a Steam Web API key:
 
 ## Wallpaper support scope
 
-First-release runtime focus:
+Current development runtime scope:
 
-- Video wallpapers
+- Video wallpapers remain the main runtime target, verified on Wayland with `niri`.
+- Scene wallpapers are assessed individually after local sync. Eligible bounded orthographic 2D scenes can attempt experimental playback; unavailable features and invalid resources disable apply.
+- Web wallpapers are recognized for compatibility reporting and have no playback backend.
 
-Not first-release runtime targets:
-
-- Scene wallpapers (private format reverse engineering cost is currently too high)
-- Web wallpapers (recognized for compatibility reporting, not primary runtime target)
+The experimental Scene subset includes supported image materials, Shake/Shine/WaterRipple/Iris effects, bounded sprite/rope particles, LDR bloom, single-track FLAC loops, and editable declarative properties. SceneScript, text/3D layers, audio analysis, HDR, and animated TEXS/video textures remain unavailable. See the [usage guide](docs/guide/usage.md#experimental-scene-validation) for the current boundaries. Real Scene desktop acceptance is recorded separately from asset validation; full Wallpaper Engine compatibility and daily-use readiness are not established.
 
 ## Installation
 

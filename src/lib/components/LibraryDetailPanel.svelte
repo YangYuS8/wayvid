@@ -6,8 +6,9 @@
   import CompatibilityPanel from '$lib/components/CompatibilityPanel.svelte';
   import CoverImage from '$lib/components/CoverImage.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import ScenePropertiesPanel from '$lib/components/ScenePropertiesPanel.svelte';
   import { copy, getCompatibilityBadgeLabel, getItemTypeLabel, getLibrarySourceLabel } from '$lib/i18n';
-  import type { DesktopMonitorSummary, LibraryItemDetail, LibraryPageSnapshot } from '$lib/types';
+  import type { ActionOutcome, DesktopMonitorSummary, LibraryItemDetail, LibraryPageSnapshot } from '$lib/types';
   import { resolveLibraryAvailabilityIssues } from '../../routes/library/page-state';
 
   export let detail: LibraryItemDetail | null = null;
@@ -25,12 +26,17 @@
   export let onRetryDetail: (() => void) | undefined = undefined;
   export let onApply: (() => void) | undefined = undefined;
   export let onMonitorChange: ((monitorId: string) => void) | undefined = undefined;
+  export let onScenePropertiesOutcome: ((outcome: ActionOutcome<null>) => void) | undefined = undefined;
 
   $: availabilitySource = detail ?? snapshot;
   $: libraryDetailCopy = $copy.components.libraryDetail;
   $: issueMessages = availabilitySource ? resolveLibraryAvailabilityIssues(availabilitySource, $copy.library) : [];
   $: assignedMonitorLabels = detail?.assignedMonitorLabels ?? [];
-  $: applyUnsupportedMessage = detail && !detail.applySupported ? libraryDetailCopy.applyUnsupported : '';
+  $: applyUnsupportedMessage = detail && !detail.applySupported
+    ? detail.itemType === 'scene'
+      ? libraryDetailCopy.applySceneUnsupported
+      : libraryDetailCopy.applyUnsupported
+    : '';
   $: detailCompatibilityLabel = detail ? getCompatibilityBadgeLabel($copy, detail.compatibility.badge) : '';
   $: detailSourceLabel = detail ? getLibrarySourceLabel($copy, detail.source) : '';
   $: detailItemTypeLabel = detail ? getItemTypeLabel($copy, detail.itemType) : '';
@@ -53,7 +59,7 @@
       <p class="text-sm leading-6 text-muted-foreground">{libraryDetailCopy.loading}</p>
     </div>
   {:else if detail}
-    <div class="grid min-w-0 gap-4" data-detail-layout="compact-vertical">
+    <div class="grid min-w-0 gap-4" data-detail-layout="compact-vertical" data-item-id={detail.id}>
       <section class="grid gap-3.5" data-detail-section="header">
         <div class="grid gap-2">
           <p class="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -152,6 +158,11 @@
           <Button variant="outline" onclick={onRetryRefresh} disabled={applying}>{$copy.actionFeedback.retryRefresh}</Button>
         {/if}
       </section>
+
+      {#if detail.itemType === 'scene' && detail.applySupported && selectedMonitorId}
+        <ScenePropertiesPanel itemId={detail.id} monitorId={selectedMonitorId}
+          disabled={applyDisabled || applying} onOutcome={onScenePropertiesOutcome} />
+      {/if}
 
       <section class="grid gap-3" data-detail-section="cover">
         <div class="grid max-w-sm gap-2">

@@ -18,9 +18,9 @@ Search results are discovery-only. Seeing an item online does not mean it is dow
 
 Review the compatibility status shown in LWE.
 
-In Library, first check the card badges: runnable video items can be applied, while recognized-only scene/web items are intentionally blocked by the current runtime. Opening the detail panel shows the same policy with more context.
+In Library, check the card badges first. Video items use the verified path; Scene items are validated individually and may be labeled **Experimental Scene**. Blocked Scene items stay in Library with playback disabled. The detail panel names the first unavailable feature or resource error.
 
-Workshop online result cards use the same distinction: videos are the only current runnable target after local sync, while scene/web results are recognized-only and application results are unsupported for runtime.
+Workshop online results cannot validate local Scene resources. Sync the item with Steam, refresh Library, and inspect its local compatibility report. Web and application runtime support remains unavailable.
 
 Possible reasons include:
 
@@ -32,6 +32,8 @@ Possible reasons include:
 - the saved assignment in `$XDG_CONFIG_HOME/lwe/session.toml` or `$HOME/.config/lwe/session.toml` points to a missing monitor or Library item.
 
 Video wallpapers are the first-release runtime focus. Do not assume every Wallpaper Engine item is runnable on Linux.
+
+For 2.5D Space, keep the original project and installed Wallpaper Engine assets available. If Pulse or Chromatic stays still, enable its author control, raise the corresponding intensity and play audio on the current desktop output. LWE reads the output monitor, so microphone input alone does not drive these effects. A missing or changing audio output temporarily yields a silent spectrum. Broader SceneScript audio APIs remain unavailable; enabling another project's audio feature can still produce an explicit compatibility blocker.
 
 ## Applying a wallpaper does not change the desktop
 

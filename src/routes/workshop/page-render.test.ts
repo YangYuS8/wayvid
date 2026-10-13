@@ -187,6 +187,7 @@ describe('workshop page render', () => {
     expect(body).toContain('Ambient Scene');
     expect(body).toContain('Dashboard Web');
     expect(body).toContain('Recognized only');
-    expect(body).toContain('not runnable by the current video runtime');
+    expect(body).toContain('Scene compatibility is assessed after local sync');
+    expect(body).toContain('do not have a playback backend');
   });
 });

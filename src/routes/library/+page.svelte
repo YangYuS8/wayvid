@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import type { InvalidatedPage } from '$lib/types';
+  import type { ActionOutcome, InvalidatedPage } from '$lib/types';
   import { actionOutcomeError } from '$lib/action-outcome';
   import ItemCard from '$lib/components/ItemCard.svelte';
   import LibraryDetailPanel from '$lib/components/LibraryDetailPanel.svelte';
@@ -242,6 +242,15 @@
       applyError = readError(error);
     } finally {
       applyLoading = false;
+    }
+  };
+
+  const scenePropertiesOutcome = async (outcome: ActionOutcome<null>) => {
+    // The editor can finish after selection changes. Apply global invalidations
+    // and refresh the currently selected detail using the existing token guard.
+    applyInvalidations(outcome.invalidations);
+    if (outcome.ok) {
+      await refreshInvalidatedPages(outcome.invalidations);
     }
   };
 
@@ -524,6 +533,7 @@
       </section>
 
       <LibraryDetailPanel
+        onScenePropertiesOutcome={scenePropertiesOutcome}
         detail={$pageCache.library.detail}
         snapshot={snapshot}
         loading={detailLoading}

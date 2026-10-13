@@ -5,11 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Video rendering engine for LWE (Wayland + MPV)"
+description = "Video and experimental 2D Scene rendering for LWE on Wayland"
 repository.workspace = true
 
 [dependencies]
 lwe-core = { path = "../lwe-core" }
+lwe-scene = { path = "../lwe-scene" }
+serde_json = { workspace = true }
+serde = { workspace = true }
 
 # Wayland client
 wayland-client = "0.31"
@@ -45,8 +48,18 @@ calloop-wayland-source = "0.4"
 bitflags = "2.13"
 libc = "0.2"
 lz4_flex = "0.13.1"
+rquickjs = "=0.11.0"
+oxc_allocator = "=0.95.0"
+oxc_ast = "=0.95.0"
+oxc_parser = { version = "=0.95.0", default-features = false }
+oxc_span = "=0.95.0"
+libpulse-binding = "2.30.1"
+rustfft = "6.4"
 
 [features]
 default = ["backend-wayland"]
 backend-wayland = []
 backend-vulkan = ["dep:ash", "dep:ash-window", "dep:raw-window-handle"]
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

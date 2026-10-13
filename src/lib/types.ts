@@ -36,6 +36,18 @@ export interface CompatibilityExplanationModel extends CompatibilityBaseModel {
   detail: string;
   nextStep: CompatibilityNextStep;
   nextStepCopy: string | null;
+  sceneAssessment?: SceneAssessment;
+}
+
+export interface SceneAssessment {
+  runnable: boolean;
+  summary: {
+    layerCount: number;
+    effectCount: number;
+    passCount: number;
+    animated: boolean;
+  } | null;
+  issues: { code: string; detail: string }[];
 }
 
 export interface AppShellSnapshot {
@@ -143,6 +155,30 @@ export interface LibraryItemDetail {
   tags: string[];
 }
 
+export type ScenePropertyValue = boolean | number | string | [number, number, number];
+
+interface ScenePropertyControl {
+  name: string;
+  label: string;
+  min: number | null;
+  max: number | null;
+  step: number | null;
+  order: number | null;
+}
+
+export type SceneProperty = ScenePropertyControl & (
+  | { kind: 'bool'; value: boolean }
+  | { kind: 'slider'; value: number }
+  | { kind: 'color'; value: [number, number, number] }
+  | { kind: 'combo'; value: string; options: { label: string; value: string }[] }
+);
+
+export interface ScenePropertiesSnapshot {
+  itemId: string;
+  monitorId: string;
+  properties: SceneProperty[];
+}
+
 export interface DesktopMonitorSummary {
   monitorId: string;
   displayName: string;
@@ -173,6 +209,9 @@ export interface SettingsPageSnapshot {
   theme: string;
   launchOnLogin: boolean;
   launchOnLoginAvailable: boolean;
+  fpsLimit: number | null;
+  pauseOnBattery: boolean;
+  playbackSettingsIssue?: string;
   steamWebApiKey: string;
   workshopQuery: string;
   workshopAgeRatings: WorkshopAgeRating[];
@@ -186,6 +225,9 @@ export interface SettingsUpdateInput {
   language?: string | null;
   theme?: string | null;
   launchOnLogin?: boolean | null;
+  /** 0 selects compositor pacing; null or omission leaves the preference unchanged. */
+  fpsLimit?: number | null;
+  pauseOnBattery?: boolean | null;
   steamWebApiKey?: string | null;
   workshopQuery?: string | null;
   workshopAgeRatings?: WorkshopAgeRating[] | null;

@@ -1,25 +1,61 @@
 use crate::policies::shared::compatibility_policy::{
-    CompatibilityLevel, CompatibilityReason, compatibility_decision,
+    CompatibilityLevel, compatibility_decision, scene_compatibility_decision,
 };
 use crate::results::workshop::{AssessedWorkshopCatalogEntry, WorkshopProjectMetadata};
-use lwe_library::{WeProject, WorkshopCatalogEntry};
+use crate::services::scene_service::SceneService;
+use lwe_library::{
+    WallpaperItem, WeProject, WorkshopCatalogEntry, WorkshopProjectType, WorkshopSyncState,
+};
+use lwe_scene::SceneAssets;
 
 pub struct CompatibilityService;
 
 impl CompatibilityService {
     fn project_metadata(entry: &WorkshopCatalogEntry) -> WorkshopProjectMetadata {
-        WeProject::load(&entry.project_dir)
+        let mut metadata = WeProject::load(&entry.project_dir)
             .map(|project| WorkshopProjectMetadata {
                 description: project.description,
                 tags: project.tags,
                 inferred_age_rating: None,
+                scene_assessment: None,
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        if entry.project_type == WorkshopProjectType::Scene
+            && entry.sync_state != WorkshopSyncState::MissingProjectFile
+        {
+            metadata.scene_assessment = Some(SceneService::assess_project(&entry.project_dir));
+        }
+        metadata
     }
 
-    pub fn assess_catalog_entry(entry: WorkshopCatalogEntry) -> AssessedWorkshopCatalogEntry {
-        let compatibility = compatibility_decision(&entry);
+    pub fn assess_catalog_entry(mut entry: WorkshopCatalogEntry) -> AssessedWorkshopCatalogEntry {
+        if entry.project_type == WorkshopProjectType::Scene
+            && entry.sync_state != WorkshopSyncState::MissingProjectFile
+            && let Ok(project) = WeProject::load(&entry.project_dir)
+            && project.is_scene()
+        {
+            // The retained scanner expects a loose primary file. Preserve its
+            // logical source identity when the primary is packaged instead.
+            if entry.library_item_id.is_none() {
+                let source = project
+                    .main_file(&entry.project_dir)
+                    .unwrap_or_else(|| entry.project_dir.clone());
+                entry.library_item_id = Some(WallpaperItem::generate_id(&source));
+            }
+            if entry.sync_state == WorkshopSyncState::MissingPrimaryAsset
+                && let Some(primary) = project.file.as_deref()
+                && let Ok(assets) = SceneAssets::open(&entry.project_dir, None)
+                && assets.exists(primary)
+            {
+                entry.sync_state = WorkshopSyncState::Synced;
+            }
+        }
         let project_metadata = Self::project_metadata(&entry);
+        let compatibility = project_metadata
+            .scene_assessment
+            .as_ref()
+            .map(scene_compatibility_decision)
+            .unwrap_or_else(|| compatibility_decision(&entry));
 
         AssessedWorkshopCatalogEntry {
             entry,
@@ -40,17 +76,70 @@ impl CompatibilityService {
     pub fn supports_library_projection(entry: &AssessedWorkshopCatalogEntry) -> bool {
         entry.entry.library_item_id.is_some()
             && (entry.compatibility.level == CompatibilityLevel::FullySupported
-                || entry.compatibility.reason
-                    == CompatibilityReason::RecognizedButRuntimeUnsupported)
+                || (entry.entry.project_type == WorkshopProjectType::Scene
+                    && entry.entry.sync_state != WorkshopSyncState::MissingProjectFile))
+    }
+
+    pub fn supports_runtime(entry: &AssessedWorkshopCatalogEntry) -> bool {
+        match entry.entry.project_type {
+            WorkshopProjectType::Video => {
+                entry.compatibility.level == CompatibilityLevel::FullySupported
+            }
+            WorkshopProjectType::Scene => entry
+                .project_metadata
+                .scene_assessment
+                .as_ref()
+                .is_some_and(|assessment| assessment.runnable),
+            _ => false,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policies::shared::compatibility_policy::CompatibilityNextStep;
-    use lwe_library::{WorkshopProjectType, WorkshopSyncState};
+    use crate::policies::shared::compatibility_policy::{
+        CompatibilityNextStep, CompatibilityReason,
+    };
+    use lwe_library::{SteamLibrary, WorkshopProjectType, WorkshopScanner, WorkshopSyncState};
+    use std::fs;
     use std::path::PathBuf;
+    use tempfile::TempDir;
+
+    fn packaged_scene_catalog(package: Option<&[u8]>) -> (TempDir, WorkshopCatalogEntry) {
+        let temp = TempDir::new().unwrap();
+        let project_dir = temp.path().join("steamapps/workshop/content/431960/48");
+        fs::create_dir_all(&project_dir).unwrap();
+        // A local assets directory keeps this fixture independent of the user's Steam setup.
+        fs::create_dir_all(temp.path().join("steamapps/common/wallpaper_engine/assets")).unwrap();
+        fs::write(
+            project_dir.join("project.json"),
+            r#"{"type":"scene","title":"Packaged Scene","file":"scene.json"}"#,
+        )
+        .unwrap();
+        if let Some(package) = package {
+            fs::write(project_dir.join("scene.pkg"), package).unwrap();
+        }
+        let mut scanner = WorkshopScanner::new(SteamLibrary {
+            root: temp.path().to_path_buf(),
+            libraries: Vec::new(),
+        });
+        let entry = scanner.scan_catalog().unwrap().pop().unwrap();
+        (temp, entry)
+    }
+
+    fn package_with_scene(scene: &[u8]) -> Vec<u8> {
+        let mut package = Vec::new();
+        package.extend_from_slice(&8_u32.to_le_bytes());
+        package.extend_from_slice(b"PKGV0023");
+        package.extend_from_slice(&1_u32.to_le_bytes());
+        package.extend_from_slice(&10_u32.to_le_bytes());
+        package.extend_from_slice(b"scene.json");
+        package.extend_from_slice(&0_u32.to_le_bytes());
+        package.extend_from_slice(&(scene.len() as u32).to_le_bytes());
+        package.extend_from_slice(scene);
+        package
+    }
 
     fn synced_video_entry() -> WorkshopCatalogEntry {
         WorkshopCatalogEntry {
@@ -120,9 +209,70 @@ mod tests {
 
         assert_eq!(
             assessed.compatibility.reason,
-            CompatibilityReason::RecognizedButRuntimeUnsupported
+            CompatibilityReason::SceneAssessmentFailed
         );
         assert!(CompatibilityService::supports_library_projection(&assessed));
+    }
+
+    #[test]
+    fn packaged_primary_enters_library_but_unknown_scene_feature_cannot_run() {
+        let package = package_with_scene(
+            br#"{"general":{"orthogonalprojection":{"width":4,"height":4}},"objects":[{"future":"unknown"}]}"#,
+        );
+        let (temp, scanned) = packaged_scene_catalog(Some(&package));
+        assert_eq!(scanned.sync_state, WorkshopSyncState::MissingPrimaryAsset);
+        assert!(scanned.library_item_id.is_none());
+
+        let assessed = CompatibilityService::assess_catalog_entry(scanned);
+
+        assert_eq!(assessed.entry.sync_state, WorkshopSyncState::Synced);
+        assert_eq!(
+            assessed.entry.library_item_id,
+            Some(WallpaperItem::generate_id(
+                &assessed.entry.project_dir.join("scene.json")
+            ))
+        );
+        assert!(CompatibilityService::supports_library_projection(&assessed));
+        assert!(!CompatibilityService::supports_runtime(&assessed));
+        assert_eq!(
+            assessed.compatibility.reason,
+            CompatibilityReason::SceneUnsupportedFeatures
+        );
+
+        let scene = SceneAssets::open(&assessed.entry.project_dir, None)
+            .unwrap()
+            .read("scene.json", 4 * 1024 * 1024)
+            .unwrap();
+        fs::write(assessed.entry.project_dir.join("scene.json"), scene).unwrap();
+        let mut scanner = WorkshopScanner::new(SteamLibrary {
+            root: temp.path().to_path_buf(),
+            libraries: Vec::new(),
+        });
+        let unpacked = scanner.scan_catalog().unwrap().pop().unwrap();
+        assert_eq!(unpacked.library_item_id, assessed.entry.library_item_id);
+        assert_eq!(
+            assessed.project_metadata.scene_assessment.unwrap().issues[0].code,
+            "unsupported_scene"
+        );
+    }
+
+    #[test]
+    fn absent_or_corrupt_package_preserves_missing_primary_and_blocks_runtime() {
+        for package in [None, Some(b"broken package".as_slice())] {
+            let (_temp, scanned) = packaged_scene_catalog(package);
+            let assessed = CompatibilityService::assess_catalog_entry(scanned);
+
+            assert_eq!(
+                assessed.entry.sync_state,
+                WorkshopSyncState::MissingPrimaryAsset
+            );
+            assert!(CompatibilityService::supports_library_projection(&assessed));
+            assert!(!CompatibilityService::supports_runtime(&assessed));
+            assert_eq!(
+                assessed.compatibility.reason,
+                CompatibilityReason::SceneAssessmentFailed
+            );
+        }
     }
 
     #[test]
@@ -199,7 +349,7 @@ mod tests {
 
         assert_eq!(
             assessed.compatibility.reason,
-            CompatibilityReason::RecognizedButRuntimeUnsupported
+            CompatibilityReason::SceneAssessmentFailed
         );
         assert!(CompatibilityService::supports_library_projection(&assessed));
     }

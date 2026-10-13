@@ -4,7 +4,7 @@
 
 LWE is a Linux desktop app for Wallpaper Engine migration: Workshop discovery and acquisition, compatibility reporting, a local Library, and per-monitor wallpaper assignments. It uses Tauri 2, SvelteKit/Svelte 5, and Rust backend services.
 
-- Video wallpapers on Wayland with `niri` are the documented verified runtime target. Recognizing Scene/Web content or detecting Wayland protocols does not establish runtime support.
+- Video wallpapers on Wayland with `niri` are the documented verified runtime target. Scene playback is experimental and gated per item against the bounded 2D subset; report its desktop acceptance separately. Recognizing Scene/Web content or detecting Wayland protocols does not establish runtime support.
 - Keep product copy in English and Simplified Chinese (`src/lib/i18n.ts`). Update both languages and check layout when changing user-facing text.
 - Keep maintained product/contributor documentation in `docs/`, with matching pages under `docs/zh/`. Root README and agent instructions are concise entry points.
 - Use LWE terminology. Do not revive the retired wayvid GUI/CLI or deleted OpenSpec/archive workflow. Preserve historical names when they are still required by compatibility paths.
@@ -18,7 +18,7 @@ Read the entry points and callers needed for the task; use these references when
 | UI and IPC | `src/routes/`, `src/lib/components/`, `src/lib/ipc.ts`, `src/lib/types.ts`, `src/lib/stores/ui.ts` |
 | Rust application | `src-tauri/src/`: `commands/`, `services/`, `results/`, `assembly/`, `models.rs`, `action_outcome.rs` |
 | Shared business rules | `src-tauri/src/policies/shared/` (support, compatibility, cover, invalidation) |
-| Retained crates | `crates/lwe-core/` (types/config), `crates/lwe-library/` (Workshop scanning/metadata/assets), `crates/lwe-engine/` (Wayland/mpv/EGL runtime) |
+| Retained crates | `crates/lwe-core/` (types/config), `crates/lwe-library/` (Workshop scanning/metadata/assets), `crates/lwe-scene/` (Scene package/texture readers), `crates/lwe-engine/` (Wayland/mpv/EGL and Scene runtime) |
 | Product scope and contributor policy | `docs/contributing/project.md`, `docs/contributing/guide.md`; roadmap in `docs/contributing/roadmap.md` |
 | Checks, packaging, releases | `package.json`, `.github/workflows/`, `scripts/`, `packaging/aur/`; release smoke checklist in the contributor guide |
 
@@ -44,6 +44,7 @@ pnpm tauri:dev
 - Keep filesystem scans, thumbnail generation, blocking HTTP, and runtime acknowledgements off the Tauri main thread. Reuse `commands/background.rs`; desktop-dependent commands wait for background startup restore before reading or mutating assignments. Serialize read-modify-write operations in the synchronous services and preserve command result contracts.
 - For IPC changes, keep Rust serialization and `src/lib/ipc.ts`/`src/lib/types.ts` aligned; register new commands in `src-tauri/src/lib.rs`. Preserve `ActionOutcome` business success/failure, messages, current updates, shell patches, and page invalidations; a resolved IPC call alone does not mean the action succeeded.
 - Preserve snapshot/cache invalidation and unavailable/stale/error states across Workshop, Library, Desktop, and Settings. Reuse existing policies rather than duplicating compatibility or support rules in the UI.
+- Scene compatibility and apply preparation share `PreparedScene::prepare`; keep resource I/O and decoding off the engine thread. Keep bounded SceneScript VM callbacks on their worker, validate created resources and snapshots, and require accepted state before first-frame ACK; paused redraw and rollback retain that state. Unknown APIs, bindings, texture uses and exhausted budgets fail closed. First-frame ACK and commit remain reversible until the atomic assignment save succeeds; only then finalize the generation and release its rollback resources. Keep cancellation scoped to unfinalized request IDs.
 - Missing Steam or downloaded Workshop content is normal first-launch setup, and an unsupported desktop session is a playback requirement. Keep Library/Workshop browsing available in those cases; preserve real filesystem, command, and parsing failures. Include a fresh-user startup check for packaging changes.
 - Trace the active call path before changing retained crate code. The shell's Library is currently a projection of assessed Workshop entries; the SQLite code in `lwe-library` is not the shell's active Library persistence path.
 - Settings and assignments use `$XDG_CONFIG_HOME/lwe/settings.toml` and `lwe/session.toml` (default config root: `~/.config`). Preserve atomic writes and the distinction between missing state and failed reads. Use isolated fixtures for persistence tests; do not reset user state as routine test setup. Keep Steam API keys redacted in diagnostics and reports.
@@ -81,7 +82,7 @@ python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 
 Real desktop tests are opt-in: they apply/clear wallpapers and write session state. Run them only when the task calls for desktop acceptance and a suitable Wayland + `niri` session, monitors, GPU/EGL, mpv, Steam Workshop content, and video assets are available:
 
-Use the contributor guide's isolated test command and real-desktop checklist to verify repeated application in the same backend, visible application, independent per-monitor clear, restart/restore, and clear-all. The opt-in flag is `LWE_REAL_DESKTOP_TESTS=1`; keep `HOME` available for Workshop discovery while isolating `XDG_CONFIG_HOME`. Ordinary tests or a package/frontend build do not prove desktop runtime support; report desktop acceptance separately.
+Use the contributor guide's isolated test command and real-desktop checklist to verify repeated application in the same backend, visible application, independent per-monitor clear, restart/restore, and clear-all. The opt-in flag is `LWE_REAL_DESKTOP_TESTS=1`; keep `HOME` available for Workshop discovery while isolating `XDG_CONFIG_HOME`. Ordinary tests or a package/frontend build do not prove desktop runtime support; report desktop acceptance separately. Physical suspend/resume is explicitly deferred by the user from the current Scene batch because sleep interrupts Codex; do not invoke it or count it as passed/current completion. The future recovery procedure remains in the contributor guide.
 
 ## Finish and maintain
 

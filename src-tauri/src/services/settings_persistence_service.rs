@@ -32,7 +32,15 @@ impl ScopedSettingsPersistenceService {
     pub fn load_settings(&self) -> SettingsPersistenceLoad {
         match fs::read_to_string(&self.path) {
             Ok(contents) => match toml::from_str::<PersistedSettings>(&contents) {
-                Ok(settings) => SettingsPersistenceLoad::Loaded(settings),
+                Ok(settings) if settings.playback_settings().validate().is_ok() => {
+                    SettingsPersistenceLoad::Loaded(settings)
+                }
+                Ok(_) => SettingsPersistenceLoad::Unavailable {
+                    reason: format!(
+                        "Invalid playback settings in {} (setting values omitted)",
+                        self.path.display()
+                    ),
+                },
                 Err(_) => SettingsPersistenceLoad::Unavailable {
                     reason: format!(
                         "Failed to parse settings from {}: invalid TOML (setting values omitted)",
@@ -53,6 +61,14 @@ impl ScopedSettingsPersistenceService {
     }
 
     pub fn save_settings(&self, settings: &PersistedSettings) -> SettingsPersistenceWrite {
+        if settings.playback_settings().validate().is_err() {
+            return SettingsPersistenceWrite::Unavailable {
+                reason: format!(
+                    "Invalid playback settings for {} (setting values omitted)",
+                    self.path.display()
+                ),
+            };
+        }
         if let Some(parent) = self.path.parent()
             && let Err(error) = fs::create_dir_all(parent)
         {
@@ -160,6 +176,24 @@ mod tests {
     }
 
     #[test]
+    fn invalid_persisted_fps_is_unavailable_and_omits_values() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("settings.toml");
+        std::fs::write(
+            &path,
+            "fps_limit = 0\nsteam_web_api_key = 'private-fixture-value'\n",
+        )
+        .unwrap();
+        let SettingsPersistenceLoad::Unavailable { reason } =
+            SettingsPersistenceService::for_test(path).load_settings()
+        else {
+            panic!("invalid playback preference must not become defaults")
+        };
+        assert!(reason.contains("Invalid playback settings"));
+        assert!(!reason.contains("private-fixture-value"));
+    }
+
+    #[test]
     fn settings_path_uses_lwe_config_root() {
         let path = settings_path_from_env(
             Some(PathBuf::from("/tmp/config")),
@@ -188,6 +222,8 @@ mod tests {
                 language: "en".to_string(),
                 theme: "dark".to_string(),
                 launch_on_login: true,
+                fps_limit: None,
+                pause_on_battery: false,
                 steam_web_api_key: "abc123".to_string(),
                 workshop_query: "rain".to_string(),
                 workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],
@@ -213,6 +249,8 @@ mod tests {
                 language: "fr".to_string(),
                 theme: "system".to_string(),
                 launch_on_login: false,
+                fps_limit: None,
+                pause_on_battery: false,
                 steam_web_api_key: String::new(),
                 workshop_query: String::new(),
                 workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],
@@ -234,6 +272,8 @@ mod tests {
             language: "en".to_string(),
             theme: "dark".to_string(),
             launch_on_login: true,
+            fps_limit: None,
+            pause_on_battery: false,
             steam_web_api_key: "key-123".to_string(),
             workshop_query: "forest".to_string(),
             workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::R18],
@@ -270,6 +310,8 @@ mod tests {
             language: "zh-CN".to_string(),
             theme: "dark".to_string(),
             launch_on_login: true,
+            fps_limit: None,
+            pause_on_battery: false,
             steam_web_api_key: "restart-key".to_string(),
             workshop_query: "mountain".to_string(),
             workshop_age_ratings: vec![WorkshopAgeRating::G, WorkshopAgeRating::Pg13],

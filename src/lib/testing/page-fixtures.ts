@@ -33,7 +33,7 @@ export const desktopSnapshot: DesktopPageSnapshot = {
 };
 
 export const settingsSnapshot: SettingsPageSnapshot = {
-  language: 'en', theme: 'light', launchOnLogin: false, launchOnLoginAvailable: true,
+  language: 'en', theme: 'light', launchOnLogin: false, launchOnLoginAvailable: true, fpsLimit: null, pauseOnBattery: false,
   steamWebApiKey: '', workshopQuery: '', workshopAgeRatings: ['g', 'pg_13'],
   workshopItemTypes: ['video', 'scene', 'web', 'application'], steamRequired: false,
   steamStatusMessage: 'Steam is available.', stale: false
