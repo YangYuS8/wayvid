@@ -14,6 +14,8 @@ mod acceptance;
 #[path = "renderer_yakuza_acceptance.rs"]
 mod yakuza_acceptance;
 
+use super::shared_texture::{ResourcePlan, SharedTexture, TextureKey, TexturePool};
+
 use super::{
     Blend, PreparedLayer, PreparedPass, PreparedScene, PreparedStage, PreparedTexture,
     TEXTURE_SLOTS, TextureBinding,
@@ -27,7 +29,7 @@ pub(super) const IDENTITY: [f32; 16] = [
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
 ];
 
-pub(super) const MAX_SCENE_GPU_BYTES: u64 = 512 * 1024 * 1024;
+pub(super) const MAX_SCENE_GPU_BYTES: u64 = super::shared_texture::PAYLOAD_LIMIT;
 
 // A compositor may withhold background callbacks while an output is hidden or
 // powered off. Resume from the retained state instead of replaying unbounded
@@ -73,21 +75,28 @@ fn needs_full_frame(scene: &PreparedScene) -> bool {
 }
 
 /// Logical RGBA texture/FBO payload, not driver memory or EGL back buffers.
-pub(super) fn estimated_gpu_bytes(scene: &PreparedScene) -> Result<u64> {
+fn rgba_bytes(width: u64, height: u64, count: u64) -> Result<u64> {
+    width
+        .checked_mul(height)
+        .and_then(|pixels| pixels.checked_mul(4))
+        .and_then(|bytes| bytes.checked_mul(count))
+        .context("Scene RGBA allocation estimate overflow")
+}
+
+fn private_gpu_bytes(scene: &PreparedScene) -> Result<u64> {
     let mut bytes = 4_u64;
-    for texture in &scene.textures {
-        bytes = bytes
-            .checked_add(u64::from(texture.width) * u64::from(texture.height) * 4)
-            .context("Scene GPU allocation estimate overflow")?;
-    }
     for ((width, height), count) in scratch_layout(&scene.layers) {
         bytes = bytes
-            .checked_add(width as u64 * height as u64 * 4 * count as u64)
+            .checked_add(rgba_bytes(width as u64, height as u64, count as u64)?)
             .context("Scene shared scratch estimate overflow")?;
     }
     if needs_full_frame(scene) {
         bytes = bytes
-            .checked_add(scene.canvas[0].ceil() as u64 * scene.canvas[1].ceil() as u64 * 8)
+            .checked_add(rgba_bytes(
+                scene.canvas[0].ceil() as u64,
+                scene.canvas[1].ceil() as u64,
+                2,
+            )?)
             .context("Scene full-frame estimate overflow")?;
     }
     for layer in &scene.layers {
@@ -98,20 +107,86 @@ pub(super) fn estimated_gpu_bytes(scene: &PreparedScene) -> Result<u64> {
                 let [target_width, target_height] =
                     target_dimensions(width as i32, height as i32, *scale);
                 bytes = bytes
-                    .checked_add(target_width as u64 * target_height as u64 * 4)
+                    .checked_add(rgba_bytes(target_width as u64, target_height as u64, 1)?)
                     .context("Scene GPU allocation estimate overflow")?;
             }
         }
     }
     for layer in &scene.particles {
+        let vertices = (layer.vertex_capacity as u64)
+            .checked_mul(std::mem::size_of::<super::particles::ParticleVertex>() as u64)
+            .context("Scene particle GPU allocation estimate overflow")?;
         bytes = bytes
-            .checked_add(
-                layer.vertex_capacity as u64
-                    * std::mem::size_of::<super::particles::ParticleVertex>() as u64,
-            )
+            .checked_add(vertices)
             .context("Scene particle GPU allocation estimate overflow")?;
     }
     Ok(bytes)
+}
+
+fn texture_fingerprint(texture: &PreparedTexture) -> [u8; 32] {
+    // Hand-built authored test fixtures have no VFS source. Production
+    // preparation always seals this identity on its background worker.
+    #[cfg(test)]
+    if texture.fingerprint == [0; 32] {
+        return texture.fixture_fingerprint();
+    }
+    texture.fingerprint
+}
+
+pub(super) fn resource_plan(scene: &PreparedScene) -> Result<ResourcePlan> {
+    let mut plan = ResourcePlan {
+        private_bytes: private_gpu_bytes(scene)?,
+        ..ResourcePlan::default()
+    };
+    for layer in &scene.layers {
+        for pass in layer.stages.iter().flat_map(|stage| &stage.passes) {
+            for (slot, binding) in pass.textures.iter().enumerate() {
+                if let TextureBinding::Static(index) = binding {
+                    let texture = scene
+                        .textures
+                        .get(*index)
+                        .context("Scene texture index unavailable")?;
+                    let key = TextureKey {
+                        fingerprint: texture_fingerprint(texture),
+                        repeat: pass_texture_repeat_flags(&pass.label, slot, texture.source_flags),
+                    };
+                    let bytes = rgba_bytes(u64::from(texture.width), u64::from(texture.height), 1)?;
+                    if let Some(previous) = plan.textures.insert(key, bytes) {
+                        ensure!(
+                            previous == bytes,
+                            "Scene immutable allocation sizes disagree"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    for layer in &scene.particles {
+        for pass in &layer.materials {
+            if let Some(TextureBinding::Static(index)) = pass.textures.first() {
+                let texture = scene
+                    .textures
+                    .get(*index)
+                    .context("Particle texture unavailable")?;
+                let key = TextureKey {
+                    fingerprint: texture_fingerprint(texture),
+                    repeat: false,
+                };
+                let bytes = rgba_bytes(u64::from(texture.width), u64::from(texture.height), 1)?;
+                if let Some(previous) = plan.textures.insert(key, bytes) {
+                    ensure!(
+                        previous == bytes,
+                        "Scene immutable allocation sizes disagree"
+                    );
+                }
+            }
+        }
+    }
+    Ok(plan)
+}
+
+pub(super) fn estimated_gpu_bytes(scene: &PreparedScene) -> Result<u64> {
+    resource_plan(scene)?.total(0)
 }
 
 fn target_dimensions(width: i32, height: i32, scale: f32) -> [i32; 2] {
@@ -363,8 +438,8 @@ impl Drop for GlState {
     }
 }
 
-struct GpuTexture {
-    id: u32,
+pub(super) struct GpuTexture {
+    pub(super) id: u32,
     width: i32,
     height: i32,
     image_width: i32,
@@ -476,12 +551,32 @@ unsafe fn texture_parameters(repeat: bool) {
     }
 }
 
-fn pass_texture_repeat(label: &str, slot: usize, texture: &GpuTexture) -> bool {
+fn pass_texture_repeat_flags(label: &str, slot: usize, flags: u32) -> bool {
     if super::shader::is_legacy_image(label) {
-        texture.source_flags & 2 == 0
+        flags & 2 == 0
     } else {
         (matches!(label, "effects/shine_downsample2" | "effects/waterripple") && slot == 2)
             || (label == "effects/scroll" && slot == 0)
+    }
+}
+
+#[cfg(test)]
+fn pass_texture_repeat(label: &str, slot: usize, texture: &GpuTexture) -> bool {
+    pass_texture_repeat_flags(label, slot, texture.source_flags)
+}
+
+struct TextureViews {
+    source_flags: u32,
+    clamp: Option<Rc<SharedTexture>>,
+    repeat: Option<Rc<SharedTexture>>,
+}
+
+impl TextureViews {
+    fn get(&self, repeat: bool) -> Result<&GpuTexture> {
+        (if repeat { &self.repeat } else { &self.clamp })
+            .as_ref()
+            .map(|lease| &lease.texture)
+            .context("Scene readonly sampling variant unavailable")
     }
 }
 
@@ -716,7 +811,7 @@ unsafe fn program_log(id: u32) -> String {
         .to_owned()
 }
 
-fn check_gl(stage: &str) -> Result<()> {
+pub(super) fn check_gl(stage: &str) -> Result<()> {
     let error = unsafe { gl::GetError() };
     ensure!(
         error == gl::NO_ERROR,
@@ -891,7 +986,7 @@ impl GpuParticleLayer {
         width: i32,
         height: i32,
         target: u32,
-        textures: &[GpuTexture],
+        textures: &[TextureViews],
     ) -> Result<()> {
         let frame = self.runtime.advance(seconds)?;
         let matrix = particle_matrix(canvas, width, height);
@@ -912,7 +1007,8 @@ impl GpuParticleLayer {
             };
             let texture = textures
                 .get(index)
-                .context("Particle texture unavailable")?;
+                .context("Particle texture unavailable")?
+                .get(false)?;
             // SAFETY: the validated vertex slice supplies exactly the stated
             // bounded byte count; this VBO retains its allocated capacity.
             unsafe {
@@ -930,7 +1026,6 @@ impl GpuParticleLayer {
                 set_blend(pass.blend);
                 gl::ActiveTexture(gl::TEXTURE0);
                 gl::BindTexture(gl::TEXTURE_2D, texture.id);
-                texture_parameters(false);
                 gl::Uniform1i(pass.program.location("g_Texture0"), 0);
             }
             pass.program.matrix(&matrix);
@@ -990,7 +1085,7 @@ fn particle_matrix(canvas: [f32; 2], width: i32, height: i32) -> [f32; 16] {
 pub struct SceneRenderer {
     canvas: [f32; 2],
     clear: [f32; 4],
-    textures: Vec<GpuTexture>,
+    textures: Vec<TextureViews>,
     layers: Vec<GpuLayer>,
     particles: Vec<GpuParticleLayer>,
     draw_order: Vec<super::DrawObject>,
@@ -1006,6 +1101,8 @@ pub struct SceneRenderer {
     last_input: Option<f64>,
     rebase_time: bool,
     gpu_payload_bytes: u64,
+    resource_plan: ResourcePlan,
+    texture_pool: Rc<TexturePool>,
     prepared_bloom: Option<Arc<super::postprocess::PreparedBloom>>,
     bloom: Option<super::postprocess::BloomRenderer>,
     scratch: BTreeMap<(i32, i32), Vec<RenderTarget>>,
@@ -1022,7 +1119,17 @@ pub struct SceneRenderer {
 
 impl SceneRenderer {
     pub(super) fn initialize(scene: &PreparedScene) -> Result<Self> {
+        Self::initialize_shared(scene, TexturePool::new()?)
+    }
+
+    pub(crate) fn initialize_shared(
+        scene: &PreparedScene,
+        texture_pool: Rc<TexturePool>,
+    ) -> Result<Self> {
+        texture_pool.ensure_current()?;
+        let plan = resource_plan(scene)?;
         let gpu_payload_bytes = validate_gpu_budget(scene)?;
+        plan.preflight(texture_pool.retired_bytes()?, 0)?;
         ensure!(
             gl::GetString::is_loaded() && !unsafe { gl::GetString(gl::VERSION) }.is_null(),
             "Scene initialization requires a current OpenGL context"
@@ -1048,6 +1155,8 @@ impl SceneRenderer {
             last_input: None,
             rebase_time: false,
             gpu_payload_bytes,
+            resource_plan: plan.clone(),
+            texture_pool,
             prepared_bloom: scene.bloom.clone(),
             bloom: None,
             scratch: BTreeMap::new(),
@@ -1068,9 +1177,38 @@ impl SceneRenderer {
         renderer.textures = scene
             .textures
             .iter()
-            .map(GpuTexture::upload)
+            .map(|texture| {
+                let mut views = TextureViews {
+                    source_flags: texture.source_flags,
+                    clamp: None,
+                    repeat: None,
+                };
+                for repeat in [false, true] {
+                    let key = TextureKey {
+                        fingerprint: texture_fingerprint(texture),
+                        repeat,
+                    };
+                    if let Some(bytes) = plan.textures.get(&key) {
+                        let lease = renderer.texture_pool.acquire(key, *bytes, || {
+                            let uploaded = GpuTexture::upload(texture)?;
+                            unsafe {
+                                texture_parameters(repeat);
+                            }
+                            check_gl("setting immutable Scene sampling policy")?;
+                            Ok(uploaded)
+                        })?;
+                        if repeat {
+                            views.repeat = Some(lease);
+                        } else {
+                            views.clamp = Some(lease);
+                        }
+                    }
+                }
+                Ok(views)
+            })
             .collect::<Result<_>>()?;
         renderer.black = Some(GpuTexture::upload(&PreparedTexture {
+            fingerprint: [0; 32],
             width: 1,
             height: 1,
             image_width: 1,
@@ -1167,6 +1305,20 @@ impl SceneRenderer {
         }
     }
 
+    pub(crate) fn allocation_plan(&self) -> Result<ResourcePlan> {
+        let mut plan = self.resource_plan.clone();
+        plan.private_bytes = plan
+            .private_bytes
+            .checked_add(
+                self.bloom
+                    .as_ref()
+                    .map(|bloom| bloom.payload_bytes())
+                    .unwrap_or_default(),
+            )
+            .context("Scene private framebuffer allocation overflow")?;
+        Ok(plan)
+    }
+
     /// Resident logical payload estimated from owned textures and framebuffers.
     pub fn gpu_payload_bytes(&self) -> u64 {
         self.gpu_payload_bytes
@@ -1205,6 +1357,7 @@ impl SceneRenderer {
         }
     }
     pub fn resize(&mut self, width: i32, height: i32) -> Result<()> {
+        self.texture_pool.ensure_current()?;
         ensure!(width > 0 && height > 0, "Invalid Scene output dimensions");
         let additional = self.additional_gpu_bytes(width, height)?;
         ensure!(
@@ -1496,6 +1649,10 @@ impl SceneRenderer {
         self.particles.clear();
         self.layers.clear();
         self.textures.clear();
+        if let Err(error) = self.texture_pool.drain_retired() {
+            tracing::warn!("Shared Scene texture cleanup deferred: {error:#}");
+        }
+        self.resource_plan = ResourcePlan::default();
         self.copy = None;
         self.black = None;
         unsafe {
@@ -1585,7 +1742,7 @@ unsafe fn set_blend(blend: Blend) {
 
 fn render_layer<'a>(
     layer: &'a GpuLayer,
-    textures: &[GpuTexture],
+    textures: &[TextureViews],
     black: &GpuTexture,
     time: f32,
     scratch: &'a [RenderTarget],
@@ -1604,10 +1761,18 @@ fn render_layer<'a>(
             let resolved = pass
                 .textures
                 .iter()
-                .map(|binding| match binding {
-                    TextureBinding::Static(index) => textures
-                        .get(*index)
-                        .context("Scene texture index unavailable"),
+                .enumerate()
+                .map(|(slot, binding)| match binding {
+                    TextureBinding::Static(index) => {
+                        let texture = textures
+                            .get(*index)
+                            .context("Scene texture index unavailable")?;
+                        texture.get(pass_texture_repeat_flags(
+                            &pass.label,
+                            slot,
+                            texture.source_flags,
+                        ))
+                    }
                     TextureBinding::Input => {
                         if stage_index == 0 {
                             Ok(input.unwrap_or(black))
@@ -1664,7 +1829,13 @@ fn render_layer<'a>(
                     }
                     gl::ActiveTexture(gl::TEXTURE0 + slot as u32);
                     gl::BindTexture(gl::TEXTURE_2D, texture.id);
-                    texture_parameters(pass_texture_repeat(&pass.label, slot, texture));
+                    if !matches!(pass.textures[slot], TextureBinding::Static(_)) {
+                        texture_parameters(pass_texture_repeat_flags(
+                            &pass.label,
+                            slot,
+                            texture.source_flags,
+                        ));
+                    }
                     gl::Uniform1i(
                         pass.program.location(&format!("g_Texture{slot}")),
                         slot as i32,
@@ -1727,6 +1898,10 @@ fn render_layer<'a>(
     }
     current.context("Scene image produced no frame")
 }
+
+#[cfg(test)]
+#[path = "renderer_sharing_tests.rs"]
+mod sharing_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1953,6 +2128,7 @@ mod tests {
                 canvas: [2.0, 2.0],
                 clear: [0.0, 0.0, 0.0, 1.0],
                 textures: vec![PreparedTexture {
+                    fingerprint: [0; 32],
                     width: 4,
                     height: 4,
                     image_width: 2,
@@ -2092,6 +2268,7 @@ mod tests {
             canvas: [2.0, 2.0],
             clear: [0.0, 0.0, 0.0, 1.0],
             textures: vec![PreparedTexture {
+                fingerprint: [0; 32],
                 width: 2,
                 height: 2,
                 image_width: 2,
@@ -2236,6 +2413,7 @@ mod tests {
         composite.clear = [0.25, 0.5, 0.75, 1.0];
         composite.textures[0].rgba = [255, 0, 0, 128].repeat(4);
         composite.textures.push(PreparedTexture {
+            fingerprint: [0; 32],
             width: 2,
             height: 2,
             image_width: 2,

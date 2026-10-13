@@ -1,6 +1,8 @@
 //! Per-output playback with CPU-prepared Scene resources and a shared EGL surface.
 
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -10,6 +12,7 @@ use wayland_client::protocol::wl_surface::WlSurface;
 use super::{EngineRenderMetrics, WallpaperSource};
 use crate::egl::{EglContext, EglWindow};
 use crate::mpv::{MpvPlayer, VideoConfig};
+use crate::scene::shared_texture::{ResourcePlan, TexturePool};
 use crate::scene::{SceneAudio, SceneRenderer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,10 +89,10 @@ enum RendererInstance {
 }
 
 impl RendererInstance {
-    fn scene_payload_bytes(&self) -> u64 {
+    fn allocation_plan(&self) -> Result<ResourcePlan> {
         match self {
-            Self::Video(_) => 0,
-            Self::Scene { renderer, .. } => renderer.gpu_payload_bytes(),
+            Self::Video(_) => Ok(ResourcePlan::default()),
+            Self::Scene { renderer, .. } => renderer.allocation_plan(),
         }
     }
 
@@ -112,6 +115,7 @@ impl RendererInstance {
         config: &VideoConfig,
         output: &OutputInfo,
         egl: &EglContext,
+        texture_pool: Rc<TexturePool>,
     ) -> Result<Self> {
         match source {
             WallpaperSource::Video { path } => {
@@ -123,7 +127,7 @@ impl RendererInstance {
                 Ok(Self::Video(player))
             }
             WallpaperSource::Scene { prepared, .. } => Ok(Self::Scene {
-                renderer: Box::new(prepared.initialize()?),
+                renderer: Box::new(prepared.initialize_shared(texture_pool)?),
                 clock: SceneClock::new(),
                 animated: prepared.summary().animated,
                 drawn: false,
@@ -318,6 +322,7 @@ pub struct WallpaperSession {
     pending: Option<(WallpaperSource, RendererInstance)>,
     rollback: Option<(WallpaperSource, RendererInstance)>,
     egl_window: Option<EglWindow>,
+    texture_pool: Option<Rc<TexturePool>>,
     state: PlaybackState,
     manual_paused: bool,
     power_paused: bool,
@@ -347,6 +352,7 @@ impl WallpaperSession {
             pending: None,
             rollback: None,
             egl_window: None,
+            texture_pool: None,
             state: PlaybackState::Stopped,
             manual_paused: false,
             power_paused: false,
@@ -383,31 +389,42 @@ impl WallpaperSession {
         metrics
     }
 
-    fn scene_payload_bytes(&self) -> u64 {
-        self.renderer
-            .as_ref()
-            .map(RendererInstance::scene_payload_bytes)
-            .unwrap_or_default()
-            + self
-                .pending
-                .as_ref()
-                .map(|(_, renderer)| renderer.scene_payload_bytes())
-                .unwrap_or_default()
-            + self
-                .rollback
-                .as_ref()
-                .map(|(_, renderer)| renderer.scene_payload_bytes())
-                .unwrap_or_default()
+    pub(crate) fn use_texture_pool(&mut self, pool: Rc<TexturePool>) -> Result<()> {
+        anyhow::ensure!(
+            self.renderer.is_none() && self.pending.is_none() && self.rollback.is_none(),
+            "Cannot change an initialized Scene texture domain"
+        );
+        self.texture_pool = Some(pool);
+        Ok(())
     }
 
-    pub(super) fn reserved_scene_payload_bytes(&self) -> Result<u64> {
+    pub(super) fn resource_plan(&self) -> Result<ResourcePlan> {
         if self.renderer.is_none()
             && let WallpaperSource::Scene { prepared, .. } = &self.source
         {
             return prepared
-                .estimated_gpu_bytes_for_output(self.output_info.width, self.output_info.height);
+                .resource_plan_for_output(self.output_info.width, self.output_info.height);
         }
-        Ok(self.scene_payload_bytes())
+        let mut plan = ResourcePlan::default();
+        for renderer in self
+            .renderer
+            .iter()
+            .chain(self.pending.iter().map(|(_, renderer)| renderer))
+            .chain(self.rollback.iter().map(|(_, renderer)| renderer))
+        {
+            plan.merge(&renderer.allocation_plan()?)?;
+        }
+        Ok(plan)
+    }
+
+    fn scene_payload_bytes(&self) -> u64 {
+        self.resource_plan()
+            .and_then(|plan| plan.total(0))
+            .unwrap_or(u64::MAX)
+    }
+
+    pub(super) fn reserved_scene_payload_bytes(&self) -> Result<u64> {
+        self.resource_plan()?.total(0)
     }
 
     pub(super) fn additional_scene_payload_bytes(&self, width: i32, height: i32) -> Result<u64> {
@@ -434,6 +451,21 @@ impl WallpaperSession {
                     prepared.audio_allocations().collect::<Vec<_>>()
                 }
                 WallpaperSource::Video { .. } => Vec::new(),
+            })
+            .collect()
+    }
+
+    pub(super) fn decoded_allocations(&self) -> Result<Vec<(usize, u64)>> {
+        std::iter::once(&self.source)
+            .chain(self.pending.as_ref().map(|(source, _)| source))
+            .chain(self.rollback.as_ref().map(|(source, _)| source))
+            .filter_map(|source| match source {
+                WallpaperSource::Scene { prepared, .. } => Some(
+                    prepared
+                        .decoded_texture_bytes()
+                        .map(|bytes| (Arc::as_ptr(prepared) as usize, bytes)),
+                ),
+                WallpaperSource::Video { .. } => None,
             })
             .collect()
     }
@@ -470,8 +502,24 @@ impl WallpaperSession {
             egl.load_gl_functions();
             self.gl_loaded = true;
         }
-        let mut renderer =
-            RendererInstance::create(&self.source, &self.video_config, &self.output_info, egl)?;
+        if self.texture_pool.is_none() {
+            self.texture_pool = Some(TexturePool::new()?);
+        }
+        self.texture_pool
+            .as_ref()
+            .expect("texture domain initialized")
+            .bind_owner(egl)?;
+        let mut renderer = RendererInstance::create(
+            &self.source,
+            &self.video_config,
+            &self.output_info,
+            egl,
+            Rc::clone(
+                self.texture_pool
+                    .as_ref()
+                    .expect("texture domain initialized"),
+            ),
+        )?;
         renderer.volume(self.source_volume(&self.source));
         let paused = self.manual_paused || self.power_paused;
         if paused {
@@ -549,8 +597,17 @@ impl WallpaperSession {
             .as_ref()
             .context("Cannot replace uninitialized renderer")?;
         egl.make_current(window)?;
-        let mut candidate =
-            RendererInstance::create(&source, &self.video_config, &self.output_info, egl)?;
+        let mut candidate = RendererInstance::create(
+            &source,
+            &self.video_config,
+            &self.output_info,
+            egl,
+            Rc::clone(
+                self.texture_pool
+                    .as_ref()
+                    .context("Scene texture domain unavailable")?,
+            ),
+        )?;
         candidate.volume(0.0);
         if self.state == PlaybackState::Paused {
             candidate.pause();

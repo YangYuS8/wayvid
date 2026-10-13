@@ -4,6 +4,7 @@ use anyhow::{Context, Result, anyhow, ensure};
 use khronos_egl as egl;
 use std::cell::Cell;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use wayland_client::Proxy;
 use wayland_client::protocol::wl_surface::WlSurface;
 use wayland_egl as wegl;
@@ -13,6 +14,7 @@ pub struct EglContext {
     display: Arc<EglDisplay>,
     config: egl::Config,
     context: egl::Context,
+    alive: Arc<AtomicBool>,
 }
 
 /// Keep the initialized display/library alive until its last context/surface
@@ -129,7 +131,12 @@ impl EglContext {
             display,
             config: configs,
             context,
+            alive: Arc::new(AtomicBool::new(true)),
         })
+    }
+
+    pub(crate) fn scene_context_identity(&self) -> (egl::Context, std::sync::Weak<AtomicBool>) {
+        (self.context, Arc::downgrade(&self.alive))
     }
 
     /// Create EGL window surface for a Wayland surface
@@ -309,6 +316,9 @@ impl Drop for EglWindow {
 
 impl Drop for EglContext {
     fn drop(&mut self) {
+        // Invalidate texture domains before the driver may recycle the native
+        // context handle for a subsequently created EGL context.
+        self.alive.store(false, Ordering::Release);
         if let Err(error) = self.make_current_none() {
             tracing::warn!("Failed to unbind EGL context during cleanup: {error:#}");
         }

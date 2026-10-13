@@ -65,6 +65,7 @@ fn sample(output: &str, item_id: &str, phase: &str) -> lwe_engine::engine::Engin
     };
     #[cfg(not(target_env = "gnu"))]
     let resources = serde_json::Value::Null;
+    let budget = state.scene_gpu_budget;
     emit(json!({"event":"sample","output":output,"item_id":item_id,
         "phase":phase,"finalized":true,"healthy":true,"backend_generation":1,
         "renderer_generation":NEXT_APPLY_REQUEST.load(Ordering::Relaxed).saturating_sub(1),
@@ -74,6 +75,13 @@ fn sample(output: &str, item_id: &str, phase: &str) -> lwe_engine::engine::Engin
             "frame_duration_buckets":metrics.frame_duration_buckets,
             "frame_duration_total_micros":metrics.frame_duration_total_micros,
             "frame_duration_max_micros":metrics.frame_duration_max_micros},
+        "scene_gpu_budget":{"context_generation":budget.context_generation,
+            "immutable_resident_bytes":budget.immutable_resident_bytes,
+            "private_and_reserved_bytes":budget.private_and_reserved_bytes,
+            "immutable_reserved_bytes":budget.immutable_reserved_bytes,
+            "retired_bytes":budget.retired_bytes,"logical_peak_bytes":budget.logical_peak_bytes,
+            "allocation_count":budget.allocation_count,"lease_count":budget.lease_count},
+        "scene_decoded_texture_bytes":state.scene_decoded_texture_bytes,
         "resources":resources}));
     metrics
 }

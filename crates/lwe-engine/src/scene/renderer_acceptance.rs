@@ -195,6 +195,7 @@ fn native_composite_pixels(
     // Independently chosen constant pixels make native modes 0/30/31 measurable
     // without copying any installed shader source into a fixture.
     let source = GpuTexture::upload(&PreparedTexture {
+        fingerprint: [0; 32],
         width: 1,
         height: 1,
         image_width: 1,
@@ -205,6 +206,7 @@ fn native_composite_pixels(
         rgba: vec![20, 50, 120, 128],
     })?;
     let background = GpuTexture::upload(&PreparedTexture {
+        fingerprint: [0; 32],
         width: 1,
         height: 1,
         image_width: 1,
@@ -556,6 +558,17 @@ fn original_space_layers_effects_properties_and_paused_frames() -> Result<()> {
             .get_proc_address(name)
             .map(|function| function as *const std::ffi::c_void)
             .unwrap_or(std::ptr::null())
+    });
+    let driver_string = |name| -> Result<String> {
+        let raw = unsafe { gl::GetString(name) };
+        ensure!(!raw.is_null(), "OpenGL driver string is unavailable");
+        Ok(unsafe { std::ffi::CStr::from_ptr(raw.cast()) }
+            .to_string_lossy()
+            .into_owned())
+    };
+    report.value["gl_driver"] = json!({
+        "vendor":driver_string(gl::VENDOR)?, "renderer":driver_string(gl::RENDERER)?,
+        "version":driver_string(gl::VERSION)?,
     });
     let result = acceptance(&project, &assets, &mut report);
     report.save(&result)?;

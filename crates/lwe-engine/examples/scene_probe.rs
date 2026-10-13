@@ -353,6 +353,8 @@ fn measure(
             swaps
         );
     }
+    let state = engine.status()?;
+    let budget = state.scene_gpu_budget;
     Ok(json!({
         "phase": name, "duration_seconds": elapsed, "status_requests": requests,
         "status_requests_per_second": requests as f64 / elapsed,
@@ -360,6 +362,13 @@ fn measure(
         "render_attempts": attempts, "empty_frames": empty,
         "callbacks_requested": requested, "callbacks_received": received,
         "scene_payload_bytes": after.scene_payload_bytes, "idle_expected": idle,
+        "scene_gpu_budget":{"context_generation":budget.context_generation,
+            "immutable_resident_bytes":budget.immutable_resident_bytes,
+            "private_and_reserved_bytes":budget.private_and_reserved_bytes,
+            "immutable_reserved_bytes":budget.immutable_reserved_bytes,
+            "retired_bytes":budget.retired_bytes,"logical_peak_bytes":budget.logical_peak_bytes,
+            "allocation_count":budget.allocation_count,"lease_count":budget.lease_count},
+        "scene_decoded_texture_bytes":state.scene_decoded_texture_bytes,
     }))
 }
 
