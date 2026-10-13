@@ -313,7 +313,7 @@ LWE_REAL_DESKTOP_TESTS=1 python3 scripts/scene-ui-smoke.py \
 
 独立 `original-miku-private-capture.json` 在 AMD Radeon/radeonsi surfaceless EGL 上通过。自有 PCM 播放至私有静音 Pulse sink，再经生产默认采集进入已验收的十六/三十二/六十四频段频谱；十三份已验收帧快照匹配原十六/六十四频段 VM 不透明度响应，同时渲染完整默认图与三个历史。单独的因果 probe 固定输入、几何与时间，真实音频通过未修改的原 SimpleBars shader 及三十二频段立体声 uniform 改变了 1,468 个像素。暂停断开采集且精确保留已验收像素，恢复后重连，清理后采集与共享上传释放。该证据是真实私有采集加硬件离屏渲染，与原生桌面呈现分开记录。
 
-最终原生 engine-only probe 在 AMD 680M 的嵌套 niri 上以 1920×1080 渲染未修改的默认图。30 FPS 上限下，三十秒动画完成 136 次 swap（4.53 FPS）；三十秒暂停的 draw/swap/callback 均为零，恢复后三秒完成十三次 swap（4.33 FPS）。清除后输出指标移除，后端退出成功 join。所有效果与作者资源分辨率均保留。**该次运行未达到 30 FPS，不代表日用就绪。** 当前 GPU 计划 500,230,580 字节是逻辑并集，重叠的 pool/私有诊断视图不能相加。私有最终 manifest 记录 shell SHA-256 `09857b830cc0d2147c0ffb7ec32aaff0cbac6928d8a094a461d4a40b3de5355d` 及 probe SHA-256 `bfff0c23a542c63fcc70cea1d949618813a8d869dd548f2085352511a9aa88c8`。
+最终原生 engine-only probe 在 AMD 680M 的嵌套 niri 上以 1920×1080 渲染未修改的默认图。30 FPS 上限下，三十秒动画完成 136 次 swap（4.53 FPS）；三十秒暂停的 draw/swap/callback 均为零，恢复后三秒完成十三次 swap（4.33 FPS）。清除后输出指标移除，后端退出成功 join。所有效果与作者资源分辨率均保留。**该次运行未达到 30 FPS，不代表日用就绪。** 当前 GPU 计划 500,230,580 字节是逻辑并集，重叠的 pool/私有诊断视图不能相加。私有最终 manifest 记录 shell SHA-256 `09857b830cc0d2147c0ffb7ec32aaff0cbac6928d8a094a461d4a40b3de5355d` 及 probe SHA-256 `42ee6e3d9e04f5f20357107e52ad7e2ff72a42c4ac0a4d84dabf1460701fe29a`。
 
 真实原生布局检查通过了英/中文 380 像素视口，图片控件宽 230 像素，控件内部及按钮均无溢出。语言通过真实 Settings 流程切换，运行期间源码不变，未注入 DOM 样式，自有窗口/工作区清理通过。现有 catalog toolbar 溢出不在此图片编辑器检查范围内。
 
