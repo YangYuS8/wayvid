@@ -68,24 +68,64 @@ pub struct PropertyDefinition {
     pub options: Vec<PropertyOption>,
 }
 
+/// A non-value, author-declared section. Its following controls belong to it
+/// until the next section; controls before the first group remain ungrouped.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PropertyGroup {
+    pub name: String,
+    pub label: String,
+    pub order: Option<f64>,
+    pub members: Vec<String>,
+}
+
+enum PropertyEntry {
+    Control(PropertyDefinition),
+    Group(PropertyGroup),
+}
+
+impl PropertyEntry {
+    fn sort_key(&self) -> (f64, &str) {
+        match self {
+            Self::Control(control) => (control.order.unwrap_or(0.0), &control.name),
+            Self::Group(group) => (group.order.unwrap_or(0.0), &group.name),
+        }
+    }
+}
+
 /// List validated author controls in order, with a stable name tie-breaker.
 ///
 /// This CPU-only operation performs no resource I/O or code evaluation. Scene
 /// preparation still owns a separate, shared project-and-resources traversal
 /// budget through `ProjectProperties`.
 pub fn property_definitions(project: &Value) -> Result<Vec<PropertyDefinition>> {
+    Ok(property_layout(project)?.0)
+}
+
+/// Groups are presentation metadata, never property values or script inputs.
+pub fn property_groups(project: &Value) -> Result<Vec<PropertyGroup>> {
+    Ok(property_layout(project)?.1)
+}
+
+fn property_layout(project: &Value) -> Result<(Vec<PropertyDefinition>, Vec<PropertyGroup>)> {
     let properties = ProjectProperties::from_project(project)?;
     let Some(declarations) = properties.declarations else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), Vec::new()));
     };
-    let mut definitions = Vec::with_capacity(declarations.len());
+    let mut entries = Vec::with_capacity(declarations.len());
     for (name, declaration) in declarations {
         if name.is_empty() || name.len() > 256 {
             return Err(invalid("invalid project property name"));
         }
-        let declaration = validated_declaration(declaration)?;
-        let label = declaration
-            .object
+        let control = if declaration["type"] == "group" {
+            None
+        } else {
+            Some(validated_declaration(declaration)?)
+        };
+        let object = match &control {
+            Some(control) => control.object,
+            None => validated_group(declaration)?,
+        };
+        let label = object
             .get("text")
             .map(|text| {
                 text.as_str()
@@ -94,8 +134,17 @@ pub fn property_definitions(project: &Value) -> Result<Vec<PropertyDefinition>> 
             })
             .transpose()?
             .unwrap_or(name);
-        let order = declaration.object.get("order").map(scalar).transpose()?;
-        definitions.push(PropertyDefinition {
+        let order = object.get("order").map(scalar).transpose()?;
+        let Some(declaration) = control else {
+            entries.push(PropertyEntry::Group(PropertyGroup {
+                name: name.clone(),
+                label: label.to_owned(),
+                order,
+                members: Vec::new(),
+            }));
+            continue;
+        };
+        entries.push(PropertyEntry::Control(PropertyDefinition {
             name: name.clone(),
             label: label.to_owned(),
             kind: declaration.kind,
@@ -105,15 +154,61 @@ pub fn property_definitions(project: &Value) -> Result<Vec<PropertyDefinition>> 
             step: declaration.step,
             order,
             options: declaration.options,
-        });
+        }));
     }
-    definitions.sort_by(|left, right| {
-        left.order
-            .unwrap_or(0.0)
-            .total_cmp(&right.order.unwrap_or(0.0))
-            .then_with(|| left.name.cmp(&right.name))
+    entries.sort_by(|left, right| {
+        let (left_order, left_name) = left.sort_key();
+        let (right_order, right_name) = right.sort_key();
+        left_order
+            .total_cmp(&right_order)
+            .then_with(|| left_name.cmp(right_name))
     });
-    Ok(definitions)
+    let mut definitions = Vec::new();
+    let mut groups: Vec<PropertyGroup> = Vec::new();
+    for entry in entries {
+        match entry {
+            PropertyEntry::Group(group) => groups.push(group),
+            PropertyEntry::Control(control) => {
+                if let Some(group) = groups.last_mut() {
+                    group.members.push(control.name.clone());
+                }
+                definitions.push(control);
+            }
+        }
+    }
+    Ok((definitions, groups))
+}
+
+fn validated_group(declaration: &Value) -> Result<&Map<String, Value>> {
+    let object = declaration
+        .as_object()
+        .ok_or_else(|| invalid("invalid project property group"))?;
+    if object
+        .keys()
+        .any(|key| !matches!(key.as_str(), "type" | "text" | "order" | "index" | "value"))
+    {
+        return Err(invalid("unsupported project property group metadata"));
+    }
+    // Native groups may carry an empty placeholder, but it is not a value.
+    if object.get("value").is_some_and(|value| value != "") {
+        return Err(invalid("project property groups cannot declare values"));
+    }
+    if object
+        .get("index")
+        .is_some_and(|index| index.as_u64().is_none())
+    {
+        return Err(invalid("invalid project property group index"));
+    }
+    if object.get("text").is_some_and(|text| {
+        text.as_str()
+            .is_none_or(|label| label.len() > MAX_LABEL_BYTES)
+    }) {
+        return Err(invalid("invalid project property label"));
+    }
+    if let Some(order) = object.get("order") {
+        scalar(order)?;
+    }
+    Ok(object)
 }
 
 /// Validate every override before replacing any author value.
@@ -132,6 +227,9 @@ pub fn apply_property_overrides(
     let definitions = property_definitions(project)?;
     let mut updates = Vec::with_capacity(overrides.len().min(MAX_PROPERTIES));
     for (name, candidate) in overrides {
+        if project["general"]["properties"][name]["type"] == "group" {
+            return Err(invalid("property group metadata cannot be overridden"));
+        }
         let definition = definitions
             .iter()
             .find(|definition| definition.name == *name)
@@ -339,6 +437,10 @@ impl<'a> ProjectProperties<'a> {
         let mut snapshot = script::PropertySnapshot::new();
         if let Some(declarations) = self.declarations {
             for (name, declaration) in declarations {
+                if declaration["type"] == "group" {
+                    validated_group(declaration)?;
+                    continue;
+                }
                 match validated_declaration(declaration)?.value {
                     PropertyValue::Bool(value) => {
                         snapshot.insert(name.clone(), script::ScalarProperty::Bool(value));
@@ -471,6 +573,9 @@ fn validated_declaration(declaration: &Value) -> Result<ValidatedDeclaration<'_>
     let object = declaration
         .as_object()
         .ok_or_else(|| invalid("invalid project property declaration"))?;
+    if object.get("type").and_then(Value::as_str) == Some("group") {
+        return Err(invalid("property group metadata cannot be used as a value"));
+    }
     if object.keys().any(|key| {
         matches!(
             key.to_ascii_lowercase().as_str(),
@@ -693,6 +798,207 @@ mod tests {
             "selection":{"type":"combo","text":"Author selection","value":"first",
                 "options":[{"label":"First choice","value":"first"},{"label":"Second choice","value":"second"}]}
         }}})
+    }
+
+    fn grouped_project() -> Value {
+        json!({"general":{"properties":{
+            "before":{"type":"bool","value":true,"order":0},
+            "elements":{"type":"group","value":"","text":"ELEMENTS","index":1,"order":101},
+            "enabled":{"type":"bool","value":false,"order":102},
+            "gain":{"type":"slider","value":4,"order":103},
+            "crt":{"type":"group","value":"","text":"CRT","index":7,"order":107},
+            "noise":{"type":"slider","value":0.25,"order":108}
+        }}})
+    }
+
+    #[test]
+    fn groups_partition_following_controls_without_creating_values() {
+        let project = grouped_project();
+        let definitions = property_definitions(&project).unwrap();
+        assert_eq!(
+            definitions
+                .iter()
+                .map(|entry| entry.name.as_str())
+                .collect::<Vec<_>>(),
+            ["before", "enabled", "gain", "noise"]
+        );
+        assert_eq!(
+            serde_json::to_value(property_groups(&project).unwrap()).unwrap(),
+            json!([
+                {"name":"elements","label":"ELEMENTS","order":101.0,"members":["enabled","gain"]},
+                {"name":"crt","label":"CRT","order":107.0,"members":["noise"]}
+            ])
+        );
+        assert!(property_groups(&editable_project()).unwrap().is_empty());
+        assert!(property_groups(&json!({})).unwrap().is_empty());
+        // Group labels come from text; the native empty placeholder is never
+        // exposed as the title or a typed value.
+        assert_eq!(project["general"]["properties"]["elements"]["value"], "");
+        assert_eq!(
+            project["general"]["properties"]["elements"]["text"],
+            "ELEMENTS"
+        );
+    }
+
+    #[test]
+    fn group_order_ties_empty_sections_and_duplicate_labels_are_stable() {
+        let project = json!({"general":{"properties":{
+            "a":{"type":"bool","value":true},
+            "b":{"type":"group","text":""},
+            "c":{"type":"bool","value":false,"order":0},
+            "d":{"type":"group","value":"","text":"same","order":0},
+            "e":{"type":"group","value":"","text":"same","order":0},
+            "f":{"type":"slider","value":1,"order":0}
+        }}});
+        let groups = property_groups(&project).unwrap();
+        assert_eq!(
+            groups
+                .iter()
+                .map(|group| group.name.as_str())
+                .collect::<Vec<_>>(),
+            ["b", "d", "e"]
+        );
+        assert_eq!(groups[0].label, "");
+        assert_eq!(groups[0].order, None);
+        assert_eq!(groups[0].members, ["c"]);
+        assert!(groups[1].members.is_empty());
+        assert_eq!(groups[1].label, groups[2].label);
+        assert_eq!(groups[2].members, ["f"]);
+        assert_eq!(
+            property_definitions(&project)
+                .unwrap()
+                .iter()
+                .map(|entry| entry.name.as_str())
+                .collect::<Vec<_>>(),
+            ["a", "c", "f"]
+        );
+    }
+
+    #[test]
+    fn group_metadata_is_bounded_and_cannot_hide_dynamic_or_value_fields() {
+        for declaration in [
+            json!({"type":"group","value":false}),
+            json!({"type":"group","value":1}),
+            json!({"type":"group","value":"other"}),
+            json!({"type":"group","value":null}),
+            json!({"type":"group","value":[]}),
+            json!({"type":"group","value":{"user":"enabled","value":""}}),
+            json!({"type":"group","value":{"script":"export function update(v){return v;}","value":0}}),
+            json!({"type":"group","text":{"user":"enabled","value":"Title"}}),
+            json!({"type":"group","text":"x".repeat(MAX_LABEL_BYTES + 1)}),
+            json!({"type":"group","order":null}),
+            json!({"type":"group","order":"101"}),
+            json!({"type":"group","index":-1}),
+            json!({"type":"group","index":0.5}),
+            json!({"type":"group","user":"enabled"}),
+            json!({"type":"group","condition":"enabled.value == true"}),
+        ] {
+            let project = json!({"general":{"properties":{"section":declaration}}});
+            assert!(
+                property_definitions(&project).is_err(),
+                "accepted {project}"
+            );
+            assert!(property_groups(&project).is_err());
+        }
+        for name in [String::new(), "x".repeat(257)] {
+            let project = json!({"general":{"properties":{name:{"type":"group"}}}});
+            assert!(property_groups(&project).is_err());
+        }
+        let mut project = grouped_project();
+        let declarations = project["general"]["properties"].as_object_mut().unwrap();
+        for index in declarations.len()..MAX_PROPERTIES {
+            declarations.insert(format!("section{index}"), json!({"type":"group"}));
+        }
+        assert!(property_groups(&project).is_ok());
+        project["general"]["properties"]["oneTooMany"] = json!({"type":"group"});
+        assert!(property_groups(&project).is_err());
+        // Use a retained project so the shared traversal budget includes the
+        // headers and their metadata before any resource is visited.
+        let project = grouped_project();
+        let properties = ProjectProperties::from_project(&project).unwrap();
+        let mut ungrouped = project.clone();
+        let declarations = ungrouped["general"]["properties"].as_object_mut().unwrap();
+        declarations.remove("elements");
+        declarations.remove("crt");
+        let without_headers = ProjectProperties::from_project(&ungrouped).unwrap();
+        assert!(properties.remaining_nodes.get() < without_headers.remaining_nodes.get());
+        let mut resource = Value::Array(vec![Value::Null; MAX_NODES]);
+        assert!(properties.resolve_document(&mut resource).is_err());
+    }
+
+    #[test]
+    fn groups_reject_value_bindings_and_all_overrides_before_mutation() {
+        let original = grouped_project();
+        for binding in [
+            json!({"user":"elements","value":true}),
+            json!({"user":"elements","value":""}),
+            json!({"user":{"name":"elements","condition":""},"value":false}),
+        ] {
+            assert_eq!(
+                unsupported_feature_code(&resolve(original.clone(), binding).unwrap_err()),
+                Some("property_binding")
+            );
+        }
+        assert!(
+            ProjectProperties::from_project(&original)
+                .unwrap()
+                .shader_value("elements")
+                .is_err()
+        );
+        for value in [json!(""), json!(true), json!(null)] {
+            let mut project = original.clone();
+            assert!(
+                apply_property_overrides(
+                    &mut project,
+                    &BTreeMap::from([("before".into(), json!(false)), ("elements".into(), value),])
+                )
+                .is_err()
+            );
+            assert_eq!(project, original);
+        }
+        let mut project = original.clone();
+        apply_property_overrides(&mut project, &BTreeMap::from([("gain".into(), json!(6))]))
+            .unwrap();
+        assert_eq!(project["general"]["properties"]["gain"]["value"], 6);
+        assert_eq!(
+            property_groups(&project).unwrap(),
+            property_groups(&original).unwrap()
+        );
+    }
+
+    #[test]
+    fn scalar_scripts_with_groups_receive_only_value_controls() {
+        let mut project = grouped_project();
+        let source = "let gain=0; export function applyUserProperties(p){gain=p.gain;} export function update(v){return gain/10;}";
+        let document = json!({"alpha":{"script":source,"value":1}});
+        assert_eq!(
+            resolve(project.clone(), document.clone()).unwrap()["alpha"],
+            0.4
+        );
+        apply_property_overrides(&mut project, &BTreeMap::from([("gain".into(), json!(7))]))
+            .unwrap();
+        assert_eq!(resolve(project.clone(), document).unwrap()["alpha"], 0.7);
+        let source = "let gain=0; export function applyUserProperties(p){gain=p.elements;} export function update(v){return gain;}";
+        assert_eq!(
+            unsupported_feature_code(
+                &resolve(project, json!({"script":source,"value":1})).unwrap_err()
+            ),
+            Some("scenescript")
+        );
+    }
+
+    #[test]
+    fn group_support_does_not_admit_other_native_control_kinds() {
+        let mut project = grouped_project();
+        for kind in ["scenetexture", "textinput", "usershortcut", "unknown"] {
+            project["general"]["properties"]["custombackground"] =
+                json!({"type":kind,"value":"","order":106});
+            assert_eq!(
+                unsupported_feature_code(&property_definitions(&project).unwrap_err()),
+                Some("property_binding")
+            );
+            assert!(property_groups(&project).is_err());
+        }
     }
 
     #[test]

@@ -31,8 +31,8 @@ use sha2::{Digest, Sha256};
 
 pub(crate) use audio::SceneAudio;
 pub use properties::{
-    PropertyDefinition, PropertyKind, PropertyOption, PropertyValue, apply_property_overrides,
-    property_definitions,
+    PropertyDefinition, PropertyGroup, PropertyKind, PropertyOption, PropertyValue,
+    apply_property_overrides, property_definitions, property_groups,
 };
 pub use renderer::SceneRenderer;
 
@@ -1911,6 +1911,90 @@ mod tests {
     }
 
     #[test]
+    fn grouped_project_prepares_scalar_controls_and_rejects_group_values() {
+        let fixture = Fixture::new();
+        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"elements":{"type":"group","text":"ELEMENTS","value":"","order":101},"opacity":{"type":"slider","value":0.4,"min":0,"max":1,"order":102}}}}"#);
+        let source = "let opacity=0;export function applyUserProperties(p){opacity=p.opacity;}export function update(v){return opacity;}";
+        fixture.scene(
+            serde_json::json!([{"image":"models/image.json","alpha":{"script":source,"value":1}}]),
+        );
+        let before = std::fs::read(fixture.0.join("project.json")).unwrap();
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(prepared.layers[0].tint[3], 0.4);
+        assert!(prepared.scripts.is_none());
+        let prepared = PreparedScene::prepare_with_properties(
+            &fixture.0,
+            None,
+            &BTreeMap::from([("opacity".into(), serde_json::json!(0.8))]),
+        )
+        .unwrap();
+        assert_eq!(prepared.layers[0].tint[3], 0.8);
+        let definitions = PreparedScene::property_definitions(&fixture.0, None).unwrap();
+        assert_eq!(definitions.len(), 1);
+        assert_eq!(definitions[0].name, "opacity");
+        let error = PreparedScene::prepare_with_properties(
+            &fixture.0,
+            None,
+            &BTreeMap::from([
+                ("elements".into(), serde_json::json!("")),
+                ("opacity".into(), serde_json::json!(0.9)),
+            ]),
+        )
+        .unwrap_err();
+        assert_eq!(unsupported_feature_code(&error), Some("property_binding"));
+        fixture.scene(serde_json::json!([{"image":"models/image.json","alpha":{"user":"elements","value":1}}]));
+        assert_eq!(
+            unsupported_feature_code(&PreparedScene::prepare(&fixture.0, None).unwrap_err()),
+            Some("property_binding")
+        );
+        fixture.scene(serde_json::json!([{"image":"models/image.json","alpha":{"script":"let opacity=0;export function applyUserProperties(p){opacity=p.elements;}export function update(v){return opacity;}","value":1}}]));
+        assert_eq!(
+            unsupported_feature_code(&PreparedScene::prepare(&fixture.0, None).unwrap_err()),
+            Some("scenescript")
+        );
+        assert_eq!(
+            std::fs::read(fixture.0.join("project.json")).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn grouped_dynamic_scripts_apply_control_snapshots_without_header_values() {
+        let fixture = Fixture::new();
+        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"elements":{"type":"group","text":"ELEMENTS","value":""},"opacity":{"type":"slider","value":0.4,"min":0,"max":1}}}}"#);
+        let source = "export function applyUserProperties(p){thisLayer.alpha=p.opacity;}export function update(){}";
+        fixture.scene(serde_json::json!([{"image":"models/image.json","visible":{"script":source,"value":true}}]));
+        let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
+        assert_eq!(
+            prepared.scripts.as_ref().unwrap().initial_states()[0].alpha,
+            0.4
+        );
+        let prepared = PreparedScene::prepare_with_properties(
+            &fixture.0,
+            None,
+            &BTreeMap::from([("opacity".into(), serde_json::json!(0.75))]),
+        )
+        .unwrap();
+        assert_eq!(
+            prepared.scripts.as_ref().unwrap().initial_states()[0].alpha,
+            0.75
+        );
+        fixture.scene(serde_json::json!([{"image":"models/image.json","visible":{"script":"export function applyUserProperties(p){thisLayer.alpha=p.elements;}export function update(){}","value":true}}]));
+        assert_eq!(
+            unsupported_feature_code(&PreparedScene::prepare(&fixture.0, None).unwrap_err()),
+            Some("scenescript")
+        );
+        // These are the observed group placeholders plus the still-unsupported
+        // native texture control from 342; group support cannot make it runnable.
+        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"glitch1":{"type":"group","index":1,"order":101,"text":"ELEMENTS","value":""},"crt":{"type":"group","index":7,"order":107,"text":"CRT","value":""},"custombackground":{"type":"scenetexture","order":106,"value":""}}}}"#);
+        fixture.scene(serde_json::json!([{"image":"models/image.json"}]));
+        assert_eq!(
+            unsupported_feature_code(&PreparedScene::prepare(&fixture.0, None).unwrap_err()),
+            Some("property_binding")
+        );
+    }
+
+    #[test]
     fn invalid_reachable_property_resources_fail_before_gl_initialization() {
         let fixture = Fixture::new();
         fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"flag":{"type":"bool","value":true}}}}"#);
@@ -2078,7 +2162,7 @@ mod tests {
     #[test]
     fn legacy_user_shader_colors_use_validated_project_choices() {
         let fixture = Fixture::new();
-        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"flagcolor":{"type":"color","value":"0.1 0.2 0.3"}}}}"#);
+        fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"elements":{"type":"group","text":"ELEMENTS","value":""},"flagcolor":{"type":"color","value":"0.1 0.2 0.3"}}}}"#);
         fixture.legacy_shader("flag", "uniform sampler2D g_Texture0;\nuniform sampler2D g_Texture1;\nuniform sampler2D g_Texture2;\nuniform vec3 g_Color1; // {\"material\":\"color1\",\"default\":\"1 1 1\"}\nvarying vec2 v_TexCoord;\nvoid main(){gl_FragColor=texSample2D(g_Texture0,v_TexCoord)*texSample2D(g_Texture1,v_TexCoord)*texSample2D(g_Texture2,v_TexCoord)*vec4(g_Color1,1);}");
         fixture.write("materials/image.json", br#"{"passes":[{"shader":"flag","textures":["image","image","image"],"constantshadervalues":{"color1":"1 0 0"},"usershadervalues":{"flagcolor":"color1"}}]}"#);
         let prepared = PreparedScene::prepare(&fixture.0, None).unwrap();
@@ -2095,6 +2179,7 @@ mod tests {
         );
         for mapping in [
             serde_json::json!({"missing":"color1"}),
+            serde_json::json!({"elements":"color1"}),
             serde_json::json!({"flagcolor":"unknown"}),
             serde_json::json!({"flagcolor":{}}),
         ] {

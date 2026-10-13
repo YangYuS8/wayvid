@@ -7,12 +7,17 @@
 mod inventory;
 mod package;
 mod texture;
+mod timed_atlas;
 
 pub use inventory::*;
 pub use package::{PackageEntry, ResourceOrigin, SceneAssets, SceneResource};
 pub use texture::{
     AnimationFrame, AnimationMetadata, MipMetadata, Texture, TextureInspectionBudget,
     TextureMetadata,
+};
+pub use timed_atlas::{
+    AtlasMemoryBudget, AtlasMemoryUsage, Bc3RegionLayout, PixelRect, TimedAtlasFrame,
+    TimedAtlasRegion, TimedAtlasSource,
 };
 
 /// Hard allocation bound for a single resource read (including video blobs).

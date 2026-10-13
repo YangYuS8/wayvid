@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import { Button } from '$lib/ui/button';
-  import { copy } from '$lib/i18n';
+  import { copy, formatCopy } from '$lib/i18n';
   import { loadSceneProperties, updateSceneProperties } from '$lib/ipc';
-  import type { ActionOutcome, ScenePropertiesSnapshot, ScenePropertyValue } from '$lib/types';
+  import type { ActionOutcome, ScenePropertiesSnapshot, SceneProperty, ScenePropertyValue } from '$lib/types';
 
   interface Props {
     itemId: string;
@@ -17,6 +17,7 @@
   let expanded = $state(false);
   let snapshot = $state<ScenePropertiesSnapshot | null>(null);
   let draft = $state<Record<string, boolean | string | [number, number, number]>>({});
+  let groupExpanded = $state(new Map<string, boolean>());
   let loading = $state(false);
   let saving = $state(false);
   let error = $state<string | null>(null);
@@ -30,6 +31,10 @@
   const panelCopy = $derived($copy.components.sceneProperties);
   const controlsDisabled = $derived(disabled || loading || saving);
   const values = $derived(readDraft());
+  const groupedNames = $derived(new Set(snapshot?.groups.flatMap((group) => group.members) ?? []));
+  const ungrouped = $derived(snapshot?.properties.filter((property) => !groupedNames.has(property.name)) ?? []);
+  const propertyControls = $derived(new Map(snapshot?.properties.map((property, index) =>
+    [property.name, { property, inputId: `${panelId}-${index}` }] as const) ?? []));
 
   $effect(() => {
     const key = selectionKey;
@@ -40,6 +45,7 @@
       expanded = false;
       snapshot = null;
       draft = {};
+      groupExpanded = new Map();
       loading = false;
       saving = false;
       error = null;
@@ -60,9 +66,11 @@
   function validSnapshot(value: unknown, expectedItem: string, expectedMonitor: string): value is ScenePropertiesSnapshot {
     if (!value || typeof value !== 'object') return false;
     const candidate = value as ScenePropertiesSnapshot;
-    if (candidate.itemId !== expectedItem || candidate.monitorId !== expectedMonitor || !Array.isArray(candidate.properties)) return false;
+    if (candidate.itemId !== expectedItem || candidate.monitorId !== expectedMonitor ||
+        !Array.isArray(candidate.properties) || !Array.isArray(candidate.groups) ||
+        candidate.properties.length + candidate.groups.length > 256) return false;
     const names = new Set<string>();
-    return candidate.properties.every((property) => {
+    if (!candidate.properties.every((property) => {
       if (!property || typeof property !== 'object' || typeof property.name !== 'string' || !property.name ||
           typeof property.label !== 'string' || names.has(property.name)) return false;
       names.add(property.name);
@@ -85,7 +93,27 @@
       return property.kind === 'slider' && typeof property.value === 'number' && Number.isFinite(property.value) &&
         (property.min === null || property.value >= property.min) &&
         (property.max === null || property.value <= property.max);
+    })) return false;
+    const groupNames = new Set<string>();
+    const members = new Set<string>();
+    return candidate.groups.every((group) => {
+      if (!group || typeof group !== 'object' || typeof group.name !== 'string' || !group.name ||
+          names.has(group.name) || groupNames.has(group.name) || typeof group.label !== 'string' ||
+          !finiteOrNull(group.order) || !Array.isArray(group.members)) return false;
+      groupNames.add(group.name);
+      return group.members.every((name) => {
+        if (typeof name !== 'string' || !names.has(name) || members.has(name)) return false;
+        members.add(name);
+        return true;
+      });
     });
+  }
+
+  function toggleGroup(name: string) {
+    if (controlsDisabled) return;
+    const next = new Map(groupExpanded);
+    next.set(name, !(groupExpanded.get(name) ?? true));
+    groupExpanded = next;
   }
 
   function readDraft(): Record<string, ScenePropertyValue> | null {
@@ -132,6 +160,7 @@
     const result = await loadSceneProperties(currentMonitor, currentItem);
     if (!isCurrent(token, key)) return;
     if (!validSnapshot(result, currentItem, currentMonitor)) throw new Error(panelCopy.invalidSnapshot);
+    groupExpanded = new Map(result.groups.map((group) => [group.name, groupExpanded.get(group.name) ?? true]));
     snapshot = result;
     draft = Object.fromEntries(result.properties.map((property) => [property.name,
       property.kind === 'slider' ? String(property.value) : property.kind === 'color' ? [...property.value] : property.value
@@ -189,6 +218,43 @@
   }
 </script>
 
+{#snippet propertyControl(property: SceneProperty, inputId: string)}
+  {#if property.kind === 'bool'}
+    <label class="flex min-w-0 items-start gap-2 text-sm" for={inputId}>
+      <input id={inputId} type="checkbox" checked={draft[property.name] as boolean} disabled={controlsDisabled}
+        onchange={(event) => edit(property.name, event.currentTarget.checked)}
+        class="mt-1 h-4 w-4 shrink-0 rounded border-input focus:ring-ring" />
+      <span class="lwe-wrap-safe">{property.label}</span>
+    </label>
+  {:else if property.kind === 'slider'}
+    <label class="grid min-w-0 gap-1.5 text-sm" for={inputId}>
+      <span class="lwe-wrap-safe">{property.label}</span>
+      <input id={inputId} type="number" value={draft[property.name] as string} disabled={controlsDisabled}
+        min={property.min ?? undefined} max={property.max ?? undefined} step={property.step ?? 'any'}
+        oninput={(event) => edit(property.name, event.currentTarget.value)}
+        class="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
+    </label>
+  {:else if property.kind === 'combo'}
+    <label class="grid min-w-0 gap-1.5 text-sm" for={inputId}>
+      <span class="lwe-wrap-safe">{property.label}</span>
+      <select id={inputId} value={draft[property.name] as string} disabled={controlsDisabled}
+        onchange={(event) => edit(property.name, event.currentTarget.value)}
+        class="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+        {#each property.options as option (option.value)}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+    </label>
+  {:else}
+    <label class="grid min-w-0 gap-1.5 text-sm" for={inputId}>
+      <span class="lwe-wrap-safe">{property.label}</span>
+      <input id={inputId} type="color" value={hexColor(draft[property.name] as [number, number, number])}
+        disabled={controlsDisabled} oninput={(event) => edit(property.name, rgbColor(event.currentTarget.value))}
+        class="h-9 w-20 rounded-md border border-input bg-background p-1 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
+    </label>
+  {/if}
+{/snippet}
+
 <section class="lwe-subpanel gap-3" data-detail-section="scene-properties" aria-busy={loading || saving}>
   <Button variant="outline" class="h-auto min-h-9 justify-between whitespace-normal text-left" onclick={toggle}
     aria-label={panelCopy.title} aria-expanded={expanded} aria-controls={panelId} disabled={disabled || saving}>
@@ -201,47 +267,40 @@
       {#if snapshot}
         {#if snapshot.properties.length === 0}
           <p class="text-sm text-muted-foreground">{panelCopy.empty}</p>
-        {:else}
+        {/if}
+        {#if snapshot.properties.length > 0 || snapshot.groups.length > 0}
           <fieldset class="grid min-w-0 gap-3" disabled={controlsDisabled}>
             <legend class="sr-only">{panelCopy.title}</legend>
-            {#each snapshot.properties as property, index (property.name)}
-              {@const inputId = `${panelId}-${index}`}
-              {#if property.kind === 'bool'}
-                <label class="flex min-w-0 items-start gap-2 text-sm" for={inputId}>
-                  <input id={inputId} type="checkbox" checked={draft[property.name] as boolean} disabled={controlsDisabled}
-                    onchange={(event) => edit(property.name, event.currentTarget.checked)}
-                    class="mt-1 h-4 w-4 shrink-0 rounded border-input focus:ring-ring" />
-                  <span class="lwe-wrap-safe">{property.label}</span>
-                </label>
-              {:else if property.kind === 'slider'}
-                <label class="grid min-w-0 gap-1.5 text-sm" for={inputId}>
-                  <span class="lwe-wrap-safe">{property.label}</span>
-                  <input id={inputId} type="number" value={draft[property.name] as string} disabled={controlsDisabled}
-                    min={property.min ?? undefined} max={property.max ?? undefined} step={property.step ?? 'any'}
-                    oninput={(event) => edit(property.name, event.currentTarget.value)}
-                    class="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
-                </label>
-              {:else if property.kind === 'combo'}
-                <label class="grid min-w-0 gap-1.5 text-sm" for={inputId}>
-                  <span class="lwe-wrap-safe">{property.label}</span>
-                  <select id={inputId} value={draft[property.name] as string} disabled={controlsDisabled}
-                    onchange={(event) => edit(property.name, event.currentTarget.value)}
-                    class="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-                    {#each property.options as option (option.value)}
-                      <option value={option.value}>{option.label}</option>
+            {#each ungrouped as property (property.name)}
+              {@render propertyControl(property, propertyControls.get(property.name)!.inputId)}
+            {/each}
+            {#each snapshot.groups as group, index (group.name)}
+              {@const headingId = `${panelId}-group-heading-${index}`}
+              {@const contentId = `${panelId}-group-content-${index}`}
+              {@const open = groupExpanded.get(group.name) ?? true}
+              <section class="grid min-w-0 gap-3 border-t pt-3" aria-labelledby={headingId} data-scene-property-group={group.name}>
+                <h4 class="min-w-0">
+                  <Button id={headingId} variant="ghost" class="h-auto min-h-9 w-full justify-between whitespace-normal px-0 text-left"
+                    onclick={() => toggleGroup(group.name)} aria-expanded={open} aria-controls={contentId} disabled={controlsDisabled}>
+                    <span class="lwe-wrap-safe">{group.label.trim() ? group.label : formatCopy(panelCopy.unnamedGroup, { number: index + 1 })}</span>
+                    <span class="shrink-0" aria-hidden="true">{open ? '−' : '+'}</span>
+                  </Button>
+                </h4>
+                <div id={contentId} hidden={!open}>
+                  <div class="grid min-w-0 gap-3">
+                    {#each group.members as name (name)}
+                      {@const control = propertyControls.get(name)!}
+                      {@render propertyControl(control.property, control.inputId)}
+                    {:else}
+                      <p class="text-sm text-muted-foreground">{panelCopy.emptyGroup}</p>
                     {/each}
-                  </select>
-                </label>
-              {:else}
-                <label class="grid min-w-0 gap-1.5 text-sm" for={inputId}>
-                  <span class="lwe-wrap-safe">{property.label}</span>
-                  <input id={inputId} type="color" value={hexColor(draft[property.name] as [number, number, number])}
-                    disabled={controlsDisabled} oninput={(event) => edit(property.name, rgbColor(event.currentTarget.value))}
-                    class="h-9 w-20 rounded-md border border-input bg-background p-1 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
-                </label>
-              {/if}
+                  </div>
+                </div>
+              </section>
             {/each}
           </fieldset>
+        {/if}
+        {#if snapshot.properties.length > 0}
           {#if !values}<p class="lwe-warning-banner lwe-wrap-safe" role="alert">{panelCopy.invalidValues}</p>{/if}
           <div class="flex flex-wrap gap-2">
             <Button onclick={() => save(false)} disabled={controlsDisabled || !values}>{saving ? panelCopy.saving : panelCopy.save}</Button>

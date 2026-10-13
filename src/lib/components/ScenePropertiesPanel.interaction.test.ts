@@ -12,10 +12,26 @@ vi.mock('$lib/ipc', () => ({ loadSceneProperties: vi.fn(), updateSceneProperties
 
 const fixture = (monitorId = 'DP-1', itemId = 'scene-1'): ScenePropertiesSnapshot => ({
   itemId, monitorId,
+  groups: [],
   properties: [
     { name: 'hdr', label: 'Author HDR label', kind: 'bool', value: true, min: null, max: null, step: null, order: 0 },
     { name: 'strength', label: 'Author brightness', kind: 'slider', value: 1.5, min: 0, max: 5, step: 0.5, order: 1 },
     { name: 'tint', label: '作者颜色', kind: 'color', value: [0.25, 0.5, 1], min: null, max: null, step: null, order: 2 }
+  ]
+});
+
+const groupedFixture = (monitorId = 'DP-1', itemId = 'scene-1'): ScenePropertiesSnapshot => ({
+  ...fixture(monitorId, itemId),
+  properties: [
+    ...fixture().properties,
+    { name: 'selection', label: 'Author background', kind: 'combo', value: 'first',
+      options: [{ label: 'First image', value: 'first' }, { label: 'Second image', value: 'second' }],
+      min: null, max: null, step: null, order: 6 }
+  ],
+  groups: [
+    { name: 'appearance', label: 'Author visuals', order: 0.5, members: ['strength', 'tint'] },
+    { name: 'spacing', label: '', order: 3, members: [] },
+    { name: 'choices', label: 'Author visuals', order: 5, members: ['selection'] }
   ]
 });
 
@@ -56,6 +72,141 @@ const edit = async (type: string, value: string) => {
 };
 
 describe('ScenePropertiesPanel interactions', () => {
+  it('renders author-ordered sections, keeps preceding controls ungrouped, and allows duplicate or blank labels', async () => {
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValue(groupedFixture());
+    panel = await mountPanel();
+    await open();
+    const groups = [...panel.target.querySelectorAll<HTMLElement>('[data-scene-property-group]')];
+    expect(groups.map((group) => group.dataset.scenePropertyGroup)).toEqual(['appearance', 'spacing', 'choices']);
+    expect(field('checkbox').closest('[data-scene-property-group]')).toBeNull();
+    expect(field('number').closest('[data-scene-property-group]')).toBe(groups[0]);
+    expect(field('color').closest('[data-scene-property-group]')).toBe(groups[0]);
+    expect(panel.target.querySelector('select')!.closest('[data-scene-property-group]')).toBe(groups[2]);
+    expect(groups.map((group) => group.querySelector('button')!.textContent?.replace('−', '').trim()))
+      .toEqual(['Author visuals', 'Property group 2', 'Author visuals']);
+    expect(groups[1].textContent).toContain('This group has no editable properties');
+    const controls = [...panel.target.querySelectorAll('input, select')];
+    expect(new Set(controls.map((control) => control.id)).size).toBe(4);
+    expect(controls.every((control) => panel!.target.querySelector(`label[for="${control.id}"]`))).toBe(true);
+  });
+
+  it('uses focusable disclosure buttons with connected content and preserves a hidden draft after collapse', async () => {
+    const snapshot = groupedFixture();
+    snapshot.groups[0].name = '__proto__';
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValue(snapshot);
+    panel = await mountPanel();
+    await open();
+    await edit('number', '3.25');
+    const header = panel.target.querySelector<HTMLButtonElement>('[data-scene-property-group] button')!;
+    const content = panel.target.querySelector<HTMLElement>(`[id="${header.getAttribute('aria-controls')}"]`)!;
+    expect(header.tagName).toBe('BUTTON');
+    expect(header.type).toBe('button');
+    expect(header.tabIndex).toBe(0);
+    expect(header.getAttribute('aria-expanded')).toBe('true');
+    expect(content.hidden).toBe(false);
+    header.focus();
+    header.click();
+    await tick();
+    expect(document.activeElement).toBe(header);
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    expect(content.hidden).toBe(true);
+    expect(field('number').value).toBe('3.25');
+    header.click();
+    await tick();
+    expect(header.getAttribute('aria-expanded')).toBe('true');
+    expect(content.hidden).toBe(false);
+    expect(field('number').value).toBe('3.25');
+    expect(ipc.updateSceneProperties).not.toHaveBeenCalled();
+  });
+
+  it('saves only values from collapsed groups, retains failed edits, retries, and resets without changing disclosure state', async () => {
+    const initial = groupedFixture();
+    const saved = groupedFixture();
+    saved.properties[1] = { ...saved.properties[1], kind: 'slider', value: 3.25 };
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValueOnce(initial).mockResolvedValueOnce(saved).mockResolvedValueOnce(initial);
+    vi.mocked(ipc.updateSceneProperties).mockResolvedValueOnce(outcome({ ok: false, message: 'Preparation rejected' }))
+      .mockResolvedValueOnce(outcome()).mockResolvedValueOnce(outcome());
+    panel = await mountPanel();
+    await open();
+    await edit('number', '3.25');
+    const header = panel.target.querySelector<HTMLButtonElement>('[data-scene-property-group] button')!;
+    header.click();
+    await tick();
+    button(panel.target, 'Save and apply').click();
+    await waitForText(panel.target, 'Preparation rejected');
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    expect(field('number').value).toBe('3.25');
+    expect(ipc.loadSceneProperties).toHaveBeenCalledTimes(1);
+    expect(ipc.updateSceneProperties).toHaveBeenLastCalledWith('DP-1', 'scene-1', {
+      hdr: true, strength: 3.25, tint: [0.25, 0.5, 1], selection: 'first'
+    });
+    button(panel.target, 'Save and apply').click();
+    await vi.waitFor(() => expect(ipc.loadSceneProperties).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(button(panel!.target, 'Reset defaults').disabled).toBe(false));
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    button(panel.target, 'Reset defaults').click();
+    await vi.waitFor(() => expect(ipc.updateSceneProperties).toHaveBeenLastCalledWith('DP-1', 'scene-1', {}));
+    await vi.waitFor(() => expect(field('number').value).toBe('1.5'));
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('locks section disclosures during pending application and resets them when selecting another monitor', async () => {
+    const pending = deferred<ActionOutcome<null>>();
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValueOnce(groupedFixture()).mockResolvedValueOnce(groupedFixture('DP-2'));
+    vi.mocked(ipc.updateSceneProperties).mockReturnValue(pending.promise);
+    panel = await mountPanel();
+    await open();
+    const header = panel.target.querySelector<HTMLButtonElement>('[data-scene-property-group] button')!;
+    header.click();
+    await tick();
+    button(panel.target, 'Save and apply').click();
+    await tick();
+    expect(header.disabled).toBe(true);
+    header.click();
+    await tick();
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    panel.set({ monitorId: 'DP-2' });
+    await tick();
+    await open();
+    expect(panel.target.querySelector('[data-scene-property-group] button')!.getAttribute('aria-expanded')).toBe('true');
+    pending.resolve(outcome());
+    await tick();
+    expect(ipc.loadSceneProperties).toHaveBeenLastCalledWith('DP-2', 'scene-1');
+  });
+
+  it.each(['missing groups', 'wrong label', 'wrong order', 'unknown member', 'repeated member', 'overlapping groups', 'duplicate group', 'value name', 'wrong members'])('rejects malformed group metadata: %s', async (kind) => {
+    const invalid = groupedFixture() as unknown as { groups?: Record<string, unknown>[] };
+    if (kind === 'missing groups') delete invalid.groups;
+    else if (kind === 'wrong label') invalid.groups![0].label = 1;
+    else if (kind === 'wrong order') invalid.groups![0].order = 'first';
+    else if (kind === 'unknown member') invalid.groups![0].members = ['missing'];
+    else if (kind === 'repeated member') invalid.groups![0].members = ['strength', 'strength'];
+    else if (kind === 'overlapping groups') invalid.groups![2].members = ['strength'];
+    else if (kind === 'duplicate group') invalid.groups![2].name = 'appearance';
+    else if (kind === 'value name') invalid.groups![0].name = 'hdr';
+    else invalid.groups![0].members = 'strength';
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValue(invalid as unknown as ScenePropertiesSnapshot);
+    panel = await mountPanel();
+    button(panel.target, 'Scene properties').click();
+    await waitForText(panel.target, 'Invalid scene property data');
+    expect(panel.target.querySelector('input')).toBeNull();
+    expect(panel.target.querySelector('[data-scene-property-group]')).toBeNull();
+    expect(ipc.updateSceneProperties).not.toHaveBeenCalled();
+  });
+
+  it('renders non-value-only groups without offering an empty save', async () => {
+    const snapshot = groupedFixture();
+    snapshot.properties = [];
+    snapshot.groups = [snapshot.groups[1]];
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValue(snapshot);
+    panel = await mountPanel();
+    button(panel.target, 'Scene properties').click();
+    await waitForText(panel.target, 'Property group 1');
+    expect(panel.target.textContent).toContain('This scene has no supported editable properties');
+    expect(panel.target.textContent).not.toContain('Save and apply');
+    expect(panel.target.querySelector('input')).toBeNull();
+  });
+
   it('edits author combo options as strings and preserves the selection after a failed save', async () => {
     const snapshot = fixture();
     snapshot.properties.push({ name: 'selection', label: 'Author background', kind: 'combo', value: 'first',
@@ -360,6 +511,7 @@ describe('ScenePropertiesPanel interactions', () => {
   });
 
   it('shows bilingual control copy while retaining author-provided labels', async () => {
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValue(groupedFixture());
     setPreferredLanguage('zh-CN');
     panel = await mountPanel();
     button(panel.target, '场景属性').click();
@@ -368,5 +520,8 @@ describe('ScenePropertiesPanel interactions', () => {
     expect(button(panel.target, '恢复默认值')).toBeDefined();
     expect(panel.target.textContent).toContain('所选显示器');
     expect(panel.target.textContent).toContain('作者颜色');
+    expect(panel.target.textContent).toContain('Author visuals');
+    expect(panel.target.textContent).toContain('属性分组 2');
+    expect(panel.target.textContent).toContain('此分组没有可编辑属性');
   });
 });
