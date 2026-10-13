@@ -104,6 +104,21 @@ The unchanged original Yakuza passed CPU preparation for all four backgrounds (`
 
 The user explicitly deferred physical suspend/resume because it interrupts Codex. This batch does not invoke sleep and does not require it for completion; it remains an unverified future P1 target. Physical multi-monitor, installed-package, hardware battery/power, Windows A/B, advanced scripts, bones and HDR retain their own outstanding requirements.
 
+### Next complete project: `3420277613`
+
+Hatsune Miku | GLITCHED HOLOGRAM is the next selected complete-project target. The 2026-10-13 read-only follow-up retains the original `PKGV0023` package and its eleven objects, five scripts and five default active effects. The current CPU gate still blocks its property declarations. The complete graph also needs object-instance material/combo/texture overrides and the CRT layer-composite alias; the earlier static inventory omitted the authored `Back` and default background overrides.
+
+Under the current RGBA8 allocation policy, the complete default graph predicts 476,822,016 bytes of decoded static textures, 857,129,476 bytes for one renderer with its scratch/composition/history/bloom targets, and 1,237,436,936 bytes for two retained generations even with shared static textures. These are source-layout estimates; runtime residency and physical GPU memory remain unmeasured. The 512 MiB engine budget remains enforced. Immutable sharing alone cannot admit this project; bounded frame working sets and render-target lifetimes need a separate correctness and peak-budget proof.
+
+| Batch | Required result before advancing |
+| --- | --- |
+| Immutable resource ownership | Share read-only textures only within the same context generation, with complete source/decode/upload identities and fixed sampler variants. Preflight and diagnostics count unique allocations plus every private current/candidate/rollback resource, including replacement peaks and pending deletion. Preserve save-failure rollback and final release. |
+| Image frames and temporal effects | Implement the two authored eight-frame `TEXS0003` image sheets, their 0.1-second frame timing, private motion history, copy commands, instance materials and layer aliases. Prove a bounded working set and exact pause/resize/rollback behavior before admitting the default graph. |
+| Resource properties and scripts | Keep group metadata distinct from values; implement safe `scenetexture` selection with the author's empty-value fallback, resource/cache identities and per-output atomic persistence. Add the required `createScriptProperties`, actual frame time, sixteen/sixty-four-band inputs and text/font lifecycle without broadening unrelated host APIs. |
+| Complete original-project acceptance | Retain the authored default and all supported choices; test the original package through CPU preparation, GPU animation/history/audio pixels and the real Library → properties → Apply → save-failure/retry → restart/restore → clear flow. Preserve author-hidden layers, and validate explicit enablement when exposing their controls. |
+
+Individual batches remain development work; the project stays blocked until the complete required graph passes. Original-engine behavior and visual parity retain their separate evidence requirements.
+
 ### Work sequence and exit criteria
 
 The table retains full future acceptance targets; its physical suspend/resume target is explicitly deferred from the current batch. Bounded P0 inventory, the first P1 runtime/settings slices, restricted P2 camera and editable-property persistence, and the default mixed-project CPU/GPU path are implemented. Default and property-editor native UI flows, including real save failure/retry and a twelve-second owned fullscreen recovery, passed; broader lifecycle acceptance remains open. No complete stage or daily-use milestone is marked finished. Unsupported behaviors remain gated, and implemented paths still require their stated acceptance.
