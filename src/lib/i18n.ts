@@ -307,6 +307,13 @@ const dictionaries = {
         refreshFailed: 'The properties were applied, but the latest values could not be loaded:',
         invalidSnapshot: 'Invalid scene property data.',
         invalidOutcome: 'Invalid action result.',
+        chooseImage: 'Choose image',
+        clearImage: 'Use author image',
+        authorImage: 'Author image',
+        selectedImage: 'Custom image selected',
+        importingImage: 'Importing image…',
+        invalidImage: 'Invalid image selection.',
+        imageFormats: 'Static 8-bit PNG or JPEG without a color profile, up to 32 MiB. Save and apply to use the selected image.',
         invalidValues: 'Enter valid values within the declared limits and options.'
       },
       libraryDetail: {
@@ -682,6 +689,13 @@ const dictionaries = {
         refreshFailed: '属性已应用，但无法加载最新值：',
         invalidSnapshot: '场景属性数据无效。',
         invalidOutcome: '操作结果无效。',
+        chooseImage: '选择图片',
+        clearImage: '使用作者图片',
+        authorImage: '作者图片',
+        selectedImage: '已选择自定义图片',
+        importingImage: '正在导入图片…',
+        invalidImage: '图片选择无效。',
+        imageFormats: '支持不含色彩配置的静态 8 位 PNG 或 JPEG，最大 32 MiB。保存并应用后使用所选图片。',
         invalidValues: '请输入声明范围内的有效值，并选择声明的选项。'
       },
       libraryDetail: {

@@ -1,6 +1,6 @@
 # Timed atlas CPU resources
 
-`lwe-scene` provides a separate `TimedAtlasSource` API for bounded animated-image resource work. It does not change `Texture::decode`, particle `Texture::decode_atlas`, renderer admission or the Scene compatibility policy. Workshop `3420277613` still requires its complete material, history, script, resource-property and text paths before playback can be admitted.
+`lwe-scene` provides a bounded `TimedAtlasSource` API. The engine now integrates it with complete worker packets, shared CPU source ownership and bounded GPU frame uploads, while retaining the existing static and particle decode APIs. See [Scene images, timed frames and history](./scene-miku-runtime.md) for frame, history, pause and transaction contracts. Admission still checks the complete prepared graph and candidate first frame.
 
 ## Accepted resource shape
 
@@ -16,7 +16,7 @@ Use one `AtlasMemoryBudget` for sources and decoded regions belonging to the sam
 
 `usage()` reports charged bytes, peak charges and whether a region decode is active. Only one region decode may be active in that shared budget. Allocation, framing, LZ4 and decode failures release their temporary leases and retain existing owners. A failed allocation may still increase the historical peak; it does not leave a live charge.
 
-These are allocation-capacity and reservation counters, not total process RSS, allocator overhead, VM memory or GPU residency. The API is not wired into the engine: future integration must charge existing static textures, atlas sources and retained frames together, rather than allow independent 512 MiB pools to bypass the engine's existing limit.
+These are allocation-capacity and reservation counters, not total process RSS, allocator overhead, VM memory or GPU residency. The engine uses one shared CPU budget for static textures, atlas sources, retained regions, imported images and bounded text/font work. Weak caches may reuse actual immutable owners after source revalidation; independently allocated owners remain independently charged.
 
 ## Region and time semantics
 
@@ -24,7 +24,7 @@ These are allocation-capacity and reservation counters, not total process RSS, a
 
 `frame_neighborhood(index, radius)` includes real neighboring atlas pixels, clipped only at the outer atlas boundary. It does not invent transparency, repeat/clamp behavior or replicated edge pixels. `frame_at(elapsed)` selects half-open intervals using the author's original f32 durations promoted to f64 and their accumulated cycle. It rejects negative or non-finite time. The caller still owns the clock epoch, pause/resume, first-frame acceptance and transaction behavior.
 
-CPU decoding does not establish shader UV orientation, half-texel offsets, native filtering or original-engine rounding. GPU uploads, frame residency, history/copy operations, stale-job rejection and rollback remain subsequent implementation gates. In particular, decoding one frame cannot establish the peak cost of current, candidate, rollback and staging resources.
+CPU decoding alone does not establish shader UV orientation, half-texel offsets, native filtering or original-engine rounding. Renderer integration requires its separate GPU and desktop evidence. In particular, decoding one frame cannot establish the peak cost of current, candidate, rollback and staging resources.
 
 ## Verification
 

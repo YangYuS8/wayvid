@@ -3,7 +3,7 @@
 use super::*;
 use khronos_egl as egl;
 
-struct Offscreen {
+pub(super) struct Offscreen {
     egl: egl::DynamicInstance<egl::EGL1_4>,
     display: egl::Display,
     config: egl::Config,
@@ -12,7 +12,7 @@ struct Offscreen {
 }
 
 impl Offscreen {
-    fn new() -> Result<Self> {
+    pub(super) fn new() -> Result<Self> {
         let egl = unsafe { egl::DynamicInstance::<egl::EGL1_4>::load_required()? };
         let display =
             unsafe { egl.get_display(egl::DEFAULT_DISPLAY) }.context("No offscreen EGL display")?;
@@ -100,7 +100,7 @@ impl Drop for Offscreen {
     }
 }
 
-fn fixture(repeat: bool, rgba: Vec<u8>) -> PreparedScene {
+pub(super) fn fixture(repeat: bool, rgba: Vec<u8>) -> PreparedScene {
     let shader = if repeat {
         let mut shader = super::super::shader::image();
         let shifted = shader.fragment.replace(
@@ -122,6 +122,13 @@ fn fixture(repeat: bool, rgba: Vec<u8>) -> PreparedScene {
         canvas: [2.0, 2.0],
         clear: [0.0, 0.0, 0.0, 1.0],
         textures: vec![PreparedTexture {
+            static_source: None,
+
+            timed: None,
+            image: None,
+            text_frame: None,
+            _rgba_reservation: None,
+
             fingerprint: [0; 32],
             width: 2,
             height: 2,
@@ -133,6 +140,13 @@ fn fixture(repeat: bool, rgba: Vec<u8>) -> PreparedScene {
             animation: None,
         }],
         layers: vec![PreparedLayer {
+            clamp_uvs: false,
+            crop_offset: [0.; 2],
+            no_padding: false,
+            text: None,
+            origin_z: 0.,
+            angles: [0.; 3],
+
             size: [2.0, 2.0],
             origin: [1.0, 1.0],
             scale: [1.0; 2],
@@ -141,15 +155,19 @@ fn fixture(repeat: bool, rgba: Vec<u8>) -> PreparedScene {
             blend: Blend::Alpha,
             composite: None,
             stages: vec![PreparedStage {
+                persistent_targets: std::collections::BTreeSet::new(),
+
                 targets: BTreeMap::new(),
                 passes: vec![PreparedPass {
+                    kind: crate::scene::PreparedPassKind::Render,
+
                     label: if repeat {
                         "genericimage"
                     } else {
                         "authored clamp fixture"
                     }
                     .into(),
-                    shader,
+                    shader: Some(shader),
                     textures: vec![TextureBinding::Static(0)],
                     constants: BTreeMap::new(),
                     target: None,
@@ -177,6 +195,7 @@ fn render_pixels(renderer: &mut SceneRenderer) -> Result<[u8; 16]> {
         gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
     }
     ensure!(renderer.render_forced(2, 2, 0.0)?, "fixture did not render");
+    renderer.report_presented();
     let mut pixels = [0; 16];
     unsafe {
         gl::ReadPixels(
@@ -231,14 +250,14 @@ fn offscreen_shared_textures_preserve_pixels_sampling_release_and_context_identi
     let mut candidate = SceneRenderer::initialize_shared(&scene, Rc::clone(&pool))?;
     let id = current.textures[0].get(false)?.id;
     assert_eq!(candidate.textures[0].get(false)?.id, id);
-    assert_eq!(pool.resident_bytes()?, 16);
-    assert_eq!(pool.allocation_count(), 1);
-    assert_eq!(pool.lease_count(), 2);
+    assert_eq!(pool.resident_bytes()?, 32);
+    assert_eq!(pool.allocation_count(), 2);
+    assert_eq!(pool.lease_count(), 4);
     let mut union = current.allocation_plan()?;
     union.merge(&candidate.allocation_plan()?)?;
     assert_eq!(
         union.total(0)?,
-        16 + current.allocation_plan()?.private_bytes * 2
+        32 + current.allocation_plan()?.private_bytes * 2
     );
     assert_eq!(render_pixels(&mut current)?, expected);
     assert_eq!(render_pixels(&mut candidate)?, expected);
@@ -247,7 +266,7 @@ fn offscreen_shared_textures_preserve_pixels_sampling_release_and_context_identi
     let mut repeating = SceneRenderer::initialize_shared(&repeating_scene, Rc::clone(&pool))?;
     let repeating_id = repeating.textures[0].get(true)?.id;
     assert_ne!(repeating_id, id);
-    assert_eq!(pool.resident_bytes()?, 32);
+    assert_eq!(pool.resident_bytes()?, 48);
     assert_eq!(sampling(id), gl::CLAMP_TO_EDGE as i32);
     assert_eq!(sampling(repeating_id), gl::REPEAT as i32);
     assert_eq!(render_pixels(&mut repeating)?, expected);
@@ -263,14 +282,18 @@ fn offscreen_shared_textures_preserve_pixels_sampling_release_and_context_identi
         [0, 255, 255, 255].repeat(4).as_slice()
     );
     changed.cleanup();
-    assert_eq!(pool.resident_bytes()?, 32);
+    assert_eq!(pool.resident_bytes()?, 48);
 
     let mut invalid = fixture(false, [255, 0, 0, 255].repeat(4));
     // Failure occurs after a fresh readonly upload. Only that lease may retire;
     // the two existing generations and sampler variant retain their pixels.
-    invalid.layers[0].stages[0].passes[0].shader.fragment = "invalid authored GLSL".into();
+    invalid.layers[0].stages[0].passes[0]
+        .shader
+        .as_mut()
+        .unwrap()
+        .fragment = "invalid authored GLSL".into();
     assert!(SceneRenderer::initialize_shared(&invalid, Rc::clone(&pool)).is_err());
-    assert_eq!(pool.resident_bytes()?, 32);
+    assert_eq!(pool.resident_bytes()?, 48);
     assert_eq!(render_pixels(&mut current)?, expected);
 
     invalid.textures[0].width = 16384;
@@ -284,12 +307,12 @@ fn offscreen_shared_textures_preserve_pixels_sampling_release_and_context_identi
     );
 
     candidate.cleanup();
-    assert_eq!(pool.lease_count(), 2);
+    assert_eq!(pool.lease_count(), 4);
     assert_eq!(unsafe { gl::IsTexture(id) }, gl::TRUE);
     assert_eq!(render_pixels(&mut current)?, expected);
     current.cleanup();
     assert_eq!(unsafe { gl::IsTexture(id) }, gl::FALSE);
-    assert_eq!(pool.resident_bytes()?, 16);
+    assert_eq!(pool.resident_bytes()?, 32);
     repeating.cleanup();
     assert_eq!(pool.resident_bytes()?, 0);
     assert_eq!(pool.allocation_count(), 0);
@@ -298,6 +321,7 @@ fn offscreen_shared_textures_preserve_pixels_sampling_release_and_context_identi
     // A last lease may expire with another context current. Its bytes stay
     // charged until the original context actually drains its retirement.
     let mut retained = SceneRenderer::initialize_shared(&scene, Rc::clone(&pool))?;
+    assert_eq!(render_pixels(&mut retained)?, expected);
     let guard = GlState::capture();
     guard.begin();
     let key = TextureKey {
@@ -313,7 +337,7 @@ fn offscreen_shared_textures_preserve_pixels_sampling_release_and_context_identi
     assert!(pool.drain_retired().is_err());
     assert!(SceneRenderer::initialize_shared(&scene, Rc::clone(&pool)).is_err());
     assert!(retained.render_forced(2, 2, 0.0).is_err());
-    assert_eq!(pool.resident_bytes()?, 32);
+    assert_eq!(pool.resident_bytes()?, 48);
     let fresh_pool = TexturePool::new()?;
     assert_ne!(fresh_pool.generation(), pool.generation());
     let mut fresh = SceneRenderer::initialize_shared(&scene, Rc::clone(&fresh_pool))?;
@@ -324,6 +348,7 @@ fn offscreen_shared_textures_preserve_pixels_sampling_release_and_context_identi
     pool.drain_retired()?;
     assert_eq!(pool.retired_bytes()?, 0);
     assert_eq!(render_pixels(&mut retained)?, expected);
+    assert!(retained.render(2, 2, 0.1).is_err());
     retained.cleanup();
     assert_eq!(pool.resident_bytes()?, 0);
     pool.close()?;
@@ -341,11 +366,11 @@ fn offscreen_close_with_live_lease_quarantines_and_keeps_charge() -> Result<()> 
         Rc::clone(&pool),
     )?;
     assert!(pool.close().is_err());
-    assert_eq!(pool.resident_bytes()?, 16);
-    assert_eq!(pool.lease_count(), 1);
+    assert_eq!(pool.resident_bytes()?, 32);
+    assert_eq!(pool.lease_count(), 2);
     assert!(pool.ensure_current().is_err());
     renderer.cleanup();
-    assert_eq!(pool.retired_bytes()?, 16);
+    assert_eq!(pool.retired_bytes()?, 32);
     assert!(pool.drain_retired().is_err());
     Ok(())
 }

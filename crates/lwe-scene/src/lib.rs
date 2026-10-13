@@ -4,11 +4,13 @@
 //! Format decisions are based on inspected local assets and native format
 //! observations, rather than another renderer's implementation.
 
+mod image_source;
 mod inventory;
 mod package;
 mod texture;
 mod timed_atlas;
 
+pub use image_source::ImageSource;
 pub use inventory::*;
 pub use package::{PackageEntry, ResourceOrigin, SceneAssets, SceneResource};
 pub use texture::{
@@ -16,8 +18,8 @@ pub use texture::{
     TextureMetadata,
 };
 pub use timed_atlas::{
-    AtlasMemoryBudget, AtlasMemoryUsage, Bc3RegionLayout, PixelRect, TimedAtlasFrame,
-    TimedAtlasRegion, TimedAtlasSource,
+    AtlasMemoryBudget, AtlasMemoryReservation, AtlasMemoryUsage, Bc3RegionLayout, PixelRect,
+    TimedAtlasFrame, TimedAtlasRegion, TimedAtlasSource,
 };
 
 /// Hard allocation bound for a single resource read (including video blobs).

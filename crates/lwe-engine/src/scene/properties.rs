@@ -31,6 +31,7 @@ pub enum PropertyKind {
     Slider,
     Color,
     Combo,
+    Texture,
 }
 
 /// Values exposed to the property editor. Colors are normalized RGB triples.
@@ -41,6 +42,7 @@ pub enum PropertyValue {
     Slider(f64),
     Color([f32; 3]),
     Combo(String),
+    Texture(Option<String>),
 }
 
 /// An author-declared selection, retaining its display label and stored value.
@@ -234,6 +236,11 @@ pub fn apply_property_overrides(
             .iter()
             .find(|definition| definition.name == *name)
             .ok_or_else(|| invalid("property override has no project declaration"))?;
+        if definition.kind == PropertyKind::Texture {
+            return Err(invalid(
+                "resource properties require a validated image capability",
+            ));
+        }
         let normalized_color = match definition.kind {
             PropertyKind::Color => {
                 let rgb = override_color(candidate)?;
@@ -326,7 +333,7 @@ impl<'a> ProjectProperties<'a> {
             PropertyValue::Bool(value) => Value::from(u8::from(value)),
             PropertyValue::Slider(value) => Value::from(value),
             PropertyValue::Color(value) => serde_json::to_value(value)?,
-            PropertyValue::Combo(_) => {
+            PropertyValue::Combo(_) | PropertyValue::Texture(_) => {
                 return Err(invalid("combo properties cannot be used as shader values"));
             }
         })
@@ -450,7 +457,9 @@ impl<'a> ProjectProperties<'a> {
                     }
                     // Color/vector access requires SceneScript Vec3 semantics
                     // and remains outside this scalar subset.
-                    PropertyValue::Color(_) | PropertyValue::Combo(_) => {}
+                    PropertyValue::Color(_)
+                    | PropertyValue::Combo(_)
+                    | PropertyValue::Texture(_) => {}
                 }
             }
         }
@@ -594,6 +603,7 @@ fn validated_declaration(declaration: &Value) -> Result<ValidatedDeclaration<'_>
         Some("slider") => PropertyKind::Slider,
         Some("color") => PropertyKind::Color,
         Some("combo") => PropertyKind::Combo,
+        Some("scenetexture") => PropertyKind::Texture,
         _ => return Err(invalid("user property type is not in the validated subset")),
     };
     let (min, max, step) = if kind == PropertyKind::Slider {
@@ -666,6 +676,14 @@ fn validated_value(
             }
             Ok(PropertyValue::Combo(value.to_owned()))
         }
+        PropertyKind::Texture => {
+            if value != "" {
+                return Err(invalid(
+                    "only the authored empty image selection is supported",
+                ));
+            }
+            Ok(PropertyValue::Texture(None))
+        }
     }
 }
 
@@ -673,6 +691,11 @@ fn default_value(declaration: &Value, fallback: &Value) -> Result<Value> {
     // Project and document were already scanned once under the shared budget.
     // Do not rescan declaration metadata for every use of the same property.
     let declaration = validated_declaration(declaration)?;
+    if declaration.kind == PropertyKind::Texture {
+        return Err(invalid(
+            "resource properties cannot be used as scalar values",
+        ));
+    }
     // A binding's fallback is not used when a declaration exists. Validate its
     // literal type, while the declared or overridden value enforces its bounds.
     validated_value(
@@ -990,7 +1013,7 @@ mod tests {
     #[test]
     fn group_support_does_not_admit_other_native_control_kinds() {
         let mut project = grouped_project();
-        for kind in ["scenetexture", "textinput", "usershortcut", "unknown"] {
+        for kind in ["textinput", "usershortcut", "unknown"] {
             project["general"]["properties"]["custombackground"] =
                 json!({"type":kind,"value":"","order":106});
             assert_eq!(
@@ -999,6 +1022,45 @@ mod tests {
             );
             assert!(property_groups(&project).is_err());
         }
+    }
+
+    #[test]
+    fn image_controls_keep_empty_defaults_separate_from_scalar_values() {
+        let mut project = grouped_project();
+        project["general"]["properties"]["background"] =
+            json!({"type":"scenetexture","value":"","text":"Background"});
+        let definitions = property_definitions(&project).unwrap();
+        let image = definitions
+            .iter()
+            .find(|entry| entry.name == "background")
+            .unwrap();
+        assert_eq!(image.kind, PropertyKind::Texture);
+        assert_eq!(image.value, PropertyValue::Texture(None));
+        let before = project.clone();
+        for value in [
+            json!(""),
+            json!("sha256:abc"),
+            json!("../image.png"),
+            json!(null),
+        ] {
+            assert!(
+                apply_property_overrides(
+                    &mut project,
+                    &BTreeMap::from([("background".into(), value)])
+                )
+                .is_err()
+            );
+            assert_eq!(project, before);
+        }
+        assert!(resolve(project.clone(), json!({"user":"background","value":""})).is_err());
+        assert!(
+            ProjectProperties::from_project(&project)
+                .unwrap()
+                .shader_value("background")
+                .is_err()
+        );
+        project["general"]["properties"]["background"]["value"] = json!("file:///image.png");
+        assert!(property_definitions(&project).is_err());
     }
 
     #[test]

@@ -85,9 +85,12 @@ fn render_bars(
             target.texture.width,
             target.texture.height,
             time,
-            true,
+            false,
             Some(spectrum(audio)),
         )?;
+        if drawn {
+            renderer.report_presented();
+        }
         if drawn && bars_match(renderer, audio, visible) {
             return read_pixels(target);
         }
@@ -116,6 +119,7 @@ fn redraw(
         )?,
         "Original Yakuza forced GPU redraw produced no frame"
     );
+    renderer.report_presented();
     read_pixels(target)
 }
 
@@ -367,12 +371,15 @@ fn check_case(
     // Freeze an actual presented whole scene, queue another input without
     // consuming its output, and ensure pause/forced resize preserve the image.
     let frozen_transforms = bar_transforms(&renderer);
+    // Queue through the renderer's tagged protocol so the worker and renderer
+    // retain the same sequence, requested time and spectrum while paused.
+    renderer.update(renderer.last_input.context("Missing scene clock")? + 0.01)?;
+    renderer.last_spectrum = spectrum([0.125; 64]);
+    ensure!(
+        !renderer.prepare_packet(false)? && renderer.vm_requested,
+        "Original Yakuza did not queue its next tagged script tick"
+    );
     let frozen_time = renderer.time;
-    renderer
-        .scripts
-        .as_ref()
-        .context("Missing script worker")?
-        .poll_frame(frozen_time + 0.01, [0.125; 64])?;
     renderer.pause();
     thread::sleep(Duration::from_millis(20));
     let paused = redraw(&mut renderer, &target, 10.0, [0.0; 64])?;
@@ -462,6 +469,7 @@ fn check_case(
     for index in &indices {
         renderer.layers[*index].tint = [0.0, 0.5, 0.0, 1.0];
     }
+    renderer.cache_valid = false;
     let green = redraw(&mut renderer, &target, 13.0, ramp)?;
     report.frame(&format!("{name}-isolated-bars-green-tint"), &target, &green)?;
     ensure!(
@@ -479,6 +487,7 @@ fn check_case(
     for index in &indices {
         renderer.layers[*index].tint[3] = 0.0;
     }
+    renderer.cache_valid = false;
     let transparent = redraw(&mut renderer, &target, 14.0, ramp)?;
     report.compare(
         &format!("{name}-original-card-alpha-zero"),
@@ -490,6 +499,7 @@ fn check_case(
         renderer.layers[*index].tint[3] = 1.0;
         renderer.hidden_script_layers.insert(*index);
     }
+    renderer.cache_valid = false;
     let hidden = redraw(&mut renderer, &target, 15.0, ramp)?;
     report.compare(
         &format!("{name}-original-card-hidden"),
@@ -593,10 +603,13 @@ fn live_frame(
             target.texture.width,
             target.texture.height,
             clock.elapsed().as_secs_f64(),
-            true,
+            false,
             None,
         )?;
-        let captured = renderer.last_spectrum;
+        if drawn {
+            renderer.report_presented();
+        }
+        let captured = renderer.accepted_spectrum;
         let peak = captured
             .script_average
             .iter()

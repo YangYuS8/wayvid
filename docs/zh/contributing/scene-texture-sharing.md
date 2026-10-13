@@ -1,7 +1,8 @@
 # Scene 纹理所有权与预算
 
-Scene 仍为实验性功能，按有界功能子集逐项评估。本次只在同一个存活的 EGL
-上下文中共享只读上传，不新增 Scene 格式、特效、动画类型或创意工坊条目兼容性。
+Scene 仍为实验性功能，按有界功能子集逐项评估。最初的共享基础在同一个存活的 EGL
+上下文中提供只读上传。当前图片、动画帧与历史接入见
+[Scene 图片、动画帧与历史缓冲](./scene-miku-runtime.md)。
 
 ## 身份与采样
 
@@ -38,18 +39,21 @@ rollback 的顺序。
 renderer cleanup 时处理。删除成功后才取消计费；不明确的 GL 失败将隔离共享域，
 避免重试旧数字对象 ID。存在 live lease 时关闭会报错，分配账目保留至上下文销毁。
 
-CPU 解码存储另有保守的 512 MiB 保留分配上限。按真实 RGBA `Vec` capacity
-求和，只按 `PreparedScene` Arc 身份在 session 和保留的 request/rollback source
-之间去重。内容相同但独立准备的 vector 分别计费，因此 GPU 共享不会暗中放宽
-原先的解码内存上界。原有单次准备、资源读取、script 与 audio 限制也保留。
-该指标只覆盖保留的解码 RGBA，不代表进程总 RSS、decoder scratch 或驱动 VRAM。
+CPU 解码资源使用共享的 512 MiB 分配/预留上限，计入实际保留的静态 RGBA、
+编码/BC3 来源、区域、导入图片及保守 decoder/font 工作预留。Weak 缓存复用前
+重新验证来源字节，仅实际共享 owner 身份去重；内容相同但独立分配的 owner
+分别计费。单次准备、资源读取、script 与 audio 限制仍保留。这是逻辑工作集
+策略，不代表进程总 RSS、第三方分配器精确用量或驱动 VRAM。
 
 ## 诊断与验证
 
-`EngineStatus.scene_gpu_budget` 包含上下文代次、存活不可变字节、私有/预留字节、
-不可变预留、退役字节、当前逻辑计划上界、分配数与 lease 数。上界是快照，
-不是实测 VRAM 或历史峰值。`scene_decoded_texture_bytes` 表示保留的解码 RGBA
-capacity。每输出的 `scene_payload_bytes` 包含其引用的不可变并集与各代私有资源，
+`EngineStatus.scene_gpu_budget` 包含上下文代次、pool 驻留字节、私有/预留字节、
+不可变预留、退役字节、当前逻辑计划上界、分配数与 lease 数。旧字段
+`immutable_resident_bytes` 的 pool 视图包含保留的动画帧上传；对应可变工作资源
+已在 `plan.work` 中计费一次，因此该视图与 `private_and_reserved_bytes` 重叠，
+不能直接相加。`logical_peak_bytes` 是当前计划并集，不是实测 VRAM 或历史峰值。
+`scene_decoded_texture_bytes` 表示保留的准备阶段 CPU
+来源/字体 owner 计费，不是全部执行中 worker 分配的总数。每输出的 `scene_payload_bytes` 包含其引用的不可变并集与各代私有资源，
 直接累加多个输出可能重复计算同一上传。
 
 CPU 回归覆盖资源替换与来源、元数据/动画、sampler 计划、真实 vector capacity、

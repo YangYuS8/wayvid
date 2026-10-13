@@ -346,7 +346,7 @@
     <p class="text-sm text-muted-foreground" role="status" aria-live="polite">{$copy.library.loading}</p>
   {:else if snapshot}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.9fr)] xl:items-start">
-      <section class="grid gap-4">
+      <section class="grid min-w-0 gap-4">
         {#if pageState?.issueMessages.length}
           <div class="grid gap-2.5" aria-live="polite">
             {#each pageState.issueMessages as issue}

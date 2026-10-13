@@ -42,7 +42,7 @@
   $: detailItemTypeLabel = detail ? getItemTypeLabel($copy, detail.itemType) : '';
 </script>
 
-<Card class="lwe-panel" aria-busy={loading}>
+<Card class="lwe-panel min-w-0" aria-busy={loading}>
   {#if error}
     <div class="lwe-subpanel justify-items-start gap-2">
       <p class="lwe-eyebrow">{libraryDetailCopy.title}</p>

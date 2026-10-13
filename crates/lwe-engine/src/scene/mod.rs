@@ -7,12 +7,16 @@ mod audio;
 mod dynamic_script;
 mod particles;
 mod postprocess;
+mod prepared_source;
 mod properties;
 mod renderer;
 mod script;
 mod shader;
 pub(crate) mod shared_texture;
 mod spectrum;
+pub(crate) mod text;
+mod timed_runtime;
+pub use timed_runtime::scene_texture_memory_budget;
 
 #[cfg(test)]
 mod prepared_texture_identity_tests;
@@ -35,6 +39,10 @@ pub use properties::{
     apply_property_overrides, property_definitions, property_groups,
 };
 pub use renderer::SceneRenderer;
+
+/// Decoded, immutable capabilities supplied by the application worker. Keys
+/// name declared texture controls; no filesystem paths enter the renderer.
+pub type SceneResourceChoices = BTreeMap<String, lwe_scene::ImageSource>;
 
 const MAX_JSON: usize = 4 * 1024 * 1024;
 const MAX_TEXTURE: usize = 256 * 1024 * 1024;
@@ -102,6 +110,7 @@ pub(crate) struct PreparedParticleLayer {
     aspects: Vec<f32>,
     animations: Vec<Option<lwe_scene::AnimationMetadata>>,
     vertex_capacity: usize,
+    animation_reservation: lwe_scene::AtlasMemoryReservation,
 }
 
 #[derive(Clone, Copy)]
@@ -140,6 +149,11 @@ pub(crate) struct PreparedTexture {
     pub source_flags: u32,
     pub rgba: Vec<u8>,
     pub animation: Option<lwe_scene::AnimationMetadata>,
+    pub timed: Option<Arc<lwe_scene::TimedAtlasSource>>,
+    pub static_source: Option<Arc<prepared_source::PreparedStaticTexture>>,
+    pub image: Option<lwe_scene::ImageSource>,
+    pub text_frame: Option<text::TextFrame>,
+    pub _rgba_reservation: Option<lwe_scene::AtlasMemoryReservation>,
 }
 
 const TEXTURE_IDENTITY_CONTRACT: &[u8] = b"lwe-scene-rgba8-top-mip-identity-v1";
@@ -206,6 +220,7 @@ fn fingerprint_metadata(digest: &mut Sha256, metadata: &lwe_scene::TextureMetada
     fingerprint_animation(digest, metadata.animation.as_ref());
 }
 
+#[derive(Clone, Copy)]
 struct TextureSource<'a> {
     origin: ResourceOrigin,
     root: &'a Path,
@@ -214,21 +229,25 @@ struct TextureSource<'a> {
     atlas: bool,
 }
 
-fn texture_fingerprint(source: TextureSource<'_>, encoded: &[u8], decoded: &Texture) -> [u8; 32] {
-    let mut digest = Sha256::new();
-    fingerprint_bytes(&mut digest, TEXTURE_IDENTITY_CONTRACT);
+fn fingerprint_source(digest: &mut Sha256, source: TextureSource<'_>) {
+    fingerprint_bytes(digest, TEXTURE_IDENTITY_CONTRACT);
     digest.update([match source.origin {
         ResourceOrigin::Package => 0,
         ResourceOrigin::Project => 1,
         ResourceOrigin::Builtin => 2,
     }]);
-    fingerprint_bytes(&mut digest, source.root.as_os_str().as_bytes());
+    fingerprint_bytes(digest, source.root.as_os_str().as_bytes());
     // SceneAssets has already validated this relative path. Components give
     // its normalized spelling without resolving or reopening any pathname.
     let normalized: std::path::PathBuf = Path::new(source.path).components().collect();
-    fingerprint_bytes(&mut digest, normalized.as_os_str().as_bytes());
-    fingerprint_bytes(&mut digest, source.binding.as_bytes());
+    fingerprint_bytes(digest, normalized.as_os_str().as_bytes());
+    fingerprint_bytes(digest, source.binding.as_bytes());
     digest.update([u8::from(source.atlas)]);
+}
+
+fn texture_fingerprint(source: TextureSource<'_>, encoded: &[u8], decoded: &Texture) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    fingerprint_source(&mut digest, source);
     fingerprint_bytes(&mut digest, encoded);
     digest.update(decoded.width.to_le_bytes());
     digest.update(decoded.height.to_le_bytes());
@@ -238,6 +257,18 @@ fn texture_fingerprint(source: TextureSource<'_>, encoded: &[u8], decoded: &Text
 }
 
 impl PreparedTexture {
+    pub(crate) fn rgba(&self) -> &[u8] {
+        if let Some(image) = &self.image {
+            image.rgba()
+        } else if let Some(frame) = &self.text_frame {
+            frame.rgba()
+        } else if let Some(source) = &self.static_source {
+            source.rgba()
+        } else {
+            &self.rgba
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn fixture_fingerprint(&self) -> [u8; 32] {
         let mut digest = Sha256::new();
@@ -265,15 +296,22 @@ pub(crate) struct PreparedLayer {
     pub origin: [f32; 2],
     pub scale: [f32; 2],
     pub angle: f32,
+    pub origin_z: f32,
+    pub angles: [f32; 3],
     pub tint: [f32; 4],
     pub blend: Blend,
     pub composite: Option<shader::Shader>,
     pub stages: Vec<PreparedStage>,
+    pub clamp_uvs: bool,
+    pub crop_offset: [f32; 2],
+    pub no_padding: bool,
+    pub text: Option<text::PreparedText>,
 }
 
 #[derive(Debug)]
 pub(crate) struct PreparedStage {
     pub targets: BTreeMap<String, f32>,
+    pub persistent_targets: BTreeSet<String>,
     pub passes: Vec<PreparedPass>,
 }
 
@@ -291,12 +329,21 @@ pub(crate) enum TextureBinding {
     Named(String),
     Black,
     FullFrame,
+    History(String),
+    LayerComposite,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum PreparedPassKind {
+    Render,
+    Copy { source: TextureBinding },
 }
 
 #[derive(Debug)]
 pub(crate) struct PreparedPass {
     pub label: String,
-    pub shader: shader::Shader,
+    pub kind: PreparedPassKind,
+    pub shader: Option<shader::Shader>,
     pub textures: Vec<TextureBinding>,
     pub constants: BTreeMap<String, Vec<f32>>,
     pub target: Option<String>,
@@ -333,7 +380,9 @@ fn extract_runtime_bindings(
             let value = match property.value {
                 PropertyValue::Bool(value) => script::ScalarProperty::Bool(value),
                 PropertyValue::Slider(value) => script::ScalarProperty::Number(value),
-                PropertyValue::Color(_) | PropertyValue::Combo(_) => return None,
+                PropertyValue::Color(_) | PropertyValue::Combo(_) | PropertyValue::Texture(_) => {
+                    return None;
+                }
             };
             Some((property.name, value))
         })
@@ -344,6 +393,7 @@ fn extract_runtime_bindings(
         .context("Scene has no objects")?;
     for (index, object) in objects.iter_mut().enumerate() {
         let image = object.get("image").is_some();
+        let text = object.get("text").is_some();
         let Some(fields) = object.as_object_mut() else {
             bail!("Invalid Scene object");
         };
@@ -362,14 +412,18 @@ fn extract_runtime_bindings(
             {
                 continue;
             }
-            if !image
-                || !matches!(
-                    property.as_str(),
-                    "visible" | "origin" | "scale" | "angles" | "color" | "alpha"
-                )
-                || wrapper
-                    .keys()
-                    .any(|key| !matches!(key.as_str(), "script" | "value" | "user"))
+            if !(image || text)
+                || !(text && property == "text"
+                    || matches!(
+                        property.as_str(),
+                        "visible" | "origin" | "scale" | "angles" | "color" | "alpha"
+                    ))
+                || wrapper.keys().any(|key| {
+                    !matches!(
+                        key.as_str(),
+                        "script" | "value" | "user" | "scriptproperties"
+                    )
+                })
             {
                 return Err(unsupported(
                     "scenescript",
@@ -381,8 +435,13 @@ fn extract_runtime_bindings(
                 property: property.clone(),
                 source: source.to_owned(),
                 input: input.clone(),
+                script_properties: wrapper
+                    .get("scriptproperties")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({})),
             });
             wrapper.remove("script");
+            wrapper.remove("scriptproperties");
             if !wrapper.contains_key("user") {
                 *value = wrapper.remove("value").expect("script input checked");
             }
@@ -427,7 +486,8 @@ fn numbers(value: &Value) -> Result<Vec<f32>> {
     let values = match value {
         Value::Number(number) => vec![number.as_f64().context("Invalid Scene number")? as f32],
         Value::String(string) => string
-            .split_whitespace()
+            .split(|c: char| c.is_whitespace() || c == ',')
+            .filter(|part| !part.is_empty())
             .map(str::parse::<f32>)
             .collect::<std::result::Result<Vec<_>, _>>()?,
         Value::Array(array) => array
@@ -500,9 +560,123 @@ fn validate_pass(pass: &Value) -> Result<()> {
     Ok(())
 }
 
+fn prepare_text(assets: &SceneAssets, object: &Value) -> Result<text::PreparedText> {
+    for key in [
+        "blockalign",
+        "limitrows",
+        "limituseellipsis",
+        "limitwidth",
+        "opaquebackground",
+        "castshadow",
+        "disablepropagation",
+    ] {
+        if boolean(object, key, false)? {
+            return Err(unsupported("text", format!("text {key}")));
+        }
+    }
+    ensure!(
+        object
+            .get("anchor")
+            .is_none_or(|v| v.as_str() == Some("none")),
+        "Unsupported text anchor"
+    );
+    ensure!(
+        object
+            .get("depthtest")
+            .is_none_or(|v| matches!(v.as_str(), Some("enabled" | "disabled"))),
+        "Invalid text depth mode"
+    );
+    let size = vector(object, "size", [0.0; 2])?;
+    ensure!(
+        size.iter()
+            .all(|v| v.is_finite() && (1.0..=4096.0).contains(v) && v.fract() == 0.0),
+        "Invalid authored text surface dimensions"
+    );
+    let font = object["font"]
+        .as_str()
+        .context("Text object has no font resource")?;
+    let resource = assets
+        .resource(font)
+        .context("Missing authored text font")?;
+    let point_size = object["pointsize"]
+        .as_f64()
+        .context("Text object has no point size")? as f32;
+    let padding = u32::try_from(
+        object
+            .get("padding")
+            .map(|v| v.as_u64().context("Invalid text padding"))
+            .transpose()?
+            .unwrap_or(0),
+    )?;
+    text::PreparedText::from_resource(
+        &resource,
+        size[0] as u32,
+        size[1] as u32,
+        point_size,
+        padding,
+        object
+            .get("horizontalalign")
+            .map(|v| v.as_str().context("Invalid text horizontal alignment"))
+            .transpose()?
+            .unwrap_or("left"),
+        object
+            .get("verticalalign")
+            .map(|v| v.as_str().context("Invalid text vertical alignment"))
+            .transpose()?
+            .unwrap_or("top"),
+    )
+}
+
+fn validate_instance(instance: &Value) -> Result<()> {
+    if instance.is_null() {
+        return Ok(());
+    }
+    let object = instance.as_object().context("Invalid image instance")?;
+    ensure!(
+        object.len() <= 6
+            && object.keys().all(|k| matches!(
+                k.as_str(),
+                "id" | "combos"
+                    | "textures"
+                    | "usertextures"
+                    | "constantshadervalues"
+                    | "usershadervalues"
+            )),
+        "Unsupported image instance field"
+    );
+    if let Some(id) = object.get("id") {
+        ensure!(id.as_u64().is_some(), "Invalid image instance identity");
+    }
+    if has_script(instance) {
+        return Err(unsupported("scenescript", "image instance script"));
+    }
+    for key in ["textures", "usertextures"] {
+        if let Some(values) = object.get(key) {
+            let values = values
+                .as_array()
+                .context("Invalid image instance texture slots")?;
+            ensure!(
+                values.len() <= TEXTURE_SLOTS,
+                "Too many instance texture slots"
+            );
+            ensure!(
+                values
+                    .iter()
+                    .all(|v| v.is_null() || v.as_str().is_some_and(|s| s.len() <= 256)),
+                "Invalid instance texture slot"
+            );
+        }
+    }
+    Ok(())
+}
+
 struct Preparation<'a> {
     assets: &'a SceneAssets,
     properties: &'a ProjectProperties<'a>,
+    choices: &'a SceneResourceChoices,
+    texture_properties: BTreeSet<String>,
+    inspection: lwe_scene::TextureInspectionBudget,
+    active_layer_id: Option<u64>,
     textures: Vec<PreparedTexture>,
     texture_indices: BTreeMap<String, usize>,
     rgba_bytes: usize,
@@ -514,6 +688,12 @@ impl Preparation<'_> {
     fn texture(&mut self, name: &str, atlas: bool) -> Result<TextureBinding> {
         if name == "_rt_FullFrameBuffer" {
             return Ok(TextureBinding::FullFrame);
+        }
+        if self
+            .active_layer_id
+            .is_some_and(|id| name == format!("_rt_imageLayerComposite_{id}_a"))
+        {
+            return Ok(TextureBinding::LayerComposite);
         }
         if name.starts_with("_rt_") || name.starts_with("_alias_") {
             return Err(unsupported(
@@ -535,38 +715,39 @@ impl Preparation<'_> {
         } else {
             format!("materials/{name}.tex")
         };
-        // Resolve once so the provenance and the complete bounded read refer
-        // to the same descriptor, with the existing package/project/builtin
-        // precedence and read limits. Hashing never performs a second read.
-        let (bytes, origin) = (|| -> lwe_scene::Result<_> {
-            let resource = self.assets.resource(&path)?;
-            if resource.len() > MAX_TEXTURE as u64 {
-                return Err(lwe_scene::SceneAssetError::LimitExceeded {
-                    resource: path.clone(),
-                    size: resource.len(),
-                    limit: MAX_TEXTURE as u64,
-                });
+        // Inspect and decode the same sealed descriptor, retaining its VFS
+        // namespace in the identity. No second pathname lookup can change it.
+        let resource = self
+            .assets
+            .resource(&path)
+            .with_context(|| format!("Missing Scene texture {path}"))?;
+        if resource.len() > MAX_TEXTURE as u64 {
+            return Err(lwe_scene::SceneAssetError::LimitExceeded {
+                resource: path.clone(),
+                size: resource.len(),
+                limit: MAX_TEXTURE as u64,
             }
-            Ok((
-                resource.read_range(0, resource.len() as usize, MAX_TEXTURE)?,
-                resource.origin(),
-            ))
-        })()
-        .with_context(|| format!("Missing Scene texture {path}"))?;
-        let decoded = if atlas {
-            Texture::decode_atlas(&bytes)
-        } else {
-            Texture::decode(&bytes)
+            .into());
         }
-        .with_context(|| format!("Cannot decode Scene texture {path}"))?;
-        self.rgba_bytes = self
-            .rgba_bytes
-            .checked_add(decoded.rgba.len())
-            .context("Scene texture memory overflow")?;
-        ensure!(
-            self.rgba_bytes <= MAX_SCENE_RGBA,
-            "Scene decoded textures exceed the memory budget"
-        );
+        let inspection_bytes = self
+            .inspection
+            .remaining_mips
+            .clamp(1, 32768)
+            .next_power_of_two()
+            .max(4)
+            .checked_mul(3 * std::mem::size_of::<lwe_scene::MipMetadata>())
+            .and_then(|n| {
+                n.checked_add(
+                    self.inspection.remaining_animation_frames.min(4096)
+                        * std::mem::size_of::<lwe_scene::AnimationFrame>()
+                        + 1024,
+                )
+            })
+            .context("Texture inspection budget overflow")?;
+        let inspection_reservation =
+            scene_texture_memory_budget().reserve_bytes(inspection_bytes)?;
+        let origin = resource.origin();
+        let metadata = Texture::inspect_resource_bounded(&resource, &mut self.inspection)?;
         let root = match origin {
             ResourceOrigin::Package | ResourceOrigin::Project => self.assets.project_dir(),
             ResourceOrigin::Builtin => self
@@ -574,31 +755,229 @@ impl Preparation<'_> {
                 .assets_dir()
                 .context("Scene builtin texture namespace unavailable")?,
         };
-        let fingerprint = texture_fingerprint(
-            TextureSource {
-                origin,
-                root,
-                path: &path,
-                binding: name,
-                atlas,
-            },
-            &bytes,
-            &decoded,
-        );
+        let source = TextureSource {
+            origin,
+            root,
+            path: &path,
+            binding: name,
+            atlas,
+        };
         let index = self.textures.len();
-        self.textures.push(PreparedTexture {
-            fingerprint,
-            width: decoded.width,
-            height: decoded.height,
-            image_width: decoded.metadata.image_width,
-            image_height: decoded.metadata.image_height,
-            source_format: decoded.metadata.format,
-            source_flags: decoded.metadata.flags,
-            rgba: decoded.rgba,
-            animation: decoded.metadata.animation,
-        });
+        let mut encoded_reservation =
+            scene_texture_memory_budget().reserve_bytes(resource.len() as usize)?;
+        let bytes = resource.read_range(0, resource.len() as usize, MAX_TEXTURE)?;
+        encoded_reservation.resize(bytes.capacity())?;
+        let actual_metadata = Texture::inspect_bounded(&bytes, &mut self.inspection)?;
+        ensure!(
+            actual_metadata == metadata,
+            "Texture descriptor framing changed during preparation"
+        );
+        drop(actual_metadata);
+        let mut digest = Sha256::new();
+        fingerprint_bytes(&mut digest, b"lwe-weak-cpu-texture-source-v1");
+        digest.update(scene_texture_memory_budget().domain_id().to_le_bytes());
+        fingerprint_source(&mut digest, source);
+        fingerprint_bytes(&mut digest, &bytes);
+        fingerprint_metadata(&mut digest, &metadata);
+        let cache_key = digest.finalize().into();
+        if !atlas && metadata.animation.as_ref().is_some_and(|a| a.version == 3) {
+            drop(metadata);
+            drop(inspection_reservation);
+            let timed = if let Some(source) = prepared_source::get_timed(cache_key) {
+                drop(bytes);
+                drop(encoded_reservation);
+                source
+            } else {
+                let source = Arc::new(lwe_scene::TimedAtlasSource::from_budgeted_bytes(
+                    bytes,
+                    encoded_reservation,
+                    origin,
+                    &mut self.inspection,
+                    scene_texture_memory_budget(),
+                )?);
+                prepared_source::put_timed(cache_key, &source);
+                source
+            };
+            let metadata = timed.metadata();
+            let mut digest = Sha256::new();
+            fingerprint_source(&mut digest, source);
+            fingerprint_bytes(&mut digest, timed.encoded_bytes());
+            fingerprint_metadata(&mut digest, metadata);
+            self.textures.push(PreparedTexture {
+                fingerprint: digest.finalize().into(),
+                width: metadata.storage_width,
+                height: metadata.storage_height,
+                image_width: metadata.image_width,
+                image_height: metadata.image_height,
+                source_format: metadata.format,
+                source_flags: metadata.flags,
+                rgba: Vec::new(),
+                animation: None,
+                timed: Some(timed),
+                static_source: None,
+                image: None,
+                text_frame: None,
+                _rgba_reservation: None,
+            });
+        } else {
+            let cached = prepared_source::get_static(cache_key);
+            let owner = if let Some(owner) = cached {
+                drop(metadata);
+                drop(inspection_reservation);
+                drop(bytes);
+                drop(encoded_reservation);
+                owner
+            } else {
+                let mip = metadata.mips.first().context("Scene texture has no mip")?;
+                let pixels = (mip.width as usize)
+                    .checked_mul(mip.height as usize)
+                    .context("Texture size overflow")?;
+                let mip_info = (
+                    mip.offset,
+                    mip.stored_size as usize,
+                    mip.compressed,
+                    mip.decompressed_size as usize,
+                );
+                let scratch = pixels
+                    .checked_mul(4)
+                    // The complete TEX input already has its own reservation. ImageReader
+                    // only borrows the first mip; lower mips are never decoder input.
+                    // For LZ4-wrapped images, charge the larger decoded container here.
+                    .and_then(|n| n.checked_add(mip_info.1.max(mip_info.3).checked_mul(3)?))
+                    .and_then(|n| n.checked_add(mip.decompressed_size as usize))
+                    .and_then(|n| n.checked_add(4 * 1024 * 1024))
+                    .context("Texture decoder working set overflow")?;
+                let mut reservation = scene_texture_memory_budget().reserve_bytes(scratch)?;
+                drop(metadata);
+                drop(inspection_reservation);
+                let stored = &bytes[mip_info.0..mip_info.0 + mip_info.1];
+                let raw = if mip_info.2 {
+                    Some(
+                        lz4_flex::block::decompress(stored, mip_info.3)
+                            .context("Invalid texture LZ4 data")?,
+                    )
+                } else {
+                    None
+                };
+                let payload = raw.as_deref().unwrap_or(stored);
+                if payload.starts_with(b"\x89PNG\r\n\x1a\n") || payload.starts_with(b"\xff\xd8\xff")
+                {
+                    reservation.resize(
+                        scratch
+                            .checked_add(
+                                pixels
+                                    .checked_mul(28)
+                                    .context("Texture image working set overflow")?,
+                            )
+                            .context("Texture image working set overflow")?,
+                    )?;
+                }
+                drop(raw);
+                let mut decoded = if atlas {
+                    Texture::decode_atlas(&bytes)
+                } else {
+                    Texture::decode(&bytes)
+                }
+                .with_context(|| format!("Cannot decode Scene texture {path}"))?;
+                let fingerprint = texture_fingerprint(source, &bytes, &decoded);
+                drop(bytes);
+                drop(encoded_reservation);
+                drop(std::mem::take(&mut decoded.metadata.mips));
+                let retained = decoded
+                    .rgba
+                    .capacity()
+                    .checked_add(decoded.metadata.animation.as_ref().map_or(0, |a| {
+                        a.frames.capacity() * std::mem::size_of::<lwe_scene::AnimationFrame>()
+                    }))
+                    .context("Texture retained allocation overflow")?;
+                reservation.resize(retained)?;
+                let owner = Arc::new(prepared_source::PreparedStaticTexture::new(
+                    decoded,
+                    fingerprint,
+                    reservation,
+                ));
+                prepared_source::put_static(cache_key, &owner);
+                owner
+            };
+            self.rgba_bytes = self
+                .rgba_bytes
+                .checked_add(owner.rgba().len())
+                .context("Scene texture memory overflow")?;
+            ensure!(
+                self.rgba_bytes <= MAX_SCENE_RGBA,
+                "Scene decoded textures exceed memory budget"
+            );
+            let mut animation_reservation = owner
+                .animation
+                .as_ref()
+                .map(|a| {
+                    scene_texture_memory_budget().reserve_bytes(
+                        a.frames.capacity() * std::mem::size_of::<lwe_scene::AnimationFrame>(),
+                    )
+                })
+                .transpose()?;
+            let animation = owner.animation.clone();
+            if let Some(reservation) = animation_reservation.as_mut() {
+                reservation.resize(animation.as_ref().map_or(0, |a| {
+                    a.frames.capacity() * std::mem::size_of::<lwe_scene::AnimationFrame>()
+                }))?;
+            }
+            self.textures.push(PreparedTexture {
+                fingerprint: owner.fingerprint,
+                width: owner.width,
+                height: owner.height,
+                image_width: owner.image_width,
+                image_height: owner.image_height,
+                source_format: owner.format,
+                source_flags: owner.flags,
+                rgba: Vec::new(),
+                animation,
+                timed: None,
+                static_source: Some(owner),
+                image: None,
+                text_frame: None,
+                _rgba_reservation: animation_reservation,
+            });
+        }
         self.texture_indices.insert(name.to_owned(), index);
         Ok(TextureBinding::Static(index))
+    }
+
+    fn selected_texture(&mut self, property: &str) -> Result<Option<TextureBinding>> {
+        ensure!(
+            self.texture_properties.contains(property),
+            "Texture binding does not name a declared resource control"
+        );
+        let Some(image) = self.choices.get(property) else {
+            return Ok(None);
+        };
+        let key = format!("managed:{property}");
+        if let Some(index) = self.texture_indices.get(&key) {
+            return Ok(Some(TextureBinding::Static(*index)));
+        }
+        let mut digest = Sha256::new();
+        fingerprint_bytes(&mut digest, b"lwe-managed-resource-binding-v1");
+        fingerprint_bytes(&mut digest, property.as_bytes());
+        digest.update(image.fingerprint());
+        let index = self.textures.len();
+        self.textures.push(PreparedTexture {
+            fingerprint: digest.finalize().into(),
+            width: image.width(),
+            height: image.height(),
+            image_width: image.width(),
+            image_height: image.height(),
+            source_format: 0,
+            source_flags: 2,
+            rgba: Vec::new(),
+            animation: None,
+            timed: None,
+            static_source: None,
+            image: Some(image.clone()),
+            text_frame: None,
+            _rgba_reservation: None,
+        });
+        self.texture_indices.insert(key, index);
+        Ok(Some(TextureBinding::Static(index)))
     }
 
     fn material(
@@ -638,6 +1017,10 @@ impl Preparation<'_> {
             shader_combos.extend(combos(override_pass.get("combos"))?);
             let mut textures = vec![TextureBinding::Black; TEXTURE_SLOTS];
             let mut bound_slots = BTreeSet::new();
+            // Resolve precedence before decoding. A selected capability shadows
+            // the instance fallback, which shadows the material slot. Shadowed
+            // resources never consume a second GPU/CPU allocation.
+            let mut references = vec![None; TEXTURE_SLOTS];
             for values in [pass.get("textures"), override_pass.get("textures")]
                 .into_iter()
                 .flatten()
@@ -650,13 +1033,49 @@ impl Preparation<'_> {
                     "Scene has too many texture bindings"
                 );
                 for (slot, value) in values.iter().enumerate() {
-                    if value.is_null() {
-                        continue;
+                    if !value.is_null() {
+                        references[slot] =
+                            Some(value.as_str().context("Invalid texture reference")?);
                     }
-                    textures[slot] = self.texture(
-                        value.as_str().context("Invalid texture reference")?,
-                        kind == MaterialKind::Particle,
-                    )?;
+                }
+            }
+            let user_textures = override_pass
+                .get("usertextures")
+                .map(|v| v.as_array().context("Invalid user texture mappings"))
+                .transpose()?;
+            if let Some(values) = user_textures {
+                ensure!(
+                    values.len() <= TEXTURE_SLOTS,
+                    "Too many user texture mappings"
+                );
+                for value in values.iter().filter(|v| !v.is_null()) {
+                    let name = value
+                        .as_str()
+                        .context("Invalid user texture property name")?;
+                    ensure!(
+                        name.is_empty() || self.texture_properties.contains(name),
+                        "User texture mapping requires a declared resource control"
+                    );
+                }
+            }
+            for (slot, reference) in references.into_iter().enumerate() {
+                if bindings.contains_key(&slot) {
+                    continue;
+                }
+                let choice = user_textures
+                    .and_then(|values| values.get(slot))
+                    .filter(|v| !v.is_null())
+                    .map(|v| v.as_str().context("Invalid user texture property name"))
+                    .transpose()?;
+                if let Some(property) = choice.filter(|name| !name.is_empty())
+                    && let Some(binding) = self.selected_texture(property)?
+                {
+                    textures[slot] = binding;
+                    bound_slots.insert(slot);
+                    continue;
+                }
+                if let Some(reference) = reference {
+                    textures[slot] = self.texture(reference, kind == MaterialKind::Particle)?;
                     bound_slots.insert(slot);
                 }
             }
@@ -674,19 +1093,18 @@ impl Preparation<'_> {
             if kind == MaterialKind::Image && shader_name == "genericimage4" {
                 textures[1] = TextureBinding::Input;
             }
-            let shader = if shader_name == "genericimage4" {
+            let shader = if shader_name == "flat" {
+                ensure!(
+                    kind == MaterialKind::Image && bound_slots.is_empty(),
+                    "Flat quad requires an untextured image material"
+                );
+                shader::flat_material(&shader_combos)
+                    .map_err(|e| unsupported("shader", e.to_string()))?
+            } else if shader_name == "genericimage4" {
                 ensure!(
                     kind == MaterialKind::Image,
                     "unsupported_scene: genericimage4 non-image material"
                 );
-                for (name, value) in &shader_combos {
-                    if *value != 0 {
-                        return Err(unsupported(
-                            "shader",
-                            format!("genericimage4 combo {name}={value}"),
-                        ));
-                    }
-                }
                 ensure!(
                     bound_slots.contains(&0),
                     "Image material has no primary texture"
@@ -697,7 +1115,36 @@ impl Preparation<'_> {
                         "genericimage4 extra texture bindings",
                     ));
                 }
-                shader::image_material()
+                let timed = match textures[0] {
+                    TextureBinding::Static(index) => {
+                        let texture = &self.textures[index];
+                        if !(if texture.timed.is_some() {
+                            texture.source_flags == 7
+                        } else {
+                            matches!(texture.source_flags, 0 | 2 | 3)
+                        }) {
+                            return Err(unsupported(
+                                "shader",
+                                format!(
+                                    "genericimage4 texture format {} flags {} ({}x{}, image {}x{})",
+                                    texture.source_format,
+                                    texture.source_flags,
+                                    texture.width,
+                                    texture.height,
+                                    texture.image_width,
+                                    texture.image_height
+                                ),
+                            ));
+                        }
+                        texture.timed.is_some()
+                    }
+                    _ => false,
+                };
+                if timed {
+                    shader_combos.entry("SPRITESHEET".into()).or_insert(1);
+                }
+                shader::image_material_variant(&shader_combos, timed)
+                    .map_err(|e| unsupported("shader", e.to_string()))?
             } else if shader_name == "genericimage2" {
                 ensure!(
                     kind == MaterialKind::Image,
@@ -738,7 +1185,7 @@ impl Preparation<'_> {
                         if error.downcast_ref::<lwe_scene::SceneAssetError>().is_some() {
                             error
                         } else {
-                            unsupported("shader", error.to_string())
+                            unsupported("shader", format!("shader {shader_name}: {error:#}"))
                         }
                     })?
             } else if shader_name == "genericparticle" {
@@ -787,7 +1234,7 @@ impl Preparation<'_> {
                         if error.downcast_ref::<lwe_scene::SceneAssetError>().is_some() {
                             error
                         } else {
-                            unsupported("shader", error.to_string())
+                            unsupported("shader", format!("shader {shader_name}: {error:#}"))
                         }
                     },
                 )?
@@ -810,8 +1257,8 @@ impl Preparation<'_> {
             .flatten()
             {
                 ensure!(
-                    shader::is_legacy_image(shader_name),
-                    "unsupported_scene: user shader mappings outside legacy images"
+                    kind != MaterialKind::Particle,
+                    "unsupported_scene: user shader mappings outside image/effect materials"
                 );
                 let mapping = mapping.as_object().context("Invalid user shader mapping")?;
                 let mut targets = BTreeSet::new();
@@ -904,23 +1351,7 @@ impl Preparation<'_> {
                     }
                     consumed.insert(material_key.clone());
                 } else {
-                    let expected = match uniform.name.as_str() {
-                        "g_ModelViewProjectionMatrix" | "g_ModelMatrix" => Some("mat4"),
-                        "g_Time" => Some("float"),
-                        "g_Color4" => Some("vec4"),
-                        "g_TexelSize" => Some("vec2"),
-                        "g_ModelViewProjectionMatrixInverse" => Some("mat4"),
-                        "g_PointerPosition" => Some("vec2"),
-                        name if name
-                            .strip_prefix("g_Texture")
-                            .and_then(|name| name.strip_suffix("Resolution"))
-                            .and_then(|slot| slot.parse::<usize>().ok())
-                            .is_some_and(|slot| slot < TEXTURE_SLOTS) =>
-                        {
-                            Some("vec4")
-                        }
-                        _ => None,
-                    };
+                    let expected = shader::runtime_uniform_kind(&uniform.name);
                     if expected != Some(uniform.kind.as_str()) {
                         return Err(unsupported(
                             "shader",
@@ -992,7 +1423,8 @@ impl Preparation<'_> {
             }
             result.push(PreparedPass {
                 label: shader_name.to_owned(),
-                shader,
+                kind: PreparedPassKind::Render,
+                shader: Some(shader),
                 textures,
                 constants,
                 target: target.clone(),
@@ -1021,16 +1453,43 @@ impl Preparation<'_> {
                 return Err(unsupported("scenescript", format!("effect {file}")));
             }
             let mut targets = BTreeMap::new();
+            let mut persistent_targets = BTreeSet::new();
             if let Some(fbos) = definition.get("fbos") {
                 for fbo in fbos.as_array().context("Invalid effect render targets")? {
-                    let name = fbo["name"].as_str().context("Render target has no name")?;
-                    let scale = fbo["scale"].as_f64().unwrap_or(1.0) as f32;
+                    let fbo_object = fbo
+                        .as_object()
+                        .context("Invalid effect target declaration")?;
+                    ensure!(
+                        fbo_object.keys().all(|key| matches!(
+                            key.as_str(),
+                            "name" | "scale" | "format" | "unique"
+                        )),
+                        "Unsupported effect target metadata"
+                    );
+                    let name = fbo["name"]
+                        .as_str()
+                        .filter(|s| !s.is_empty() && s.len() <= 256)
+                        .context("Render target has no bounded name")?;
+                    let scale = fbo
+                        .get("scale")
+                        .map(|v| v.as_f64().context("Invalid target scale"))
+                        .transpose()?
+                        .unwrap_or(1.0) as f32;
                     ensure!(
                         scale.is_finite() && (1.0..=16.0).contains(&scale),
                         "Invalid render target scale"
                     );
-                    if fbo["format"].as_str().unwrap_or("rgba_backbuffer") != "rgba_backbuffer" {
+                    if fbo
+                        .get("format")
+                        .map(|v| v.as_str().context("Invalid render target format"))
+                        .transpose()?
+                        .unwrap_or("rgba_backbuffer")
+                        != "rgba_backbuffer"
+                    {
                         return Err(unsupported("shader", "effect render target format"));
+                    }
+                    if boolean(fbo, "unique", false)? {
+                        persistent_targets.insert(name.to_owned());
                     }
                     ensure!(
                         targets.insert(name.to_owned(), scale).is_none(),
@@ -1039,50 +1498,108 @@ impl Preparation<'_> {
                 }
             }
             ensure!(targets.len() <= 8, "Too many effect render targets");
-            let overrides = effect.get("passes").and_then(Value::as_array);
+            let overrides = effect
+                .get("passes")
+                .map(|v| v.as_array().context("Invalid effect overrides"))
+                .transpose()?;
             let definitions = definition["passes"]
                 .as_array()
                 .context("Effect has no passes")?;
+            let render_count = definitions
+                .iter()
+                .filter(|pass| pass.get("command").is_none())
+                .count();
             ensure!(
-                overrides.is_none_or(|overrides| overrides.len() <= definitions.len()),
-                "Effect overrides reference unknown passes"
+                overrides.is_none_or(|v| v.len() <= render_count),
+                "Effect overrides reference unknown render passes"
             );
             let mut passes = Vec::new();
             let mut written = BTreeSet::new();
-            for (index, pass) in definitions.iter().enumerate() {
-                let material = pass["material"]
-                    .as_str()
-                    .context("Effect pass has no material")?;
-                let target = pass["target"].as_str().map(str::to_owned);
+            let mut render_index = 0;
+            for pass in definitions {
+                let target = pass
+                    .get("target")
+                    .map(|v| {
+                        v.as_str()
+                            .context("Invalid effect target")
+                            .map(str::to_owned)
+                    })
+                    .transpose()?;
                 if let Some(target) = &target {
                     ensure!(
                         targets.contains_key(target),
                         "Unknown effect render target {target}"
                     );
                 }
+                let resolve = |name: &str| -> Result<TextureBinding> {
+                    if name == "previous" {
+                        return Ok(TextureBinding::Input);
+                    }
+                    ensure!(
+                        target.as_deref() != Some(name),
+                        "Effect samples its own render target {name}"
+                    );
+                    if persistent_targets.contains(name) {
+                        return Ok(TextureBinding::History(name.to_owned()));
+                    }
+                    ensure!(
+                        written.contains(name),
+                        "Effect reads unwritten target {name}"
+                    );
+                    Ok(TextureBinding::Named(name.to_owned()))
+                };
+                if let Some(command) = pass.get("command") {
+                    ensure!(
+                        command.as_str() == Some("copy"),
+                        "Unsupported effect command"
+                    );
+                    let object = pass.as_object().context("Invalid copy command")?;
+                    ensure!(
+                        object
+                            .keys()
+                            .all(|key| matches!(key.as_str(), "command" | "source" | "target")),
+                        "Unsupported copy command field"
+                    );
+                    let source = resolve(
+                        pass["source"]
+                            .as_str()
+                            .context("Effect copy has no source")?,
+                    )?;
+                    let target = target.context("Effect copy has no target")?;
+                    self.pass_count += 1;
+                    ensure!(
+                        self.pass_count <= self.pass_limit,
+                        "Scene exceeds command/pass budget"
+                    );
+                    passes.push(PreparedPass {
+                        label: "copy".into(),
+                        kind: PreparedPassKind::Copy { source },
+                        shader: None,
+                        textures: Vec::new(),
+                        constants: BTreeMap::new(),
+                        target: Some(target.clone()),
+                        blend: Blend::Replace,
+                    });
+                    written.insert(target);
+                    continue;
+                }
+                let material = pass["material"]
+                    .as_str()
+                    .context("Effect pass has no material")?;
                 let mut bindings = BTreeMap::new();
                 if let Some(bind) = pass.get("bind") {
                     for bind in bind.as_array().context("Invalid effect pass bindings")? {
-                        let slot = bind["index"]
-                            .as_u64()
-                            .context("Invalid effect texture slot")?
-                            as usize;
-                        let name = bind["name"]
-                            .as_str()
-                            .context("Invalid effect texture binding")?;
-                        let binding = if name == "previous" {
-                            TextureBinding::Input
-                        } else {
-                            ensure!(
-                                written.contains(name),
-                                "Effect reads unwritten target {name}"
-                            );
-                            ensure!(
-                                target.as_deref() != Some(name),
-                                "Effect samples its own render target {name}"
-                            );
-                            TextureBinding::Named(name.to_owned())
-                        };
+                        let slot = usize::try_from(
+                            bind["index"]
+                                .as_u64()
+                                .context("Invalid effect texture slot")?,
+                        )?;
+                        ensure!(slot < TEXTURE_SLOTS, "Effect texture slot exceeds limit");
+                        let binding = resolve(
+                            bind["name"]
+                                .as_str()
+                                .context("Invalid effect texture binding")?,
+                        )?;
                         ensure!(
                             bindings.insert(slot, binding).is_none(),
                             "Duplicate effect texture slot"
@@ -1090,7 +1607,7 @@ impl Preparation<'_> {
                     }
                 }
                 let override_pass = overrides
-                    .and_then(|passes| passes.get(index))
+                    .and_then(|v| v.get(render_index))
                     .unwrap_or(&Value::Null);
                 passes.extend(self.material(
                     material,
@@ -1099,15 +1616,22 @@ impl Preparation<'_> {
                     target.clone(),
                     &bindings,
                 )?);
+                render_index += 1;
                 if let Some(target) = target {
                     written.insert(target);
                 }
             }
             ensure!(
-                passes.last().is_some_and(|pass| pass.target.is_none()),
-                "Effect must produce a final layer output"
+                passes.last().is_some_and(
+                    |p| matches!(p.kind, PreparedPassKind::Render) && p.target.is_none()
+                ),
+                "Effect must produce a final render output"
             );
-            result.push(PreparedStage { targets, passes });
+            result.push(PreparedStage {
+                targets,
+                persistent_targets,
+                passes,
+            });
         }
         Ok(result)
     }
@@ -1139,6 +1663,15 @@ impl PreparedScene {
         assets_root: Option<&Path>,
         overrides: &BTreeMap<String, Value>,
     ) -> Result<Self> {
+        Self::prepare_with_resource_choices(project_dir, assets_root, overrides, &BTreeMap::new())
+    }
+
+    pub fn prepare_with_resource_choices(
+        project_dir: &Path,
+        assets_root: Option<&Path>,
+        overrides: &BTreeMap<String, Value>,
+        choices: &SceneResourceChoices,
+    ) -> Result<Self> {
         let assets = SceneAssets::open(project_dir, assets_root)?;
         let mut project: Value = serde_json::from_slice(&assets.read("project.json", MAX_JSON)?)
             .context("Invalid Scene project metadata")?;
@@ -1154,6 +1687,15 @@ impl PreparedScene {
         let scene_file = project["file"]
             .as_str()
             .context("Scene project has no entry resource")?;
+        let texture_properties: BTreeSet<_> = property_definitions(&project)?
+            .into_iter()
+            .filter(|property| property.kind == PropertyKind::Texture)
+            .map(|property| property.name)
+            .collect();
+        ensure!(
+            choices.keys().all(|name| texture_properties.contains(name)),
+            "Resource choice does not name a declared texture control"
+        );
         let properties = ProjectProperties::from_project(&project)?;
         let mut scene: Value = serde_json::from_slice(&assets.read(scene_file, MAX_JSON)?)
             .context("Invalid Scene entry JSON")?;
@@ -1270,11 +1812,16 @@ impl PreparedScene {
                         color: vector(object, "color", [1.0; 3])?,
                         alpha,
                         visible: boolean(object, "visible", true)?,
+                        text: object
+                            .get("text")
+                            .and_then(Value::as_str)
+                            .map(str::to_owned),
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
             let snapshot = property_definitions(&project)?
                 .into_iter()
+                .filter(|property| property.kind != PropertyKind::Texture)
                 .map(|property| Ok((property.name, serde_json::to_value(property.value)?)))
                 .collect::<Result<serde_json::Map<_, _>>>()?;
             Some(Arc::new(dynamic_script::PreparedScripts::prepare(
@@ -1302,6 +1849,10 @@ impl PreparedScene {
         let mut preparation = Preparation {
             assets: &assets,
             properties: &properties,
+            choices,
+            texture_properties,
+            inspection: lwe_scene::TextureInspectionBudget::default(),
+            active_layer_id: None,
             textures: Vec::new(),
             texture_indices: BTreeMap::new(),
             rgba_bytes: 0,
@@ -1319,6 +1870,10 @@ impl PreparedScene {
         .map(Arc::new);
         let mut effect_count = 0;
         for (object, handle) in authored_objects.iter().zip(handles) {
+            preparation.active_layer_id = object
+                .get("id")
+                .map(|id| id.as_u64().context("Invalid layer identity"))
+                .transpose()?;
             let script_state = if controlled_handles.contains(&handle) {
                 scripts.as_ref().and_then(|scripts| {
                     scripts
@@ -1374,7 +1929,27 @@ impl PreparedScene {
                         Ok(texture.height as f32 / texture.width as f32)
                     })
                     .collect::<Result<Vec<_>>>()?;
-                let animations = materials
+                let animation_bytes = materials.iter().try_fold(
+                    materials.len() * std::mem::size_of::<Option<lwe_scene::AnimationMetadata>>(),
+                    |bytes, pass| {
+                        let frames = match pass.textures[0] {
+                            TextureBinding::Static(index) => preparation.textures[index]
+                                .animation
+                                .as_ref()
+                                .map_or(0, |a| {
+                                    a.frames.capacity()
+                                        * std::mem::size_of::<lwe_scene::AnimationFrame>()
+                                }),
+                            _ => 0,
+                        };
+                        bytes
+                            .checked_add(frames)
+                            .context("Particle animation allocation overflow")
+                    },
+                )?;
+                let mut animation_reservation =
+                    scene_texture_memory_budget().reserve_bytes(animation_bytes)?;
+                let animations: Vec<_> = materials
                     .iter()
                     .map(|pass| match pass.textures[0] {
                         TextureBinding::Static(index) => {
@@ -1383,6 +1958,19 @@ impl PreparedScene {
                         _ => None,
                     })
                     .collect();
+                let animation_bytes = animations.iter().try_fold(
+                    animations.capacity()
+                        * std::mem::size_of::<Option<lwe_scene::AnimationMetadata>>(),
+                    |bytes, a| {
+                        bytes
+                            .checked_add(a.as_ref().map_or(0, |a| {
+                                a.frames.capacity()
+                                    * std::mem::size_of::<lwe_scene::AnimationFrame>()
+                            }))
+                            .context("Particle animation allocation overflow")
+                    },
+                )?;
+                animation_reservation.resize(animation_bytes)?;
                 draw_order.push(DrawObject::Particles(particles.len()));
                 particles.push(PreparedParticleLayer {
                     simulation,
@@ -1390,26 +1978,27 @@ impl PreparedScene {
                     aspects,
                     animations,
                     vertex_capacity,
+                    animation_reservation,
                 });
                 continue;
             }
-            let Some(image) = object.get("image").and_then(Value::as_str) else {
-                let feature = if object.get("particle").is_some() {
-                    "particle"
-                } else if object.get("sound").is_some() || object.get("audio").is_some() {
-                    "audio"
-                } else if object.get("text").is_some() {
-                    "text"
-                } else if object.get("model").is_some() {
+            let is_text = object.get("text").is_some();
+            let image = object.get("image").and_then(Value::as_str);
+            if image.is_none() && !is_text {
+                let feature = if object.get("model").is_some() {
                     "model"
                 } else {
                     "unknown_object"
                 };
                 return Err(unsupported(
                     feature,
-                    "only 2D image layers are currently supported",
+                    "object requires a modeled image or text surface",
                 ));
-            };
+            }
+            ensure!(
+                !(is_text && image.is_some()),
+                "Ambiguous image and text object"
+            );
             if object.get("parent").is_some() {
                 return Err(unsupported(
                     "hierarchy",
@@ -1422,7 +2011,16 @@ impl PreparedScene {
                     return Err(unsupported("puppet", format!("image {key}")));
                 }
             }
-            let model = json(&assets, image, &properties)?;
+            let prepared_text = if is_text {
+                Some(prepare_text(&assets, object)?)
+            } else {
+                None
+            };
+            let model = if let Some(text) = &prepared_text {
+                serde_json::json!({"width":text.width,"height":text.height})
+            } else {
+                json(&assets, image.expect("image checked"), &properties)?
+            };
             if boolean(&model, "perspective", false)? {
                 return Err(unsupported("camera", "perspective image model"));
             }
@@ -1438,28 +2036,77 @@ impl PreparedScene {
                 ));
             }
             if has_script(&model) {
-                return Err(unsupported("scenescript", format!("image model {image}")));
+                return Err(unsupported("scenescript", format!("image model {image:?}")));
             }
-            let material = model["material"]
-                .as_str()
-                .context("Image model has no material")?;
             let fullscreen = boolean(&model, "fullscreen", false)?;
             let passthrough = boolean(&model, "passthrough", false)?;
             ensure!(
                 fullscreen == passthrough,
                 "Unsupported partial fullscreen model"
             );
-            let base_passes = preparation.material(
-                material,
-                &Value::Null,
-                MaterialKind::Image,
-                None,
-                &BTreeMap::new(),
-            )?;
+            let instance = object.get("instance").unwrap_or(&Value::Null);
+            validate_instance(instance)?;
+            let base_passes = if let Some(text) = &prepared_text {
+                ensure!(
+                    instance.is_null(),
+                    "Text material instances are unsupported"
+                );
+                let value = script_state
+                    .and_then(|s| s.text.as_deref())
+                    .or_else(|| object["text"].as_str())
+                    .context("Text object has no literal input")?;
+                let frame = text.rasterize(value)?;
+                let index = preparation.textures.len();
+                preparation.textures.push(PreparedTexture {
+                    fingerprint: frame.fingerprint(),
+                    width: frame.width(),
+                    height: frame.height(),
+                    image_width: frame.width(),
+                    image_height: frame.height(),
+                    source_format: 0,
+                    source_flags: 2,
+                    rgba: Vec::new(),
+                    animation: None,
+                    timed: None,
+                    static_source: None,
+                    image: None,
+                    text_frame: Some(frame),
+                    _rgba_reservation: None,
+                });
+                preparation.pass_count += 1;
+                ensure!(
+                    preparation.pass_count <= preparation.pass_limit,
+                    "Scene exceeds render pass budget"
+                );
+                let mut textures = vec![TextureBinding::Black; TEXTURE_SLOTS];
+                textures[0] = TextureBinding::Static(index);
+                textures[1] = TextureBinding::Input;
+                vec![PreparedPass {
+                    label: "LWE text material".into(),
+                    kind: PreparedPassKind::Render,
+                    shader: Some(shader::text_material()?),
+                    textures,
+                    constants: BTreeMap::new(),
+                    target: None,
+                    blend: Blend::Alpha,
+                }]
+            } else {
+                let material = model["material"]
+                    .as_str()
+                    .context("Image model has no material")?;
+                preparation.material(
+                    material,
+                    instance,
+                    MaterialKind::Image,
+                    None,
+                    &BTreeMap::new(),
+                )?
+            };
             let effects = preparation.effects(object)?;
             effect_count += effects.len();
             let mut stages = vec![PreparedStage {
                 targets: BTreeMap::new(),
+                persistent_targets: BTreeSet::new(),
                 passes: base_passes,
             }];
             stages.extend(effects);
@@ -1506,7 +2153,7 @@ impl PreparedScene {
                     "perspective image requires a coplanar orthographic transform",
                 ));
             }
-            if angles[0] != 0.0 || angles[1] != 0.0 {
+            if !is_text && (angles[0] != 0.0 || angles[1] != 0.0) {
                 return Err(unsupported("model", "3D image rotation"));
             }
             let scale = vector(object, "scale", [1.0; 3])?;
@@ -1531,8 +2178,8 @@ impl PreparedScene {
                 None
             } else {
                 ensure!(
-                    matches!(color_mode, 30 | 31),
-                    "Unsupported image color blend mode"
+                    matches!(color_mode, 22 | 28 | 30 | 31),
+                    "Unsupported image color blend mode {color_mode}"
                 );
                 Some(shader::load_image_composite(&assets, color_mode as i32)?)
             };
@@ -1550,10 +2197,20 @@ impl PreparedScene {
                 origin: [origin[0], origin[1]],
                 scale: [scale[0], scale[1]],
                 angle: angles[2],
+                origin_z: origin[2],
+                angles,
                 tint: [tint[0], tint[1], tint[2], alpha],
                 blend: layer_blend,
                 composite,
                 stages,
+                clamp_uvs: boolean(object, "clampuvs", false)?,
+                crop_offset: vector(
+                    object,
+                    "cropoffset",
+                    vector(&model, "cropoffset", [0.0; 2])?,
+                )?,
+                no_padding: boolean(object, "nopadding", boolean(&model, "nopadding", false)?)?,
+                text: prepared_text,
             });
         }
         ensure!(
@@ -1570,12 +2227,17 @@ impl PreparedScene {
             .iter()
             .flat_map(|layer| &layer.stages)
             .flat_map(|stage| &stage.passes)
-            .any(|pass| shader::legacy_is_animated(&pass.label, &pass.shader, &pass.constants));
+            .any(|pass| {
+                pass.shader.as_ref().is_some_and(|shader| {
+                    shader::legacy_is_animated(&pass.label, shader, &pass.constants)
+                })
+            });
         let summary = SceneSummary {
             layer_count: draw_order.len(),
             effect_count,
             pass_count,
-            animated: scripts.is_some()
+            animated: preparation.textures.iter().any(|t| t.timed.is_some())
+                || scripts.is_some()
                 || effect_count != 0
                 || !particles.is_empty()
                 || legacy_animated
@@ -1583,7 +2245,8 @@ impl PreparedScene {
                     .iter()
                     .flat_map(|layer| &layer.stages)
                     .flat_map(|stage| &stage.passes)
-                    .flat_map(|pass| &pass.shader.uniforms)
+                    .filter_map(|pass| pass.shader.as_ref())
+                    .flat_map(|shader| &shader.uniforms)
                     .any(shader::is_audio_spectrum),
         };
         let prepared = Self {
@@ -1620,13 +2283,63 @@ impl PreparedScene {
         audio::prepared_audio_bytes(&self.audio)
     }
 
-    /// Retained decoded RGBA allocation only; metadata, decoder scratch and
-    /// other CPU resources are separate. Independent scenes own separate Vecs.
+    /// Physical owners, not content hashes. Font geometry uses its documented
+    /// conservative reservation because Fontdue exposes no actual capacity API.
+    pub(crate) fn cpu_allocations(&self) -> impl Iterator<Item = (usize, u64)> + '_ {
+        self.textures
+            .iter()
+            .map(|t| {
+                if let Some(source) = &t.timed {
+                    (
+                        source.allocation_id(),
+                        source.retained_capacity_bytes() as u64,
+                    )
+                } else if let Some(source) = &t.static_source {
+                    (Arc::as_ptr(source) as usize, source.capacity_bytes() as u64)
+                } else if let Some(image) = &t.image {
+                    (image.allocation_id(), image.capacity_bytes() as u64)
+                } else if let Some(frame) = &t.text_frame {
+                    (frame.allocation_id(), frame.capacity_bytes() as u64)
+                } else {
+                    (
+                        t.rgba.as_ptr() as usize,
+                        t._rgba_reservation
+                            .as_ref()
+                            .map_or(t.rgba.capacity(), |r| r.bytes())
+                            as u64,
+                    )
+                }
+            })
+            .chain(self.particles.iter().map(|p| {
+                (
+                    p.animations.as_ptr() as usize,
+                    p.animation_reservation.bytes() as u64,
+                )
+            }))
+            .chain(self.textures.iter().filter_map(|t| {
+                t.static_source.as_ref().and(t.animation.as_ref()).map(|a| {
+                    (
+                        a.frames.as_ptr() as usize,
+                        t._rgba_reservation.as_ref().map_or(0, |r| r.bytes()) as u64,
+                    )
+                })
+            }))
+            .chain(
+                self.layers
+                    .iter()
+                    .filter_map(|l| l.text.as_ref().map(text::PreparedText::font_allocation)),
+            )
+    }
+
+    #[cfg(test)]
     pub(crate) fn decoded_texture_bytes(&self) -> Result<u64> {
-        self.textures.iter().try_fold(0_u64, |total, texture| {
-            total
-                .checked_add(texture.rgba.capacity() as u64)
-                .context("Scene decoded texture allocation total overflow")
+        let mut owners = BTreeMap::new();
+        for (id, bytes) in self.cpu_allocations() {
+            owners.entry(id).or_insert(bytes);
+        }
+        owners.values().try_fold(0_u64, |n, bytes| {
+            n.checked_add(*bytes)
+                .context("Scene CPU allocation total overflow")
         })
     }
 
@@ -1660,6 +2373,10 @@ impl PreparedScene {
                     .unwrap_or_default(),
             )
             .context("Scene output allocation estimate overflow")?;
+        plan.private_bytes = plan
+            .private_bytes
+            .checked_add(renderer::output_cache_bytes(width, height, 2)?)
+            .context("Scene output cache estimate overflow")?;
         Ok(plan)
     }
 
@@ -1686,6 +2403,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+    include!("instance_material_tests.rs");
 
     struct Fixture(PathBuf);
     impl Fixture {
@@ -1804,7 +2522,7 @@ mod tests {
                 animated: false
             }
         );
-        assert_eq!(prepared.textures[0].rgba, [255, 0, 0, 255]);
+        assert_eq!(prepared.textures[0].rgba(), [255, 0, 0, 255]);
         let debug = format!("{prepared:?}");
         assert!(!debug.contains("rgba"));
     }
@@ -1984,10 +2702,12 @@ mod tests {
             unsupported_feature_code(&PreparedScene::prepare(&fixture.0, None).unwrap_err()),
             Some("scenescript")
         );
-        // These are the observed group placeholders plus the still-unsupported
-        // native texture control from 342; group support cannot make it runnable.
+        // Resource declarations remain outside the scalar/VM value snapshot.
+        // An empty selection uses the authored instance fallback.
         fixture.write("project.json", br#"{"type":"scene","file":"scene.json","general":{"properties":{"glitch1":{"type":"group","index":1,"order":101,"text":"ELEMENTS","value":""},"crt":{"type":"group","index":7,"order":107,"text":"CRT","value":""},"custombackground":{"type":"scenetexture","order":106,"value":""}}}}"#);
         fixture.scene(serde_json::json!([{"image":"models/image.json"}]));
+        assert!(PreparedScene::prepare(&fixture.0, None).is_ok());
+        fixture.write("project.json",br#"{"type":"scene","file":"scene.json","general":{"properties":{"unsupported":{"type":"unknown","value":""}}}}"#);
         assert_eq!(
             unsupported_feature_code(&PreparedScene::prepare(&fixture.0, None).unwrap_err()),
             Some("property_binding")
@@ -2016,8 +2736,13 @@ mod tests {
     #[test]
     fn rejects_framebuffer_budget_before_any_gl_allocation() {
         let fixture = Fixture::new();
+        fixture.shake_shader();
+        fixture.write(
+            "effects/shake/effect.json",
+            br#"{"passes":[{"material":"materials/effects/shake.json"}]}"#,
+        );
         fixture.scene(serde_json::json!([{
-            "image": "models/image.json", "size": "16384 16384"
+            "image": "models/image.json", "size": "16384 16384", "effects":[{"file":"effects/shake/effect.json"}]
         }]));
         let error = PreparedScene::prepare(&fixture.0, None).unwrap_err();
         assert!(matches!(

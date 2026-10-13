@@ -101,7 +101,7 @@ def expected_library_ids(project_dir, project, home):
             for directory in directories}
 
 
-def scene_property_plan(project, all_controls=False):
+def scene_property_plan(project, all_controls=False, keep_names=()):
     """Use author declarations and order, never application or IPC internals."""
     declarations = project.get("general", {}).get("properties", {})
     if not isinstance(declarations, dict) or len(declarations) > 256:
@@ -116,6 +116,10 @@ def scene_property_plan(project, all_controls=False):
         if not isinstance(label, str) or not finite_number(order):
             raise RuntimeError("Invalid author property label or order")
         control = {"name": name, "label": label, "kind": kind, "value": value, "order": order}
+        if kind == "group":
+            if value is not None and value != "":
+                raise RuntimeError("Author groups do not carry saved values")
+            continue
         if kind == "bool":
             if type(value) is not bool:
                 raise RuntimeError("Author boolean property requires a boolean default")
@@ -148,6 +152,11 @@ def scene_property_plan(project, all_controls=False):
             if len(set(values)) != len(values) or value not in values:
                 raise RuntimeError("Invalid author combo default or duplicate option")
             control["options"] = options
+        elif kind == "scenetexture":
+            if value != "":
+                raise RuntimeError("Image acceptance requires an empty author selection")
+            control["kind"] = "texture"
+            control["value"] = None
         else:
             raise RuntimeError("Scene property acceptance requires supported author controls")
         controls.append(control)
@@ -177,10 +186,16 @@ def scene_property_plan(project, all_controls=False):
                 if alternate is None:
                     raise RuntimeError("Every combo must be changeable for all-control acceptance")
                 changed[control["name"]] = alternate
-            else:
+            elif control["kind"] == "color":
                 changed[control["name"]] = [channel / 255 for channel in (51, 102, 153)]
                 if property_values_match(changed[control["name"]], control["value"]):
                     changed[control["name"]] = [channel / 255 for channel in (153, 102, 51)]
+    if keep_names and not all_controls:
+        raise RuntimeError("Keeping author choices requires all-control acceptance")
+    for name in keep_names:
+        if name not in defaults:
+            raise RuntimeError("Kept Scene choice has no declared value control")
+        changed[name] = copy.deepcopy(defaults[name])
     return {"controls": controls, "defaults": defaults, "changed": changed,
             "boolIndex": controls.index(boolean) if boolean is not None else None,
             "sliderIndex": controls.index(slider) if slider is not None else None}
@@ -203,6 +218,8 @@ def changed_slider_value(control):
 
 
 def property_values_match(actual, expected):
+    if expected is None:
+        return actual is None
     if isinstance(expected, dict):
         return isinstance(actual, dict) and actual.keys() == expected.keys() and all(
             property_values_match(actual[name], value) for name, value in expected.items())
@@ -270,7 +287,9 @@ def property_controls_match(controls, plan, values):
     for actual, expected in zip(controls, plan["controls"]):
         kind, value = expected["kind"], values[expected["name"]]
         if actual["label"] != expected["label"] or actual["type"] != {
-                "bool": "checkbox", "slider": "number", "color": "color", "combo": "select-one"}[kind] or actual["disabled"]:
+                "bool": "checkbox", "slider": "number", "color": "color", "combo": "select-one", "texture": "texture"}[kind] or actual["disabled"]:
+            return False
+        if kind == "texture" and actual["selected"] != (value is not None):
             return False
         if kind == "bool" and actual["checked"] is not value:
             return False
@@ -299,6 +318,92 @@ def property_controls_match(controls, plan, values):
                 f"{math.floor(channel * 255 + 0.5):02x}" for channel in value):
             return False
     return True
+
+
+def private_image_copy(source, destination, expected_token=None):
+    """Recreate only the harness-owned picker source for a real retry."""
+    if not source.is_file() or not 0 < source.stat().st_size <= 32 * 1024 * 1024:
+        raise RuntimeError("Native image fixture must be a bounded regular file")
+    shutil.copyfile(source, destination)
+    token = "sha256:" + hashlib.sha256(destination.read_bytes()).hexdigest()
+    if expected_token is not None and token != expected_token:
+        destination.unlink()
+        raise RuntimeError("Native image fixture changed before retry")
+    return token
+
+
+def native_image_dialog_input(main_window_id, owned_process_group, path=None, accessibility=False):
+    """Type only into a newly focused file dialog owned by the test application."""
+    tool = shutil.which("wtype")
+    if not tool:
+        raise RuntimeError("Native image selection requires wtype")
+    def dialog():
+        for window in niri_query("windows"):
+            try:
+                if window["id"] != main_window_id and window.get("is_focused") and window.get("pid") \
+                        and os.getpgid(window["pid"]) == owned_process_group:
+                    return window
+            except ProcessLookupError:
+                continue
+        return None
+    chosen = wait_for("focused owned image file dialog", dialog, 15)
+    current = dialog()
+    if current is None or (current["id"], current["pid"]) != (chosen["id"], chosen["pid"]):
+        raise RuntimeError("Native image file dialog lost ownership or focus")
+    if path is not None:
+        # GTK resolves typed locations asynchronously. Allow that to settle before
+        # activating Open, with the same ownership check before each input batch.
+        subprocess.run([tool, "-s", "500", "-M", "ctrl", "-k", "l", "-m", "ctrl", "-s", "100", str(path)],
+                       check=True, timeout=10, stdout=subprocess.DEVNULL)
+        time.sleep(0.5)
+    current = dialog()
+    if current is None or (current["id"], current["pid"]) != (chosen["id"], chosen["pid"]):
+        raise RuntimeError("Native image file dialog lost ownership or focus before activation")
+    if accessibility:
+        # Activate the real GTK chooser button through its accessibility action.
+        # Only inspect the application identified by this compositor window/PID.
+        import gi
+        gi.require_version("Atspi", "2.0")
+        from gi.repository import Atspi
+        desktop = Atspi.get_desktop(0)
+        apps = [desktop.get_child_at_index(i) for i in range(min(desktop.get_child_count(), 128))
+                if desktop.get_child_at_index(i).get_process_id() == chosen["pid"]]
+        if len(apps) != 1:
+            raise RuntimeError("Owned GTK accessibility application unavailable")
+        app = apps[0]
+        choosers = [app.get_child_at_index(i) for i in range(min(app.get_child_count(), 32))
+                    if app.get_child_at_index(i).get_role() == Atspi.Role.FILE_CHOOSER
+                    and app.get_child_at_index(i).get_name() == chosen["title"]]
+        if len(choosers) != 1:
+            raise RuntimeError("Owned GTK accessibility chooser unavailable")
+        chooser = choosers[0]
+        name = "Cancel" if path is None else "Open"
+        buttons = []
+        pending = [(chooser, 0)]
+        visited = 0
+        while pending:
+            node, depth = pending.pop()
+            visited += 1
+            if visited > 256:
+                raise RuntimeError("Owned GTK chooser accessibility limit exceeded")
+            if node.get_role() == Atspi.Role.PUSH_BUTTON and node.get_name() == name:
+                buttons.append(node)
+            if depth < 3:
+                pending.extend((node.get_child_at_index(i), depth + 1)
+                               for i in range(min(node.get_child_count(), 32)))
+        current = dialog()
+        if len(buttons) != 1 or current is None or (current["id"], current["pid"]) != (chosen["id"], chosen["pid"]):
+            raise RuntimeError("Owned GTK chooser button identity unavailable")
+        button = buttons[0]
+        if not button.get_state_set().contains(Atspi.StateType.SENSITIVE):
+            raise RuntimeError("Owned GTK chooser button is unavailable")
+        if not button.get_action_iface().do_action(0):
+            raise RuntimeError("Owned GTK chooser action failed")
+    else:
+        subprocess.run([tool, "-s", "500", "-k", "Escape" if path is None else "Return"],
+                       check=True, timeout=10, stdout=subprocess.DEVNULL)
+    return {"windowId": chosen["id"], "cancelled": path is None,
+            "activation": "GTK accessibility button" if accessibility else "native keyboard"}
 
 
 def fullscreen_owned_cover(owned_window, output_size, duration=12, capture=None):
@@ -472,6 +577,14 @@ def main():
                         help="Edit author bool/slider using native controls, verify atomic session/restart readback, and reset full defaults")
     parser.add_argument("--all-scene-properties", action="store_true",
                         help="Edit every author control; color uses the rendered input's real input event, without IPC injection")
+    parser.add_argument("--scene-image", type=Path,
+                        help="With --all-scene-properties, cancel and select an image in the native file chooser; requires wtype")
+    parser.add_argument("--narrow-image-layout", action="store_true",
+                        help="Also capture English/Chinese image-control layout in a narrow native window; requires --scene-image and --playback-settings")
+    parser.add_argument("--native-dialog-accessibility", action="store_true",
+                        help="Activate owned GTK chooser buttons with Python GI/AT-SPI; requires --scene-image and the GTK accessibility bridge")
+    parser.add_argument("--keep-scene-property", action="append", default=[], metavar="NAME",
+                        help="With --all-scene-properties, retain this author default while editing other controls; repeat to preserve active effects")
     parser.add_argument("--scene-properties-write-failure", action="store_true",
                         help="Also deny writes only in isolated config/lwe, verify real Save rollback and retained draft, then retry the same choices")
     parser.add_argument("--long-occlusion", action="store_true",
@@ -495,7 +608,18 @@ def main():
     project = json.loads((args.project / "project.json").read_text())
     if not args.project.name.isdecimal() or project["type"].lower() != "scene":
         parser.error("--project must identify a locally acquired Workshop Scene")
-    properties_plan = scene_property_plan(project, args.all_scene_properties) if args.scene_properties else None
+    properties_plan = scene_property_plan(project, args.all_scene_properties, args.keep_scene_property) if args.scene_properties else None
+    if args.keep_scene_property and not args.all_scene_properties:
+        parser.error("--keep-scene-property requires --all-scene-properties")
+    if args.scene_image and (not args.all_scene_properties or not shutil.which("wtype")
+                            or not args.scene_image.is_file() or args.scene_image.stat().st_size > 32 * 1024 * 1024):
+        parser.error("--scene-image requires --all-scene-properties, wtype and a bounded local image")
+    if args.narrow_image_layout and not (args.scene_image and args.playback_settings):
+        parser.error("--narrow-image-layout requires --scene-image and --playback-settings")
+    if args.native_dialog_accessibility and not args.scene_image:
+        parser.error("--native-dialog-accessibility requires --scene-image")
+    if args.scene_image and len([control for control in properties_plan["controls"] if control["kind"] == "texture"]) != 1:
+        parser.error("Native image acceptance requires exactly one authored image property")
     output = args.output.resolve()
     output.mkdir(parents=True, mode=0o700, exist_ok=True)
     original_workspaces = niri_query("workspaces")
@@ -507,6 +631,17 @@ def main():
     config = Path(tempfile.mkdtemp(prefix="lwe-scene-ui-"))
     env = os.environ.copy()
     env["XDG_CONFIG_HOME"] = str(config)
+    env["XDG_DATA_HOME"] = str(config / "data")
+    if args.native_dialog_accessibility:
+        env["GTK_MODULES"] = "gail:atk-bridge"
+        env["NO_AT_BRIDGE"] = "0"
+        env["LC_ALL"] = "C.UTF-8"
+    image_source = None
+    if args.scene_image:
+        image_source = config / ("selected-image" + args.scene_image.suffix)
+        expected_image_token = private_image_copy(args.scene_image, image_source)
+        image_control = next(control for control in properties_plan["controls"] if control["kind"] == "texture")
+        properties_plan["changed"][image_control["name"]] = expected_image_token
     report = {"projectId": args.project.name, "originalWorkspaceId": focused["id"], "configIsolated": True, "mockIpc": False,
               "visualReview": "required", "steps": [], "cleanupErrors": [], "passed": False}
     process, driver, log_file = None, None, None
@@ -559,19 +694,21 @@ def main():
         driver.before_click = activate
         progress(f"Started owned group {process.pid}")
 
-    def library(project_dir, metadata):
+    def library(project_dir, metadata, language="en"):
+        prefix = "选择内容项 " if language == "zh" else "Select Library item "
+        next_label = "下一页" if language == "zh" else "Next"
         title = metadata["title"]
         expected = expected_library_ids(project_dir, metadata, Path(os.environ["HOME"]))
         driver.click('a[href="/library"]')
-        wait_for("Library catalog", lambda: driver.script("return document.querySelector('button[aria-label^=\"Select Library item \"]')"))
+        wait_for("Library catalog", lambda: driver.script("return [...document.querySelectorAll('button[aria-label]')].find(b=>b.getAttribute('aria-label').startsWith(arguments[0]))", prefix))
         seen_pages = set()
         while True:
-            labels = driver.script("return [...document.querySelectorAll('button[aria-label^=\"Select Library item \"]')].map(b=>b.getAttribute('aria-label'))")
+            labels = driver.script("return [...document.querySelectorAll('button[aria-label]')].filter(b=>b.getAttribute('aria-label').startsWith(arguments[0])).map(b=>b.getAttribute('aria-label'))", prefix)
             signature = tuple(labels)
             if signature in seen_pages:
                 raise RuntimeError("Library pagination did not advance")
             seen_pages.add(signature)
-            cards = driver.script("return [...document.querySelectorAll('button[aria-label]')].filter(b=>b.getAttribute('aria-label')===arguments[0])", "Select Library item " + title)
+            cards = driver.script("return [...document.querySelectorAll('button[aria-label]')].filter(b=>b.getAttribute('aria-label')===arguments[0])", prefix + title)
             for card in cards:
                 driver.click_element(card[ELEMENT])
                 wait_for("Scene detail", lambda: driver.script("return document.querySelector('[data-detail-section=header] h2')?.textContent===arguments[0] && document.querySelector('[data-detail-layout][data-item-id]')?.dataset.itemId", title))
@@ -579,11 +716,11 @@ def main():
                 if actual in expected:
                     progress(f"Selected verified Workshop {project_dir.name} / Library {actual}")
                     return actual
-            next_button = driver.script("return [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Next'&&!b.disabled)")
+            next_button = driver.script("return [...document.querySelectorAll('button')].find(b=>b.textContent.trim()===arguments[0]&&!b.disabled)", next_label)
             if not next_button:
                 raise RuntimeError("The requested Workshop Scene identity is missing from Library")
             driver.click_element(next_button[ELEMENT])
-            wait_for("next Library page", lambda: driver.script("return JSON.stringify([...document.querySelectorAll('button[aria-label^=\"Select Library item \"]')].map(b=>b.getAttribute('aria-label'))) !== arguments[0]", json.dumps(labels, separators=(",", ":"))))
+            wait_for("next Library page", lambda: driver.script("return JSON.stringify([...document.querySelectorAll('button[aria-label]')].filter(b=>b.getAttribute('aria-label').startsWith(arguments[1])).map(b=>b.getAttribute('aria-label'))) !== arguments[0]", json.dumps(labels, separators=(",", ":")), prefix))
 
     def saved_assignment():
         path = config / "lwe/session.toml"
@@ -594,17 +731,20 @@ def main():
         return tomllib.loads(path.read_text()) if path.exists() else {}
 
     def property_controls():
-        return driver.script("""return [...document.querySelectorAll('[data-detail-section=scene-properties] fieldset input, [data-detail-section=scene-properties] fieldset select')].map(e=>({
+        return driver.script("""return [...document.querySelectorAll('[data-detail-section=scene-properties] fieldset input, [data-detail-section=scene-properties] fieldset select, [data-scene-image-property]')].map(e=>e.hasAttribute('data-scene-image-property')?({
+          element:e, type:'texture', label:document.getElementById(e.getAttribute('aria-labelledby')).textContent,
+          selected:e.getAttribute('data-image-selected')==='true', disabled:e.querySelector('button').disabled
+        }):({
           element:e, type:e.type, label:e.closest('label').querySelector('span').textContent,
           checked:e.checked, value:e.value, disabled:e.disabled, min:e.min, max:e.max, step:e.step,
           options:e.tagName==='SELECT'?[...e.options].map(o=>({label:o.textContent,value:o.value})):null
         }));""")
 
-    def open_properties(expected):
-        library(args.project, project)
-        select_monitor()
+    def open_properties(expected, language="en"):
+        library(args.project, project, language)
+        select_monitor(language)
         toggle = wait_for("enabled Scene property entry", lambda: driver.script(
-            "return document.querySelector('[data-detail-section=scene-properties] button[aria-label=\"Scene properties\"]:not(:disabled)')"))
+            "return document.querySelector('[data-detail-section=scene-properties] button[aria-expanded]:not(:disabled)')"))
         if driver.script("return arguments[0].getAttribute('aria-expanded')", toggle) != "true":
             driver.click_element(toggle[ELEMENT])
         wait_for("native author property values", lambda: property_controls_match(
@@ -616,6 +756,27 @@ def main():
         time.sleep(0.3)
         driver.screenshot(output / name)
 
+    def capture_narrow_image_layout(language):
+        window = owned_window()
+        if not window["is_focused"]:
+            raise RuntimeError("Owned Scene layout window is not focused")
+        niri_action("set-column-width", "380")
+        try:
+            wait_for("owned narrow viewport", lambda: driver.script("return innerWidth<=380 && innerWidth>=360"), 5)
+            driver.script("document.querySelector('[data-scene-image-property]').scrollIntoView({block:'center'})")
+            time.sleep(0.3)
+            geometry = driver.script("""const e=document.querySelector('[data-scene-image-property]'),r=e.getBoundingClientRect();
+              return {viewport:innerWidth,left:r.left,right:r.right,width:e.clientWidth,scrollWidth:e.scrollWidth,
+                text:e.textContent,buttons:[...e.querySelectorAll('button')].map(b=>b.textContent.trim())};""")
+            report.setdefault("imageLayouts", {})[language] = geometry
+            driver.screenshot(output / f"scene-image-{language}-380.png")
+            if geometry["left"] < -1 or geometry["right"] > geometry["viewport"]+1 or geometry["scrollWidth"] > geometry["width"]+1:
+                raise RuntimeError("Native image control overflows the narrow viewport")
+        finally:
+            focus_owned()
+            niri_action("set-column-width", "100%")
+            wait_for("owned full viewport restored", lambda: driver.script("return innerWidth>=1000"), 5)
+
     def edit_properties():
         controls = open_properties(properties_plan["defaults"])
         indices = range(len(controls)) if args.all_scene_properties else [properties_plan["boolIndex"], properties_plan["sliderIndex"]]
@@ -624,12 +785,34 @@ def main():
             element = controls[index]["element"]
             value = properties_plan["changed"][control["name"]]
             if control["kind"] == "bool":
-                driver.click_element(element[ELEMENT])
+                if controls[index]["checked"] != value:
+                    driver.click_element(element[ELEMENT])
             elif control["kind"] == "slider":
                 driver.type_number(element[ELEMENT], value)
             elif control["kind"] == "combo":
                 driver.select_option(element[ELEMENT], value)
-            else:
+            elif control["kind"] == "texture" and image_source is not None:
+                if not image_source.exists():
+                    private_image_copy(args.scene_image, image_source, expected_image_token)
+                def choose_image():
+                    choose = driver.script("return [...arguments[0].querySelectorAll('button')].find(e=>e.textContent.trim()==='Choose image')", element)
+                    if not choose:
+                        raise RuntimeError("Native image control is unavailable")
+                    main_id = owned_window()["id"]
+                    driver.click_element(choose[ELEMENT])
+                    return main_id
+                before_selection = driver.script("return arguments[0].getAttribute('data-image-selected')", element)
+                main_id = choose_image()
+                cancelled = native_image_dialog_input(main_id, process.pid, accessibility=args.native_dialog_accessibility)
+                wait_for("cancel preserves image draft", lambda: driver.script("return arguments[0].getAttribute('data-image-selected')===arguments[1] && !arguments[0].querySelector('button').disabled", element, before_selection))
+                main_id = choose_image()
+                imported = native_image_dialog_input(main_id, process.pid, image_source, args.native_dialog_accessibility)
+                wait_for("native imported image draft", lambda: driver.script("return arguments[0].getAttribute('data-image-selected')==='true' && !arguments[0].querySelector('button').disabled", element))
+                image_source.unlink()
+                image_report = report.setdefault("nativeImage", {"attempts": [],
+                    "expectedToken": expected_image_token, "selectedSourceRemoved": True, "dataIsolated": True})
+                image_report["attempts"].append({"cancel": cancelled, "select": imported})
+            elif control["kind"] == "color":
                 # WebDriver cannot type into WebKit's native color dialog.
                 # Drive the actual rendered control and its frontend handler;
                 # mutation/publication still use the ordinary real IPC path.
@@ -696,7 +879,7 @@ def main():
                 state = snapshot["state"]
                 items = state.get("scene_properties", {}).get(monitor_id, {})
                 choices_match = library_id not in items if reset else property_values_match(
-                    items.get(library_id), properties_plan["changed"])
+                    items.get(library_id), {name: value for name, value in properties_plan["changed"].items() if value is not None})
                 if choices_match and state.get("assignments", {}).get(monitor_id) == library_id and \
                         not status["busy"] and status["enabled"]:
                     return snapshot
@@ -778,8 +961,9 @@ def main():
             niri_action("move-window-to-workspace", "--window-id", window["id"], "--focus", "false", workspace_name)
             focus_owned()
 
-    def select_monitor():
-        trigger = driver.find('[data-detail-section=actions] button[aria-label="Apply target monitor"]')
+    def select_monitor(language="en"):
+        label = "选择要应用到的显示器" if language == "zh" else "Apply target monitor"
+        trigger = driver.find(f'[data-detail-section=actions] button[aria-label="{label}"]')
         driver.click_element(trigger)
         option = wait_for("monitor option", lambda: driver.script("return document.querySelector('[data-slot=select-item]')"))
         time.sleep(0.2)  # Floating UI places the portal after opening.
@@ -947,6 +1131,9 @@ def main():
             driver.screenshot(output / "blocked-scene.png")
             report["blockedReason"] = args.blocked_reason
             report["steps"].append("verified blocked Scene remained browsable with the expected capability explanation")
+        if args.narrow_image_layout:
+            open_properties(properties_plan["defaults"])
+            capture_narrow_image_layout("en")
         if args.playback_settings:
             driver.click('a[href="/settings"]')
             edit = wait_for("Settings edit for Chinese layout", lambda: driver.script("return [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Edit settings'&&!b.disabled)"))
@@ -961,6 +1148,9 @@ def main():
             time.sleep(0.3)
             driver.screenshot(output / "settings-zh.png")
             report["steps"].append("native language control rendered Chinese playback preferences for layout review")
+            if args.narrow_image_layout:
+                open_properties(properties_plan["defaults"], "zh")
+                capture_narrow_image_layout("zh")
         report["passed"] = True
         progress("Automatic UI/persistence assertions completed; cleaning up")
     except BaseException as error:

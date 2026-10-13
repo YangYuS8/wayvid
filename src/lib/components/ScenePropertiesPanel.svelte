@@ -2,7 +2,7 @@
   import { onDestroy, untrack } from 'svelte';
   import { Button } from '$lib/ui/button';
   import { copy, formatCopy } from '$lib/i18n';
-  import { loadSceneProperties, updateSceneProperties } from '$lib/ipc';
+  import { chooseSceneImage, loadSceneProperties, updateSceneProperties } from '$lib/ipc';
   import type { ActionOutcome, ScenePropertiesSnapshot, SceneProperty, ScenePropertyValue } from '$lib/types';
 
   interface Props {
@@ -16,10 +16,11 @@
   const panelId = $props.id();
   let expanded = $state(false);
   let snapshot = $state<ScenePropertiesSnapshot | null>(null);
-  let draft = $state<Record<string, boolean | string | [number, number, number]>>({});
+  let draft = $state<Record<string, boolean | string | null | [number, number, number]>>({});
   let groupExpanded = $state(new Map<string, boolean>());
   let loading = $state(false);
   let saving = $state(false);
+  let importing = $state(false);
   let error = $state<string | null>(null);
   let refreshError = $state<string | null>(null);
   let message = $state<string | null>(null);
@@ -29,7 +30,7 @@
 
   const selectionKey = $derived(JSON.stringify([itemId, monitorId]));
   const panelCopy = $derived($copy.components.sceneProperties);
-  const controlsDisabled = $derived(disabled || loading || saving);
+  const controlsDisabled = $derived(disabled || loading || saving || importing);
   const values = $derived(readDraft());
   const groupedNames = $derived(new Set(snapshot?.groups.flatMap((group) => group.members) ?? []));
   const ungrouped = $derived(snapshot?.properties.filter((property) => !groupedNames.has(property.name)) ?? []);
@@ -48,6 +49,7 @@
       groupExpanded = new Map();
       loading = false;
       saving = false;
+      importing = false;
       error = null;
       refreshError = null;
       message = null;
@@ -59,6 +61,7 @@
   const isCurrent = (token: number, key: string) =>
     !destroyed && requestToken === token && selectionKey === key;
   const finiteOrNull = (value: unknown) => value === null || (typeof value === 'number' && Number.isFinite(value));
+  const isImageToken = (value: unknown): value is string => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
   const isColor = (value: unknown): value is [number, number, number] =>
     Array.isArray(value) && value.length === 3 && value.every((channel) =>
       typeof channel === 'number' && Number.isFinite(channel) && channel >= 0 && channel <= 1);
@@ -79,6 +82,7 @@
           (property.step !== null && property.step <= 0)) return false;
       if (property.kind === 'bool') return typeof property.value === 'boolean';
       if (property.kind === 'color') return isColor(property.value);
+      if (property.kind === 'texture') return property.value === null || isImageToken(property.value);
       if (property.kind === 'combo') {
         if (typeof property.value !== 'string' || !Array.isArray(property.options) ||
             property.options.length === 0 || property.options.length > 256) return false;
@@ -130,6 +134,10 @@
       } else if (property.kind === 'combo') {
         if (typeof value !== 'string' || !property.options.some((option) => option.value === value)) return null;
         entries.push([property.name, value]);
+      } else if (property.kind === 'texture') {
+        if (value === null) continue;
+        if (!isImageToken(value)) return null;
+        entries.push([property.name, value]);
       } else {
         if (typeof value !== 'string' || !value.trim()) return null;
         const number = Number(value);
@@ -141,7 +149,7 @@
     return Object.fromEntries(entries);
   }
 
-  function edit(name: string, value: boolean | string | [number, number, number]) {
+  function edit(name: string, value: boolean | string | null | [number, number, number]) {
     draft = { ...draft, [name]: value };
     error = null;
     message = null;
@@ -156,6 +164,23 @@
   ];
   const errorText = (reason: unknown) => reason instanceof Error ? reason.message : String(reason);
 
+  async function chooseImage(name: string) {
+    if (controlsDisabled) return;
+    const token = ++requestToken;
+    const key = selectionKey;
+    importing = true;
+    error = null;
+    try {
+      const image = await chooseSceneImage(itemId, name);
+      if (!isCurrent(token, key) || image === null) return;
+      if (!image || !isImageToken(image.token) || !Number.isInteger(image.width) ||
+          !Number.isInteger(image.height) || image.width < 1 || image.height < 1 ||
+          image.width > 8192 || image.height > 8192) throw new Error(panelCopy.invalidImage);
+      edit(name, image.token);
+    } catch (reason) { if (isCurrent(token, key)) error = errorText(reason); }
+    finally { if (isCurrent(token, key)) importing = false; }
+  }
+
   async function fetchSnapshot(token: number, key: string, currentItem: string, currentMonitor: string) {
     const result = await loadSceneProperties(currentMonitor, currentItem);
     if (!isCurrent(token, key)) return;
@@ -168,7 +193,7 @@
   }
 
   async function reload() {
-    if (loading || saving || disabled) return;
+    if (controlsDisabled) return;
     const token = ++requestToken;
     const key = selectionKey;
     const currentItem = itemId;
@@ -186,7 +211,7 @@
   }
 
   function toggle() {
-    if (disabled || saving) return;
+    if (disabled || saving || importing) return;
     expanded = !expanded;
     if (expanded && !snapshot && !loading) void reload();
   }
@@ -245,6 +270,17 @@
         {/each}
       </select>
     </label>
+  {:else if property.kind === 'texture'}
+    <div class="grid min-w-0 gap-1.5 text-sm" role="group" aria-labelledby={inputId}
+      data-scene-image-property={property.name} data-image-selected={draft[property.name] !== null}>
+      <span id={inputId} class="lwe-wrap-safe">{property.label}</span>
+      <p class="text-muted-foreground">{draft[property.name] === null ? panelCopy.authorImage : panelCopy.selectedImage}</p>
+      <div class="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={controlsDisabled} onclick={() => chooseImage(property.name)}>{panelCopy.chooseImage}</Button>
+        <Button variant="outline" disabled={controlsDisabled || draft[property.name] === null} onclick={() => edit(property.name, null)}>{panelCopy.clearImage}</Button>
+      </div>
+      <p class="text-xs leading-5 text-muted-foreground">{panelCopy.imageFormats}</p>
+    </div>
   {:else}
     <label class="grid min-w-0 gap-1.5 text-sm" for={inputId}>
       <span class="lwe-wrap-safe">{property.label}</span>
@@ -255,15 +291,16 @@
   {/if}
 {/snippet}
 
-<section class="lwe-subpanel gap-3" data-detail-section="scene-properties" aria-busy={loading || saving}>
+<section class="lwe-subpanel gap-3" data-detail-section="scene-properties" aria-busy={loading || saving || importing}>
   <Button variant="outline" class="h-auto min-h-9 justify-between whitespace-normal text-left" onclick={toggle}
-    aria-label={panelCopy.title} aria-expanded={expanded} aria-controls={panelId} disabled={disabled || saving}>
+    aria-label={panelCopy.title} aria-expanded={expanded} aria-controls={panelId} disabled={disabled || saving || importing}>
     {panelCopy.title}<span aria-hidden="true">{expanded ? '−' : '+'}</span>
   </Button>
   {#if expanded}
     <div id={panelId} class="grid min-w-0 gap-3">
       <p class="text-sm leading-6 text-muted-foreground">{panelCopy.description}</p>
       {#if loading}<p class="text-sm text-muted-foreground" role="status">{panelCopy.loading}</p>{/if}
+      {#if importing}<p class="text-sm text-muted-foreground" role="status">{panelCopy.importingImage}</p>{/if}
       {#if snapshot}
         {#if snapshot.properties.length === 0}
           <p class="text-sm text-muted-foreground">{panelCopy.empty}</p>

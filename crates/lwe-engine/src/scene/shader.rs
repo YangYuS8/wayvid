@@ -405,6 +405,79 @@ fn condition_number(expression: &str, values: &BTreeMap<String, i32>) -> Result<
     Ok(values.get(expression).copied().unwrap_or(0))
 }
 
+fn shader_directive_source(source: &str) -> Result<String> {
+    let mut bytes = source.as_bytes().to_vec();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        if &bytes[i..i + 2] == b"//" {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                bytes[i] = b' ';
+                i += 1;
+            }
+        } else if &bytes[i..i + 2] == b"/*" {
+            bytes[i] = b' ';
+            bytes[i + 1] = b' ';
+            i += 2;
+            let mut closed = false;
+            while i + 1 < bytes.len() {
+                if &bytes[i..i + 2] == b"*/" {
+                    bytes[i] = b' ';
+                    bytes[i + 1] = b' ';
+                    i += 2;
+                    closed = true;
+                    break;
+                }
+                if bytes[i] != b'\n' {
+                    bytes[i] = b' ';
+                }
+                i += 1;
+            }
+            ensure!(closed, "Unterminated shader comment");
+        } else {
+            i += 1;
+        }
+    }
+    Ok(String::from_utf8(bytes).expect("comment masking preserves UTF-8"))
+}
+
+fn macro_condition(
+    expression: &str,
+    values: &BTreeMap<String, i32>,
+    definitions: &BTreeMap<String, String>,
+) -> Result<bool> {
+    fn resolve(
+        name: &str,
+        values: &BTreeMap<String, i32>,
+        definitions: &BTreeMap<String, String>,
+        depth: usize,
+    ) -> Result<i32> {
+        ensure!(depth < 32, "Shader conditional macro alias depth/cycle");
+        let Some(expression) = definitions.get(name) else {
+            return Ok(values.get(name).copied().unwrap_or(0));
+        };
+        let mut expression = expression.trim();
+        while expression.starts_with('(') && expression.ends_with(')') {
+            expression = expression[1..expression.len() - 1].trim();
+        }
+        if let Ok(value) = expression.parse::<i32>() {
+            return Ok(value);
+        }
+        ensure!(
+            identifier(expression),
+            "Unsupported numeric conditional macro {name}"
+        );
+        resolve(expression, values, definitions, depth + 1)
+    }
+    let mut resolved = values.clone();
+    for token in expression
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|t| identifier(t))
+    {
+        resolved.insert(token.to_owned(), resolve(token, values, definitions, 0)?);
+    }
+    condition(expression, &resolved)
+}
+
 fn active_source(source: &str, values: &BTreeMap<String, i32>) -> Result<String> {
     struct Branch {
         parent: bool,
@@ -414,16 +487,19 @@ fn active_source(source: &str, values: &BTreeMap<String, i32>) -> Result<String>
     let mut branches: Vec<Branch> = Vec::new();
     let mut active = true;
     let mut result = String::new();
-    for line in source.lines() {
-        let directive = line.trim();
+    let mut macros = values.clone();
+    let mut definitions = BTreeMap::new();
+    let directives = shader_directive_source(source)?;
+    for (line, directive) in source.lines().zip(directives.lines()) {
+        let directive = directive.trim();
         let if_result = if let Some(expression) = directive.strip_prefix("#if ") {
-            Some(condition(expression, values)?)
+            Some(macro_condition(expression, &macros, &definitions)?)
         } else if let Some(name) = directive.strip_prefix("#ifdef ") {
-            Some(values.contains_key(name.trim()))
+            Some(macros.contains_key(name.trim()))
         } else {
             directive
                 .strip_prefix("#ifndef ")
-                .map(|name| !values.contains_key(name.trim()))
+                .map(|name| !macros.contains_key(name.trim()))
         };
         if let Some(enabled) = if_result {
             ensure!(
@@ -438,7 +514,7 @@ fn active_source(source: &str, values: &BTreeMap<String, i32>) -> Result<String>
             active = active && enabled;
         } else if let Some(expression) = directive.strip_prefix("#elif ") {
             let branch = branches.last_mut().context("Unmatched shader #elif")?;
-            branch.enabled = !branch.taken && condition(expression, values)?;
+            branch.enabled = !branch.taken && macro_condition(expression, &macros, &definitions)?;
             branch.taken |= branch.enabled;
             active = branch.parent && branch.enabled;
         } else if directive == "#else" {
@@ -449,6 +525,23 @@ fn active_source(source: &str, values: &BTreeMap<String, i32>) -> Result<String>
         } else if directive == "#endif" {
             active = branches.pop().context("Unmatched shader #endif")?.parent;
         } else if active {
+            if let Some(definition) = directive.strip_prefix("#define ") {
+                let mut parts = definition.splitn(2, char::is_whitespace);
+                let name = parts.next().context("Missing shader macro name")?;
+                let name = name.split('(').next().unwrap_or(name);
+                ensure!(identifier(name), "Invalid shader macro name");
+                let expression = parts.next().unwrap_or("0").trim();
+                ensure!(
+                    definitions.len() < 4096 || definitions.contains_key(name),
+                    "Shader macro declaration budget exceeded"
+                );
+                definitions.insert(name.to_owned(), expression.to_owned());
+                macros.insert(name.to_owned(), 0);
+            } else if let Some(name) = directive.strip_prefix("#undef ") {
+                ensure!(identifier(name.trim()), "Invalid shader macro undef");
+                macros.remove(name.trim());
+                definitions.remove(name.trim());
+            }
             result.push_str(line);
             result.push('\n');
         }
@@ -867,9 +960,14 @@ pub(crate) fn runtime_uniform_kind(name: &str) -> Option<&'static str> {
             Some("mat4")
         }
         "g_Time" => Some("float"),
-        "g_Color4" => Some("vec4"),
+        "g_Color4" | "g_Texture0UVTransform" => Some("vec4"),
         "g_TexelSize" | "g_PointerPosition" => Some("vec2"),
-        "g_AudioSpectrum16Left" | "g_AudioSpectrum16Right" => Some("float"),
+        "g_AudioSpectrum16Left"
+        | "g_AudioSpectrum16Right"
+        | "g_AudioSpectrum32Left"
+        | "g_AudioSpectrum32Right"
+        | "g_AudioSpectrum64Left"
+        | "g_AudioSpectrum64Right" => Some("float"),
         name if name
             .strip_prefix("g_Texture")
             .and_then(|name| name.strip_suffix("Resolution"))
@@ -883,12 +981,16 @@ pub(crate) fn runtime_uniform_kind(name: &str) -> Option<&'static str> {
 }
 
 pub(crate) fn is_audio_spectrum(uniform: &Uniform) -> bool {
-    matches!(
-        uniform.name.as_str(),
-        "g_AudioSpectrum16Left" | "g_AudioSpectrum16Right"
-    ) && uniform.kind == "float"
+    let length = match uniform.name.as_str() {
+        "g_AudioSpectrum16Left" | "g_AudioSpectrum16Right" => Some(16),
+        "g_AudioSpectrum32Left" | "g_AudioSpectrum32Right" => Some(32),
+        "g_AudioSpectrum64Left" | "g_AudioSpectrum64Right" => Some(64),
+        _ => None,
+    };
+    length.is_some()
+        && uniform.kind == "float"
         && uniform.array
-        && uniform.array_length == Some(16)
+        && uniform.array_length == length
         && uniform.material.is_none()
 }
 
@@ -898,7 +1000,12 @@ fn validate_bounded_uniforms(uniforms: &BTreeMap<String, Uniform>) -> Result<()>
             (!uniform.array
                 && !matches!(
                     uniform.name.as_str(),
-                    "g_AudioSpectrum16Left" | "g_AudioSpectrum16Right"
+                    "g_AudioSpectrum16Left"
+                        | "g_AudioSpectrum16Right"
+                        | "g_AudioSpectrum32Left"
+                        | "g_AudioSpectrum32Right"
+                        | "g_AudioSpectrum64Left"
+                        | "g_AudioSpectrum64Right"
                 ))
                 || is_audio_spectrum(uniform),
             "unsupported_scene: unvalidated uniform array {}",
@@ -961,7 +1068,7 @@ fn image2_combos(values: &BTreeMap<String, i32>, composite: bool) -> Result<()> 
     for (name, value) in values {
         let allowed = match name.as_str() {
             "VERSION" => matches!(*value, 1 | 2),
-            "BLENDMODE" => *value == 0 || (composite && matches!(*value, 30 | 31)),
+            "BLENDMODE" => *value == 0 || (composite && matches!(*value, 22 | 28 | 30 | 31)),
             "LIGHTING" | "REFLECTION" | "SPRITESHEET" | "PBRMASKS" | "SKINNING"
             | "SKINNING_ALPHA" | "HDR" | "PRELIGHTING" | "NORMALMAP" | "METALLIC_MAP"
             | "ROUGHNESS_MAP" | "REFLECTION_MAP" | "EMISSIVE_MAP" => *value == 0,
@@ -1148,6 +1255,10 @@ pub(crate) fn load_image_composite(assets: &SceneAssets, mode: i32) -> Result<Sh
 /// These are general project shader interfaces, not Workshop item IDs.
 pub(crate) fn is_bounded_project_effect(name: &str) -> bool {
     name.starts_with("workshop/")
+        || matches!(
+            name,
+            "effects/motionblur_accumulation" | "effects/motionblur_combine"
+        )
 }
 
 #[derive(Clone, Copy)]
@@ -1417,6 +1528,19 @@ fn validate_effect_combos(name: &str, overrides: &BTreeMap<String, i32>) -> Resu
                 ("passthrough", "SPRITESHEET") => *value == 0,
                 ("passthrough", "TRANSFORM") => *value == 1,
                 ("effects/scroll", _) => false,
+                ("effects/motionblur_accumulation", "MASK") => matches!(*value, 0 | 1),
+                (name, "RESOLUTION") if is_bounded_project_effect(name) => {
+                    matches!(*value, 16 | 32 | 64)
+                }
+                (name, "SHAPE") if is_bounded_project_effect(name) => (0..=9).contains(value),
+                (name, "TRANSPARENCY") if is_bounded_project_effect(name) => {
+                    (0..=5).contains(value)
+                }
+                (name, "ANTIALIAS" | "CLIP_LOW" | "CLIP_HIGH" | "A_SMOOTH_CURVE")
+                    if is_bounded_project_effect(name) =>
+                {
+                    matches!(*value, 0 | 1)
+                }
                 ("effects/pulse", "BLENDMODE") => (0..=31).contains(value),
                 ("effects/pulse", "AUDIOPROCESSING") => (0..=3).contains(value),
                 ("effects/pulse", "PULSEALPHA" | "PULSECOLOR" | "MASK") => matches!(*value, 0 | 1),
@@ -1463,10 +1587,83 @@ pub(crate) fn image() -> Shader {
     }
 }
 
+/// Uniform-color quad; vertex colors have a separate attribute/data contract.
+pub(crate) fn flat_material(combos: &BTreeMap<String, i32>) -> Result<Shader> {
+    ensure!(
+        combos.is_empty(),
+        "unsupported_scene: flat vertex/combo attributes are not modeled"
+    );
+    let mut shader = image();
+    shader.fragment = "#version 130\nuniform vec4 g_Color4; out vec4 lwe_FragColor; void main(){lwe_FragColor=g_Color4;}".into();
+    Ok(shader)
+}
+
 pub(crate) fn image_material() -> Shader {
     let mut shader = image();
     shader.fragment="#version 130\nin vec2 v_UV; out vec4 lwe_FragColor; uniform sampler2D g_Texture0; uniform sampler2D g_Texture1; uniform vec4 g_Texture0Resolution; uniform vec4 g_Color4; uniform int g_BlendMode; void main(){ vec2 uv=v_UV*g_Texture0Resolution.zw/g_Texture0Resolution.xy; uv.y+=1.0-g_Texture0Resolution.w/g_Texture0Resolution.y; vec4 src=texture(g_Texture0,uv)*g_Color4; vec4 dst=texture(g_Texture1,v_UV); if(g_BlendMode==0){lwe_FragColor=src;}else{float alpha=min(1.0,src.a+dst.a*(g_BlendMode==1?1.0-src.a:1.0)); vec3 premultiplied=src.rgb*src.a+dst.rgb*dst.a*(g_BlendMode==1?1.0-src.a:1.0); lwe_FragColor=vec4(alpha>0.0?premultiplied/alpha:vec3(0.0),alpha);} }".into();
     shader
+}
+
+/// The unlit image4 slice has one albedo and layer tint. A timed source is
+/// exposed as a bounded physical region; its worker-selected virtual frame
+/// transform replaces the native sprite rotation/translation at sampling.
+pub(crate) fn image_material_variant(
+    combos: &BTreeMap<String, i32>,
+    timed: bool,
+) -> Result<Shader> {
+    for (name, value) in combos {
+        let supported = match name.as_str() {
+            "version" | "VERSION" => matches!(*value, 1 | 2),
+            "SPRITESHEET" => matches!(*value, 0 | 1),
+            "LIGHTING" | "REFLECTION" | "SKINNING" | "MORPHING" | "PBRMASKS" | "NORMALMAP"
+            | "VERTEXCOLOR" | "BLENDMODE" | "CLIPPINGUVS" | "CLIPPINGTARGET"
+            | "CLIPPINGCOMPOSE" | "FOG_DIST" | "FOG_HEIGHT" | "HDR" | "ALPHATOCOVERAGE" => {
+                *value == 0
+            }
+            "FOG" => matches!(*value, 0 | 1),
+            _ => *value == 0,
+        };
+        ensure!(
+            supported,
+            "unsupported_scene: genericimage4 combo {name}={value}"
+        );
+    }
+    if let (Some(lower), Some(upper)) = (combos.get("version"), combos.get("VERSION")) {
+        ensure!(
+            lower == upper,
+            "unsupported_scene: conflicting image4 versions"
+        );
+    }
+    ensure!(
+        (combos.get("SPRITESHEET").copied().unwrap_or(0) != 0) == timed,
+        "unsupported_scene: image4 sprite branch and timed source disagree"
+    );
+    let mut shader = image_material();
+    if timed {
+        shader.fragment = shader.fragment.replace(
+            "vec2 uv=v_UV*g_Texture0Resolution.zw/g_Texture0Resolution.xy; uv.y+=1.0-g_Texture0Resolution.w/g_Texture0Resolution.y;",
+            "vec2 uv=v_UV*g_Texture0UVTransform.xy+g_Texture0UVTransform.zw;",
+        ).replace(
+            "uniform int g_BlendMode;",
+            "uniform int g_BlendMode; uniform vec4 g_Texture0UVTransform;",
+        );
+        shader.uniforms.push(Uniform {
+            name: "g_Texture0UVTransform".into(),
+            kind: "vec4".into(),
+            material: None,
+            default: None,
+            texture_default: None,
+            texture_combo: None,
+            array: false,
+            array_length: None,
+            material_range: None,
+        });
+    }
+    Ok(shader)
+}
+
+pub(crate) fn text_material() -> Result<Shader> {
+    image_material_variant(&BTreeMap::from([("SPRITESHEET".into(), 1)]), true)
 }
 
 #[cfg(test)]
@@ -1874,6 +2071,74 @@ mod tests {
     }
 
     #[test]
+    fn active_shader_preserves_integer_aliases_and_commented_branch_boundaries() {
+        let source = "#define FIRST 0\n#define SECOND 7 // named authored option\n#define ALIAS SECOND\n#if SHAPE == ALIAS\nselected\n#else /* inactive */\nwrong\n#endif // author comment\n#undef ALIAS\n#ifdef ALIAS\nwrong-again\n#endif\n";
+        let active = active_source(source, &BTreeMap::from([("SHAPE".into(), 7)])).unwrap();
+        assert!(active.contains("selected"));
+        assert!(!active.contains("wrong"));
+        assert!(active_source("#if SHAPE\nx", &BTreeMap::new()).is_err());
+        let delayed = "#define A B\n#define B 7\n#if A == 7\nlate-alias\n#endif\n";
+        assert!(
+            active_source(delayed, &BTreeMap::new())
+                .unwrap()
+                .contains("late-alias")
+        );
+        assert!(
+            active_source(
+                "#define A B\n#define B A\n#if A\nx\n#endif\n",
+                &BTreeMap::new()
+            )
+            .is_err()
+        );
+        assert!(active_source("#define A (1 + 2)\n#if A\nx\n#endif\n", &BTreeMap::new()).is_err());
+    }
+
+    #[test]
+    fn bounded_audio_arrays_require_the_exact_stereo_resolution() {
+        for resolution in [16, 32, 64] {
+            for channel in ["Left", "Right"] {
+                let source =
+                    format!("uniform float g_AudioSpectrum{resolution}{channel}[{resolution}];");
+                let mut uniforms = BTreeMap::new();
+                inspect(&source, &mut uniforms, &mut BTreeMap::new()).unwrap();
+                assert!(validate_bounded_uniforms(&uniforms).is_ok());
+                let malformed = source.replace(&format!("[{resolution}]"), "[17]");
+                let mut uniforms = BTreeMap::new();
+                inspect(&malformed, &mut uniforms, &mut BTreeMap::new()).unwrap();
+                assert!(validate_bounded_uniforms(&uniforms).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn sprite_region_shader_has_one_explicit_flip_and_rejects_unmodeled_branches() {
+        let shader = image_material_variant(
+            &BTreeMap::from([("version".into(), 2), ("SPRITESHEET".into(), 1)]),
+            true,
+        )
+        .unwrap();
+        assert!(
+            shader
+                .fragment
+                .contains("v_UV*g_Texture0UVTransform.xy+g_Texture0UVTransform.zw")
+        );
+        assert!(!shader.fragment.contains("uv.y+="));
+        assert_eq!(
+            shader
+                .uniforms
+                .iter()
+                .filter(|u| u.name == "g_Texture0UVTransform")
+                .count(),
+            1
+        );
+        assert!(
+            image_material_variant(&BTreeMap::from([("SPRITESHEET".into(), 1)]), false).is_err()
+        );
+        assert!(image_material_variant(&BTreeMap::from([("SKINNING".into(), 1)]), false).is_err());
+        assert!(image_material_variant(&BTreeMap::from([("VERSION".into(), 3)]), false).is_err());
+    }
+
+    #[test]
     fn bounded_project_pass_retains_project_priority_and_rejects_unknown_interfaces() {
         let project = LegacyFixture::new();
         let builtin = LegacyFixture::new();
@@ -2146,11 +2411,11 @@ gl_FragColor=sampleColor;
             )
             .is_err()
         );
-        image2_combos(
-            &BTreeMap::from([("VERSION".into(), 2), ("BLENDMODE".into(), 31)]),
-            true,
-        )
-        .unwrap();
+        for mode in [22, 28, 30, 31] {
+            let combos = BTreeMap::from([("VERSION".into(), 2), ("BLENDMODE".into(), mode)]);
+            assert!(image2_combos(&combos, false).is_err());
+            image2_combos(&combos, true).unwrap();
+        }
         assert!(
             image2_combos(
                 &BTreeMap::from([("VERSION".into(), 2), ("BLENDMODE".into(), 9)]),
@@ -2197,7 +2462,7 @@ gl_FragColor=sampleColor;
             assert!(names.contains("g_Color4"));
             shaders.push((name.to_owned(), shader));
         }
-        for mode in [0, 30, 31] {
+        for mode in [0, 22, 28, 30, 31] {
             shaders.push((
                 format!("composite-{mode}"),
                 load_image_composite(&assets, mode).unwrap(),
@@ -2244,7 +2509,7 @@ gl_FragColor=sampleColor;
                 load_card_image(&assets, "genericimage2", &values, &BTreeSet::from([0])).unwrap(),
             ));
         }
-        for mode in [0, 30, 31] {
+        for mode in [0, 22, 28, 30, 31] {
             shaders.push((
                 format!("composite-{mode}"),
                 load_image_composite(&assets, mode).unwrap(),

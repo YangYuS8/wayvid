@@ -1210,7 +1210,16 @@ fn apply_wallpaper_to_output(
             .get(output_name)
             .is_some_and(WallpaperSession::can_reuse_resources);
     if let WallpaperSource::Scene { prepared, .. } = &request.source {
-        let mut plan = combined_scene_plan(state, if reuse { None } else { Some(output_name) })?;
+        let mut plan = combined_scene_plan(state, Some(output_name))?;
+        if reuse {
+            plan.merge(
+                &state
+                    .sessions
+                    .get(output_name)
+                    .context("Reusable output missing")?
+                    .replacement_resource_plan()?,
+            )?;
+        }
         let [width, height] = state
             .layer_surfaces
             .get(output_name)
@@ -1226,10 +1235,7 @@ fn apply_wallpaper_to_output(
         plan.merge(&prepared.resource_plan_for_output(width, height)?)?;
         plan.preflight(state.scene_textures.retired_bytes()?, 0)?;
         let mut decoded = scene_decoded_allocations(state)?;
-        decoded.push((
-            Arc::as_ptr(prepared) as usize,
-            prepared.decoded_texture_bytes()?,
-        ));
+        decoded.extend(prepared.cpu_allocations());
         let decoded_bytes = decoded_texture_total(decoded)?;
         anyhow::ensure!(
             decoded_bytes <= crate::scene::shared_texture::PAYLOAD_LIMIT,
@@ -1399,10 +1405,7 @@ fn scene_decoded_allocations(state: &EngineState) -> Result<Vec<(usize, u64)>> {
     for info in state.layer_surfaces.values() {
         for request in std::iter::once(&info.apply_request).chain(info.previous_request.iter()) {
             if let WallpaperSource::Scene { prepared, .. } = &request.source {
-                allocations.push((
-                    Arc::as_ptr(prepared) as usize,
-                    prepared.decoded_texture_bytes()?,
-                ));
+                allocations.extend(prepared.cpu_allocations());
             }
         }
     }

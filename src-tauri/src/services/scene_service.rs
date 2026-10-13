@@ -54,8 +54,18 @@ impl SceneService {
         values: &BTreeMap<String, serde_json::Value>,
     ) -> Result<PreparedScene, String> {
         let assets_root = Self::assets_root(project_dir)?;
-        PreparedScene::prepare_with_properties(project_dir, assets_root.as_deref(), values)
-            .map_err(|error| format!("{error:#}"))
+        let (scalars, images) =
+            super::scene_resource_service::SceneResourceService::prepare_choices(
+                project_dir,
+                values,
+            )?;
+        PreparedScene::prepare_with_resource_choices(
+            project_dir,
+            assets_root.as_deref(),
+            &scalars,
+            &images,
+        )
+        .map_err(|error| format!("{error:#}"))
     }
 
     pub fn assess_project(project_dir: &Path) -> SceneAssessment {

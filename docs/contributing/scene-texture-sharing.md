@@ -1,8 +1,9 @@
 # Scene texture ownership and budgets
 
-Scene remains experimental and assessed against its bounded feature subset. This
-change shares readonly uploads within one live EGL context; it does not add
-Scene formats, effects, animation types, or Workshop item compatibility.
+Scene remains experimental and assessed against its bounded feature subset. The
+initial sharing foundation supplies readonly uploads within one live EGL context.
+Current image, timed-frame and history integration is described in
+[Scene images, timed frames and history](./scene-miku-runtime.md).
 
 ## Identity and sampling
 
@@ -48,21 +49,26 @@ charge; an ambiguous GL failure quarantines the domain rather than retrying an
 old numeric object ID. Closing with live leases reports failure and retains the
 allocation accounting until context teardown.
 
-CPU decoded storage has a separate conservative 512 MiB retained-allocation
-gate. It sums actual RGBA `Vec` capacities, deduplicated by `PreparedScene` Arc
-identity across sessions and retained request/rollback sources. Independently
-prepared equal-content vectors count separately. Thus GPU sharing does not
-silently relax the earlier decoded-memory bound. Existing per-preparation,
-resource-read, script, and audio limits also remain. This number covers retained
-decoded RGBA, not total process RSS, decoder scratch, or driver VRAM.
+CPU decoded resources use a shared 512 MiB allocation/reservation gate. It charges
+actual retained static RGBA, encoded/BC3 sources, regions and imported images,
+plus conservative decoder/font work reservations. Source bytes are revalidated
+before weak-cache reuse; only actual shared owner identities are deduplicated.
+Independently allocated equal-content owners count separately. Per-preparation,
+resource-read, script and audio limits also remain. This is a logical working-set
+policy, not total process RSS, exact third-party allocator use or driver VRAM.
 
 ## Diagnostics and verification
 
-`EngineStatus.scene_gpu_budget` reports context generation, live immutable
-bytes, private/reserved bytes, immutable reservations, retired bytes, the
-current logical plan bound, allocation count, and lease count. The bound is a
-snapshot, not a measured VRAM value or historical high-water mark.
-`scene_decoded_texture_bytes` reports retained decoded RGBA capacities.
+`EngineStatus.scene_gpu_budget` reports context generation, resident pool bytes,
+private/reserved bytes, immutable reservations, retired bytes, the current
+logical plan bound, allocation count, and lease count. The legacy
+`immutable_resident_bytes` pool view includes retained timed-frame uploads.
+Their mutable work is already charged once in `plan.work`, so that view overlaps
+`private_and_reserved_bytes`: do not add those two diagnostic fields.
+`logical_peak_bytes` is the current plan union, not measured VRAM or a historical
+high-water mark.
+`scene_decoded_texture_bytes` reports retained prepared CPU source/font owner
+charges; it is not a total of all in-flight worker allocations.
 Per-output `scene_payload_bytes` includes its referenced immutable union and
 private generations; summing outputs can count the same immutable upload twice.
 
