@@ -323,6 +323,37 @@ LWE_REAL_DESKTOP_TESTS=1 python3 scripts/scene-ui-smoke.py \
 
 图片契约与边界见 [Scene 图片、动画帧与历史缓冲](./scene-miku-runtime.md)。按用户明确要求跳过物理休眠/恢复；真实多显示器、安装包、Windows A/B 及 Miku 长期运行验收仍未完成。
 
+### Miku 性能调查（2026-10-14） {#miku-performance-2026-10-14}
+
+本次迭代以已合并的 `00a8ceed5b876139ce649ebf2d321ec218a0d296` 为起点。上文 2026-10-13 的源码/二进制身份与 4.53 FPS 验收保留为独立历史记录。新基线和候选测量分别记录构建 profile、源码/二进制哈希、输出及采样条件，不能将 debug 与 release 当作相同构建直接比较。
+
+对已安装 Wallpaper Engine 编辑器执行了惰性 REA JavaScript 分析，并精确读取随附声明、shader 及 effect/material 资源，没有运行 Windows 程序。私有 `editor-rea/editor-rea-findings.md` 和来源 manifest 保留观察边界与随附文件的准确身份。动画声明描述来源时长、帧控制、通过 material join 共享计时器，以及非动画重画时 frametime 为零；generic image 1–4 通过 UV 平移与两个基向量定位 sprite 区域。这些是编辑器/声明结构观察，原生默认相位、隐藏或呈现失败时的时钟推进、实例分离及 GPU 上传调度仍未确认。声明不能扩大 LWE 接纳的 host API，preset 的 `nointerpolation` 也不能证明时间插值或精确 sampler 规则。
+
+随附 motionblur 图按 buffer2 累积、buffer2 复制到 unique buffer1、读取 buffer2 合成的顺序执行。rate 是不含帧时间输入的固定 shader 因子，因此 buffer2 在复制与合成期间都必须存活，持久历史须按效果/代次隔离。静态证据不能证明原生分配/执行频率、精确保留名称解析，或允许将 copy 改为 buffer swap；仅有零 dt 重画也不能证明原效果被跳过。编辑器取消选图保留原值，移除恢复作者默认/空选择；LWE 的有界私有内容 token 导入仍是独立适配，不提供任意路径 IPC。资源 wrapper 可见 value/user/script/scriptproperties/animation 字段，音频声明列出十六/三十二/六十四频段注册；这些编辑接口既不接纳未支持绑定，也不能证明 Windows FFT 归一化。有限效果 inventory 也不等于接纳额外 FBO 格式或高级效果结构。
+
+LWE 已在来源、帧及采样身份不变时复用经过验证的动画帧区域/view，这是本次沿用的行为，不是新增优化，也不会跳过新脚本 packet 或正常效果/历史处理。调度候选将 FPS 截止时间锚定到最后一次成功 swap，并为未完成的 Scene 准备设置独立 8 ms 重试间隔，Video 保留原 decoder 重试策略。另一项候选以新的解码契约 tag、封闭来源的实际编码 SHA-256、准备阶段 namespace/来源 fingerprint、帧索引及准确 ROI/gutter 矩形推导区域 key，避免再次扫描解码 RGBA。原文件校验、BC3 解码、不可变所有权与 512 MiB CPU/GPU 门控保留，过期的准备身份不能替代封闭来源的实际摘要。两项候选均不改变原资产、效果或资源分辨率，重试间隔不是帧率承诺。
+
+探索性测量与最终受控对比分开。初始 debug 基线三十秒完成 149 次 swap（约 4.97 FPS）、741 次尝试，成功 render 加 swap 平均 5.86 ms，采样 worker 活动约占单 CPU 核心的 34.58%。探索性 release 基线完成 176 次 swap（5.87 FPS）、704 次尝试，成功 render 加 swap 平均 5.44 ms；仅调度修改的 release 候选完成 238 次 swap（7.93 FPS）、1,932 次尝试及平均 5.56 ms，完成 swap 数约增加 35.23%。三十秒暂停的 draw/swap/callback 均为零，恢复/清除/join 通过。增加的重试次数须保留，这些运行不是最终组合候选对比。
+
+区域 key 修改通过六项 CPU 隔离回归，涵盖过期准备身份下编码像素改变、仅元数据改变、namespace/帧/ROI 隔离、不同真实 owner 及重复 worker epoch。温热的纯 CPU benchmark 执行 32 个原始区域/case，逐 ROI release 平均解码 11.12 ms、旧 RGBA key 哈希 10.53 ms、新 key 推导 119.75 ns；debug 分别为 26.02 ms、10.57 ms 和 172.96 ns。其 namespace 身份为替代测试值，最终 CPU 计费归零，没有 GPU 上传或桌面呈现，不能预测 FPS 或证明进程总内存。
+
+组合候选通过受控 release A–B–B–A 对比。四次运行均采用相同 1920×1080 嵌套 niri/AMD 680M 条件、原始默认配置及私有 PCM，父 compositor 窗口完全可见并固定在 `[96, 112]`。
+
+| 运行 | 构建 | 完成 swap / 实测动画秒数 | FPS |
+| --- | --- | --- | --- |
+| A1 | 基线 release | 174 / 30.000054910 | 5.80 |
+| B1 | 组合候选 release | 291 / 30.000036961 | 9.70 |
+| B2 | 组合候选 release | 296 / 30.000055844 | 9.87 |
+| A2 | 基线 release | 179 / 30.000075875 | 5.97 |
+
+按完成 swap 与实测时间合计为 5.8833 → 9.7833 FPS，每秒完成 swap 约增加 66.29%。四次三十秒暂停的尝试/draw/swap/callback 均为零，清除、后端退出/join 和身份检查通过。当前逻辑 GPU 计划保持 500,230,580 字节，原效果、历史、资源分辨率及 512 MiB 门控均保留。这是有限、相同 profile 的调度/key 结果，没有用隔离微基准或 debug 测量预测 FPS。
+
+组合 debug 候选也在三十秒内完成 242 次 swap（8.07 FPS）、1,982 次尝试，成功 render 加 swap 平均 5.37 ms，暂停无活动，恢复/清除/join 通过。探索性 debug 基线约为 4.97 FPS，但父窗口位置不同，因此仅作为辅助证据，不是主要受控对比。
+
+最终源码的 `final-miku-gpu-oracle.json` 在软件 EGL/llvmpipe、受控输入频谱下通过未修改的完整默认图：十个图层、五个效果、二十五个 pass。两个原八帧来源均选择并可见绘制 0–7 帧，三个历史保持独立，暂停/resize/候选/回滚/解冻检查保留要求的像素与状态。CPU 预留峰值保持 525,312,699 字节，旧代/候选 GPU 并集为 525,624,984 字节，均低于各自 512 MiB 上限；清理后 CPU/pool 计费归零，原始来源哈希不变。六项自主历史测试与两项共享测试另在 AMD 上通过。普通 workspace 测试通过 549 项、三十项 opt-in 仍忽略；这九项显式执行的 GPU 检查是独立证据，不代表全部被忽略的桌面/GPU 测试均已运行。
+
+帧率仍低于 30 FPS 上限，不代表日用就绪或长期运行。本次没有复测上轮原生 UI 保存/恢复或安装包流程，有限嵌套引擎运行也不能证明物理输出验收或 Windows 一致性。按用户明确要求继续跳过物理休眠/恢复。
+
 ### 已记录的实验性 Scene 验收
 
 2026-10-09 的开发版本验收环境为 Wayland 与 `niri`、AMD Radeon 680M（`1002:1681`，`amdgpu`），仅一个 `eDP-1` 输出，2160×1440、缩放 1.25。场景样本 `3337606455` 使用默认零 X/Y 相机，包含一个图片图层与 Shine：5 个特效 pass、总计 6 个 pass。全分辨率截图确认 Shine 实际可见渲染。

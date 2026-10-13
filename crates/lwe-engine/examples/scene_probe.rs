@@ -331,6 +331,16 @@ fn measure(
     let empty = delta(after.empty_frames, before.empty_frames)?;
     let requested = delta(after.callbacks_requested, before.callbacks_requested)?;
     let received = delta(after.callbacks_received, before.callbacks_received)?;
+    let render_swap_micros = delta(
+        after.frame_duration_total_micros,
+        before.frame_duration_total_micros,
+    )?;
+    let render_swap_buckets = after
+        .frame_duration_buckets
+        .iter()
+        .zip(before.frame_duration_buckets)
+        .map(|(after, before)| delta(*after, before))
+        .collect::<Result<Vec<_>>>()?;
     ensure!(
         before.scene_payload_bytes == after.scene_payload_bytes,
         "Logical Scene payload changed during stable measurement"
@@ -360,6 +370,10 @@ fn measure(
         "status_requests_per_second": requests as f64 / elapsed,
         "draws": draws, "swaps": swaps, "swaps_per_second": swaps as f64 / elapsed,
         "render_attempts": attempts, "empty_frames": empty,
+        "render_swap_total_micros": render_swap_micros,
+        "render_swap_mean_millis": (swaps > 0).then(|| render_swap_micros as f64 / swaps as f64 / 1000.0),
+        "render_swap_buckets": render_swap_buckets,
+        "lifetime_render_swap_max_micros": after.frame_duration_max_micros,
         "callbacks_requested": requested, "callbacks_received": received,
         "scene_payload_bytes": after.scene_payload_bytes, "idle_expected": idle,
         "scene_gpu_budget":{"context_generation":budget.context_generation,

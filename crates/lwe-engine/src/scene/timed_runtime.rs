@@ -184,6 +184,23 @@ impl TimedWorker {
     }
 }
 
+// The sealed encoded source and region determine the pure BC3 output. Keep
+// its actual content hash even if a caller supplies a stale prepared identity.
+fn region_key(source: &Source, frame: usize, rect: PixelRect) -> TextureKey {
+    let mut digest = Sha256::new();
+    digest.update(b"lwe-timed-region-sealed-bc3-top-down-linear-clamp-v2");
+    digest.update(source.source.encoded_sha256());
+    digest.update(source.fingerprint);
+    digest.update((frame as u64).to_le_bytes());
+    for value in [rect.x, rect.y, rect.width, rect.height] {
+        digest.update(value.to_le_bytes());
+    }
+    TextureKey {
+        fingerprint: digest.finalize().into(),
+        repeat: false,
+    }
+}
+
 fn prepare(job: Job, stop: &AtomicBool) -> Result<ReadyFrame> {
     let mut regions = Vec::new();
     for source in job.sources {
@@ -192,27 +209,11 @@ fn prepare(job: Job, stop: &AtomicBool) -> Result<ReadyFrame> {
         let rect = source.source.frames()[frame].rect;
         let layout = source.source.frame_neighborhood(frame, 1)?;
         let pixels = source.source.decode_region(layout.rect())?;
-        let mut digest = Sha256::new();
-        digest.update(b"lwe-timed-region-top-down-linear-clamp-v1");
-        digest.update(source.fingerprint);
-        digest.update((frame as u64).to_le_bytes());
-        for value in [
-            layout.rect().x,
-            layout.rect().y,
-            layout.rect().width,
-            layout.rect().height,
-        ] {
-            digest.update(value.to_le_bytes());
-        }
-        digest.update(pixels.rgba());
         regions.push(FrameRegion {
             index: source.index,
             frame,
             rect,
-            key: TextureKey {
-                fingerprint: digest.finalize().into(),
-                repeat: false,
-            },
+            key: region_key(&source, frame, layout.rect()),
             virtual_size: [
                 source.source.metadata().storage_width,
                 source.source.metadata().storage_height,
@@ -258,5 +259,181 @@ impl Drop for TimedWorker {
                     let _ = worker.join();
                 });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn authored_bytes(color: u16, duration: f32) -> Vec<u8> {
+        // Same 8x4/two-block TEXS3 framing as the retained history fixture.
+        let mut bytes = b"TEXV0005\0TEXI0001\0".to_vec();
+        for value in [4_u32, 7, 8, 4, 8, 4, 0] {
+            bytes.extend(value.to_le_bytes());
+        }
+        bytes.extend(b"TEXB0004\0");
+        for value in [1_u32, u32::MAX, 0, 1, 8, 4, 0, 0, 32] {
+            bytes.extend(value.to_le_bytes());
+        }
+        for color in [color, 0x07e0_u16] {
+            let mut block = [0_u8; 16];
+            block[0] = 255;
+            block[1] = 255;
+            block[8..10].copy_from_slice(&color.to_le_bytes());
+            bytes.extend(block);
+        }
+        bytes.extend(b"TEXS0003\0");
+        for value in [2_u32, 2, 2] {
+            bytes.extend(value.to_le_bytes());
+        }
+        for x in [0_f32, 4.] {
+            bytes.extend(0_u32.to_le_bytes());
+            bytes.extend(duration.to_le_bytes());
+            for value in [x, 0., 2., 0., 0., 2.] {
+                bytes.extend(value.to_le_bytes());
+            }
+        }
+        bytes
+    }
+
+    fn source(bytes: &[u8], fingerprint: [u8; 32]) -> Result<Source> {
+        let budget = lwe_scene::AtlasMemoryBudget::new(8 * 1024 * 1024)?;
+        let mut reservation = budget.reserve_bytes(bytes.len())?;
+        let bytes = bytes.to_vec();
+        reservation.resize(bytes.capacity())?;
+        Ok(Source {
+            index: 0,
+            fingerprint,
+            source: Arc::new(TimedAtlasSource::from_budgeted_bytes(
+                bytes,
+                reservation,
+                lwe_scene::ResourceOrigin::Project,
+                &mut lwe_scene::TextureInspectionBudget::default(),
+                &budget,
+            )?),
+        })
+    }
+
+    #[test]
+    fn stale_prepared_fingerprint_cannot_alias_changed_bc3_pixels() -> Result<()> {
+        let red = source(&authored_bytes(0xf800, 0.1), [7; 32])?;
+        let blue = source(&authored_bytes(0x001f, 0.1), [7; 32])?;
+        let rect = red.source.frame_neighborhood(0, 1)?.rect();
+        assert_ne!(red.source.encoded_sha256(), blue.source.encoded_sha256());
+        assert_ne!(region_key(&red, 0, rect), region_key(&blue, 0, rect));
+        assert_ne!(
+            red.source.decode_region(rect)?.rgba(),
+            blue.source.decode_region(rect)?.rgba(),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn prepared_namespace_still_separates_equal_source_pixels() -> Result<()> {
+        let original = source(&authored_bytes(0xf800, 0.1), [7; 32])?;
+        let mut other_namespace = original.clone();
+        other_namespace.fingerprint = [8; 32];
+        let rect = original.source.frame_neighborhood(0, 1)?.rect();
+        assert_eq!(
+            original.source.encoded_sha256(),
+            other_namespace.source.encoded_sha256()
+        );
+        assert_ne!(
+            region_key(&original, 0, rect),
+            region_key(&other_namespace, 0, rect)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn metadata_only_change_isolated_even_when_decoded_pixels_match() -> Result<()> {
+        let fast = source(&authored_bytes(0xf800, 0.1), [7; 32])?;
+        let slow = source(&authored_bytes(0xf800, 0.2), [7; 32])?;
+        let rect = fast.source.frame_neighborhood(0, 1)?.rect();
+        assert_eq!(
+            fast.source.decode_region(rect)?.rgba(),
+            slow.source.decode_region(rect)?.rgba()
+        );
+        assert_ne!(fast.source.encoded_sha256(), slow.source.encoded_sha256());
+        assert_ne!(region_key(&fast, 0, rect), region_key(&slow, 0, rect));
+        Ok(())
+    }
+
+    #[test]
+    fn equal_content_in_distinct_physical_owners_preserves_region_key() -> Result<()> {
+        let bytes = authored_bytes(0xf800, 0.1);
+        let first = source(&bytes, [7; 32])?;
+        let mut second = source(&bytes, [7; 32])?;
+        second.index = 9;
+        assert_ne!(first.source.allocation_id(), second.source.allocation_id());
+        let rect = first.source.frame_neighborhood(0, 1)?.rect();
+        assert_eq!(
+            first.source.decode_region(rect)?.rgba(),
+            second.source.decode_region(rect)?.rgba()
+        );
+        assert_eq!(region_key(&first, 0, rect), region_key(&second, 0, rect));
+        Ok(())
+    }
+
+    #[test]
+    fn frame_index_and_real_neighbor_roi_are_part_of_the_sampling_key() -> Result<()> {
+        let source = source(&authored_bytes(0xf800, 0.1), [7; 32])?;
+        let frame = source.source.frame_layout(0)?.rect();
+        let neighbors = source.source.frame_neighborhood(0, 1)?.rect();
+        assert_ne!(frame, neighbors);
+        assert_ne!(
+            region_key(&source, 0, frame),
+            region_key(&source, 0, neighbors)
+        );
+        assert_ne!(
+            region_key(&source, 0, neighbors),
+            region_key(&source, 1, neighbors)
+        );
+        let second = source.source.frame_neighborhood(1, 1)?.rect();
+        assert_ne!(
+            region_key(&source, 0, neighbors),
+            region_key(&source, 1, second)
+        );
+        Ok(())
+    }
+
+    fn wait_for_frame(
+        worker: &mut TimedWorker,
+        source: &Source,
+        seq: u64,
+        time: f64,
+    ) -> Result<ReadyFrame> {
+        let started = std::time::Instant::now();
+        let mut requested = false;
+        loop {
+            if !requested {
+                requested = worker.request(seq, time, std::slice::from_ref(source), Vec::new())?;
+            }
+            if requested && let Some(ready) = worker.take()? {
+                return Ok(ready);
+            }
+            ensure!(
+                started.elapsed() < std::time::Duration::from_secs(1),
+                "Timed CPU fixture did not complete"
+            );
+            thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
+    #[test]
+    fn same_selected_frame_across_worker_epochs_reuses_the_content_key() -> Result<()> {
+        let source = source(&authored_bytes(0xf800, 0.1), [7; 32])?;
+        let mut worker = TimedWorker::new()?;
+        let first = wait_for_frame(&mut worker, &source, 1, 0.02)?;
+        assert_eq!((first.seq, first.time), (1, 0.02));
+        let key = first.regions[0].key;
+        let frame = first.regions[0].frame;
+        drop(first);
+        let second = wait_for_frame(&mut worker, &source, 2, 0.07)?;
+        assert_eq!((second.seq, second.time), (2, 0.07));
+        assert_eq!(second.regions[0].frame, frame);
+        assert_eq!(second.regions[0].key, key);
+        Ok(())
     }
 }

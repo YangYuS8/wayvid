@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use lwe_core::OutputInfo;
 use wayland_client::protocol::wl_surface::WlSurface;
 
+use super::schedule::EmptyFrameRetry;
 use super::{EngineRenderMetrics, WallpaperSource};
 use crate::egl::{EglContext, EglWindow};
 use crate::mpv::{MpvPlayer, VideoConfig};
@@ -41,6 +42,14 @@ fn frame_demand(
         FrameDemand::Continuous
     } else {
         FrameDemand::Idle
+    }
+}
+
+fn frame_retry(source: &WallpaperSource, pending: Option<&WallpaperSource>) -> EmptyFrameRetry {
+    if pending.unwrap_or(source).is_scene() {
+        EmptyFrameRetry::ScenePreparation
+    } else {
+        EmptyFrameRetry::Decoder
     }
 }
 
@@ -393,6 +402,13 @@ impl WallpaperSession {
         let mut metrics = self.metrics;
         metrics.scene_payload_bytes = self.scene_payload_bytes();
         metrics
+    }
+
+    pub(super) fn empty_frame_retry(&self) -> EmptyFrameRetry {
+        frame_retry(
+            &self.source,
+            self.pending.as_ref().map(|(source, _)| source),
+        )
     }
 
     pub(crate) fn use_texture_pool(&mut self, pool: Rc<TexturePool>) -> Result<()> {
@@ -837,7 +853,10 @@ impl WallpaperSession {
 
 #[cfg(test)]
 mod tests {
-    use super::{FrameDemand, PlaybackState, SceneClock, WallpaperSession, frame_demand};
+    use super::{
+        EmptyFrameRetry, FrameDemand, PlaybackState, SceneClock, WallpaperSession, WallpaperSource,
+        frame_demand, frame_retry,
+    };
 
     fn authored_session() -> WallpaperSession {
         WallpaperSession::new(
@@ -854,6 +873,63 @@ mod tests {
             crate::mpv::VideoConfig::default(),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn pending_source_selects_preparation_retries_in_both_scene_video_directions() {
+        struct Project(std::path::PathBuf);
+        impl Drop for Project {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("lwe-scene-retry-{}-{stamp}", std::process::id(),));
+        std::fs::create_dir(&path).unwrap();
+        let project = Project(path);
+        std::fs::create_dir(project.0.join("models")).unwrap();
+        std::fs::create_dir(project.0.join("materials")).unwrap();
+        for (path, contents) in [
+            ("project.json", r#"{"type":"scene","file":"scene.json"}"#),
+            (
+                "scene.json",
+                r#"{"general":{"orthogonalprojection":{"width":16,"height":16}},"objects":[{"image":"models/image.json","size":"16 16","origin":"8 8 0"}]}"#,
+            ),
+            (
+                "models/image.json",
+                r#"{"solidlayer":true,"material":"materials/image.json"}"#,
+            ),
+            (
+                "materials/image.json",
+                r#"{"passes":[{"shader":"flat","blending":"translucent"}]}"#,
+            ),
+        ] {
+            std::fs::write(project.0.join(path), contents).unwrap();
+        }
+        let scene = WallpaperSource::Scene {
+            path: project.0.clone(),
+            prepared: std::sync::Arc::new(
+                crate::scene::PreparedScene::prepare(&project.0, None).unwrap(),
+            ),
+        };
+        let video = WallpaperSource::Video {
+            path: "/authored/video.mp4".into(),
+        };
+        assert_eq!(frame_retry(&video, None), EmptyFrameRetry::Decoder);
+        assert_eq!(frame_retry(&scene, None), EmptyFrameRetry::ScenePreparation);
+        assert_eq!(
+            frame_retry(&video, Some(&scene)),
+            EmptyFrameRetry::ScenePreparation
+        );
+        assert_eq!(frame_retry(&scene, Some(&video)), EmptyFrameRetry::Decoder);
+        assert_eq!(
+            authored_session().empty_frame_retry(),
+            EmptyFrameRetry::Decoder
+        );
     }
 
     #[test]
