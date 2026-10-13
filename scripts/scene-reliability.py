@@ -478,7 +478,10 @@ class Acceptance:
                     "scene_presentation_rate": aggregate_fps is not None and self.fps_limit is not None and aggregate_fps >= self.fps_limit * 0.7,
                     "scene_presentation_cap": self.fps_limit is not None and self.presentation_swaps > 0 and self.cap_violations == 0,
                     "shutdown_joined": self.shutdown_joined, "runtime_healthy": not self.failures}
-        return {"passed": all(criteria.values()), "criteria": criteria, "active_scene_seconds": self.active_seconds,
+        return {"passed": all(criteria.values()), "criteria": criteria,
+                "completed_components": [name for name, passed in criteria.items() if passed],
+                "incomplete_components": [name for name, passed in criteria.items() if not passed],
+                "active_scene_seconds": self.active_seconds,
                 "full_round_trips": self.cycles, "real_suspend_resume_cycles": self.suspends,
                 "samples": self.samples, "worst_render_p95_ms": self.worst_p95_ms,
                 "aggregate_render_p95_upper_bound_ms": aggregate_p95,
@@ -507,6 +510,22 @@ def stop_owned(process):
         process.wait(timeout=10)
 
 
+def requested_stop_reason(summary, finish_after_soak=False):
+    criteria = summary["criteria"]
+    if not criteria["active_scene_soak"] or not criteria["full_finalized_round_trips"]:
+        return None
+    if criteria["real_suspend_resume"]:
+        return "all_runtime_targets_reached"
+    if finish_after_soak:
+        return "soak_and_switch_targets_reached_suspend_incomplete"
+    return None
+
+
+def interruption_telemetry(signum):
+    return {"received_signal": signum,
+            "received_signal_name": signal.Signals(signum).name if signum is not None else None}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
@@ -527,6 +546,8 @@ def main(argv=None):
     parser.add_argument("--fd-growth", type=int, default=2)
     parser.add_argument("--thread-growth", type=int, default=2)
     parser.add_argument("--resume", action="store_true", help="Retain earlier failures; begin a new continuity segment")
+    parser.add_argument("--finish-after-soak", action="store_true",
+                        help="Finish/join after the soak and switch targets; missing suspend evidence still fails combined acceptance")
     parser.add_argument("probe_arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if os.environ.get("LWE_REAL_DESKTOP_TESTS") != "1":
@@ -562,7 +583,7 @@ def main(argv=None):
                "max_sample_gap_seconds": max(args.sample_seconds * 3, 30),
                "max_elapsed_seconds": args.max_hours * 3600,
                "recovery_seconds": args.recovery_seconds, "render_p95_ms": args.render_p95_ms,
-               "memory_growth_limits": limits}
+               "memory_growth_limits": limits, "finish_after_soak": args.finish_after_soak}
     identity = {"schema": SCHEMA, "binary": tree_identity(binary), "source": source_identity(args.source_root),
                 "project": tree_identity(args.project), "scene_projects": [tree_identity(path) for path in scene_projects],
                 "assets": tree_identity(args.assets), "video": tree_identity(args.video),
@@ -591,7 +612,9 @@ def main(argv=None):
     acceptance = Acceptance(targets)
     report = {"schema": SCHEMA, "status": "starting", "passed": False, "scope": "Real isolated host/runtime acceptance; one uninterrupted backend per segment",
               "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-              "segments": previous_segments, "identity_manifest": str(manifest_path), "suspend_requested_by_harness": False}
+              "segments": list(previous_segments), "identity_manifest": str(manifest_path), "suspend_requested_by_harness": False,
+              "received_signal": None, "received_signal_name": None, "stop_reason": None,
+              "proof_scope": "combined_daily_use_targets"}
     if previous_segments:
         report["prior_continuity_failures"] = "Earlier segments are retained; no uninterrupted combined acceptance claim"
     atomic_json(report_path, report)
@@ -610,9 +633,9 @@ def main(argv=None):
         stop_file.unlink()
     environment["LWE_RELIABILITY_STOP_FILE"] = str(stop_file)
     environment["LWE_RELIABILITY_MAX_SECONDS"] = str(math.ceil(targets["max_elapsed_seconds"]))
-    interrupted = [False]
+    interrupted = [None]
     def interrupt(signum, frame):
-        interrupted[0] = True
+        interrupted[0] = signum
     saved_signals = {signum: signal.signal(signum, interrupt) for signum in (signal.SIGINT, signal.SIGTERM)}
     process = None
     event_count = 0
@@ -679,13 +702,17 @@ def main(argv=None):
                                  "Suspend recovery lacked paired kernel/state/frame evidence"]
                         if fatal:
                             raise RuntimeError(f"Runtime evidence failed: {fatal[0]}")
-                        if acceptance.active_seconds >= targets["active_seconds"] and acceptance.cycles >= targets["cycles"] and \
-                                acceptance.suspends >= targets["suspends"] and not stop_file.exists():
+                        stop_reason = requested_stop_reason(report["current"], args.finish_after_soak)
+                        if stop_reason is not None and not stop_file.exists():
+                            report["stop_reason"] = stop_reason
+                            if stop_reason == "soak_and_switch_targets_reached_suspend_incomplete":
+                                report["proof_scope"] = "scene_soak_and_switches_only_suspend_incomplete"
                             fd = os.open(stop_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
                             with os.fdopen(fd, "wb") as marker:
                                 marker.write(b"stop\n")
                                 marker.flush()
                                 os.fsync(marker.fileno())
+                            atomic_json(report_path, report)
                 now = clock_snapshot()
                 # Exclude real sleep from this watchdog too; recovery gets its own window.
                 gap = clock_delta(last_clock, now)
@@ -726,9 +753,13 @@ def main(argv=None):
             signal.signal(signum, handler)
         segment["ended_clock"] = clock_snapshot()
         segment["status"] = report["status"]
+        report.update(interruption_telemetry(interrupted[0]))
+        segment.update(interruption_telemetry(interrupted[0]))
+        segment["stop_reason"] = report["stop_reason"]
         segment["acceptance"] = acceptance.summary()
         report["segments"].append(segment)
         report["current"] = acceptance.summary()
+        report["completed_components"] = report["current"]["completed_components"]
         report["passed"] = report["current"]["passed"] and report["status"] == "completed" and not previous_segments
         atomic_json(report_path, report)
     return 0 if report["passed"] else 1

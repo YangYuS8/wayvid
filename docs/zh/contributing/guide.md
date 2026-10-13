@@ -486,3 +486,5 @@ Yakuza 作者的 `perspective:true` 音频条仅进入共面固定正交子集�
 未来任务明确包含物理恢复验收时，待 `suspend-readiness.json` 显示新鲜、健康的主场景后，先用 `scripts/scene-suspend-cycles.py --check --readiness PATH` 只读检查。RTC 真实循环需要获授权的本机特权执行，提供 `--readiness PATH --output-dir NEW_PRIVATE_HELPER_DIRECTORY --cycles 10`。脚本保留正常 logind inhibitor 和锁屏，等待正常密码认证解锁；不得覆盖已有 RTC 闹钟。凭证不得放入参数、环境、文件、报告或自动化提示。
 
 已结束记录器的 `passed=true` 只证明实际记录的目标，`--suspend-cycles 0` 不能证明物理恢复；未来恢复验收另需真实休眠报告。`report.json`、`manifest.json` 和追加的 `evidence.jsonl` 区分实际呈现、完整切换、内核休眠、资源增长、帧耗时和清理。任务启动、mock/单测、经过一天、中断后重启或重编译源码均不算通过 24 小时验收。
+
+可选的 `--finish-after-soak` 会在有效场景呈现与最终确认的完整往返达到目标后，正常清除、关闭并等待后端退出，即使单独要求的休眠目标尚未完成。此部分结果仍为 `passed=false`、记录器退出码 1，但 `status=completed`、子进程成功退出，并列明完成/未完成组件与 `stop_reason=soak_and_switch_targets_reached_suspend_incomplete`；它不是应自动重启的运行故障。该策略写入不可变 manifest，不能用 `--resume` 更改。中断记录实际收到的信号。首次完整验收可以通过；历史连续性片段仍各自独立，不得追加拼接成不中断的通过记录。
