@@ -220,6 +220,10 @@ impl Default for EngineConfig {
 pub struct EngineStatus {
     /// Whether engine is running
     pub running: bool,
+    pub scene_gpu_budget: SceneGpuBudgetSnapshot,
+    /// Actual retained decoded RGBA Vec capacities, deduplicated by PreparedScene
+    /// Arc identity. Equal content in separate preparations remains separate.
+    pub scene_decoded_texture_bytes: u64,
     pub playback_settings: PlaybackSettings,
     pub on_battery: bool,
     pub power_paused: bool,
@@ -234,6 +238,20 @@ pub struct EngineStatus {
     pub render_metrics: HashMap<String, EngineRenderMetrics>,
 }
 
+/// Engine-global logical allocations, not measured driver VRAM. Output metrics
+/// can reference the same immutable allocation and must not be summed instead.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SceneGpuBudgetSnapshot {
+    pub context_generation: u64,
+    pub immutable_resident_bytes: u64,
+    pub private_and_reserved_bytes: u64,
+    pub immutable_reserved_bytes: u64,
+    pub retired_bytes: u64,
+    pub logical_peak_bytes: u64,
+    pub allocation_count: u64,
+    pub lease_count: u64,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct EngineRenderMetrics {
     /// Calls to an active renderer; idle policy decisions are excluded.
@@ -245,7 +263,9 @@ pub struct EngineRenderMetrics {
     pub empty_frames: u64,
     pub callbacks_requested: u64,
     pub callbacks_received: u64,
-    /// Logical RGBA Scene textures/FBOs, including candidate and rollback.
+    /// Referenced logical RGBA Scene textures (unique within this output) plus
+    /// private FBOs/geometry for candidate and rollback. Shared allocations may
+    /// appear on other outputs; use scene_gpu_budget for the engine total.
     /// Excludes driver overhead, EGL buffers and video; this is not VRAM usage.
     pub scene_payload_bytes: u64,
     /// Successful render plus EGL swap durations, in fixed buckets: 1..30 ms,

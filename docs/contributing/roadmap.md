@@ -110,6 +110,8 @@ Hatsune Miku | GLITCHED HOLOGRAM is the next selected complete-project target. T
 
 Under the current RGBA8 allocation policy, the complete default graph predicts 476,822,016 bytes of decoded static textures, 857,129,476 bytes for one renderer with its scratch/composition/history/bloom targets, and 1,237,436,936 bytes for two retained generations even with shared static textures. These are source-layout estimates; runtime residency and physical GPU memory remain unmeasured. The 512 MiB engine budget remains enforced. Immutable sharing alone cannot admit this project; bounded frame working sets and render-target lifetimes need a separate correctness and peak-budget proof.
 
+The first resource-ownership slice now shares immutable uploads within a live context, retains private generation targets, and separately bounds retained decoded CPU storage. Its identity, retirement, budget and verification contracts are documented in [Scene texture ownership and budgets](./scene-texture-sharing.md). Animated-frame residency and the complete default graph remain subsequent gates.
+
 | Batch | Required result before advancing |
 | --- | --- |
 | Immutable resource ownership | Share read-only textures only within the same context generation, with complete source/decode/upload identities and fixed sampler variants. Preflight and diagnostics count unique allocations plus every private current/candidate/rollback resource, including replacement peaks and pending deletion. Preserve save-failure rollback and final release. |

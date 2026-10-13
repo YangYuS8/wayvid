@@ -11,7 +11,7 @@ mod session;
 
 pub use command::{
     EngineCommand, EngineConfig, EngineEvent, EngineRenderMetrics, EngineStatus, PlaybackSettings,
-    WallpaperSource,
+    SceneGpuBudgetSnapshot, WallpaperSource,
 };
 pub use session::WallpaperSession;
 
@@ -20,6 +20,7 @@ use session::FrameDemand;
 
 use std::collections::{BTreeSet, HashMap};
 use std::ffi::CString;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver as StdReceiver, Sender as StdSender};
@@ -44,9 +45,8 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 };
 
 use crate::egl::EglContext;
+use crate::scene::shared_texture::{ResourcePlan, TexturePool};
 use crate::wayland::OutputManager;
-
-const MAX_SCENE_ENGINE_PAYLOAD_BYTES: u64 = 512 * 1024 * 1024;
 
 /// Handle for controlling a running PlaybackEngine from another thread
 pub struct EngineHandle {
@@ -178,6 +178,7 @@ fn run_engine_thread(
     let mut state = EngineState {
         outputs: OutputManager::new(),
         sessions: HashMap::new(),
+        scene_textures: TexturePool::new()?,
         output_errors: HashMap::new(),
         events_tx: events_tx.clone(),
         config,
@@ -240,6 +241,7 @@ fn run_engine_thread(
         match EglContext::new(display_ptr) {
             Ok(egl_ctx) => {
                 info!("  ✓ EGL context initialized");
+                state.scene_textures.bind_owner(&egl_ctx)?;
                 state.egl_context = Some(egl_ctx);
             }
             Err(e) => {
@@ -329,6 +331,9 @@ fn run_engine_thread(
                 output, error
             );
         }
+    }
+    if let Err(error) = state.scene_textures.close() {
+        warn!("Scene texture domain quarantined during shutdown: {error:#}");
     }
 
     state.running = false;
@@ -429,11 +434,7 @@ fn render_all_surfaces(state: &mut EngineState) {
 
     for output_name in outputs {
         let budget_result = (|| {
-            let existing = state.sessions.values().try_fold(0_u64, |bytes, session| {
-                bytes
-                    .checked_add(session.reserved_scene_payload_bytes()?)
-                    .context("Scene GPU allocation total overflow")
-            })?;
+            let plan = combined_scene_plan(state, None)?;
             let info = state
                 .layer_surfaces
                 .get(&output_name)
@@ -442,10 +443,11 @@ fn render_all_surfaces(state: &mut EngineState) {
                 .sessions
                 .get(&output_name)
                 .context("Output session unavailable")?;
-            check_scene_payload_budget(
-                existing,
+            plan.preflight(
+                state.scene_textures.retired_bytes()?,
                 session.additional_scene_payload_bytes(info.width as i32, info.height as i32)?,
             )
+            .map(|_| ())
         })();
         // Get layer surface info
         let surface_info = match state.layer_surfaces.get_mut(&output_name) {
@@ -573,6 +575,7 @@ struct EngineState {
     outputs: OutputManager,
     /// Active wallpaper sessions per output
     sessions: HashMap<String, WallpaperSession>,
+    scene_textures: Rc<TexturePool>,
     output_errors: HashMap<String, String>,
     /// Event sender to GUI (std mpsc for cross-thread compatibility)
     events_tx: StdSender<EngineEvent>,
@@ -1033,8 +1036,36 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
                     )
                 })
                 .collect();
+            let scene_gpu_budget = combined_scene_plan(state, None)
+                .and_then(|plan| {
+                    let retired_bytes = state.scene_textures.retired_bytes()?;
+                    let resident_bytes = state.scene_textures.resident_bytes()?;
+                    let immutable_bytes = plan.immutable_bytes()?;
+                    Ok(command::SceneGpuBudgetSnapshot {
+                        context_generation: state.scene_textures.generation(),
+                        immutable_resident_bytes: resident_bytes.saturating_sub(retired_bytes),
+                        private_and_reserved_bytes: plan.private_bytes,
+                        immutable_reserved_bytes: immutable_bytes
+                            .saturating_sub(resident_bytes.saturating_sub(retired_bytes)),
+                        retired_bytes,
+                        logical_peak_bytes: plan.total(retired_bytes)?,
+                        allocation_count: state.scene_textures.allocation_count(),
+                        lease_count: state.scene_textures.lease_count(),
+                    })
+                })
+                .unwrap_or_else(|error| {
+                    warn!("Scene GPU budget snapshot failed: {error:#}");
+                    command::SceneGpuBudgetSnapshot {
+                        logical_peak_bytes: u64::MAX,
+                        ..Default::default()
+                    }
+                });
             let status = EngineStatus {
                 running: state.running,
+                scene_gpu_budget,
+                scene_decoded_texture_bytes: scene_decoded_allocations(state)
+                    .and_then(decoded_texture_total)
+                    .unwrap_or(u64::MAX),
                 playback_settings: state.config.playback_settings(),
                 on_battery: state.on_battery,
                 power_paused: state.power_paused,
@@ -1179,15 +1210,7 @@ fn apply_wallpaper_to_output(
             .get(output_name)
             .is_some_and(WallpaperSession::can_reuse_resources);
     if let WallpaperSource::Scene { prepared, .. } = &request.source {
-        let existing = prospective_retained_scene_payload(
-            state
-                .sessions
-                .iter()
-                .map(|(name, session)| (name.as_str(), session)),
-            output_name,
-            reuse,
-            WallpaperSession::reserved_scene_payload_bytes,
-        )?;
+        let mut plan = combined_scene_plan(state, if reuse { None } else { Some(output_name) })?;
         let [width, height] = state
             .layer_surfaces
             .get(output_name)
@@ -1200,10 +1223,18 @@ fn apply_wallpaper_to_output(
                     .map(|output| [output.info.width, output.info.height])
             })
             .context("Output not found")?;
-        check_scene_payload_budget(
-            existing,
-            prepared.estimated_gpu_bytes_for_output(width, height)?,
-        )?;
+        plan.merge(&prepared.resource_plan_for_output(width, height)?)?;
+        plan.preflight(state.scene_textures.retired_bytes()?, 0)?;
+        let mut decoded = scene_decoded_allocations(state)?;
+        decoded.push((
+            Arc::as_ptr(prepared) as usize,
+            prepared.decoded_texture_bytes()?,
+        ));
+        let decoded_bytes = decoded_texture_total(decoded)?;
+        anyhow::ensure!(
+            decoded_bytes <= crate::scene::shared_texture::PAYLOAD_LIMIT,
+            "Scene retained decoded textures exceed the engine's 512 MiB CPU allocation budget"
+        );
         let mut audio = state
             .sessions
             .iter()
@@ -1319,6 +1350,7 @@ fn apply_wallpaper_to_output(
     // Create wallpaper session
     let mut session =
         WallpaperSession::from_source(request.source, output_info, state.config.video.clone())?;
+    session.use_texture_pool(Rc::clone(&state.scene_textures))?;
     session.set_power_paused(state.power_paused);
     if manual_paused {
         session.pause();
@@ -1328,6 +1360,67 @@ fn apply_wallpaper_to_output(
     info!("Wallpaper session created for {}", output_name);
 
     Ok(())
+}
+
+fn combined_scene_plan(state: &EngineState, skip_output: Option<&str>) -> Result<ResourcePlan> {
+    combine_scene_resource_plans(
+        state
+            .sessions
+            .iter()
+            .map(|(name, session)| (name.as_str(), session)),
+        skip_output,
+        WallpaperSession::resource_plan,
+    )
+}
+
+/// Reuse keeps all generations; replacing a fresh surface releases only that
+/// output before allocation. Other outputs and their reservations remain live.
+fn combine_scene_resource_plans<'a, T>(
+    sessions: impl IntoIterator<Item = (&'a str, T)>,
+    skip_output: Option<&str>,
+    mut measure: impl FnMut(T) -> Result<ResourcePlan>,
+) -> Result<ResourcePlan> {
+    let mut plan = ResourcePlan::default();
+    for (output, session) in sessions {
+        if skip_output != Some(output) {
+            plan.merge(&measure(session)?)?;
+        }
+    }
+    Ok(plan)
+}
+
+fn scene_decoded_allocations(state: &EngineState) -> Result<Vec<(usize, u64)>> {
+    let mut allocations = Vec::new();
+    for session in state.sessions.values() {
+        allocations.extend(session.decoded_allocations()?);
+    }
+    // Requests also retain Arc sources independently of renderer cleanup. They
+    // must be counted until their owner releases them, including rollback.
+    for info in state.layer_surfaces.values() {
+        for request in std::iter::once(&info.apply_request).chain(info.previous_request.iter()) {
+            if let WallpaperSource::Scene { prepared, .. } = &request.source {
+                allocations.push((
+                    Arc::as_ptr(prepared) as usize,
+                    prepared.decoded_texture_bytes()?,
+                ));
+            }
+        }
+    }
+    Ok(allocations)
+}
+
+fn decoded_texture_total(allocations: impl IntoIterator<Item = (usize, u64)>) -> Result<u64> {
+    let mut unique = std::collections::BTreeMap::new();
+    for (identity, bytes) in allocations {
+        if let Some(previous) = unique.insert(identity, bytes) {
+            anyhow::ensure!(previous == bytes, "Scene decoded allocation sizes disagree");
+        }
+    }
+    unique.values().try_fold(0_u64, |total, bytes| {
+        total
+            .checked_add(*bytes)
+            .context("Scene decoded allocation total overflow")
+    })
 }
 
 fn check_audio_payload_budget(bytes: impl IntoIterator<Item = u64>) -> Result<()> {
@@ -1341,37 +1434,6 @@ fn check_audio_payload_budget(bytes: impl IntoIterator<Item = u64>) -> Result<()
         "Scene prepared audio exceeds the active and rollback memory budget"
     );
     Ok(())
-}
-
-fn check_scene_payload_budget(existing: u64, candidate: u64) -> Result<()> {
-    anyhow::ensure!(
-        existing
-            .checked_add(candidate)
-            .is_some_and(|total| total <= MAX_SCENE_ENGINE_PAYLOAD_BYTES),
-        "Scene candidate and retained output resources exceed the engine's 512 MiB logical texture/framebuffer budget"
-    );
-    Ok(())
-}
-
-/// Reuse creates a candidate before dropping anything, so all resident and
-/// reserved resources contribute to the peak. A fresh surface releases its old
-/// output first, while reservations belonging to other outputs remain live.
-fn prospective_retained_scene_payload<'a, T>(
-    sessions: impl IntoIterator<Item = (&'a str, T)>,
-    output: &str,
-    reuse: bool,
-    mut measure: impl FnMut(T) -> Result<u64>,
-) -> Result<u64> {
-    sessions
-        .into_iter()
-        .try_fold(0_u64, |total, (name, session)| {
-            if !reuse && name == output {
-                return Ok(total);
-            }
-            total
-                .checked_add(measure(session)?)
-                .context("Scene engine reservation total overflow")
-        })
 }
 
 // Wayland dispatch implementation for wl_registry
@@ -1735,6 +1797,16 @@ fn check_battery_status() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decoded_allocations_count_arc_alias_once_and_distinct_preparations_separately() {
+        assert_eq!(
+            decoded_texture_total([(1, 40), (1, 40), (2, 40)]).unwrap(),
+            80
+        );
+        assert!(decoded_texture_total([(1, 40), (1, 41)]).is_err());
+        assert!(decoded_texture_total([(1, u64::MAX), (2, 1)]).is_err());
+    }
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
 
@@ -1743,6 +1815,7 @@ mod tests {
         EngineState {
             outputs: OutputManager::new(),
             sessions: HashMap::new(),
+            scene_textures: TexturePool::new().unwrap(),
             output_errors: HashMap::new(),
             events_tx,
             config: EngineConfig::default(),
@@ -1905,9 +1978,19 @@ mod tests {
 
     #[test]
     fn engine_scene_budget_counts_retained_resources_and_rejects_overflow() {
-        assert!(check_scene_payload_budget(300 * 1024 * 1024, 212 * 1024 * 1024).is_ok());
-        assert!(check_scene_payload_budget(300 * 1024 * 1024, 213 * 1024 * 1024).is_err());
-        assert!(check_scene_payload_budget(u64::MAX, 1).is_err());
+        let mib = 1024 * 1024;
+        let mut retained = private_plan(300 * mib);
+        retained.merge(&private_plan(212 * mib)).unwrap();
+        assert!(retained.preflight(0, 0).is_ok());
+        assert!(retained.preflight(0, mib).is_err());
+        assert!(private_plan(u64::MAX).merge(&private_plan(1)).is_err());
+    }
+
+    fn private_plan(bytes: u64) -> ResourcePlan {
+        ResourcePlan {
+            private_bytes: bytes,
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -1921,22 +2004,24 @@ mod tests {
     #[test]
     fn fresh_output_replacement_discards_only_its_previous_reservation() {
         let mib = 1024 * 1024;
-        let retained =
-            prospective_retained_scene_payload([("eDP-1", 400 * mib)], "eDP-1", false, Ok).unwrap();
-        assert_eq!(retained, 0);
-        assert!(check_scene_payload_budget(retained, 400 * mib).is_ok());
-        let retained = prospective_retained_scene_payload(
+        let mut retained =
+            combine_scene_resource_plans([("eDP-1", private_plan(400 * mib))], Some("eDP-1"), Ok)
+                .unwrap();
+        assert_eq!(retained.total(0).unwrap(), 0);
+        retained.merge(&private_plan(400 * mib)).unwrap();
+        assert!(retained.preflight(0, 0).is_ok());
+        let mut retained = combine_scene_resource_plans(
             [("eDP-1", 400 * mib), ("DP-1", 120 * mib)],
-            "eDP-1",
-            false,
-            Ok,
+            Some("eDP-1"),
+            |bytes| Ok(private_plan(bytes)),
         )
         .unwrap();
-        assert_eq!(retained, 120 * mib);
-        assert!(check_scene_payload_budget(retained, 400 * mib).is_err());
+        assert_eq!(retained.total(0).unwrap(), 120 * mib);
+        retained.merge(&private_plan(400 * mib)).unwrap();
+        assert!(retained.preflight(0, 0).is_err());
         // The discarded reservation must not even be evaluated.
         assert!(
-            prospective_retained_scene_payload([("eDP-1", ())], "eDP-1", false, |_| anyhow::bail!(
+            combine_scene_resource_plans([("eDP-1", ())], Some("eDP-1"), |_| anyhow::bail!(
                 "discarded estimate"
             ),)
             .is_ok()
@@ -1946,26 +2031,28 @@ mod tests {
     #[test]
     fn reused_outputs_include_current_pending_and_rollback_reservations() {
         let mib = 1024 * 1024;
-        let retained = prospective_retained_scene_payload(
+        let retained = combine_scene_resource_plans(
             [
                 ("eDP-1", [200 * mib, 60 * mib, 80 * mib]),
                 ("DP-1", [100 * mib, 0, 0]),
             ],
-            "eDP-1",
-            true,
-            |parts| Ok(parts.into_iter().sum()),
+            None,
+            |parts| {
+                let mut generations = ResourcePlan::default();
+                for bytes in parts {
+                    generations.merge(&private_plan(bytes))?;
+                }
+                Ok(generations)
+            },
         )
         .unwrap();
-        assert_eq!(retained, 440 * mib);
-        assert!(check_scene_payload_budget(retained, 72 * mib).is_ok());
-        assert!(check_scene_payload_budget(retained, 73 * mib).is_err());
+        assert_eq!(retained.total(0).unwrap(), 440 * mib);
+        assert!(retained.preflight(0, 72 * mib).is_ok());
+        assert!(retained.preflight(0, 73 * mib).is_err());
         assert!(
-            prospective_retained_scene_payload(
-                [("eDP-1", u64::MAX), ("DP-1", 1)],
-                "eDP-1",
-                true,
-                Ok,
-            )
+            combine_scene_resource_plans([("eDP-1", u64::MAX), ("DP-1", 1)], None, |bytes| Ok(
+                private_plan(bytes)
+            ),)
             .is_err()
         );
     }

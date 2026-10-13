@@ -13,6 +13,7 @@ lwe-core = { path = "../lwe-core" }
 lwe-scene = { path = "../lwe-scene" }
 serde_json = { workspace = true }
 serde = { workspace = true }
+sha2 = { workspace = true }
 
 # Wayland client
 wayland-client = "0.31"

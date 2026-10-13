@@ -800,6 +800,84 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires an explicit tiny EGL/OpenGL offscreen run"]
+    fn offscreen_private_bloom_resize_keeps_old_layout_and_charges_full_replacement() -> Result<()>
+    {
+        let _context = OffscreenContext::new()?;
+        let fixture = Fixture::new();
+        let bloom = std::sync::Arc::new(
+            fixture
+                .prepare(&serde_json::json!({"bloom":true}))?
+                .unwrap(),
+        );
+        let scene = super::super::PreparedScene {
+            canvas: [2.0, 2.0],
+            clear: [0.0, 0.0, 0.0, 1.0],
+            textures: Vec::new(),
+            layers: Vec::new(),
+            audio: Vec::new(),
+            bloom: Some(std::sync::Arc::clone(&bloom)),
+            particles: Vec::new(),
+            draw_order: Vec::new(),
+            summary: super::super::SceneSummary {
+                layer_count: 0,
+                effect_count: 0,
+                pass_count: 0,
+                animated: false,
+            },
+            scripts: None,
+            script_layers: BTreeMap::new(),
+        };
+        let mut renderer = scene.initialize()?;
+        renderer.resize(2, 2)?;
+        let old_layout = bloom.estimated_bytes(2, 2)?;
+        let replacement = renderer.additional_gpu_bytes(16, 16)?;
+        assert_eq!(replacement, bloom.estimated_bytes(16, 16)?);
+        assert_eq!(renderer.allocation_plan()?.private_bytes, old_layout + 4);
+        let mut combined = super::super::shared_texture::ResourcePlan {
+            private_bytes: super::super::shared_texture::PAYLOAD_LIMIT
+                - (old_layout + 4)
+                - replacement
+                + 1,
+            ..Default::default()
+        };
+        combined.merge(&renderer.allocation_plan()?)?;
+        assert!(
+            combined.preflight(0, replacement - old_layout).is_ok(),
+            "fixture must distinguish a delta-only underestimate"
+        );
+        assert!(combined.preflight(0, replacement).is_err());
+
+        let output = RenderTarget::new(2, 2)?;
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, output.framebuffer());
+        }
+        renderer.render_forced(2, 2, 0.0)?;
+        let before = pixels(&output);
+        let bytes = renderer.gpu_payload_bytes();
+        assert!(
+            renderer.resize(32768, 32768).is_err(),
+            "over-budget replacement reached GL allocation"
+        );
+        assert_eq!(
+            renderer.additional_gpu_bytes(2, 2)?,
+            0,
+            "failed resize discarded old private layout"
+        );
+        assert_eq!(renderer.gpu_payload_bytes(), bytes);
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, output.framebuffer());
+        }
+        renderer.render_forced(2, 2, 1.0)?;
+        assert_eq!(pixels(&output), before);
+        renderer.resize(16, 16)?;
+        assert_eq!(renderer.allocation_plan()?.private_bytes, replacement + 4);
+        renderer.cleanup();
+        assert_eq!(renderer.gpu_payload_bytes(), 0);
+        Ok(())
+    }
+
+    #[test]
     #[ignore = "requires original user-owned assets and an explicit offscreen run"]
     fn offscreen_original_bloom_and_effect_shader_assets() -> Result<()> {
         let _context = OffscreenContext::new()?;

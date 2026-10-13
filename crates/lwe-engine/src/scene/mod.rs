@@ -11,16 +11,23 @@ mod properties;
 mod renderer;
 mod script;
 mod shader;
+pub(crate) mod shared_texture;
 mod spectrum;
 
+#[cfg(test)]
+mod prepared_texture_identity_tests;
+
 use std::collections::{BTreeMap, BTreeSet};
+use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::{Context, Result, bail, ensure};
-use lwe_scene::{SceneAssets, Texture};
+use lwe_scene::{ResourceOrigin, SceneAssets, Texture};
 use properties::ProjectProperties;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 pub(crate) use audio::SceneAudio;
 pub use properties::{
@@ -122,6 +129,9 @@ impl std::fmt::Debug for PreparedScene {
 
 #[derive(Debug)]
 pub(crate) struct PreparedTexture {
+    /// Computed on the preparation worker from the bytes actually decoded,
+    /// their source namespace and the complete decode contract/metadata.
+    pub fingerprint: [u8; 32],
     pub width: u32,
     pub height: u32,
     pub image_width: u32,
@@ -130,6 +140,123 @@ pub(crate) struct PreparedTexture {
     pub source_flags: u32,
     pub rgba: Vec<u8>,
     pub animation: Option<lwe_scene::AnimationMetadata>,
+}
+
+const TEXTURE_IDENTITY_CONTRACT: &[u8] = b"lwe-scene-rgba8-top-mip-identity-v1";
+
+// Length framing prevents ambiguous concatenations of paths and byte payloads.
+fn fingerprint_bytes(digest: &mut Sha256, bytes: &[u8]) {
+    digest.update((bytes.len() as u64).to_le_bytes());
+    digest.update(bytes);
+}
+
+fn fingerprint_animation(digest: &mut Sha256, animation: Option<&lwe_scene::AnimationMetadata>) {
+    digest.update([u8::from(animation.is_some())]);
+    if let Some(animation) = animation {
+        for value in [animation.version, animation.width, animation.height] {
+            digest.update(value.to_le_bytes());
+        }
+        digest.update((animation.frames.len() as u64).to_le_bytes());
+        for frame in &animation.frames {
+            digest.update(frame.image.to_le_bytes());
+            digest.update(frame.duration.to_bits().to_le_bytes());
+            for coordinate in frame.coordinates {
+                digest.update(coordinate.to_bits().to_le_bytes());
+            }
+        }
+    }
+}
+
+fn fingerprint_metadata(digest: &mut Sha256, metadata: &lwe_scene::TextureMetadata) {
+    for value in [
+        metadata.version,
+        metadata.body_version,
+        metadata.format,
+        metadata.flags,
+        metadata.storage_width,
+        metadata.storage_height,
+        metadata.image_width,
+        metadata.image_height,
+        metadata.image_info_extra,
+        metadata.images,
+    ] {
+        digest.update(value.to_le_bytes());
+    }
+    digest.update(metadata.container_format.to_le_bytes());
+    digest.update([u8::from(metadata.body_extra.is_some())]);
+    if let Some(extra) = metadata.body_extra {
+        digest.update(extra.to_le_bytes());
+    }
+    digest.update([u8::from(metadata.video)]);
+    digest.update((metadata.mips.len() as u64).to_le_bytes());
+    for mip in &metadata.mips {
+        for value in [
+            mip.image,
+            mip.level,
+            mip.width,
+            mip.height,
+            mip.decompressed_size,
+            mip.stored_size,
+        ] {
+            digest.update(value.to_le_bytes());
+        }
+        digest.update((mip.offset as u64).to_le_bytes());
+        digest.update([u8::from(mip.compressed), u8::from(mip.video)]);
+    }
+    fingerprint_animation(digest, metadata.animation.as_ref());
+}
+
+struct TextureSource<'a> {
+    origin: ResourceOrigin,
+    root: &'a Path,
+    path: &'a str,
+    binding: &'a str,
+    atlas: bool,
+}
+
+fn texture_fingerprint(source: TextureSource<'_>, encoded: &[u8], decoded: &Texture) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    fingerprint_bytes(&mut digest, TEXTURE_IDENTITY_CONTRACT);
+    digest.update([match source.origin {
+        ResourceOrigin::Package => 0,
+        ResourceOrigin::Project => 1,
+        ResourceOrigin::Builtin => 2,
+    }]);
+    fingerprint_bytes(&mut digest, source.root.as_os_str().as_bytes());
+    // SceneAssets has already validated this relative path. Components give
+    // its normalized spelling without resolving or reopening any pathname.
+    let normalized: std::path::PathBuf = Path::new(source.path).components().collect();
+    fingerprint_bytes(&mut digest, normalized.as_os_str().as_bytes());
+    fingerprint_bytes(&mut digest, source.binding.as_bytes());
+    digest.update([u8::from(source.atlas)]);
+    fingerprint_bytes(&mut digest, encoded);
+    digest.update(decoded.width.to_le_bytes());
+    digest.update(decoded.height.to_le_bytes());
+    fingerprint_bytes(&mut digest, &decoded.rgba);
+    fingerprint_metadata(&mut digest, &decoded.metadata);
+    digest.finalize().into()
+}
+
+impl PreparedTexture {
+    #[cfg(test)]
+    pub(crate) fn fixture_fingerprint(&self) -> [u8; 32] {
+        let mut digest = Sha256::new();
+        fingerprint_bytes(&mut digest, TEXTURE_IDENTITY_CONTRACT);
+        fingerprint_bytes(&mut digest, b"cpu-authored-fixture");
+        for value in [
+            self.width,
+            self.height,
+            self.image_width,
+            self.image_height,
+            self.source_format,
+            self.source_flags,
+        ] {
+            digest.update(value.to_le_bytes());
+        }
+        fingerprint_bytes(&mut digest, &self.rgba);
+        fingerprint_animation(&mut digest, self.animation.as_ref());
+        digest.finalize().into()
+    }
 }
 
 #[derive(Debug)]
@@ -408,10 +535,24 @@ impl Preparation<'_> {
         } else {
             format!("materials/{name}.tex")
         };
-        let bytes = self
-            .assets
-            .read(&path, MAX_TEXTURE)
-            .with_context(|| format!("Missing Scene texture {path}"))?;
+        // Resolve once so the provenance and the complete bounded read refer
+        // to the same descriptor, with the existing package/project/builtin
+        // precedence and read limits. Hashing never performs a second read.
+        let (bytes, origin) = (|| -> lwe_scene::Result<_> {
+            let resource = self.assets.resource(&path)?;
+            if resource.len() > MAX_TEXTURE as u64 {
+                return Err(lwe_scene::SceneAssetError::LimitExceeded {
+                    resource: path.clone(),
+                    size: resource.len(),
+                    limit: MAX_TEXTURE as u64,
+                });
+            }
+            Ok((
+                resource.read_range(0, resource.len() as usize, MAX_TEXTURE)?,
+                resource.origin(),
+            ))
+        })()
+        .with_context(|| format!("Missing Scene texture {path}"))?;
         let decoded = if atlas {
             Texture::decode_atlas(&bytes)
         } else {
@@ -426,8 +567,27 @@ impl Preparation<'_> {
             self.rgba_bytes <= MAX_SCENE_RGBA,
             "Scene decoded textures exceed the memory budget"
         );
+        let root = match origin {
+            ResourceOrigin::Package | ResourceOrigin::Project => self.assets.project_dir(),
+            ResourceOrigin::Builtin => self
+                .assets
+                .assets_dir()
+                .context("Scene builtin texture namespace unavailable")?,
+        };
+        let fingerprint = texture_fingerprint(
+            TextureSource {
+                origin,
+                root,
+                path: &path,
+                binding: name,
+                atlas,
+            },
+            &bytes,
+            &decoded,
+        );
         let index = self.textures.len();
         self.textures.push(PreparedTexture {
+            fingerprint,
             width: decoded.width,
             height: decoded.height,
             image_width: decoded.metadata.image_width,
@@ -1460,6 +1620,16 @@ impl PreparedScene {
         audio::prepared_audio_bytes(&self.audio)
     }
 
+    /// Retained decoded RGBA allocation only; metadata, decoder scratch and
+    /// other CPU resources are separate. Independent scenes own separate Vecs.
+    pub(crate) fn decoded_texture_bytes(&self) -> Result<u64> {
+        self.textures.iter().try_fold(0_u64, |total, texture| {
+            total
+                .checked_add(texture.rgba.capacity() as u64)
+                .context("Scene decoded texture allocation total overflow")
+        })
+    }
+
     pub(crate) fn initialize_audio(&self) -> Result<SceneAudio> {
         SceneAudio::new(&self.audio)
     }
@@ -1471,15 +1641,26 @@ impl PreparedScene {
     }
 
     pub fn estimated_gpu_bytes_for_output(&self, width: i32, height: i32) -> Result<u64> {
-        let base = self.estimated_gpu_bytes()?;
-        base.checked_add(
-            self.bloom
-                .as_ref()
-                .map(|bloom| bloom.estimated_bytes(width, height))
-                .transpose()?
-                .unwrap_or_default(),
-        )
-        .context("Scene output allocation estimate overflow")
+        self.resource_plan_for_output(width, height)?.total(0)
+    }
+
+    pub(crate) fn resource_plan_for_output(
+        &self,
+        width: i32,
+        height: i32,
+    ) -> Result<shared_texture::ResourcePlan> {
+        let mut plan = renderer::resource_plan(self)?;
+        plan.private_bytes = plan
+            .private_bytes
+            .checked_add(
+                self.bloom
+                    .as_ref()
+                    .map(|bloom| bloom.estimated_bytes(width, height))
+                    .transpose()?
+                    .unwrap_or_default(),
+            )
+            .context("Scene output allocation estimate overflow")?;
+        Ok(plan)
     }
 
     /// Logical texture/FBO payload; excludes driver and output back buffers.
@@ -1490,6 +1671,13 @@ impl PreparedScene {
     /// Requires a current OpenGL context on the calling engine thread.
     pub fn initialize(&self) -> Result<SceneRenderer> {
         SceneRenderer::initialize(self)
+    }
+
+    pub(crate) fn initialize_shared(
+        &self,
+        pool: Rc<shared_texture::TexturePool>,
+    ) -> Result<SceneRenderer> {
+        SceneRenderer::initialize_shared(self, pool)
     }
 }
 

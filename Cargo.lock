@@ -2487,6 +2487,7 @@ dependencies = [
  "rustfft",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "smithay-client-toolkit",
  "thiserror 1.0.69",
  "tracing",
