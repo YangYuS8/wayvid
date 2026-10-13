@@ -8,7 +8,7 @@ import { button, deferred, waitForText } from '$lib/testing/interactions';
 import { outcome } from '$lib/testing/page-fixtures';
 import type { ActionOutcome, ScenePropertiesSnapshot } from '$lib/types';
 
-vi.mock('$lib/ipc', () => ({ loadSceneProperties: vi.fn(), updateSceneProperties: vi.fn() }));
+vi.mock('$lib/ipc', () => ({ chooseSceneImage: vi.fn(), loadSceneProperties: vi.fn(), updateSceneProperties: vi.fn() }));
 
 const fixture = (monitorId = 'DP-1', itemId = 'scene-1'): ScenePropertiesSnapshot => ({
   itemId, monitorId,
@@ -36,6 +36,13 @@ const groupedFixture = (monitorId = 'DP-1', itemId = 'scene-1'): SceneProperties
 });
 
 const onOutcome = vi.fn<(value: ActionOutcome<null>) => void>();
+const imageToken = 'sha256:' + 'a'.repeat(64);
+const imageFixture = (monitorId = 'DP-1'): ScenePropertiesSnapshot => ({
+  ...fixture(monitorId), properties: [...fixture().properties, {
+    name: 'background', label: 'Author image control', kind: 'texture', value: null,
+    min: null, max: null, step: null, order: 3
+  }]
+});
 let panel: Awaited<ReturnType<typeof mountPanel>> | undefined;
 
 async function mountPanel(disabled = false) {
@@ -72,6 +79,49 @@ const edit = async (type: string, value: string) => {
 };
 
 describe('ScenePropertiesPanel interactions', () => {
+  it('imports an image into the draft, preserves it on cancellation and failed save, and clears back to the author default', async () => {
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValue(imageFixture());
+    vi.mocked(ipc.chooseSceneImage).mockResolvedValueOnce({ token: imageToken, width: 3840, height: 2160 }).mockResolvedValueOnce(null);
+    vi.mocked(ipc.updateSceneProperties).mockResolvedValue(outcome({ ok: false, message: 'Preparation rejected' }));
+    panel = await mountPanel(); await open();
+    button(panel.target, 'Choose image').click();
+    await waitForText(panel.target, 'Custom image selected');
+    expect(ipc.chooseSceneImage).toHaveBeenCalledExactlyOnceWith('scene-1', 'background');
+    expect(ipc.updateSceneProperties).not.toHaveBeenCalled();
+    button(panel.target, 'Choose image').click(); await vi.waitFor(() => expect(ipc.chooseSceneImage).toHaveBeenCalledTimes(2)); await tick();
+    button(panel.target, 'Save and apply').click();
+    await waitForText(panel.target, 'Preparation rejected');
+    expect(ipc.updateSceneProperties).toHaveBeenLastCalledWith('DP-1', 'scene-1', {
+      hdr: true, strength: 1.5, tint: [0.25, 0.5, 1], background: imageToken
+    });
+    expect(panel.target.textContent).toContain('Custom image selected');
+    button(panel.target, 'Use author image').click(); await tick();
+    button(panel.target, 'Save and apply').click();
+    await vi.waitFor(() => expect(ipc.updateSceneProperties).toHaveBeenCalledTimes(2));
+    expect(ipc.updateSceneProperties).toHaveBeenLastCalledWith('DP-1', 'scene-1', { hdr: true, strength: 1.5, tint: [0.25, 0.5, 1] });
+  });
+
+  it('ignores an image import that completes after switching monitors', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof ipc.chooseSceneImage>>>();
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValueOnce(imageFixture()).mockResolvedValueOnce(imageFixture('DP-2'));
+    vi.mocked(ipc.chooseSceneImage).mockReturnValue(pending.promise);
+    panel = await mountPanel(); await open(); button(panel.target, 'Choose image').click(); await tick();
+    expect(button(panel.target, 'Save and apply').disabled).toBe(true);
+    panel.set({ monitorId: 'DP-2' }); await tick(); await open();
+    pending.resolve({ token: imageToken, width: 2, height: 2 }); await tick();
+    expect(panel.target.textContent).not.toContain('Custom image selected');
+    expect(ipc.updateSceneProperties).not.toHaveBeenCalled();
+  });
+
+  it('rejects imported URLs and invalid metadata without replacing the author image', async () => {
+    vi.mocked(ipc.loadSceneProperties).mockResolvedValue(imageFixture());
+    vi.mocked(ipc.chooseSceneImage).mockResolvedValue({ token: 'file:///external.png', width: 2, height: 2 });
+    panel = await mountPanel(); await open(); button(panel.target, 'Choose image').click();
+    await waitForText(panel.target, 'Invalid image selection.');
+    expect(panel.target.textContent).not.toContain('Custom image selected');
+    expect(ipc.updateSceneProperties).not.toHaveBeenCalled();
+  });
+
   it('renders author-ordered sections, keeps preceding controls ungrouped, and allows duplicate or blank labels', async () => {
     vi.mocked(ipc.loadSceneProperties).mockResolvedValue(groupedFixture());
     panel = await mountPanel();

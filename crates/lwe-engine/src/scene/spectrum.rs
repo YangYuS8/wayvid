@@ -1,6 +1,7 @@
 //! Shared, output-monitor audio analysis. Capture and FFT never run on the render thread.
 //!
-//! The Scene interface is sixteen bass-to-treble values per channel in `0..=1`.
+//! The Scene interface exposes independently measured 16/32/64 bass-to-treble
+//! values per channel in `0..=1`, with a 64-band average for SceneScript.
 //! Wallpaper Engine does not document its frequency boundaries or normalization;
 //! this implements a Hann-windowed spectrum with logarithmic bands, a -60 dB
 //! floor, and bounded attack/release rather than claiming numerical equivalence.
@@ -35,6 +36,10 @@ pub(crate) struct SpectrumSnapshot {
     pub(crate) right: [f32; BANDS],
     /// Independently measured FFT bands for SceneScript; never upsample 16 bands.
     pub(crate) script_average: [f32; 64],
+    pub(crate) script_left: [f32; 64],
+    pub(crate) script_right: [f32; 64],
+    pub(crate) left32: [f32; 32],
+    pub(crate) right32: [f32; 32],
 }
 
 impl Default for SpectrumSnapshot {
@@ -43,6 +48,10 @@ impl Default for SpectrumSnapshot {
             left: [0.0; BANDS],
             right: [0.0; BANDS],
             script_average: [0.0; 64],
+            script_left: [0.0; 64],
+            script_right: [0.0; 64],
+            left32: [0.0; 32],
+            right32: [0.0; 32],
         }
     }
 }
@@ -52,6 +61,10 @@ struct AtomicSnapshot {
     left: [AtomicU32; BANDS],
     right: [AtomicU32; BANDS],
     script_average: [AtomicU32; 64],
+    script_left: [AtomicU32; 64],
+    script_right: [AtomicU32; 64],
+    left32: [AtomicU32; 32],
+    right32: [AtomicU32; 32],
 }
 
 impl Default for AtomicSnapshot {
@@ -61,6 +74,10 @@ impl Default for AtomicSnapshot {
             left: std::array::from_fn(|_| AtomicU32::new(0)),
             right: std::array::from_fn(|_| AtomicU32::new(0)),
             script_average: std::array::from_fn(|_| AtomicU32::new(0)),
+            script_left: std::array::from_fn(|_| AtomicU32::new(0)),
+            script_right: std::array::from_fn(|_| AtomicU32::new(0)),
+            left32: std::array::from_fn(|_| AtomicU32::new(0)),
+            right32: std::array::from_fn(|_| AtomicU32::new(0)),
         }
     }
 }
@@ -79,6 +96,18 @@ impl AtomicSnapshot {
         for (destination, value) in self.script_average.iter().zip(value.script_average) {
             destination.store(value.to_bits(), Ordering::SeqCst);
         }
+        for (destination, value) in self.script_left.iter().zip(value.script_left) {
+            destination.store(value.to_bits(), Ordering::SeqCst);
+        }
+        for (destination, value) in self.script_right.iter().zip(value.script_right) {
+            destination.store(value.to_bits(), Ordering::SeqCst);
+        }
+        for (destination, value) in self.left32.iter().zip(value.left32) {
+            destination.store(value.to_bits(), Ordering::SeqCst);
+        }
+        for (destination, value) in self.right32.iter().zip(value.right32) {
+            destination.store(value.to_bits(), Ordering::SeqCst);
+        }
         self.generation.fetch_add(1, Ordering::SeqCst);
     }
 
@@ -95,6 +124,18 @@ impl AtomicSnapshot {
                 }),
                 script_average: std::array::from_fn(|i| {
                     f32::from_bits(self.script_average[i].load(Ordering::SeqCst))
+                }),
+                script_left: std::array::from_fn(|i| {
+                    f32::from_bits(self.script_left[i].load(Ordering::SeqCst))
+                }),
+                script_right: std::array::from_fn(|i| {
+                    f32::from_bits(self.script_right[i].load(Ordering::SeqCst))
+                }),
+                left32: std::array::from_fn(|i| {
+                    f32::from_bits(self.left32[i].load(Ordering::SeqCst))
+                }),
+                right32: std::array::from_fn(|i| {
+                    f32::from_bits(self.right32[i].load(Ordering::SeqCst))
                 }),
             };
             if generation == self.generation.load(Ordering::SeqCst) {
@@ -516,6 +557,7 @@ struct Analyzer {
     scratch: Vec<Complex<f32>>,
     band_bins: [(usize, usize); BANDS],
     script_band_bins: [(usize, usize); 64],
+    band_bins32: [(usize, usize); 32],
     scale: f32,
     write: usize,
     filled: usize,
@@ -558,6 +600,7 @@ impl Analyzer {
             buffer: vec![Complex::default(); FFT_SIZE],
             band_bins,
             script_band_bins: frequency_bins(),
+            band_bins32: frequency_bins(),
             scale,
             write: 0,
             filled: 0,
@@ -596,15 +639,21 @@ impl Analyzer {
         self.analyze_channel(0);
         let left = self.smooth_bands(&self.band_bins, self.smoothed.left);
         self.script_left = self.smooth_bands(&self.script_band_bins, self.script_left);
+        let left32 = self.smooth_bands(&self.band_bins32, self.smoothed.left32);
         self.analyze_channel(1);
         let right = self.smooth_bands(&self.band_bins, self.smoothed.right);
         self.script_right = self.smooth_bands(&self.script_band_bins, self.script_right);
+        let right32 = self.smooth_bands(&self.band_bins32, self.smoothed.right32);
         self.smoothed = SpectrumSnapshot {
             left,
             right,
             script_average: std::array::from_fn(|i| {
                 (self.script_left[i] + self.script_right[i]) * 0.5
             }),
+            script_left: self.script_left,
+            script_right: self.script_right,
+            left32,
+            right32,
         };
         Some(self.smoothed)
     }
@@ -711,6 +760,48 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn all_band_resolutions_preserve_stereo_and_atomic_snapshot_identity() {
+        let mut analyzer = Analyzer::new();
+        let value = tone(&mut analyzer, 46.875, 6000.0, 0.5);
+        let peak = |bands: &[f32]| {
+            bands
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.total_cmp(b))
+                .unwrap()
+                .0
+        };
+        assert!(peak(&value.script_left) < 8);
+        assert!(peak(&value.left32) < 4);
+        assert!(peak(&value.script_right) > 40);
+        assert!(peak(&value.right32) > 20);
+        // The narrower 32/64 first band contains the Hann side lobe of this
+        // bin-centered tone, not its peak. Check the measured peak and stereo
+        // rejection there; a gain-0.5 centered tone maps above 0.85 at -60dB.
+        let left64 = peak(&value.script_left);
+        let right64 = peak(&value.script_right);
+        let left32 = peak(&value.left32);
+        let right32 = peak(&value.right32);
+        assert!(value.script_left[left64] > 0.85 && value.script_right[left64] < 0.01);
+        assert!(value.script_right[right64] > 0.85 && value.script_left[right64] < 0.01);
+        assert!(value.left32[left32] > 0.85 && value.right32[left32] < 0.01);
+        assert!(value.right32[right32] > 0.85 && value.left32[right32] < 0.01);
+        for index in 0..64 {
+            assert_eq!(
+                value.script_average[index],
+                (value.script_left[index] + value.script_right[index]) * 0.5
+            );
+        }
+        let atomic = AtomicSnapshot::default();
+        atomic.publish(value);
+        assert_eq!(atomic.read(), value);
+        atomic.publish(SpectrumSnapshot::default());
+        assert_eq!(atomic.read(), SpectrumSnapshot::default());
+        atomic.generation.store(1, Ordering::SeqCst);
+        assert_eq!(atomic.read(), SpectrumSnapshot::default());
+    }
+
+    #[test]
     fn quiet_nonfinite_and_clipping_are_finite_and_bounded() {
         let mut analyzer = Analyzer::new();
         assert_eq!(
@@ -728,6 +819,11 @@ pub(super) mod tests {
                 .left
                 .into_iter()
                 .chain(value.right)
+                .chain(value.left32)
+                .chain(value.right32)
+                .chain(value.script_left)
+                .chain(value.script_right)
+                .chain(value.script_average)
                 .all(|v| v.is_finite() && (0.0..=1.0).contains(&v))
         );
         assert!(value.left[strongest(&value.left)] > 0.9);

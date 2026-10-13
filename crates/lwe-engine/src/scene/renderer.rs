@@ -6,6 +6,9 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result, bail, ensure};
 
+#[path = "frozen_history.rs"]
+mod frozen_history;
+
 #[cfg(test)]
 #[path = "renderer_acceptance.rs"]
 mod acceptance;
@@ -14,7 +17,7 @@ mod acceptance;
 #[path = "renderer_yakuza_acceptance.rs"]
 mod yakuza_acceptance;
 
-use super::shared_texture::{ResourcePlan, SharedTexture, TextureKey, TexturePool};
+use super::shared_texture::{ResourcePlan, SharedTexture, TextureKey, TexturePool, WorkKey};
 
 use super::{
     Blend, PreparedLayer, PreparedPass, PreparedScene, PreparedStage, PreparedTexture,
@@ -39,29 +42,80 @@ fn animation_delta(previous: f64, current: f64) -> f64 {
     if elapsed > 2.0 { 0.25 } else { elapsed }
 }
 
-// An unnamed pass can retain at most one scratch input. Static and named
-// textures have separate allocations, so two scratch targets avoid feedback
-// throughout a multi-pass layer; a single unnamed pass needs only one.
+// Work images are borrowed only during a sequential render attempt. Accepted
+// pixels and unique histories never use these keys.
+fn direct_layer(layer: &PreparedLayer) -> bool {
+    layer.composite.is_none()
+        && layer.stages.len() == 1
+        && layer.stages[0].targets.is_empty()
+        && layer.stages[0].passes.len() == 1
+        && layer.stages[0].passes[0].target.is_none()
+        && matches!(
+            layer.stages[0].passes[0].label.as_str(),
+            "LWE image material" | "genericimage4" | "LWE text material"
+        )
+}
+fn work_offset(layer: &PreparedLayer, canvas: [f32; 2], full: bool) -> usize {
+    if full && layer.size.map(|v| v.ceil() as i32) == canvas.map(|v| v.ceil() as i32) {
+        if layer.composite.is_some()
+            || layer
+                .stages
+                .iter()
+                .flat_map(|s| &s.passes)
+                .flat_map(|p| &p.textures)
+                .any(|b| matches!(b, TextureBinding::FullFrame))
+        {
+            2
+        } else {
+            1
+        }
+    } else {
+        0
+    }
+}
 fn scratch_target_count(layer: &PreparedLayer) -> usize {
-    layer
+    let unnamed = layer
         .stages
         .iter()
         .flat_map(|stage| &stage.passes)
-        .filter(|pass| pass.target.is_none())
+        .filter(|pass| {
+            pass.target.is_none() && matches!(pass.kind, super::PreparedPassKind::Render)
+        })
         .count()
-        .clamp(1, 2)
+        .clamp(1, 2);
+    let [width, height] = layer.size.map(|v| v.ceil() as i32);
+    let named = layer
+        .stages
+        .iter()
+        .map(|stage| {
+            stage
+                .targets
+                .iter()
+                .filter(|(name, scale)| {
+                    !stage.persistent_targets.contains(*name)
+                        && target_dimensions(width, height, **scale) == [width, height]
+                })
+                .count()
+        })
+        .max()
+        .unwrap_or(0);
+    unnamed.max(named + if unnamed > 1 && named > 0 { 2 } else { 1 })
 }
 
-fn scratch_layout(layers: &[PreparedLayer]) -> BTreeMap<(i32, i32), usize> {
+fn scratch_layout(
+    layers: &[PreparedLayer],
+    canvas: [f32; 2],
+    full: bool,
+) -> BTreeMap<(i32, i32), usize> {
     let mut layout = BTreeMap::new();
-    for layer in layers {
+    for layer in layers.iter().filter(|l| !direct_layer(l)) {
         let dimensions = (layer.size[0].ceil() as i32, layer.size[1].ceil() as i32);
-        let count = layout.entry(dimensions).or_insert(0);
-        *count = (*count).max(scratch_target_count(layer));
+        let count = work_offset(layer, canvas, full) + scratch_target_count(layer);
+        let previous = layout.entry(dimensions).or_insert(0);
+        *previous = (*previous).max(count);
     }
     layout
 }
-
 fn needs_full_frame(scene: &PreparedScene) -> bool {
     scene.layers.iter().any(|layer| {
         layer.composite.is_some()
@@ -83,46 +137,121 @@ fn rgba_bytes(width: u64, height: u64, count: u64) -> Result<u64> {
         .context("Scene RGBA allocation estimate overflow")
 }
 
+pub(super) fn output_cache_bytes(width: i32, height: i32, count: u64) -> Result<u64> {
+    ensure!(width > 0 && height > 0, "Invalid Scene cache dimensions");
+    rgba_bytes(width as u64, height as u64, count)
+}
 fn private_gpu_bytes(scene: &PreparedScene) -> Result<u64> {
     let mut bytes = 4_u64;
-    for ((width, height), count) in scratch_layout(&scene.layers) {
-        bytes = bytes
-            .checked_add(rgba_bytes(width as u64, height as u64, count as u64)?)
-            .context("Scene shared scratch estimate overflow")?;
-    }
-    if needs_full_frame(scene) {
-        bytes = bytes
-            .checked_add(rgba_bytes(
-                scene.canvas[0].ceil() as u64,
-                scene.canvas[1].ceil() as u64,
-                2,
-            )?)
-            .context("Scene full-frame estimate overflow")?;
-    }
     for layer in &scene.layers {
-        let width = layer.size[0].ceil() as u64;
-        let height = layer.size[1].ceil() as u64;
         for stage in &layer.stages {
-            for scale in stage.targets.values() {
-                let [target_width, target_height] =
-                    target_dimensions(width as i32, height as i32, *scale);
-                bytes = bytes
-                    .checked_add(rgba_bytes(target_width as u64, target_height as u64, 1)?)
-                    .context("Scene GPU allocation estimate overflow")?;
+            for (name, scale) in &stage.targets {
+                if stage.persistent_targets.contains(name) {
+                    let [w, h] = target_dimensions(
+                        layer.size[0].ceil() as i32,
+                        layer.size[1].ceil() as i32,
+                        *scale,
+                    );
+                    bytes = bytes
+                        .checked_add(rgba_bytes(w as u64, h as u64, 1)?)
+                        .context("Scene history estimate overflow")?;
+                }
             }
         }
     }
+    // Both the current and fully staged next regions coexist until publication.
+    for texture in &scene.textures {
+        if let Some(source) = &texture.timed {
+            let mut maximum = 0;
+            for frame in 0..source.frames().len() {
+                let rect = source.frame_neighborhood(frame, 1)?.rect();
+                maximum = maximum.max(rgba_bytes(rect.width as u64, rect.height as u64, 2)?);
+            }
+            bytes = bytes
+                .checked_add(maximum)
+                .context("Scene timed staging estimate overflow")?;
+        }
+    }
+    for layer in &scene.layers {
+        if layer.text.is_some() {
+            bytes = bytes
+                .checked_add(rgba_bytes(
+                    layer.size[0].ceil() as u64,
+                    layer.size[1].ceil() as u64,
+                    2,
+                )?)
+                .context("Scene text staging estimate overflow")?;
+        }
+    }
     for layer in &scene.particles {
-        let vertices = (layer.vertex_capacity as u64)
-            .checked_mul(std::mem::size_of::<super::particles::ParticleVertex>() as u64)
-            .context("Scene particle GPU allocation estimate overflow")?;
         bytes = bytes
-            .checked_add(vertices)
-            .context("Scene particle GPU allocation estimate overflow")?;
+            .checked_add(
+                (layer.vertex_capacity as u64)
+                    .checked_mul(std::mem::size_of::<super::particles::ParticleVertex>() as u64)
+                    .context("Scene geometry estimate overflow")?,
+            )
+            .context("Scene geometry estimate overflow")?;
     }
     Ok(bytes)
 }
-
+fn work_plan(scene: &PreparedScene) -> Result<BTreeMap<WorkKey, u64>> {
+    let mut work = BTreeMap::new();
+    let full = needs_full_frame(scene);
+    for ((width, height), count) in scratch_layout(&scene.layers, scene.canvas, full) {
+        for slot in 0..count {
+            work.insert(
+                WorkKey {
+                    width,
+                    height,
+                    slot,
+                },
+                rgba_bytes(width as u64, height as u64, 1)?,
+            );
+        }
+    }
+    if full {
+        let [width, height] = scene.canvas.map(|v| v.ceil() as i32);
+        for slot in 0..2 {
+            work.insert(
+                WorkKey {
+                    width,
+                    height,
+                    slot,
+                },
+                rgba_bytes(width as u64, height as u64, 1)?,
+            );
+        }
+    }
+    for layer in &scene.layers {
+        let [width, height] = layer.size.map(|v| v.ceil() as i32);
+        let offset = work_offset(layer, scene.canvas, full);
+        for stage in &layer.stages {
+            let mut slots = BTreeMap::<(i32, i32), usize>::new();
+            for (name, scale) in &stage.targets {
+                if stage.persistent_targets.contains(name) {
+                    continue;
+                }
+                let [w, h] = target_dimensions(width, height, *scale);
+                let ordinal = slots.entry((w, h)).or_insert(0);
+                let slot = if [w, h] == [width, height] {
+                    offset + *ordinal
+                } else {
+                    *ordinal
+                };
+                *ordinal += 1;
+                work.insert(
+                    WorkKey {
+                        width: w,
+                        height: h,
+                        slot,
+                    },
+                    rgba_bytes(w as u64, h as u64, 1)?,
+                );
+            }
+        }
+    }
+    Ok(work)
+}
 fn texture_fingerprint(texture: &PreparedTexture) -> [u8; 32] {
     // Hand-built authored test fixtures have no VFS source. Production
     // preparation always seals this identity on its background worker.
@@ -136,6 +265,7 @@ fn texture_fingerprint(texture: &PreparedTexture) -> [u8; 32] {
 pub(super) fn resource_plan(scene: &PreparedScene) -> Result<ResourcePlan> {
     let mut plan = ResourcePlan {
         private_bytes: private_gpu_bytes(scene)?,
+        work: work_plan(scene)?,
         ..ResourcePlan::default()
     };
     for layer in &scene.layers {
@@ -146,6 +276,9 @@ pub(super) fn resource_plan(scene: &PreparedScene) -> Result<ResourcePlan> {
                         .textures
                         .get(*index)
                         .context("Scene texture index unavailable")?;
+                    if texture.timed.is_some() {
+                        continue;
+                    }
                     let key = TextureKey {
                         fingerprint: texture_fingerprint(texture),
                         repeat: pass_texture_repeat_flags(&pass.label, slot, texture.source_flags),
@@ -445,6 +578,9 @@ pub(super) struct GpuTexture {
     image_width: i32,
     image_height: i32,
     source_flags: u32,
+    shared: Option<Rc<SharedTexture>>,
+    uv_transform: Option<[f32; 4]>,
+    virtual_resolution: Option<[f32; 4]>,
 }
 
 impl GpuTexture {
@@ -462,7 +598,117 @@ impl GpuTexture {
             image_width,
             image_height,
             source_flags,
+            shared: None,
+            uv_transform: None,
+            virtual_resolution: None,
         }
+    }
+
+    fn view(lease: Rc<SharedTexture>) -> Self {
+        let texture = &lease.texture;
+        Self {
+            id: texture.id,
+            width: texture.width,
+            height: texture.height,
+            image_width: texture.image_width,
+            image_height: texture.image_height,
+            source_flags: texture.source_flags,
+            uv_transform: texture.uv_transform,
+            virtual_resolution: texture.virtual_resolution,
+            shared: Some(lease),
+        }
+    }
+
+    fn allocate(width: i32, height: i32) -> Result<Self> {
+        let mut result = Self::new(width, height, width, height, 2);
+        unsafe {
+            gl::GenTextures(1, &mut result.id);
+            gl::BindTexture(gl::TEXTURE_2D, result.id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA8 as i32,
+                width,
+                height,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                std::ptr::null(),
+            );
+            texture_parameters(false);
+        }
+        check_gl("allocating Scene work texture")?;
+        Ok(result)
+    }
+
+    fn upload_text(text: &super::text::TextFrame) -> Result<Self> {
+        let mut result = Self::new(
+            text.width() as i32,
+            text.height() as i32,
+            text.width() as i32,
+            text.height() as i32,
+            2,
+        );
+        result.uv_transform = Some([1., -1., 0., 1.]);
+        unsafe {
+            gl::GenTextures(1, &mut result.id);
+            gl::BindTexture(gl::TEXTURE_2D, result.id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA8 as i32,
+                result.width,
+                result.height,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                text.rgba().as_ptr().cast(),
+            );
+            texture_parameters(false);
+        }
+        check_gl("uploading sealed Scene text")?;
+        Ok(result)
+    }
+    fn upload_region(region: &super::timed_runtime::FrameRegion) -> Result<Self> {
+        let roi = region.pixels.layout().rect();
+        let mut texture = Self::new(
+            roi.width as i32,
+            roi.height as i32,
+            roi.width as i32,
+            roi.height as i32,
+            7,
+        );
+        let frame = region.rect;
+        texture.uv_transform = Some([
+            frame.width as f32 / roi.width as f32,
+            -(frame.height as f32) / roi.height as f32,
+            (frame.x - roi.x) as f32 / roi.width as f32,
+            (frame.y - roi.y + frame.height) as f32 / roi.height as f32,
+        ]);
+        texture.virtual_resolution = Some([
+            region.virtual_size[0] as f32,
+            region.virtual_size[1] as f32,
+            region.virtual_size[0] as f32,
+            region.virtual_size[1] as f32,
+        ]);
+        unsafe {
+            gl::GenTextures(1, &mut texture.id);
+            gl::BindTexture(gl::TEXTURE_2D, texture.id);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA8 as i32,
+                texture.width,
+                texture.height,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                region.pixels.rgba().as_ptr().cast(),
+            );
+            texture_parameters(false);
+        }
+        check_gl("uploading timed Scene region")?;
+        Ok(texture)
     }
 
     fn upload(texture: &PreparedTexture) -> Result<Self> {
@@ -479,15 +725,19 @@ impl GpuTexture {
             texture.width <= max_size as u32 && texture.height <= max_size as u32,
             "Scene texture exceeds this GPU's maximum dimensions"
         );
+        let rgba = texture.rgba();
         let row = texture.width as usize * 4;
         ensure!(
-            texture.rgba.len() == row * texture.height as usize,
+            rgba.len() == row * texture.height as usize,
             "Scene texture RGBA size mismatch"
         );
         // All uploaded images use GL's bottom-up origin. Pass outputs then share
         // the same UV convention, avoiding alternate-pass vertical flips.
-        let mut pixels = Vec::with_capacity(texture.rgba.len());
-        for line in texture.rgba.chunks_exact(row).rev() {
+        let mut reservation =
+            super::timed_runtime::scene_texture_memory_budget().reserve_bytes(rgba.len())?;
+        let mut pixels = Vec::with_capacity(rgba.len());
+        reservation.resize(pixels.capacity())?;
+        for line in rgba.chunks_exact(row).rev() {
             pixels.extend_from_slice(line);
         }
         let mut result = Self::new(
@@ -518,6 +768,9 @@ impl GpuTexture {
         Ok(result)
     }
     fn resolution(&self) -> [f32; 4] {
+        if let Some(resolution) = self.virtual_resolution {
+            return resolution;
+        }
         [
             self.width as f32,
             self.height as f32,
@@ -528,7 +781,7 @@ impl GpuTexture {
 }
 impl Drop for GpuTexture {
     fn drop(&mut self) {
-        if self.id != 0 {
+        if self.id != 0 && self.shared.is_none() {
             unsafe {
                 gl::DeleteTextures(1, &self.id);
             }
@@ -567,6 +820,9 @@ fn pass_texture_repeat(label: &str, slot: usize, texture: &GpuTexture) -> bool {
 
 struct TextureViews {
     source_flags: u32,
+    timed: bool,
+    key: Option<TextureKey>,
+    frame: Option<usize>,
     clamp: Option<Rc<SharedTexture>>,
     repeat: Option<Rc<SharedTexture>>,
 }
@@ -632,6 +888,40 @@ impl RenderTarget {
         Ok(result)
     }
 
+    fn shared(width: i32, height: i32, slot: usize, pool: &TexturePool) -> Result<Self> {
+        let bytes = rgba_bytes(width as u64, height as u64, 1)?;
+        let lease = pool.acquire_work(
+            WorkKey {
+                width,
+                height,
+                slot,
+            },
+            bytes,
+            || GpuTexture::allocate(width, height),
+        )?;
+        let mut result = Self {
+            texture: GpuTexture::view(lease),
+            fbo: 0,
+        };
+        unsafe {
+            gl::GenFramebuffers(1, &mut result.fbo);
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, result.fbo);
+            gl::FramebufferTexture2D(
+                gl::DRAW_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                result.texture.id,
+                0,
+            );
+            ensure!(
+                gl::CheckFramebufferStatus(gl::DRAW_FRAMEBUFFER) == gl::FRAMEBUFFER_COMPLETE,
+                "Scene shared framebuffer incomplete"
+            );
+        }
+        check_gl("attaching Scene borrowed work framebuffer")?;
+        Ok(result)
+    }
+
     pub(super) fn framebuffer(&self) -> u32 {
         self.fbo
     }
@@ -653,6 +943,7 @@ impl Drop for RenderTarget {
 pub(super) struct Program {
     id: u32,
     locations: BTreeMap<String, i32>,
+    array_lengths: BTreeMap<String, i32>,
 }
 impl Program {
     pub(super) fn compile(shader: &super::shader::Shader, label: &str) -> Result<Self> {
@@ -661,6 +952,7 @@ impl Program {
         let mut result = Self {
             id: unsafe { gl::CreateProgram() },
             locations: BTreeMap::new(),
+            array_lengths: BTreeMap::new(),
         };
         ensure!(result.id != 0, "Cannot create Scene shader program");
         // SAFETY: shader/program names are owned by these RAII wrappers.
@@ -680,6 +972,49 @@ impl Program {
                     "Scene shader {label} link failed: {}",
                     program_log(result.id)
                 );
+            }
+        }
+        // Uniform arrays can be shorter after link-time dead element removal.
+        // Use the linked active range when a shader only needs a prefix of a
+        // declared spectrum array.
+        let mut uniform_count = 0;
+        unsafe {
+            gl::GetProgramiv(result.id, gl::ACTIVE_UNIFORMS, &mut uniform_count);
+        }
+        for index in 0..uniform_count {
+            let mut name = [0u8; 256];
+            let mut length = 0;
+            let mut size = 0;
+            let mut kind = 0;
+            unsafe {
+                gl::GetActiveUniform(
+                    result.id,
+                    index as u32,
+                    name.len() as i32,
+                    &mut length,
+                    &mut size,
+                    &mut kind,
+                    name.as_mut_ptr().cast(),
+                );
+            }
+            let name = std::str::from_utf8(&name[..length as usize])
+                .context("Invalid linked Scene uniform name")?;
+            if let Some(name) = name.strip_suffix("[0]")
+                && matches!(
+                    name,
+                    "g_AudioSpectrum16Left"
+                        | "g_AudioSpectrum16Right"
+                        | "g_AudioSpectrum32Left"
+                        | "g_AudioSpectrum32Right"
+                        | "g_AudioSpectrum64Left"
+                        | "g_AudioSpectrum64Right"
+                )
+            {
+                ensure!(
+                    kind == gl::FLOAT && (1..=64).contains(&size),
+                    "Invalid linked Scene spectrum array"
+                );
+                result.array_lengths.insert(name.to_owned(), size);
             }
         }
         let mut names = vec![
@@ -821,7 +1156,8 @@ pub(super) fn check_gl(stage: &str) -> Result<()> {
 }
 
 struct GpuPass {
-    program: Program,
+    program: Option<Program>,
+    kind: super::PreparedPassKind,
     textures: Vec<TextureBinding>,
     constants: BTreeMap<String, Vec<f32>>,
     target: Option<String>,
@@ -830,21 +1166,28 @@ struct GpuPass {
 }
 impl GpuPass {
     fn new(pass: &PreparedPass) -> Result<Self> {
-        let program = Program::compile(&pass.shader, &pass.label)?;
-        ensure!(
-            program.location("g_PointerPosition") < 0,
-            "Scene shader needs an unavailable pointer input host"
-        );
-        for (slot, binding) in pass.textures.iter().enumerate() {
+        let program = pass
+            .shader
+            .as_ref()
+            .map(|shader| Program::compile(shader, &pass.label))
+            .transpose()?;
+        if let Some(program) = &program {
             ensure!(
-                !matches!(binding, TextureBinding::Black)
-                    || program.location(&format!("g_Texture{slot}")) < 0,
-                "Scene shader {} requires unbound sampler g_Texture{slot}",
-                pass.label
+                program.location("g_PointerPosition") < 0,
+                "Scene shader needs an unavailable pointer input host"
             );
+            for (slot, binding) in pass.textures.iter().enumerate() {
+                ensure!(
+                    !matches!(binding, TextureBinding::Black)
+                        || program.location(&format!("g_Texture{slot}")) < 0,
+                    "Scene shader {} requires unbound sampler g_Texture{slot}",
+                    pass.label
+                );
+            }
         }
         Ok(Self {
             program,
+            kind: pass.kind.clone(),
             textures: pass.textures.clone(),
             constants: pass.constants.clone(),
             target: pass.target.clone(),
@@ -856,18 +1199,46 @@ impl GpuPass {
 struct GpuStage {
     passes: Vec<GpuPass>,
     targets: BTreeMap<String, RenderTarget>,
+    specs: BTreeMap<String, f32>,
+    persistent: std::collections::BTreeSet<String>,
 }
 impl GpuStage {
-    fn new(stage: &PreparedStage, width: i32, height: i32) -> Result<Self> {
+    fn new(
+        stage: &PreparedStage,
+        width: i32,
+        height: i32,
+        offset: usize,
+        pool: &TexturePool,
+    ) -> Result<Self> {
         let mut targets = BTreeMap::new();
+        let mut slots = BTreeMap::<(i32, i32), usize>::new();
         for (name, scale) in &stage.targets {
-            let [target_width, target_height] = target_dimensions(width, height, *scale);
-            targets.insert(
-                name.clone(),
-                RenderTarget::new(target_width, target_height)?,
-            );
+            let [w, h] = target_dimensions(width, height, *scale);
+            let target = if stage.persistent_targets.contains(name) {
+                RenderTarget::new(w, h)?
+            } else {
+                let slot = slots.entry((w, h)).or_insert(0);
+                let index = if [w, h] == [width, height] {
+                    offset + *slot
+                } else {
+                    *slot
+                };
+                *slot += 1;
+                RenderTarget::shared(w, h, index, pool)?
+            };
+            if stage.persistent_targets.contains(name) {
+                unsafe {
+                    gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, target.fbo);
+                    gl::ClearColor(0., 0., 0., 0.);
+                    gl::Clear(gl::COLOR_BUFFER_BIT);
+                }
+                check_gl("initializing Scene history")?;
+            }
+            targets.insert(name.clone(), target);
         }
         Ok(Self {
+            specs: stage.targets.clone(),
+            persistent: stage.persistent_targets.clone(),
             passes: stage
                 .passes
                 .iter()
@@ -886,17 +1257,47 @@ struct GpuLayer {
     blend: Blend,
     stages: Vec<GpuStage>,
     composite: Option<Program>,
+    work_offset: usize,
+    direct: bool,
+    origin_z: f32,
+    angles: [f32; 3],
 }
 impl GpuLayer {
-    fn new(layer: &PreparedLayer) -> Result<Self> {
+    fn new(
+        layer: &PreparedLayer,
+        canvas: [f32; 2],
+        full_frame: bool,
+        pool: &TexturePool,
+    ) -> Result<Self> {
+        // Crop offsets describe the already-authored layer bounds. Applying
+        // them again would translate a cropped model twice. Unpadded animated
+        // models use exact frame extents; combined crop/padding remains gated.
+        ensure!(
+            !layer.no_padding || layer.crop_offset == [0.; 2],
+            "Unsupported cropped unpadded Scene model"
+        );
+        ensure!(
+            !layer.clamp_uvs
+                || !layer
+                    .stages
+                    .iter()
+                    .flat_map(|stage| &stage.passes)
+                    .any(|pass| super::shader::is_legacy_image(&pass.label)),
+            "Unsupported legacy shader clamp-UV override"
+        );
         let width = layer.size[0].ceil() as i32;
         let height = layer.size[1].ceil() as i32;
+        let work_offset = work_offset(layer, canvas, full_frame);
         let stages = layer
             .stages
             .iter()
-            .map(|stage| GpuStage::new(stage, width, height))
+            .map(|stage| GpuStage::new(stage, width, height, work_offset, pool))
             .collect::<Result<_>>()?;
         Ok(Self {
+            direct: direct_layer(layer),
+            work_offset,
+            origin_z: layer.origin_z,
+            angles: layer.angles,
             size: layer.size,
             origin: layer.origin,
             scale: layer.scale,
@@ -1002,6 +1403,10 @@ impl GpuParticleLayer {
                 .materials
                 .get(batch.material)
                 .context("Particle material index unavailable")?;
+            let program = pass
+                .program
+                .as_ref()
+                .context("Particle render program unavailable")?;
             let TextureBinding::Static(index) = pass.textures[0] else {
                 bail!("Particle primary texture is not static")
             };
@@ -1022,14 +1427,14 @@ impl GpuParticleLayer {
                 );
                 gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, target);
                 gl::Viewport(0, 0, width, height);
-                gl::UseProgram(pass.program.id);
+                gl::UseProgram(program.id);
                 set_blend(pass.blend);
                 gl::ActiveTexture(gl::TEXTURE0);
                 gl::BindTexture(gl::TEXTURE_2D, texture.id);
-                gl::Uniform1i(pass.program.location("g_Texture0"), 0);
+                gl::Uniform1i(program.location("g_Texture0"), 0);
             }
-            pass.program.matrix(&matrix);
-            pass.program.constants(&pass.constants)?;
+            program.matrix(&matrix);
+            program.constants(&pass.constants)?;
             unsafe {
                 gl::DrawArrays(gl::TRIANGLES, 0, batch.vertices.len() as i32);
             }
@@ -1110,10 +1515,36 @@ pub struct SceneRenderer {
     spectrum: Option<super::spectrum::Spectrum>,
     analysis_active: bool,
     last_spectrum: super::spectrum::SpectrumSnapshot,
+    requested_spectrum: super::spectrum::SpectrumSnapshot,
+    packet_spectrum: super::spectrum::SpectrumSnapshot,
+    accepted_spectrum: super::spectrum::SpectrumSnapshot,
     scripts: Option<super::dynamic_script::ScriptWorker>,
     script_layers: BTreeMap<usize, usize>,
     hidden_script_layers: std::collections::BTreeSet<usize>,
     scripts_ready: bool,
+    timed_sources: Vec<super::timed_runtime::Source>,
+    text_sources: Vec<super::timed_runtime::TextSource>,
+    texture_worker: Option<super::timed_runtime::TimedWorker>,
+    packet: Option<super::dynamic_script::FrameOutput>,
+    saved_packet: Option<super::dynamic_script::FrameOutput>,
+    job_requested: bool,
+    vm_requested: bool,
+    next_seq: u64,
+    accepted_seq: u64,
+    accepted_time: f64,
+    accepted_text: BTreeMap<usize, String>,
+    front: Option<RenderTarget>,
+    back: Option<RenderTarget>,
+    previous_front: Option<RenderTarget>,
+    cache_valid: bool,
+    awaiting_swap: bool,
+    frozen: bool,
+    quarantined: bool,
+    timed_reservation: u64,
+    frozen_histories: BTreeMap<(usize, usize, String), frozen_history::FrozenHistory>,
+    history_reservation: u64,
+    work_layout: BTreeMap<(i32, i32), usize>,
+    full_frame_needed: bool,
     _context_thread: PhantomData<Rc<()>>,
 }
 
@@ -1164,6 +1595,9 @@ impl SceneRenderer {
             spectrum: None,
             analysis_active: false,
             last_spectrum: super::spectrum::SpectrumSnapshot::default(),
+            requested_spectrum: super::spectrum::SpectrumSnapshot::default(),
+            packet_spectrum: super::spectrum::SpectrumSnapshot::default(),
+            accepted_spectrum: super::spectrum::SpectrumSnapshot::default(),
             scripts: scene
                 .scripts
                 .as_ref()
@@ -1172,6 +1606,98 @@ impl SceneRenderer {
             script_layers: scene.script_layers.clone(),
             hidden_script_layers: std::collections::BTreeSet::new(),
             scripts_ready: false,
+            timed_sources: scene
+                .textures
+                .iter()
+                .enumerate()
+                .filter_map(|(index, t)| {
+                    t.timed.as_ref().map(|source| super::timed_runtime::Source {
+                        index,
+                        fingerprint: texture_fingerprint(t),
+                        source: source.clone(),
+                    })
+                })
+                .collect(),
+            text_sources: scene
+                .layers
+                .iter()
+                .enumerate()
+                .filter_map(|(layer, l)| {
+                    l.text.as_ref().and_then(|prepared| {
+                        l.stages
+                            .first()?
+                            .passes
+                            .first()?
+                            .textures
+                            .first()
+                            .and_then(|b| match b {
+                                TextureBinding::Static(index) => {
+                                    Some(super::timed_runtime::TextSource {
+                                        layer,
+                                        index: *index,
+                                        prepared: prepared.clone(),
+                                        value: String::new(),
+                                    })
+                                }
+                                _ => None,
+                            })
+                    })
+                })
+                .collect(),
+            texture_worker: None,
+            packet: None,
+            saved_packet: None,
+            job_requested: false,
+            vm_requested: false,
+            next_seq: 0,
+            accepted_seq: 0,
+            accepted_time: 0.,
+            accepted_text: BTreeMap::new(),
+            front: None,
+            back: None,
+            previous_front: None,
+            cache_valid: false,
+            awaiting_swap: false,
+            frozen: false,
+            quarantined: false,
+            timed_reservation: scene
+                .textures
+                .iter()
+                .filter_map(|t| t.timed.as_ref())
+                .try_fold(0_u64, |sum, source| {
+                    let maximum = source
+                        .frames()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, _)| {
+                            let r = source.frame_neighborhood(i, 1)?.rect();
+                            rgba_bytes(r.width as u64, r.height as u64, 2)
+                        })
+                        .collect::<Result<Vec<_>>>()?
+                        .into_iter()
+                        .max()
+                        .unwrap_or(0);
+                    sum.checked_add(maximum)
+                        .context("Scene timed allocation overflow")
+                })?,
+            frozen_histories: BTreeMap::new(),
+            history_reservation: scene
+                .layers
+                .iter()
+                .flat_map(|l| l.stages.iter().map(move |s| (l, s)))
+                .try_fold(0u64, |sum, (layer, stage)| {
+                    stage.persistent_targets.iter().try_fold(sum, |sum, name| {
+                        let [w, h] = target_dimensions(
+                            layer.size[0].ceil() as i32,
+                            layer.size[1].ceil() as i32,
+                            stage.targets[name],
+                        );
+                        sum.checked_add(rgba_bytes(w as u64, h as u64, 1)?)
+                            .context("Scene history estimate overflow")
+                    })
+                })?,
+            work_layout: scratch_layout(&scene.layers, scene.canvas, needs_full_frame(scene)),
+            full_frame_needed: needs_full_frame(scene),
             _context_thread: PhantomData,
         };
         renderer.textures = scene
@@ -1180,6 +1706,9 @@ impl SceneRenderer {
             .map(|texture| {
                 let mut views = TextureViews {
                     source_flags: texture.source_flags,
+                    timed: texture.timed.is_some(),
+                    key: None,
+                    frame: None,
                     clamp: None,
                     repeat: None,
                 };
@@ -1190,7 +1719,11 @@ impl SceneRenderer {
                     };
                     if let Some(bytes) = plan.textures.get(&key) {
                         let lease = renderer.texture_pool.acquire(key, *bytes, || {
-                            let uploaded = GpuTexture::upload(texture)?;
+                            let uploaded = if let Some(text) = &texture.text_frame {
+                                GpuTexture::upload_text(text)?
+                            } else {
+                                GpuTexture::upload(texture)?
+                            };
                             unsafe {
                                 texture_parameters(repeat);
                             }
@@ -1216,6 +1749,11 @@ impl SceneRenderer {
             source_format: 0,
             source_flags: 2,
             animation: None,
+            timed: None,
+            static_source: None,
+            image: None,
+            text_frame: None,
+            _rgba_reservation: None,
             rgba: vec![0, 0, 0, 0],
         })?);
         renderer.copy = Some(Program::compile(
@@ -1241,20 +1779,41 @@ impl SceneRenderer {
         renderer.layers = scene
             .layers
             .iter()
-            .map(GpuLayer::new)
+            .map(|layer| {
+                GpuLayer::new(
+                    layer,
+                    scene.canvas,
+                    needs_full_frame(scene),
+                    &renderer.texture_pool,
+                )
+            })
             .collect::<Result<_>>()?;
-        for (dimensions, count) in scratch_layout(&scene.layers) {
+        for (dimensions, count) in
+            scratch_layout(&scene.layers, scene.canvas, needs_full_frame(scene))
+        {
             renderer.scratch.insert(
                 dimensions,
                 (0..count)
-                    .map(|_| RenderTarget::new(dimensions.0, dimensions.1))
+                    .map(|slot| {
+                        RenderTarget::shared(
+                            dimensions.0,
+                            dimensions.1,
+                            slot,
+                            &renderer.texture_pool,
+                        )
+                    })
                     .collect::<Result<_>>()?,
             );
         }
         if needs_full_frame(scene) {
             renderer.full_frame = (0..2)
-                .map(|_| {
-                    RenderTarget::new(scene.canvas[0].ceil() as i32, scene.canvas[1].ceil() as i32)
+                .map(|slot| {
+                    RenderTarget::shared(
+                        scene.canvas[0].ceil() as i32,
+                        scene.canvas[1].ceil() as i32,
+                        slot,
+                        &renderer.texture_pool,
+                    )
                 })
                 .collect::<Result<_>>()?;
         }
@@ -1263,7 +1822,7 @@ impl SceneRenderer {
             .iter()
             .flat_map(|layer| &layer.stages)
             .flat_map(|stage| &stage.passes)
-            .flat_map(|pass| &pass.shader.uniforms)
+            .flat_map(|pass| pass.shader.iter().flat_map(|s| &s.uniforms))
             .any(super::shader::is_audio_spectrum)
             || scene
                 .scripts
@@ -1284,6 +1843,204 @@ impl SceneRenderer {
         Ok(renderer)
     }
 
+    fn rebuild_work(&mut self) -> Result<()> {
+        if !self.frozen_histories.is_empty() {
+            // Keep all sealed CPU snapshots if any upload fails. Only a complete
+            // restore is installed, then the CPU owners release their leases.
+            let restored = self
+                .frozen_histories
+                .iter()
+                .map(|(key, pixels)| Ok((key.clone(), pixels.restore()?)))
+                .collect::<Result<Vec<_>>>()?;
+            for ((layer, stage, name), target) in restored {
+                self.layers[layer].stages[stage]
+                    .targets
+                    .insert(name, target);
+            }
+            self.frozen_histories.clear();
+        }
+        if self.scratch.is_empty() {
+            for (&(w, h), &count) in &self.work_layout {
+                self.scratch.insert(
+                    (w, h),
+                    (0..count)
+                        .map(|slot| RenderTarget::shared(w, h, slot, &self.texture_pool))
+                        .collect::<Result<_>>()?,
+                );
+            }
+        }
+        if self.full_frame_needed && self.full_frame.is_empty() {
+            let [w, h] = self.canvas.map(|v| v.ceil() as i32);
+            self.full_frame = (0..2)
+                .map(|slot| RenderTarget::shared(w, h, slot, &self.texture_pool))
+                .collect::<Result<_>>()?;
+        }
+        for layer in &mut self.layers {
+            for stage in &mut layer.stages {
+                let mut slots = BTreeMap::<(i32, i32), usize>::new();
+                for (name, scale) in &stage.specs {
+                    if stage.persistent.contains(name) {
+                        continue;
+                    }
+                    let [w, h] = target_dimensions(
+                        layer.size[0].ceil() as i32,
+                        layer.size[1].ceil() as i32,
+                        *scale,
+                    );
+                    let ordinal = slots.entry((w, h)).or_insert(0);
+                    let slot = if [w, h] == layer.size.map(|v| v.ceil() as i32) {
+                        layer.work_offset + *ordinal
+                    } else {
+                        *ordinal
+                    };
+                    *ordinal += 1;
+                    if !stage.targets.contains_key(name) {
+                        stage.targets.insert(
+                            name.clone(),
+                            RenderTarget::shared(w, h, slot, &self.texture_pool)?,
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn frozen_allocation_plan(&self) -> Result<ResourcePlan> {
+        let mut plan = self.resource_plan.clone();
+        plan.work.clear();
+        plan.private_bytes = plan
+            .private_bytes
+            .checked_sub(self.timed_reservation)
+            .and_then(|n| n.checked_sub(self.history_reservation))
+            .context("Scene frozen reservation underflow")?;
+        if let Some(front) = self
+            .front
+            .as_ref()
+            .filter(|_| self.cache_valid)
+            .or(self.previous_front.as_ref())
+        {
+            plan.private_bytes = plan
+                .private_bytes
+                .checked_add(rgba_bytes(
+                    front.texture.width as u64,
+                    front.texture.height as u64,
+                    1,
+                )?)
+                .context("Scene frozen cache estimate overflow")?;
+        }
+        Ok(plan)
+    }
+    /// Keep actual presented pixels/history/VM; release only reconstructible inputs.
+    pub(crate) fn freeze_for_rollback(&mut self) -> Result<()> {
+        self.freeze_with_budget(super::timed_runtime::scene_texture_memory_budget())
+    }
+    fn freeze_with_budget(&mut self, budget: &lwe_scene::AtlasMemoryBudget) -> Result<()> {
+        self.texture_pool.ensure_current()?;
+        if self.frozen {
+            return Ok(());
+        }
+        self.texture_worker = None;
+        self.job_requested = false;
+        // Reserve/read every history before releasing any of the old targets.
+        // A failed budget or readback leaves its live histories and front intact.
+        let mut snapshots = BTreeMap::new();
+        for (layer_index, layer) in self.layers.iter().enumerate() {
+            for (stage_index, stage) in layer.stages.iter().enumerate() {
+                for name in &stage.persistent {
+                    let target = stage
+                        .targets
+                        .get(name)
+                        .context("Scene live history unavailable for freeze")?;
+                    snapshots.insert(
+                        (layer_index, stage_index, name.clone()),
+                        frozen_history::FrozenHistory::capture(target, budget)?,
+                    );
+                }
+            }
+        }
+        self.frozen_histories = snapshots;
+        // A resize may have installed an unpresented front while a CPU packet
+        // is still pending. Retain exactly the last presented cache counted by
+        // frozen_allocation_plan; its invalid replacement has no rollback use.
+        if !self.cache_valid {
+            self.front = self.previous_front.take();
+            self.cache_valid = self.front.is_some();
+        } else {
+            self.previous_front = None;
+        }
+        self.pause();
+        self.frozen = true;
+        self.back = None;
+        self.bloom = None;
+        self.scratch.clear();
+        self.full_frame.clear();
+        for layer in &mut self.layers {
+            for stage in &mut layer.stages {
+                stage.targets.clear();
+            }
+        }
+        for view in &mut self.textures {
+            if view.timed {
+                view.clamp = None;
+                view.repeat = None;
+                view.key = None;
+                view.frame = None;
+            }
+        }
+        self.texture_pool.drain_retired()?;
+        Ok(())
+    }
+    pub(crate) fn thaw(&mut self, paused: bool) {
+        self.frozen = false;
+        if !paused {
+            self.resume();
+        }
+    }
+    pub(crate) fn report_presented(&mut self) {
+        if self.awaiting_swap {
+            std::mem::swap(&mut self.front, &mut self.back);
+            self.previous_front = None;
+            self.cache_valid = true;
+            self.awaiting_swap = false;
+            self.drawn = true;
+            if self.accepted_seq == 0 {
+                self.time = 0.;
+                self.rebase_time = true;
+            }
+        }
+    }
+    pub(crate) fn report_present_failed(&mut self) {
+        // VM callbacks and unique history copies are not reversible within a
+        // generation. A failed swap keeps only its last presented image usable;
+        // the engine rejects this renderer instead of resuming advanced state.
+        self.quarantined = true;
+        self.awaiting_swap = false;
+    }
+    fn present_cache(&self, target: u32, width: i32, height: i32) -> Result<()> {
+        let source = self
+            .front
+            .as_ref()
+            .filter(|_| self.cache_valid)
+            .or(self.previous_front.as_ref())
+            .context("Scene presented cache unavailable")?;
+        unsafe {
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, source.fbo);
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, target);
+            gl::BlitFramebuffer(
+                0,
+                0,
+                source.texture.width,
+                source.texture.height,
+                0,
+                0,
+                width,
+                height,
+                gl::COLOR_BUFFER_BIT,
+                gl::NEAREST,
+            );
+        }
+        check_gl("presenting retained Scene pixels")
+    }
     pub fn pause(&mut self) {
         self.paused = true;
         if let Some(spectrum) = &self.spectrum {
@@ -1306,46 +2063,74 @@ impl SceneRenderer {
     }
 
     pub(crate) fn allocation_plan(&self) -> Result<ResourcePlan> {
+        if self.frozen {
+            return self.frozen_allocation_plan();
+        }
         let mut plan = self.resource_plan.clone();
+        for target in self
+            .front
+            .iter()
+            .chain(self.back.iter())
+            .chain(self.previous_front.iter())
+        {
+            plan.private_bytes = plan
+                .private_bytes
+                .checked_add(rgba_bytes(
+                    target.texture.width as u64,
+                    target.texture.height as u64,
+                    1,
+                )?)
+                .context("Scene output cache allocation overflow")?;
+        }
         plan.private_bytes = plan
             .private_bytes
-            .checked_add(
-                self.bloom
-                    .as_ref()
-                    .map(|bloom| bloom.payload_bytes())
-                    .unwrap_or_default(),
-            )
-            .context("Scene private framebuffer allocation overflow")?;
+            .checked_add(self.bloom.as_ref().map_or(0, |b| b.payload_bytes()))
+            .context("Scene bloom allocation overflow")?;
         Ok(plan)
     }
-
-    /// Resident logical payload estimated from owned textures and framebuffers.
-    pub fn gpu_payload_bytes(&self) -> u64 {
-        self.gpu_payload_bytes
-            + self
-                .bloom
-                .as_ref()
-                .map(|bloom| bloom.payload_bytes())
-                .unwrap_or_default()
+    pub(crate) fn retained_history_allocations(&self) -> impl Iterator<Item = (usize, u64)> + '_ {
+        self.frozen_histories
+            .values()
+            .map(|h| (h.allocation_id(), h.capacity_bytes() as u64))
     }
-
-    /// New framebuffer payload must coexist with the retained old layout until
-    /// every allocation succeeds, so report its full size rather than a delta.
+    pub fn gpu_payload_bytes(&self) -> u64 {
+        self.allocation_plan()
+            .and_then(|p| p.total(0))
+            .unwrap_or(u64::MAX)
+    }
     pub(crate) fn additional_gpu_bytes(&self, width: i32, height: i32) -> Result<u64> {
-        if self
+        let caches = if self
+            .front
+            .as_ref()
+            .is_some_and(|f| [f.texture.width, f.texture.height] == [width, height])
+        {
+            if self.back.is_none() {
+                output_cache_bytes(width, height, 1)?
+            } else {
+                0
+            }
+        } else {
+            output_cache_bytes(width, height, 2)?
+        };
+        let bloom = if self
             .bloom
             .as_ref()
-            .is_some_and(|bloom| bloom.dimensions() == [width, height])
+            .is_some_and(|b| b.dimensions() == [width, height])
         {
-            return Ok(0);
-        }
-        self.prepared_bloom
-            .as_ref()
-            .map(|bloom| bloom.estimated_bytes(width, height))
-            .transpose()
-            .map(Option::unwrap_or_default)
+            0
+        } else {
+            self.prepared_bloom
+                .as_ref()
+                .map(|p| p.estimated_bytes(width, height))
+                .transpose()?
+                .unwrap_or_default()
+        };
+        caches
+            .checked_add(bloom)
+            .context("Scene resize estimate overflow")
     }
     pub fn resume(&mut self) {
+        self.frozen = false;
         if self.paused {
             self.paused = false;
             self.rebase_time = true;
@@ -1358,24 +2143,59 @@ impl SceneRenderer {
     }
     pub fn resize(&mut self, width: i32, height: i32) -> Result<()> {
         self.texture_pool.ensure_current()?;
+        let state = GlState::capture();
+        state.begin();
         ensure!(width > 0 && height > 0, "Invalid Scene output dimensions");
         let additional = self.additional_gpu_bytes(width, height)?;
-        ensure!(
-            self.gpu_payload_bytes()
-                .checked_add(additional)
-                .is_some_and(|bytes| bytes <= MAX_SCENE_GPU_BYTES),
-            "Scene framebuffer resize exceeds GPU payload budget"
-        );
-        if additional != 0
-            && let Some(prepared) = &self.prepared_bloom
+        self.allocation_plan()?
+            .preflight(self.texture_pool.retired_bytes()?, additional)?;
+        let dimensions_match = self
+            .front
+            .as_ref()
+            .is_some_and(|f| [f.texture.width, f.texture.height] == [width, height]);
+        let replacement = if !dimensions_match {
+            Some((
+                RenderTarget::new(width, height)?,
+                RenderTarget::new(width, height)?,
+            ))
+        } else {
+            None
+        };
+        let new_back = if dimensions_match && self.back.is_none() {
+            Some(RenderTarget::new(width, height)?)
+        } else {
+            None
+        };
+        let bloom = if let Some(prepared) = self.prepared_bloom.as_ref()
+            && self
+                .bloom
+                .as_ref()
+                .is_none_or(|b| b.dimensions() != [width, height])
         {
-            let replacement =
-                super::postprocess::BloomRenderer::initialize(prepared, width, height)?;
-            self.bloom = Some(replacement);
+            Some(super::postprocess::BloomRenderer::initialize(
+                prepared, width, height,
+            )?)
+        } else {
+            None
+        };
+        if let Some((front, back)) = replacement {
+            if self.cache_valid {
+                self.previous_front = self.front.take();
+            }
+            self.front = Some(front);
+            self.back = Some(back);
+            self.cache_valid = false;
+        }
+        if let Some(back) = new_back {
+            self.back = Some(back);
+        }
+        if let Some(bloom) = bloom {
+            self.bloom = Some(bloom);
         }
         if self.last_size != [width, height] {
             self.drawn = false;
         }
+        self.rebuild_work()?;
         Ok(())
     }
     pub fn update(&mut self, time_seconds: f64) -> Result<()> {
@@ -1389,7 +2209,7 @@ impl SceneRenderer {
                     self.time += animation_delta(previous, time_seconds);
                 }
             } else {
-                self.time = time_seconds;
+                self.time = 0.0;
             }
         }
         self.last_input = Some(time_seconds);
@@ -1400,15 +2220,196 @@ impl SceneRenderer {
     /// Draws to the caller's current draw framebuffer. A true result means a
     /// complete valid frame was drawn; EGL swap/first-frame ACK remain host-owned.
     pub fn render(&mut self, width: i32, height: i32, time_seconds: f64) -> Result<bool> {
-        self.render_internal(width, height, time_seconds, false, None)
+        let result = self.render_internal(width, height, time_seconds, false, None);
+        if result.is_err() {
+            self.quarantined = true;
+        }
+        result
     }
 
     /// Re-presents the retained scene after a rejected candidate overwrote the
     /// output. Paused scenes keep their animation time but still draw this frame.
     pub fn render_forced(&mut self, width: i32, height: i32, time_seconds: f64) -> Result<bool> {
-        self.render_internal(width, height, time_seconds, true, None)
+        let result = self.render_internal(width, height, time_seconds, true, None);
+        if result.is_err() {
+            self.quarantined = true;
+        }
+        result
     }
 
+    fn prepare_packet(&mut self, replay: bool) -> Result<bool> {
+        if replay
+            && self
+                .textures
+                .iter()
+                .filter(|v| v.timed)
+                .all(|v| v.clamp.is_some())
+        {
+            return Ok(true);
+        }
+        if replay
+            && self.packet.as_ref().is_some_and(|p| {
+                p.seq != self.accepted_seq || p.time.to_bits() != self.accepted_time.to_bits()
+            })
+        {
+            self.saved_packet = self.packet.take();
+        }
+        if self.packet.is_none() {
+            if replay {
+                self.packet = Some(super::dynamic_script::FrameOutput {
+                    seq: self.accepted_seq,
+                    time: self.accepted_time,
+                    states: Vec::new(),
+                });
+            } else if let Some(worker) = &self.scripts {
+                if let Some(packet) = worker.take_frame()? {
+                    self.packet_spectrum = if packet.seq == 0 {
+                        super::spectrum::SpectrumSnapshot::default()
+                    } else {
+                        self.requested_spectrum
+                    };
+                    self.packet = Some(packet);
+                    self.vm_requested = false;
+                } else {
+                    if self.scripts_ready && !self.vm_requested {
+                        self.vm_requested =
+                            worker.submit_frame(self.next_seq, self.time, self.last_spectrum)?;
+                        if self.vm_requested {
+                            self.requested_spectrum = self.last_spectrum;
+                        }
+                    }
+                    return Ok(false);
+                }
+            } else {
+                self.packet_spectrum = self.last_spectrum;
+                self.packet = Some(super::dynamic_script::FrameOutput {
+                    seq: self.next_seq,
+                    time: if !self.scripts_ready { 0. } else { self.time },
+                    states: Vec::new(),
+                });
+            }
+        }
+        let packet = self
+            .packet
+            .as_ref()
+            .context("Scene frame packet unavailable")?;
+        let sources = self
+            .timed_sources
+            .iter()
+            .filter_map(|source| match source.source.frame_at(packet.time) {
+                Ok(frame) if self.textures[source.index].frame == Some(frame) => None,
+                Ok(_) => Some(Ok(source.clone())),
+                Err(error) => Some(Err(anyhow::Error::from(error))),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut texts = Vec::new();
+        for source in &self.text_sources {
+            if let Some(value) = packet
+                .states
+                .iter()
+                .find(|state| self.script_layers.get(&state.handle) == Some(&source.layer))
+                .and_then(|state| state.text.as_ref())
+                && self.accepted_text.get(&source.layer) != Some(value)
+            {
+                let mut source = source.clone();
+                source.value = value.clone();
+                texts.push(source);
+            }
+        }
+        if !sources.is_empty() || !texts.is_empty() || self.job_requested {
+            if self.texture_worker.is_none() {
+                self.texture_worker = Some(super::timed_runtime::TimedWorker::new()?);
+            }
+            let worker = self.texture_worker.as_mut().unwrap();
+            if !self.job_requested {
+                self.job_requested = worker.request(packet.seq, packet.time, &sources, texts)?;
+                if !self.job_requested {
+                    return Ok(false);
+                }
+            }
+            let Some(ready) = worker.take()? else {
+                return Ok(false);
+            };
+            ensure!(
+                ready.seq == packet.seq && ready.time.to_bits() == packet.time.to_bits(),
+                "Scene texture job belongs to a different frame epoch"
+            );
+            // All replacement leases are acquired before mutating accepted views.
+            let mut regions = Vec::new();
+            for region in &ready.regions {
+                let bytes = rgba_bytes(
+                    region.pixels.layout().rect().width as u64,
+                    region.pixels.layout().rect().height as u64,
+                    1,
+                )?;
+                let lease = self
+                    .texture_pool
+                    .acquire(region.key, bytes, || GpuTexture::upload_region(region))?;
+                regions.push((region.index, region.frame, region.key, lease));
+            }
+            let mut frames = Vec::new();
+            for text in &ready.texts {
+                let bytes = rgba_bytes(text.pixels.width() as u64, text.pixels.height() as u64, 1)?;
+                let lease = self
+                    .texture_pool
+                    .acquire(text.key, bytes, || GpuTexture::upload_text(&text.pixels))?;
+                frames.push((text.index, text.layer, text.value.clone(), text.key, lease));
+            }
+            for (index, frame, key, lease) in regions {
+                let view = &mut self.textures[index];
+                view.clamp = Some(lease);
+                view.frame = Some(frame);
+                view.key = Some(key);
+            }
+            for (index, layer, value, key, lease) in frames {
+                let view = &mut self.textures[index];
+                view.clamp = Some(lease);
+                view.key = Some(key);
+                self.accepted_text.insert(layer, value);
+            }
+            self.job_requested = false;
+        }
+        let packet = self.packet.take().unwrap();
+        if !replay {
+            for state in packet.states {
+                let Some(index) = self.script_layers.get(&state.handle).copied() else {
+                    continue;
+                };
+                let layer = &mut self.layers[index];
+                ensure!(
+                    state.angles[0] == layer.angles[0] && state.angles[1] == layer.angles[1],
+                    "Script attempted unsupported changing planar rotation"
+                );
+                ensure!(
+                    state.origin[2] == layer.origin_z,
+                    "Script attempted unsupported changing image depth"
+                );
+                layer.origin = [state.origin[0], state.origin[1]];
+                layer.scale = [state.scale[0], state.scale[1]];
+                layer.angle = state.angles[2];
+                layer.angles[2] = state.angles[2];
+                layer.tint = [state.color[0], state.color[1], state.color[2], state.alpha];
+                if state.visible {
+                    self.hidden_script_layers.remove(&index);
+                } else {
+                    self.hidden_script_layers.insert(index);
+                }
+            }
+            self.accepted_seq = packet.seq;
+            self.accepted_time = packet.time;
+            self.accepted_spectrum = self.packet_spectrum;
+            self.next_seq = packet
+                .seq
+                .checked_add(1)
+                .context("Scene frame sequence exhausted")?;
+            self.scripts_ready = true;
+        }
+        if replay {
+            self.packet = self.saved_packet.take();
+        }
+        self.texture_pool.drain_retired()?;
+        Ok(true)
+    }
     fn render_internal(
         &mut self,
         width: i32,
@@ -1417,77 +2418,80 @@ impl SceneRenderer {
         force: bool,
         spectrum_override: Option<super::spectrum::SpectrumSnapshot>,
     ) -> Result<bool> {
-        self.resize(width, height)?;
-        self.update(time_seconds)?;
-        if !force
-            && (self.paused || (self.drawn && !self.animated && self.last_size == [width, height]))
-        {
-            return Ok(false);
+        self.texture_pool.ensure_current()?;
+        let cached = self
+            .front
+            .as_ref()
+            .filter(|_| self.cache_valid)
+            .or(self.previous_front.as_ref());
+        let same_size =
+            cached.is_some_and(|f| [f.texture.width, f.texture.height] == [width, height]);
+        if same_size && force {
+            let guard = GlState::capture();
+            guard.begin();
+            self.present_cache(guard.draw_fbo as u32, width, height)?;
+            return Ok(true);
         }
+        ensure!(
+            !self.quarantined,
+            "Scene frame generation is quarantined after a failed render"
+        );
+        if same_size && (self.frozen || self.paused || (self.drawn && !self.animated)) {
+            if !force {
+                return Ok(false);
+            }
+            let guard = GlState::capture();
+            guard.begin();
+            self.present_cache(guard.draw_fbo as u32, width, height)?;
+            return Ok(true);
+        }
+        if self.awaiting_swap {
+            bail!("Scene frame has not been acknowledged by a successful swap");
+        }
+        let replay = (force || self.paused) && self.scripts_ready;
         let guard = GlState::capture();
         guard.begin();
-        let final_target = guard.draw_fbo as u32;
+        self.resize(width, height)?;
+        self.update(time_seconds)?;
+        if let Some(spectrum) = &self.spectrum {
+            spectrum.set_paused(self.paused || !self.analysis_active);
+        }
+        if !replay {
+            if let Some(spectrum) = spectrum_override {
+                self.last_spectrum = spectrum;
+            } else if self.analysis_active && !self.paused {
+                self.last_spectrum = self
+                    .spectrum
+                    .as_ref()
+                    .map(|s| s.snapshot())
+                    .unwrap_or_default();
+            }
+        }
+        if !self.prepare_packet(replay)? {
+            return Ok(false);
+        }
+        let caller_target = guard.draw_fbo as u32;
+        let final_target = self
+            .back
+            .as_ref()
+            .context("Scene attempt cache unavailable")?
+            .fbo;
         let output_target = self
             .bloom
             .as_ref()
-            .map(|bloom| bloom.scene_framebuffer())
+            .map(|b| b.scene_framebuffer())
             .unwrap_or(final_target);
         let composition_size = if self.full_frame.is_empty() {
             [width, height]
         } else {
-            [self.canvas[0].ceil() as i32, self.canvas[1].ceil() as i32]
+            self.canvas.map(|v| v.ceil() as i32)
         };
         let target = self
             .full_frame
             .first()
-            .map(|frame| frame.fbo)
+            .map(|f| f.fbo)
             .unwrap_or(output_target);
-        if let Some(spectrum) = &self.spectrum {
-            spectrum.set_paused(self.paused || !self.analysis_active);
-        }
-        if let Some(spectrum) = spectrum_override {
-            self.last_spectrum = spectrum;
-        } else if self.analysis_active && !self.paused {
-            self.last_spectrum = self
-                .spectrum
-                .as_ref()
-                .map(|spectrum| spectrum.snapshot())
-                .unwrap_or_default();
-        }
-        let spectrum = self.last_spectrum;
-        if let Some(worker) = &self.scripts
-            && (!self.paused || !self.scripts_ready)
-        {
-            if let Some(states) = worker.poll_frame(self.time, spectrum.script_average)? {
-                self.scripts_ready = true;
-                for state in states {
-                    let Some(index) = self.script_layers.get(&state.handle).copied() else {
-                        continue;
-                    };
-                    ensure!(
-                        state.angles[0] == 0.0 && state.angles[1] == 0.0,
-                        "Script attempted unsupported 3D rotation"
-                    );
-                    ensure!(
-                        state.origin[2] == 0.0,
-                        "Script attempted unsupported image depth"
-                    );
-                    let layer = &mut self.layers[index];
-                    layer.origin = [state.origin[0], state.origin[1]];
-                    layer.scale = [state.scale[0], state.scale[1]];
-                    layer.angle = state.angles[2];
-                    layer.tint = [state.color[0], state.color[1], state.color[2], state.alpha];
-                    if state.visible {
-                        self.hidden_script_layers.remove(&index);
-                    } else {
-                        self.hidden_script_layers.insert(index);
-                    }
-                }
-            } else if !self.scripts_ready {
-                // A pending VM must not produce a first-frame acknowledgement.
-                return Ok(false);
-            }
-        }
+        let spectrum = self.accepted_spectrum;
         let black = self
             .black
             .as_ref()
@@ -1504,13 +2508,19 @@ impl SceneRenderer {
             gl::ClearColor(self.clear[0], self.clear[1], self.clear[2], self.clear[3]);
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
+        let inputs = TextureInputs {
+            textures: &self.textures,
+            black,
+            full_frame: self.full_frame.get(1).map(|frame| &frame.texture),
+            replay,
+        };
         for object in &self.draw_order {
             let super::DrawObject::Image(index) = *object else {
                 let super::DrawObject::Particles(index) = *object else {
                     unreachable!()
                 };
                 self.particles[index].draw(
-                    self.time,
+                    self.accepted_time,
                     self.canvas,
                     composition_size[0],
                     composition_size[1],
@@ -1558,17 +2568,27 @@ impl SceneRenderer {
                     );
                 }
             }
+            if layer.direct {
+                render_direct(
+                    layer,
+                    &inputs,
+                    self.accepted_time as f32,
+                    &spectrum,
+                    self.canvas,
+                    composition_size,
+                    target,
+                )?;
+                continue;
+            }
             let scratch = self
                 .scratch
                 .get(&(layer.size[0].ceil() as i32, layer.size[1].ceil() as i32))
                 .context("Scene shared scratch targets unavailable")?;
             let output = render_layer(
                 layer,
-                &self.textures,
-                black,
-                self.time as f32,
+                &inputs,
+                self.accepted_time as f32,
                 scratch,
-                self.full_frame.get(1).map(|frame| &frame.texture),
                 &spectrum,
             )?;
             let composite = layer.composite.as_ref().unwrap_or(copy);
@@ -1630,7 +2650,25 @@ impl SceneRenderer {
             bloom.composite_to(final_target)?;
         }
         check_gl("rendering Scene frame")?;
-        self.drawn = true;
+        // The attempted image becomes presented only after EGL swap succeeds.
+        unsafe {
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, final_target);
+            gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, caller_target);
+            gl::BlitFramebuffer(
+                0,
+                0,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                gl::COLOR_BUFFER_BIT,
+                gl::NEAREST,
+            );
+        }
+        check_gl("copying completed Scene output")?;
+        self.awaiting_swap = true;
         self.last_size = [width, height];
         Ok(true)
     }
@@ -1638,6 +2676,14 @@ impl SceneRenderer {
     /// The host must make this renderer's context current before calling this
     /// method or dropping it. Cleanup is idempotent and precedes EGL destruction.
     pub fn cleanup(&mut self) {
+        self.texture_worker = None;
+        self.packet = None;
+        self.saved_packet = None;
+        self.front = None;
+        self.back = None;
+        self.previous_front = None;
+        self.timed_sources.clear();
+        self.text_sources.clear();
         self.scripts = None;
         self.script_layers.clear();
         self.hidden_script_layers.clear();
@@ -1666,6 +2712,10 @@ impl SceneRenderer {
             }
         }
         self.drawn = false;
+        self.frozen = false;
+        self.timed_reservation = 0;
+        self.history_reservation = 0;
+        self.frozen_histories.clear();
         self.gpu_payload_bytes = 0;
     }
 }
@@ -1684,26 +2734,28 @@ fn layer_matrix(canvas: [f32; 2], layer: &GpuLayer, width: i32, height: i32) -> 
     } else {
         [canvas[1] * output_ratio, canvas[1]]
     };
-    let (sin, cos) = layer.angle.sin_cos();
-    let sx = layer.size[0] * layer.scale[0] / visible[0];
-    let sy = layer.size[1] * layer.scale[1] / visible[1];
+    let (sx, cx) = layer.angles[0].sin_cos();
+    let (sy, cy) = layer.angles[1].sin_cos();
+    let (sz, cz) = layer.angle.sin_cos();
+    let horizontal = layer.size[0] * layer.scale[0];
+    let vertical = layer.size[1] * layer.scale[1];
     [
-        cos * sx,
-        sin * layer.size[0] * layer.scale[0] / visible[1],
-        0.0,
-        0.0,
-        -sin * layer.size[1] * layer.scale[1] / visible[0],
-        cos * sy,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        2.0 * (layer.origin[0] - canvas[0] / 2.0) / visible[0],
-        2.0 * (layer.origin[1] - canvas[1] / 2.0) / visible[1],
-        0.0,
-        1.0,
+        cz * cy * horizontal / visible[0],
+        sz * cy * horizontal / visible[1],
+        -sy * horizontal / visible[0],
+        0.,
+        (cz * sy * sx - sz * cx) * vertical / visible[0],
+        (sz * sy * sx + cz * cx) * vertical / visible[1],
+        cy * sx * vertical / visible[1],
+        0.,
+        cz * sy * cx + sz * sx,
+        sz * sy * cx - cz * sx,
+        cy * cx,
+        0.,
+        2. * (layer.origin[0] - canvas[0] / 2.) / visible[0],
+        2. * (layer.origin[1] - canvas[1] / 2.) / visible[1],
+        layer.origin_z / visible[1],
+        1.,
     ]
 }
 
@@ -1740,57 +2792,298 @@ unsafe fn set_blend(blend: Blend) {
     }
 }
 
+struct TextureInputs<'a> {
+    textures: &'a [TextureViews],
+    black: &'a GpuTexture,
+    full_frame: Option<&'a GpuTexture>,
+    replay: bool,
+}
+fn resolve_binding<'a>(
+    binding: &TextureBinding,
+    stage: &'a GpuStage,
+    input: Option<&'a GpuTexture>,
+    inputs: &TextureInputs<'a>,
+    label: &str,
+    slot: usize,
+) -> Result<&'a GpuTexture> {
+    match binding {
+        TextureBinding::Static(index) => {
+            let texture = inputs
+                .textures
+                .get(*index)
+                .context("Scene texture index unavailable")?;
+            texture
+                .get(!texture.timed && pass_texture_repeat_flags(label, slot, texture.source_flags))
+        }
+        TextureBinding::Input | TextureBinding::LayerComposite => Ok(input.unwrap_or(inputs.black)),
+        TextureBinding::Named(name) | TextureBinding::History(name) => {
+            let name = if inputs.replay {
+                stage
+                    .passes
+                    .iter()
+                    .find_map(|p| match &p.kind {
+                        super::PreparedPassKind::Copy {
+                            source: TextureBinding::Named(source),
+                        } if source == name => p.target.as_ref(),
+                        _ => None,
+                    })
+                    .unwrap_or(name)
+            } else {
+                name
+            };
+            stage
+                .targets
+                .get(name)
+                .map(|target| &target.texture)
+                .context("Scene named/history target unavailable")
+        }
+        TextureBinding::Black => Ok(inputs.black),
+        TextureBinding::FullFrame => inputs
+            .full_frame
+            .context("Scene full-frame texture unavailable"),
+    }
+}
+fn copy_texture(source: &GpuTexture, target: &RenderTarget) -> Result<()> {
+    ensure!(source.id != target.texture.id, "Scene copy feedback loop");
+    ensure!(
+        [source.width, source.height] == [target.texture.width, target.texture.height],
+        "Scene copy dimensions disagree"
+    );
+    let mut read = 0;
+    unsafe {
+        gl::GenFramebuffers(1, &mut read);
+        gl::BindFramebuffer(gl::READ_FRAMEBUFFER, read);
+        gl::FramebufferTexture2D(
+            gl::READ_FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            source.id,
+            0,
+        );
+        if gl::CheckFramebufferStatus(gl::READ_FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+            gl::DeleteFramebuffers(1, &read);
+            bail!("Scene copy input framebuffer incomplete");
+        }
+        gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, target.fbo);
+        gl::BlitFramebuffer(
+            0,
+            0,
+            source.width,
+            source.height,
+            0,
+            0,
+            target.texture.width,
+            target.texture.height,
+            gl::COLOR_BUFFER_BIT,
+            gl::NEAREST,
+        );
+        gl::DeleteFramebuffers(1, &read);
+    }
+    check_gl("copying persistent Scene history")
+}
+fn bind_pass(
+    program: &Program,
+    pass: &GpuPass,
+    resolved: &[&GpuTexture],
+    time: f32,
+    spectrum: &super::spectrum::SpectrumSnapshot,
+    tint: [f32; 4],
+) -> Result<()> {
+    unsafe {
+        gl::UseProgram(program.id);
+        for (slot, texture) in resolved.iter().enumerate() {
+            if program.location(&format!("g_Texture{slot}")) < 0 {
+                continue;
+            }
+            gl::ActiveTexture(gl::TEXTURE0 + slot as u32);
+            gl::BindTexture(gl::TEXTURE_2D, texture.id);
+            if !matches!(pass.textures[slot], TextureBinding::Static(_)) {
+                texture_parameters(pass_texture_repeat_flags(
+                    &pass.label,
+                    slot,
+                    texture.source_flags,
+                ));
+            }
+            gl::Uniform1i(program.location(&format!("g_Texture{slot}")), slot as i32);
+            gl::Uniform4fv(
+                program.location(&format!("g_Texture{slot}Resolution")),
+                1,
+                texture.resolution().as_ptr(),
+            );
+            gl::Uniform4fv(
+                program.location(&format!("g_Texture{slot}UVTransform")),
+                1,
+                texture.uv_transform.unwrap_or([1., 1., 0., 0.]).as_ptr(),
+            );
+        }
+        gl::Uniform1f(program.location("g_Time"), time);
+        for (name, values) in [
+            ("g_AudioSpectrum16Left", spectrum.left.as_slice()),
+            ("g_AudioSpectrum16Right", spectrum.right.as_slice()),
+            ("g_AudioSpectrum32Left", spectrum.left32.as_slice()),
+            ("g_AudioSpectrum32Right", spectrum.right32.as_slice()),
+            ("g_AudioSpectrum64Left", spectrum.script_left.as_slice()),
+            ("g_AudioSpectrum64Right", spectrum.script_right.as_slice()),
+        ] {
+            let count = program
+                .array_lengths
+                .get(name)
+                .copied()
+                .unwrap_or(values.len() as i32)
+                .min(values.len() as i32);
+            gl::Uniform1fv(program.location(name), count, values.as_ptr());
+        }
+        let primary = resolved
+            .first()
+            .context("Scene primary sampler unavailable")?;
+        gl::Uniform2f(
+            program.location("g_TexelSize"),
+            1.0 / primary.width as f32,
+            1.0 / primary.height as f32,
+        );
+        gl::Uniform2f(program.location("g_PointerPosition"), 0., 0.);
+        gl::UniformMatrix4fv(
+            program.location("g_ModelViewProjectionMatrixInverse"),
+            1,
+            gl::FALSE,
+            IDENTITY.as_ptr(),
+        );
+        gl::Uniform1i(
+            program.location("g_BlendMode"),
+            match pass.blend {
+                Blend::Replace => 0,
+                Blend::Alpha => 1,
+                Blend::Add => 2,
+            },
+        );
+        gl::Uniform4fv(program.location("g_Color4"), 1, tint.as_ptr());
+    }
+    program.constants(&pass.constants)
+}
+fn render_direct(
+    layer: &GpuLayer,
+    inputs: &TextureInputs<'_>,
+    time: f32,
+    spectrum: &super::spectrum::SpectrumSnapshot,
+    canvas: [f32; 2],
+    size: [i32; 2],
+    target: u32,
+) -> Result<()> {
+    let stage = &layer.stages[0];
+    let pass = &stage.passes[0];
+    let program = pass
+        .program
+        .as_ref()
+        .context("Scene direct shader unavailable")?;
+    let resolved = pass
+        .textures
+        .iter()
+        .enumerate()
+        .map(|(slot, b)| resolve_binding(b, stage, None, inputs, &pass.label, slot))
+        .collect::<Result<Vec<_>>>()?;
+    unsafe {
+        gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, target);
+        gl::Viewport(0, 0, size[0], size[1]);
+        set_blend(layer.blend);
+    }
+    bind_pass(program, pass, &resolved, time, spectrum, layer.tint)?;
+    program.matrix(&layer_matrix(canvas, layer, size[0], size[1]));
+    unsafe {
+        gl::DrawArrays(gl::TRIANGLES, 0, 6);
+    }
+    check_gl("drawing direct Scene layer")
+}
+fn pass_reads(pass: &GpuPass) -> impl Iterator<Item = &TextureBinding> {
+    pass.textures.iter().chain(match &pass.kind {
+        super::PreparedPassKind::Copy { source } => Some(source),
+        super::PreparedPassKind::Render => None,
+    })
+}
 fn render_layer<'a>(
     layer: &'a GpuLayer,
-    textures: &[TextureViews],
-    black: &GpuTexture,
+    inputs: &TextureInputs<'a>,
     time: f32,
     scratch: &'a [RenderTarget],
-    full_frame: Option<&GpuTexture>,
     spectrum: &super::spectrum::SpectrumSnapshot,
 ) -> Result<&'a GpuTexture> {
-    let mut current: Option<&GpuTexture> = None;
+    let mut current: Option<&'a GpuTexture> = None;
     for (stage_index, stage) in layer.stages.iter().enumerate() {
-        let stage_input = current;
-        for pass in &stage.passes {
+        let mut stage_input = current;
+        // A pooled named target can alias an earlier stage's output. Move the
+        // live stage input to a free existing work image before overwriting it;
+        // this is a copy, not another allocation or an effect resolution change.
+        if stage_index != 0
+            && stage.passes.iter().any(|p| {
+                pass_reads(p)
+                    .any(|b| matches!(b, TextureBinding::Input | TextureBinding::LayerComposite))
+            })
+            && let Some(input) = stage_input
+        {
+            let written = stage
+                .passes
+                .iter()
+                .filter_map(|p| p.target.as_ref())
+                .filter_map(|name| stage.targets.get(name))
+                .map(|t| t.texture.id)
+                .collect::<Vec<_>>();
+            if written.contains(&input.id) {
+                let spare = scratch
+                    .iter()
+                    .skip(layer.work_offset)
+                    .find(|t| !written.contains(&t.texture.id))
+                    .context("Scene stage input has no free borrowed work image")?;
+                copy_texture(input, spare)?;
+                stage_input = Some(&spare.texture);
+            }
+        }
+        for (pass_index, pass) in stage.passes.iter().enumerate() {
             let input = if stage_index == 0 {
                 current
             } else {
                 stage_input
             };
+            if let super::PreparedPassKind::Copy { source } = &pass.kind {
+                if inputs.replay {
+                    continue;
+                }
+                let source = resolve_binding(source, stage, input, inputs, &pass.label, 0)?;
+                let target = stage
+                    .targets
+                    .get(pass.target.as_ref().context("Scene copy target missing")?)
+                    .context("Scene copy target unavailable")?;
+                copy_texture(source, target)?;
+                continue;
+            }
+            if inputs.replay && pass.target.as_ref().is_some_and(|name| stage.passes.iter().any(|p| matches!(&p.kind, super::PreparedPassKind::Copy { source: TextureBinding::Named(source) } if source == name))) { continue; }
             let resolved = pass
                 .textures
                 .iter()
                 .enumerate()
-                .map(|(slot, binding)| match binding {
-                    TextureBinding::Static(index) => {
-                        let texture = textures
-                            .get(*index)
-                            .context("Scene texture index unavailable")?;
-                        texture.get(pass_texture_repeat_flags(
-                            &pass.label,
-                            slot,
-                            texture.source_flags,
-                        ))
-                    }
-                    TextureBinding::Input => {
-                        if stage_index == 0 {
-                            Ok(input.unwrap_or(black))
-                        } else {
-                            input.context("Scene pass has no previous image")
-                        }
-                    }
-                    TextureBinding::Named(name) => stage
-                        .targets
-                        .get(name)
-                        .map(|target| &target.texture)
-                        .context("Scene named target unavailable"),
-                    TextureBinding::Black => Ok(black),
-                    TextureBinding::FullFrame => {
-                        full_frame.context("Scene full-frame texture unavailable")
-                    }
-                })
+                .map(|(slot, b)| resolve_binding(b, stage, input, inputs, &pass.label, slot))
                 .collect::<Result<Vec<_>>>()?;
+            let program = pass
+                .program
+                .as_ref()
+                .context("Scene render shader unavailable")?;
+            let active: Vec<_> = resolved
+                .iter()
+                .enumerate()
+                .filter(|(slot, _)| program.location(&format!("g_Texture{slot}")) >= 0)
+                .map(|(_, t)| *t)
+                .collect();
+            let future_reads = stage.passes[pass_index + 1..]
+                .iter()
+                .flat_map(pass_reads)
+                .filter(|binding| match binding {
+                    TextureBinding::Input | TextureBinding::LayerComposite => stage_index != 0,
+                    TextureBinding::Named(_) | TextureBinding::History(_) => true,
+                    _ => false,
+                })
+                .map(|binding| {
+                    resolve_binding(binding, stage, stage_input, inputs, &pass.label, 0)
+                        .map(|texture| texture.id)
+                })
+                .collect::<Result<std::collections::BTreeSet<_>>>()?;
             let target = if let Some(name) = &pass.target {
                 stage
                     .targets
@@ -1799,94 +3092,44 @@ fn render_layer<'a>(
             } else {
                 scratch
                     .iter()
+                    .skip(layer.work_offset)
+                    .rev()
                     .find(|target| {
-                        input.is_none_or(|input| input.id != target.texture.id)
-                            && !resolved
-                                .iter()
-                                .any(|texture| texture.id == target.texture.id)
+                        !active.iter().any(|t| t.id == target.texture.id)
+                            && !future_reads.contains(&target.texture.id)
                     })
                     .context("Scene scratch framebuffer feedback loop")?
             };
             ensure!(
-                !resolved
-                    .iter()
-                    .any(|texture| texture.id == target.texture.id),
-                "Scene render pass samples its output"
+                !active.iter().any(|t| t.id == target.texture.id),
+                "Scene render pass {} samples its output texture {} (active {:?})",
+                pass.label,
+                target.texture.id,
+                active.iter().map(|t| t.id).collect::<Vec<_>>()
             );
             unsafe {
                 gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, target.fbo);
                 gl::Viewport(0, 0, target.texture.width, target.texture.height);
                 gl::Disable(gl::BLEND);
-                gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+                gl::ClearColor(0., 0., 0., 0.);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
-                gl::UseProgram(pass.program.id);
                 if stage_index != 0 {
                     set_blend(pass.blend);
                 }
-                for (slot, texture) in resolved.iter().enumerate() {
-                    if pass.program.location(&format!("g_Texture{slot}")) < 0 {
-                        continue;
-                    }
-                    gl::ActiveTexture(gl::TEXTURE0 + slot as u32);
-                    gl::BindTexture(gl::TEXTURE_2D, texture.id);
-                    if !matches!(pass.textures[slot], TextureBinding::Static(_)) {
-                        texture_parameters(pass_texture_repeat_flags(
-                            &pass.label,
-                            slot,
-                            texture.source_flags,
-                        ));
-                    }
-                    gl::Uniform1i(
-                        pass.program.location(&format!("g_Texture{slot}")),
-                        slot as i32,
-                    );
-                    let resolution = texture.resolution();
-                    gl::Uniform4fv(
-                        pass.program.location(&format!("g_Texture{slot}Resolution")),
-                        1,
-                        resolution.as_ptr(),
-                    );
-                }
-                gl::Uniform1f(pass.program.location("g_Time"), time);
-                gl::Uniform1fv(
-                    pass.program.location("g_AudioSpectrum16Left"),
-                    16,
-                    spectrum.left.as_ptr(),
-                );
-                gl::Uniform1fv(
-                    pass.program.location("g_AudioSpectrum16Right"),
-                    16,
-                    spectrum.right.as_ptr(),
-                );
-                gl::Uniform2f(
-                    pass.program.location("g_TexelSize"),
-                    1.0 / resolved[0].width as f32,
-                    1.0 / resolved[0].height as f32,
-                );
-                gl::Uniform2f(pass.program.location("g_PointerPosition"), 0.0, 0.0);
-                gl::UniformMatrix4fv(
-                    pass.program.location("g_ModelViewProjectionMatrixInverse"),
-                    1,
-                    gl::FALSE,
-                    IDENTITY.as_ptr(),
-                );
-                gl::Uniform1i(
-                    pass.program.location("g_BlendMode"),
-                    match pass.blend {
-                        Blend::Replace => 0,
-                        Blend::Alpha => 1,
-                        Blend::Add => 2,
-                    },
-                );
-                let tint = if stage_index == 0 {
+            }
+            bind_pass(
+                program,
+                pass,
+                &resolved,
+                time,
+                spectrum,
+                if stage_index == 0 {
                     layer.tint
                 } else {
-                    [1.0; 4]
-                };
-                gl::Uniform4fv(pass.program.location("g_Color4"), 1, tint.as_ptr());
-            }
-            pass.program.matrix(&IDENTITY);
-            pass.program.constants(&pass.constants)?;
+                    [1.; 4]
+                },
+            )?;
+            program.matrix(&IDENTITY);
             unsafe {
                 gl::DrawArrays(gl::TRIANGLES, 0, 6);
             }
@@ -1898,6 +3141,14 @@ fn render_layer<'a>(
     }
     current.context("Scene image produced no frame")
 }
+
+#[cfg(test)]
+#[path = "renderer_miku_acceptance.rs"]
+mod miku_acceptance;
+
+#[cfg(test)]
+#[path = "renderer_history_tests.rs"]
+mod history_tests;
 
 #[cfg(test)]
 #[path = "renderer_sharing_tests.rs"]
@@ -2128,6 +3379,13 @@ mod tests {
                 canvas: [2.0, 2.0],
                 clear: [0.0, 0.0, 0.0, 1.0],
                 textures: vec![PreparedTexture {
+                    static_source: None,
+
+                    timed: None,
+                    image: None,
+                    text_frame: None,
+                    _rgba_reservation: None,
+
                     fingerprint: [0; 32],
                     width: 4,
                     height: 4,
@@ -2139,6 +3397,13 @@ mod tests {
                     rgba: rgba.clone(),
                 }],
                 layers: vec![PreparedLayer {
+                    clamp_uvs: false,
+                    crop_offset: [0.; 2],
+                    no_padding: false,
+                    text: None,
+                    origin_z: 0.,
+                    angles: [0.; 3],
+
                     size: [2.0, 2.0],
                     origin: [1.0, 1.0],
                     scale: [1.0; 2],
@@ -2147,10 +3412,14 @@ mod tests {
                     blend: Blend::Alpha,
                     composite: None,
                     stages: vec![PreparedStage {
+                        persistent_targets: std::collections::BTreeSet::new(),
+
                         targets: BTreeMap::new(),
                         passes: vec![PreparedPass {
+                            kind: crate::scene::PreparedPassKind::Render,
+
                             label: "genericimage".into(),
-                            shader,
+                            shader: Some(shader),
                             textures: vec![TextureBinding::Static(0)],
                             constants,
                             target: None,
@@ -2173,8 +3442,10 @@ mod tests {
                 prepared.estimated_gpu_bytes()?
             );
             assert!(renderer.render(2, 2, 0.0)?);
+            renderer.report_presented();
             if negative_scroll {
                 assert!(renderer.render(2, 2, 1.0)?);
+                renderer.report_presented();
             }
             let mut pixels = [0_u8; 16];
             unsafe {
@@ -2268,6 +3539,13 @@ mod tests {
             canvas: [2.0, 2.0],
             clear: [0.0, 0.0, 0.0, 1.0],
             textures: vec![PreparedTexture {
+                static_source: None,
+
+                timed: None,
+                image: None,
+                text_frame: None,
+                _rgba_reservation: None,
+
                 fingerprint: [0; 32],
                 width: 2,
                 height: 2,
@@ -2281,6 +3559,13 @@ mod tests {
                 ],
             }],
             layers: vec![PreparedLayer {
+                clamp_uvs: false,
+                crop_offset: [0.; 2],
+                no_padding: false,
+                text: None,
+                origin_z: 0.,
+                angles: [0.; 3],
+
                 size: [2.0, 2.0],
                 origin: [1.0, 1.0],
                 scale: [1.0; 2],
@@ -2289,10 +3574,14 @@ mod tests {
                 blend: Blend::Alpha,
                 composite: None,
                 stages: vec![PreparedStage {
+                    persistent_targets: std::collections::BTreeSet::new(),
+
                     targets: BTreeMap::new(),
                     passes: vec![PreparedPass {
+                        kind: crate::scene::PreparedPassKind::Render,
+
                         label: "authored orientation fixture".into(),
-                        shader: super::super::shader::image(),
+                        shader: Some(super::super::shader::image()),
                         textures: vec![TextureBinding::Static(0)],
                         constants: BTreeMap::new(),
                         target: None,
@@ -2347,6 +3636,7 @@ mod tests {
             "initialization changed caller GL state"
         );
         assert!(renderer.render(2, 2, 0.0)?);
+        renderer.report_presented();
         let after = GlState::capture();
         assert_eq!(before, after, "rendering changed caller GL state");
         drop(after);
@@ -2413,6 +3703,12 @@ mod tests {
         composite.clear = [0.25, 0.5, 0.75, 1.0];
         composite.textures[0].rgba = [255, 0, 0, 128].repeat(4);
         composite.textures.push(PreparedTexture {
+            timed: None,
+            static_source: None,
+            image: None,
+            text_frame: None,
+            _rgba_reservation: None,
+
             fingerprint: [0; 32],
             width: 2,
             height: 2,
@@ -2425,8 +3721,10 @@ mod tests {
         });
         composite.layers[0].stages[0].passes = (0..2)
             .map(|index| PreparedPass {
+                kind: crate::scene::PreparedPassKind::Render,
+
                 label: "authored alpha material pass".into(),
-                shader: super::super::shader::image_material(),
+                shader: Some(super::super::shader::image_material()),
                 textures: vec![TextureBinding::Static(index), TextureBinding::Input],
                 constants: BTreeMap::new(),
                 target: None,
@@ -2436,6 +3734,7 @@ mod tests {
         let mut renderer = composite.initialize()?;
         assert_eq!(renderer.scratch[&(2, 2)].len(), 2);
         assert!(renderer.render(2, 2, 0.0)?);
+        renderer.report_presented();
         unsafe {
             gl::ReadPixels(
                 0,
@@ -2464,7 +3763,7 @@ mod tests {
         // across multiple unnamed writes, including a half-size named target.
         composite.textures[0].rgba = [51, 0, 0, 255].repeat(4);
         composite.layers[0].stages[0].passes.truncate(1);
-        composite.layers[0].stages[0].passes[0].shader = super::super::shader::image();
+        composite.layers[0].stages[0].passes[0].shader = Some(super::super::shader::image());
         composite.layers[0].stages[0].passes[0].textures = vec![TextureBinding::Static(0)];
         let effect_pass = |target: Option<&str>, expression: &str, bindings| {
             let mut shader = super::super::shader::image();
@@ -2472,8 +3771,10 @@ mod tests {
                 "#version 130\nin vec2 v_UV; out vec4 lwe_FragColor; uniform sampler2D g_Texture0; uniform sampler2D g_Texture1; void main(){{lwe_FragColor={expression};}}"
             );
             PreparedPass {
+                kind: crate::scene::PreparedPassKind::Render,
+
                 label: "authored retained effect input".into(),
-                shader,
+                shader: Some(shader),
                 textures: bindings,
                 constants: BTreeMap::new(),
                 target: target.map(str::to_owned),
@@ -2481,6 +3782,8 @@ mod tests {
             }
         };
         composite.layers[0].stages.push(PreparedStage {
+            persistent_targets: std::collections::BTreeSet::new(),
+
             targets: BTreeMap::from([("saved".into(), 2.0)]),
             passes: vec![
                 effect_pass(
@@ -2501,6 +3804,8 @@ mod tests {
             ],
         });
         composite.layers[0].stages.push(PreparedStage {
+            persistent_targets: std::collections::BTreeSet::new(),
+
             targets: BTreeMap::new(),
             passes: vec![effect_pass(
                 None,
@@ -2511,6 +3816,7 @@ mod tests {
         let mut renderer = composite.initialize()?;
         assert_eq!(renderer.scratch[&(2, 2)].len(), 2);
         assert!(renderer.render(2, 2, 0.0)?);
+        renderer.report_presented();
         unsafe {
             gl::ReadPixels(
                 0,
@@ -2548,6 +3854,10 @@ mod tests {
     #[test]
     fn aspect_cover_and_image_transform_are_centered() {
         let layer = GpuLayer {
+            work_offset: 0,
+            direct: false,
+            origin_z: 0.,
+            angles: [0.; 3],
             size: [1920.0, 1080.0],
             origin: [960.0, 540.0],
             scale: [1.0; 2],

@@ -10,6 +10,19 @@ pub(crate) fn atomic_write(path: &Path, contents: &[u8]) -> io::Result<()> {
     atomic_write_with(path, contents, write_and_sync, persist)
 }
 
+/// Publish immutable content without replacing a concurrently created file.
+pub(crate) fn atomic_create(path: &Path, contents: &[u8]) -> io::Result<()> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty());
+    let mut temporary = NamedTempFile::new_in(parent.unwrap_or_else(|| Path::new(".")))?;
+    write_and_sync(temporary.as_file_mut(), contents)?;
+    temporary
+        .persist_noclobber(path)
+        .map(|_| ())
+        .map_err(|error| error.error)
+}
+
 fn write_and_sync(file: &mut File, contents: &[u8]) -> io::Result<()> {
     file.write_all(contents)?;
     file.sync_all()
@@ -40,6 +53,27 @@ fn atomic_write_with(
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn immutable_creation_preserves_existing_content_and_cleans_failed_temporary() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("image");
+        atomic_create(&path, b"first").unwrap();
+        assert_eq!(
+            atomic_create(&path, b"second").unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(fs::read(&path).unwrap(), b"first");
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
 
     #[test]
     fn partial_write_failure_preserves_previous_file_and_cleans_temporary() {

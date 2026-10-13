@@ -9,8 +9,9 @@ import stat
 import subprocess
 import sys
 import tempfile
+from types import ModuleType, SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location(
     "scene_ui_smoke", Path(__file__).resolve().parents[1] / "scene-ui-smoke.py")
@@ -18,7 +19,62 @@ SMOKE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SMOKE)
 
 
+def accessible_node(name="", role=None, pid=None, children=(), sensitive=True):
+    node = Mock()
+    node.get_name.return_value = name
+    node.get_role.return_value = role
+    node.get_process_id.return_value = pid
+    node.get_child_count.return_value = len(children)
+    node.get_child_at_index.side_effect = children.__getitem__
+    node.get_state_set.return_value.contains.return_value = sensitive
+    node.get_action_iface.return_value.do_action.return_value = True
+    return node
+
+
+def fake_atspi_modules(desktop):
+    gi = ModuleType("gi")
+    gi.require_version = Mock()
+    repository = ModuleType("gi.repository")
+    repository.Atspi = SimpleNamespace(
+        Role=SimpleNamespace(FILE_CHOOSER="file-chooser", PUSH_BUTTON="push-button"),
+        StateType=SimpleNamespace(SENSITIVE="sensitive"),
+        get_desktop=Mock(return_value=desktop),
+    )
+    gi.repository = repository
+    return {"gi": gi, "gi.repository": repository}
+
+
 class SceneUiSmokeTests(unittest.TestCase):
+    def test_all_control_acceptance_can_keep_active_author_effects(self):
+        project = self.property_project()
+        project["general"]["properties"]["mode"] = {
+            "type": "combo", "value": "on", "options": [
+                {"label": "On", "value": "on"}, {"label": "Off", "value": "off"}]}
+        plan = SMOKE.scene_property_plan(project, True, ["enabled", "mode"])
+        self.assertTrue(plan["changed"]["enabled"])
+        self.assertEqual(plan["changed"]["mode"], "on")
+        self.assertNotEqual(plan["changed"]["intensity"], plan["defaults"]["intensity"])
+        with self.assertRaisesRegex(RuntimeError, "no declared"):
+            SMOKE.scene_property_plan(project, True, ["missing"])
+        with self.assertRaisesRegex(RuntimeError, "all-control"):
+            SMOKE.scene_property_plan(project, False, ["enabled"])
+
+    def test_native_picker_retry_recreates_only_owned_copy_and_rejects_changed_fixture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original, selected = root / "original.png", root / "owned-selected.png"
+            original.write_bytes(b"stable image fixture")
+            token = SMOKE.private_image_copy(original, selected)
+            selected.unlink()
+            self.assertEqual(SMOKE.private_image_copy(original, selected, token), token)
+            selected.unlink()
+            self.assertEqual(original.read_bytes(), b"stable image fixture")
+            original.write_bytes(b"changed image fixture")
+            with self.assertRaisesRegex(RuntimeError, "changed before retry"):
+                SMOKE.private_image_copy(original, selected, token)
+            self.assertFalse(selected.exists())
+            self.assertEqual(original.read_bytes(), b"changed image fixture")
+
     def property_project(self):
         return {"general": {"properties": {
             "enabled": {"type": "bool", "value": True, "text": "作者开关", "order": 10},
@@ -31,7 +87,7 @@ class SceneUiSmokeTests(unittest.TestCase):
         controls = []
         for expected in plan["controls"]:
             kind, value = expected["kind"], expected["value"]
-            actual = {"label": expected["label"], "type": {"bool": "checkbox", "slider": "number", "color": "color", "combo": "select-one"}[kind],
+            actual = {"label": expected["label"], "type": {"bool": "checkbox", "slider": "number", "color": "color", "combo": "select-one", "texture": "texture"}[kind],
                       "disabled": False, "checked": value if kind == "bool" else False,
                       "value": str(value), "min": "", "max": "", "step": ""}
             if kind == "color":
@@ -41,6 +97,8 @@ class SceneUiSmokeTests(unittest.TestCase):
                                ("any" if field == "step" else "") for field in ("min", "max", "step")})
             if kind == "combo":
                 actual["options"] = copy.deepcopy(expected["options"])
+            if kind == "texture":
+                actual["selected"] = value is not None
             controls.append(actual)
         return controls
 
@@ -83,6 +141,25 @@ class SceneUiSmokeTests(unittest.TestCase):
         self.assertFalse(SMOKE.property_values_match({}, {"intensity": 0.1}))
         self.assertTrue(SMOKE.property_values_match([0.70000001, 0.5, 0.25], [0.7, 0.5, 0.25]))
         self.assertFalse(SMOKE.property_values_match([0.71, 0.5, 0.25], [0.7, 0.5, 0.25]))
+
+    def test_author_groups_are_not_saved_controls_and_image_default_is_absent(self):
+        project = self.property_project()
+        project["general"]["properties"].update({
+            "header": {"type": "group", "text": "Images", "value": "", "order": 12},
+            "background": {"type": "scenetexture", "text": "Author background", "value": "", "order": 13}
+        })
+        plan = SMOKE.scene_property_plan(project, all_controls=True)
+        self.assertNotIn("header", plan["defaults"])
+        self.assertIsNone(plan["defaults"]["background"])
+        self.assertEqual(plan["controls"][-1]["kind"], "texture")
+        controls = self.rendered_controls(plan)
+        self.assertTrue(SMOKE.property_controls_match(controls, plan, plan["defaults"]))
+        controls[-1]["selected"] = True
+        self.assertFalse(SMOKE.property_controls_match(controls, plan, plan["defaults"]))
+        self.assertTrue(SMOKE.property_values_match(None, None))
+        project["general"]["properties"]["background"]["value"] = "file:///other.png"
+        with self.assertRaises(RuntimeError):
+            SMOKE.scene_property_plan(project, all_controls=True)
 
     def test_dom_readback_matches_author_controls_bounds_and_f32_color_preview(self):
         plan = SMOKE.scene_property_plan(self.property_project())
@@ -134,6 +211,91 @@ class SceneUiSmokeTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 driver.select_option("native-select", "off")
             request.assert_not_called()
+
+    def test_native_image_keys_require_a_focused_owned_dialog(self):
+        window = {"id": 11, "pid": 42, "is_focused": True}
+        with patch.object(SMOKE.shutil, "which", return_value="/owned/wtype"), \
+                patch.object(SMOKE, "niri_query", return_value=[window]), \
+                patch.object(SMOKE.os, "getpgid", return_value=99), \
+                patch.object(SMOKE.subprocess, "run") as run, patch.object(SMOKE.time, "sleep"):
+            selected = SMOKE.native_image_dialog_input(10, 99, Path("/owned/image.png"))
+            self.assertFalse(selected["cancelled"])
+            self.assertEqual(run.call_args_list[0].args[0], ["/owned/wtype", "-s", "500", "-M", "ctrl", "-k", "l", "-m", "ctrl", "-s", "100", "/owned/image.png"])
+            self.assertEqual(run.call_args_list[1].args[0], ["/owned/wtype", "-s", "500", "-k", "Return"])
+            SMOKE.native_image_dialog_input(10, 99)
+            self.assertEqual(run.call_args.args[0], ["/owned/wtype", "-s", "500", "-k", "Escape"])
+        with patch.object(SMOKE.shutil, "which", return_value="/owned/wtype"), \
+                patch.object(SMOKE, "wait_for", side_effect=RuntimeError("no owned dialog")), \
+                patch.object(SMOKE.subprocess, "run") as run:
+            with self.assertRaises(RuntimeError):
+                SMOKE.native_image_dialog_input(10, 99, Path("/owned/image.png"))
+            run.assert_not_called()
+
+    def test_accessible_cancel_activates_the_owned_gtk_button_without_keyboard_input(self):
+        cancel = accessible_node("Cancel", "push-button")
+        chooser = accessible_node("Open File", "file-chooser", children=[cancel])
+        owned = accessible_node(pid=42, children=[chooser])
+        foreign = accessible_node(pid=43)
+        modules = fake_atspi_modules(accessible_node(children=[foreign, owned]))
+        window = {"id": 11, "pid": 42, "title": "Open File", "is_focused": True}
+        with patch.dict(sys.modules, modules), \
+                patch.object(SMOKE.shutil, "which", return_value="/owned/wtype"), \
+                patch.object(SMOKE, "niri_query", return_value=[window]), \
+                patch.object(SMOKE.os, "getpgid", return_value=99), \
+                patch.object(SMOKE.subprocess, "run") as run:
+            result = SMOKE.native_image_dialog_input(10, 99, accessibility=True)
+        modules["gi"].require_version.assert_called_once_with("Atspi", "2.0")
+        cancel.get_state_set.return_value.contains.assert_called_once_with("sensitive")
+        cancel.get_action_iface.return_value.do_action.assert_called_once_with(0)
+        foreign.get_child_count.assert_not_called()
+        run.assert_not_called()
+        self.assertEqual(result, {"windowId": 11, "cancelled": True,
+                                  "activation": "GTK accessibility button"})
+
+    def test_accessible_dialog_identity_and_button_state_fail_closed(self):
+        for failure in ("foreign PID", "ambiguous chooser", "wrong title", "ambiguous button", "insensitive button"):
+            with self.subTest(failure=failure):
+                cancel = accessible_node("Cancel", "push-button", sensitive=failure != "insensitive button")
+                other_cancel = accessible_node("Cancel", "push-button")
+                children = [cancel, other_cancel] if failure == "ambiguous button" else [cancel]
+                chooser = accessible_node("Other" if failure == "wrong title" else "Open File",
+                                          "file-chooser", children=children)
+                choosers = [chooser, chooser] if failure == "ambiguous chooser" else [chooser]
+                app = accessible_node(pid=43 if failure == "foreign PID" else 42, children=choosers)
+                modules = fake_atspi_modules(accessible_node(children=[app]))
+                window = {"id": 11, "pid": 42, "title": "Open File", "is_focused": True}
+                with patch.dict(sys.modules, modules), \
+                        patch.object(SMOKE.shutil, "which", return_value="/owned/wtype"), \
+                        patch.object(SMOKE, "niri_query", return_value=[window]), \
+                        patch.object(SMOKE.os, "getpgid", return_value=99), \
+                        patch.object(SMOKE.subprocess, "run") as run:
+                    with self.assertRaisesRegex(RuntimeError, "Owned GTK"):
+                        SMOKE.native_image_dialog_input(10, 99, accessibility=True)
+                cancel.get_action_iface.return_value.do_action.assert_not_called()
+                other_cancel.get_action_iface.return_value.do_action.assert_not_called()
+                run.assert_not_called()
+
+    def test_accessible_cancel_rechecks_focus_after_tree_lookup_before_action(self):
+        cancel = accessible_node("Cancel", "push-button")
+        chooser = accessible_node("Open File", "file-chooser", children=[cancel])
+        desktop = accessible_node(children=[accessible_node(pid=42, children=[chooser])])
+        modules = fake_atspi_modules(desktop)
+        window = {"id": 11, "pid": 42, "title": "Open File", "is_focused": True}
+
+        def read_desktop(_):
+            window["is_focused"] = False
+            return desktop
+
+        modules["gi.repository"].Atspi.get_desktop.side_effect = read_desktop
+        with patch.dict(sys.modules, modules), \
+                patch.object(SMOKE.shutil, "which", return_value="/owned/wtype"), \
+                patch.object(SMOKE, "niri_query", return_value=[window]), \
+                patch.object(SMOKE.os, "getpgid", return_value=99), \
+                patch.object(SMOKE.subprocess, "run") as run:
+            with self.assertRaisesRegex(RuntimeError, "button identity"):
+                SMOKE.native_image_dialog_input(10, 99, accessibility=True)
+        cancel.get_action_iface.return_value.do_action.assert_not_called()
+        run.assert_not_called()
 
     def test_session_publication_requires_atomic_replacement_and_retains_unrelated_entries(self):
         with tempfile.TemporaryDirectory() as directory:

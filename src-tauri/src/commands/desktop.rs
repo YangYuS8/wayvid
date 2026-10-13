@@ -50,6 +50,22 @@ pub async fn load_scene_properties(
 }
 
 #[tauri::command]
+pub async fn choose_scene_image(
+    app: tauri::AppHandle,
+    item_id: String,
+    property_name: String,
+) -> Result<Option<crate::services::scene_resource_service::ImportedSceneImage>, String> {
+    run_desktop_blocking(move || {
+        crate::services::scene_resource_service::SceneResourceService::choose(
+            &app,
+            &item_id,
+            &property_name,
+        )
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn update_scene_properties(
     monitor_id: String,
     item_id: String,

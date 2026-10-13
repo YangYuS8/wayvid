@@ -43,6 +43,8 @@ pub(super) struct LayerState {
     pub color: [f32; 3],
     pub alpha: f32,
     pub visible: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +53,7 @@ pub(super) struct Binding {
     pub property: String,
     pub source: String,
     pub input: Value,
+    pub script_properties: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -119,12 +122,30 @@ impl PreparedScripts {
             if !handles.contains(&binding.layer)
                 || !matches!(
                     binding.property.as_str(),
-                    "visible" | "alpha" | "origin" | "scale" | "angles" | "color"
+                    "visible" | "alpha" | "origin" | "scale" | "angles" | "color" | "text"
                 )
             {
                 return Err(blocked("unsupported dynamic script layer binding"));
             }
+            if binding.property == "text"
+                && !layers
+                    .iter()
+                    .any(|layer| layer.handle == binding.layer && layer.text.is_some())
+            {
+                return Err(blocked("text binding requires a prepared text layer"));
+            }
             validate_binding_input(binding)?;
+            let overrides = binding
+                .script_properties
+                .as_object()
+                .ok_or_else(|| blocked("script properties must be a bounded object"))?;
+            if overrides.len() > 32
+                || overrides.iter().any(|(name, value)| {
+                    !safe_name(name) || !(value.is_boolean() || value.as_f64().is_some_and(finite))
+                })
+            {
+                return Err(blocked("invalid script property overrides"));
+            }
             total_bytes = total_bytes
                 .checked_add(binding.source.len())
                 .ok_or_else(|| blocked("dynamic script source budget overflow"))?;
@@ -178,8 +199,11 @@ fn validate_layer(layer: &LayerState) -> Result<()> {
         .chain(std::iter::once(&layer.alpha))
         .all(|value| value.is_finite())
         || !(0.0..=1.0).contains(&layer.alpha)
-        || layer.angles[0] != 0.0
-        || layer.angles[1] != 0.0
+        || layer
+            .text
+            .as_ref()
+            .is_some_and(|text| text.len() > 4096 || text.chars().count() > 256)
+        || (layer.text.is_none() && (layer.angles[0] != 0.0 || layer.angles[1] != 0.0))
     {
         return Err(blocked("invalid or unsupported dynamic layer transform"));
     }
@@ -189,6 +213,10 @@ fn validate_layer(layer: &LayerState) -> Result<()> {
 fn validate_binding_input(binding: &Binding) -> Result<()> {
     let valid = match binding.property.as_str() {
         "visible" => binding.input.is_boolean(),
+        "text" => binding
+            .input
+            .as_str()
+            .is_some_and(|text| text.len() <= 4096 && text.chars().count() <= 256),
         "alpha" => binding
             .input
             .as_f64()
@@ -237,6 +265,11 @@ fn validate_source(source: &str, properties: BTreeSet<String>) -> Result<()> {
         numeric_names: BTreeSet::new(),
         non_numeric_names: BTreeSet::new(),
         properties,
+        script_fields: BTreeSet::new(),
+        numeric_script_fields: BTreeSet::new(),
+        audio_names: BTreeSet::new(),
+        non_audio_names: BTreeSet::new(),
+        declaring_builder: false,
     };
     let mut callbacks = BTreeSet::new();
     for statement in &parsed.program.body {
@@ -247,6 +280,37 @@ fn validate_source(source: &str, properties: BTreeSet<String>) -> Result<()> {
             Statement::ExportNamedDeclaration(export)
                 if export.source.is_none() && export.specifiers.is_empty() =>
             {
+                if let Some(Declaration::VariableDeclaration(declaration)) = &export.declaration {
+                    if declaration.declarations.len() != 1 {
+                        return Err(blocked("unsupported script export"));
+                    }
+                    let item = &declaration.declarations[0];
+                    let BindingPatternKind::BindingIdentifier(id) = &item.id.kind else {
+                        return Err(blocked("unsupported script export"));
+                    };
+                    if id.name == "scriptProperties" {
+                        if validation.names.contains("scriptProperties")
+                            || !matches!(&item.init,Some(Expression::CallExpression(call)) if matches!(&call.callee,Expression::StaticMemberExpression(member) if member.property.name=="finish") && call.arguments.is_empty())
+                        {
+                            return Err(blocked("script builder must finish exactly once"));
+                        }
+                        validation.builder_fields(
+                            item.init
+                                .as_ref()
+                                .ok_or_else(|| blocked("missing script builder"))?,
+                        )?;
+                    } else if id.name != "__workshopId"
+                        || !matches!(&item.init, Some(Expression::StringLiteral(value)) if value.value.len() <= 256)
+                    {
+                        return Err(blocked(
+                            "only builder and inert workshop metadata may be exported",
+                        ));
+                    }
+                    validation.declaring_builder = id.name == "scriptProperties";
+                    validation.declarations(declaration)?;
+                    validation.declaring_builder = false;
+                    continue;
+                }
                 let Some(Declaration::FunctionDeclaration(function)) = &export.declaration else {
                     return Err(blocked("only SceneScript callbacks may be exported"));
                 };
@@ -261,7 +325,7 @@ fn validate_source(source: &str, properties: BTreeSet<String>) -> Result<()> {
                     || function.generator
                     || function.params.rest.is_some()
                     || function.body.is_none()
-                    || function.params.items.len() > usize::from(name != "init")
+                    || function.params.items.len() > 1
                 {
                     return Err(blocked("unsupported dynamic script callback"));
                 }
@@ -272,6 +336,10 @@ fn validate_source(source: &str, properties: BTreeSet<String>) -> Result<()> {
                     {
                         validation
                             .non_numeric_names
+                            .insert(identifier.name.to_string());
+                        validation.audio_names.remove(identifier.name.as_str());
+                        validation
+                            .non_audio_names
                             .insert(identifier.name.to_string());
                         validation.numeric_names.remove(identifier.name.as_str());
                     }
@@ -297,6 +365,10 @@ fn validate_source(source: &str, properties: BTreeSet<String>) -> Result<()> {
                 validation.variable_expressions(declaration, 0)?;
             }
             Statement::ExportNamedDeclaration(export) => {
+                if let Some(Declaration::VariableDeclaration(declaration)) = &export.declaration {
+                    validation.variable_expressions(declaration, 0)?;
+                    continue;
+                }
                 let Some(Declaration::FunctionDeclaration(function)) = &export.declaration else {
                     unreachable!("declarations validated above")
                 };
@@ -315,9 +387,109 @@ struct Validation {
     numeric_names: BTreeSet<String>,
     non_numeric_names: BTreeSet<String>,
     properties: BTreeSet<String>,
+    script_fields: BTreeSet<String>,
+    numeric_script_fields: BTreeSet<String>,
+    audio_names: BTreeSet<String>,
+    non_audio_names: BTreeSet<String>,
+    declaring_builder: bool,
 }
 
 impl Validation {
+    fn builder_fields(&mut self, expression: &Expression<'_>) -> Result<()> {
+        let Expression::CallExpression(call) = expression else {
+            return Err(blocked("invalid script builder chain"));
+        };
+        if let Expression::Identifier(id) = &call.callee {
+            return if id.name == "createScriptProperties" && call.arguments.is_empty() {
+                Ok(())
+            } else {
+                Err(blocked("invalid script builder root"))
+            };
+        }
+        let Expression::StaticMemberExpression(member) = &call.callee else {
+            return Err(blocked("invalid script builder method"));
+        };
+        self.builder_fields(&member.object)?;
+        let method = member.property.name.as_str();
+        if method == "finish" && call.arguments.is_empty() {
+            return Ok(());
+        }
+        if !matches!(method, "addSlider" | "addCheckbox") || call.arguments.len() != 1 {
+            return Err(blocked("unsupported script builder method"));
+        }
+        let Some(Expression::ObjectExpression(object)) = call.arguments[0].as_expression() else {
+            return Err(blocked("script builder requires literal metadata"));
+        };
+        let mut name = None;
+        for property in &object.properties {
+            let oxc_ast::ast::ObjectPropertyKind::ObjectProperty(property) = property else {
+                return Err(blocked("script builder spread unsupported"));
+            };
+            if property.key.static_name().as_deref() == Some("name")
+                && let Expression::StringLiteral(value) = &property.value
+            {
+                name = Some(value.value.to_string());
+            }
+        }
+        let name = name
+            .filter(|name| safe_name(name))
+            .ok_or_else(|| blocked("script builder needs a literal safe name"))?;
+        if !self.script_fields.insert(name.clone()) || self.script_fields.len() > 32 {
+            return Err(blocked("duplicate or excessive script properties"));
+        }
+        if method == "addSlider" {
+            self.numeric_script_fields.insert(name);
+        }
+        Ok(())
+    }
+
+    fn reduce_callback(&self, expression: &Expression<'_>) -> Result<()> {
+        let Expression::ArrowFunctionExpression(arrow) = expression else {
+            return Err(blocked("reduce requires a numeric sum callback"));
+        };
+        if arrow.r#async
+            || !arrow.expression
+            || arrow.params.rest.is_some()
+            || arrow.params.items.len() != 2
+            || arrow.body.statements.len() != 1
+        {
+            return Err(blocked("unsupported reduce callback"));
+        }
+        let mut names = Vec::new();
+        for parameter in &arrow.params.items {
+            let BindingPatternKind::BindingIdentifier(id) = &parameter.pattern.kind else {
+                return Err(blocked("unsupported reduce parameter"));
+            };
+            if !safe_name(id.name.as_str())
+                || matches!(
+                    id.name.as_str(),
+                    "engine"
+                        | "thisLayer"
+                        | "thisScene"
+                        | "Vec3"
+                        | "Math"
+                        | "createScriptProperties"
+                )
+            {
+                return Err(blocked("reduce parameter shadows capability"));
+            }
+            names.push(id.name.as_str());
+        }
+        let Statement::ExpressionStatement(body) = &arrow.body.statements[0] else {
+            return Err(blocked("unsupported reduce body"));
+        };
+        let Expression::BinaryExpression(sum) = &body.expression else {
+            return Err(blocked("reduce must sum two parameters"));
+        };
+        if sum.operator.as_str() != "+"
+            || !matches!(&sum.left,Expression::Identifier(id) if id.name==names[0])
+            || !matches!(&sum.right,Expression::Identifier(id) if id.name==names[1])
+        {
+            return Err(blocked("reduce must sum two parameters"));
+        }
+        Ok(())
+    }
+
     fn depth(&self, depth: usize) -> Result<()> {
         if depth > MAX_AST_DEPTH {
             return Err(blocked("dynamic script AST exceeds its nesting budget"));
@@ -331,9 +503,16 @@ impl Validation {
         };
         let name = identifier.name.as_str();
         if !safe_name(name)
+            || (name == "scriptProperties" && !self.declaring_builder)
             || matches!(
                 name,
-                "engine" | "thisScene" | "thisLayer" | "Vec3" | "Math" | "undefined"
+                "engine"
+                    | "thisScene"
+                    | "thisLayer"
+                    | "Vec3"
+                    | "Math"
+                    | "undefined"
+                    | "createScriptProperties"
             )
         {
             return Err(blocked("dynamic binding shadows a host capability"));
@@ -350,7 +529,18 @@ impl Validation {
             self.binding(&declarator.id.kind)?;
             if let BindingPatternKind::BindingIdentifier(identifier) = &declarator.id.kind {
                 let name = identifier.name.as_str();
-                if matches!(&declarator.init, Some(Expression::NumericLiteral(_)))
+                let is_audio = declaration.kind == oxc_ast::ast::VariableDeclarationKind::Const
+                    && matches!(&declarator.init,Some(Expression::CallExpression(call)) if matches!(&call.callee,Expression::StaticMemberExpression(member) if matches!(&member.object,Expression::Identifier(id) if id.name=="engine") && member.property.name=="registerAudioBuffers"));
+                if is_audio && !self.non_audio_names.contains(name) {
+                    self.audio_names.insert(name.to_owned());
+                } else {
+                    self.audio_names.remove(name);
+                    self.non_audio_names.insert(name.to_owned());
+                }
+                if declarator
+                    .init
+                    .as_ref()
+                    .is_some_and(|value| self.numeric_expression(value))
                     && !self.non_numeric_names.contains(name)
                 {
                     self.numeric_names.insert(name.to_owned());
@@ -483,11 +673,19 @@ impl Validation {
         }
         if let Expression::Identifier(identifier) = object {
             let allowed = match identifier.name.as_str() {
-                "engine" => Some(property == "registerAudioBuffers"),
+                "engine" => Some(matches!(
+                    property,
+                    "registerAudioBuffers"
+                        | "frametime"
+                        | "runtime"
+                        | "AUDIO_RESOLUTION_16"
+                        | "AUDIO_RESOLUTION_64"
+                )),
+                "scriptProperties" => Some(self.script_fields.contains(property)),
                 "thisScene" => Some(property == "createLayer"),
                 "thisLayer" => Some(matches!(
                     property,
-                    "origin" | "scale" | "angles" | "color" | "alpha" | "visible"
+                    "origin" | "scale" | "angles" | "color" | "alpha" | "visible" | "text"
                 )),
                 "Math" => Some(matches!(
                     property,
@@ -534,6 +732,14 @@ impl Validation {
                 | "y"
                 | "z"
                 | "push"
+                | "unshift"
+                | "reduce"
+                | "addSlider"
+                | "addCheckbox"
+                | "finish"
+                | "text"
+                | "left"
+                | "right"
                 | "length"
                 | "average"
                 | "hasOwnProperty"
@@ -562,6 +768,12 @@ impl Validation {
             Expression::Identifier(identifier) => {
                 self.numeric_names.contains(identifier.name.as_str())
             }
+            Expression::StaticMemberExpression(member) => {
+                matches!(&member.object,Expression::Identifier(id) if id.name=="scriptProperties")
+                    && self
+                        .numeric_script_fields
+                        .contains(member.property.name.as_str())
+            }
             _ => false,
         };
         if !numeric {
@@ -574,6 +786,9 @@ impl Validation {
     fn target(&self, target: &AssignmentTarget<'_>, depth: usize) -> Result<()> {
         match target {
             AssignmentTarget::AssignmentTargetIdentifier(identifier) => {
+                if identifier.name == "scriptProperties" {
+                    return Err(blocked("script property snapshots are immutable"));
+                }
                 if self.names.contains(identifier.name.as_str()) {
                     Ok(())
                 } else {
@@ -611,11 +826,36 @@ impl Validation {
                 }
                 Ok(())
             }
+            Expression::ObjectExpression(object) => {
+                if object.properties.len() > 8 {
+                    return Err(blocked("object literal exceeds metadata budget"));
+                }
+                for property in &object.properties {
+                    let oxc_ast::ast::ObjectPropertyKind::ObjectProperty(property) = property
+                    else {
+                        return Err(blocked("object spread unsupported"));
+                    };
+                    let name = property
+                        .key
+                        .static_name()
+                        .ok_or_else(|| blocked("dynamic object key unsupported"))?;
+                    if !safe_name(&name)
+                        || property.computed
+                        || property.method
+                        || property.shorthand
+                        || property.kind != oxc_ast::ast::PropertyKind::Init
+                    {
+                        return Err(blocked("unsafe object literal"));
+                    }
+                    self.expression(&property.value, depth + 1)?;
+                }
+                Ok(())
+            }
             Expression::ParenthesizedExpression(expression) => {
                 self.expression(&expression.expression, depth + 1)
             }
             Expression::UnaryExpression(unary)
-                if matches!(unary.operator.as_str(), "+" | "-" | "!") =>
+                if matches!(unary.operator.as_str(), "+" | "-" | "!" | "typeof") =>
             {
                 self.expression(&unary.argument, depth + 1)
             }
@@ -623,6 +863,7 @@ impl Validation {
                 if matches!(
                     binary.operator.as_str(),
                     "+" | "-"
+                        | "|"
                         | "*"
                         | "/"
                         | "%"
@@ -669,6 +910,9 @@ impl Validation {
             }
             Expression::UpdateExpression(update) => match &update.argument {
                 SimpleAssignmentTarget::AssignmentTargetIdentifier(identifier) => {
+                    if identifier.name == "scriptProperties" {
+                        return Err(blocked("script property snapshots are immutable"));
+                    }
                     self.identifier(identifier.name.as_str())
                 }
                 _ => Err(blocked(
@@ -676,6 +920,13 @@ impl Validation {
                 )),
             },
             Expression::CallExpression(call) if !call.optional => {
+                if let Expression::Identifier(id) = &call.callee {
+                    return if id.name == "createScriptProperties" && call.arguments.is_empty() {
+                        Ok(())
+                    } else {
+                        Err(blocked("unsupported dynamic function call"))
+                    };
+                }
                 let Expression::StaticMemberExpression(member) = &call.callee else {
                     return Err(blocked(
                         "only explicit bounded host and value methods may be called",
@@ -688,6 +939,11 @@ impl Validation {
                         | "createLayer"
                         | "copy"
                         | "push"
+                        | "unshift"
+                        | "reduce"
+                        | "addSlider"
+                        | "addCheckbox"
+                        | "finish"
                         | "hasOwnProperty"
                         | "abs"
                         | "sign"
@@ -709,7 +965,15 @@ impl Validation {
                     return Err(blocked("unsupported dynamic method call"));
                 }
                 self.member(&member.object, method, depth + 1)?;
-                for argument in &call.arguments {
+                for (index, argument) in call.arguments.iter().enumerate() {
+                    if method == "reduce" && index == 0 {
+                        self.reduce_callback(
+                            argument
+                                .as_expression()
+                                .ok_or_else(|| blocked("reduce spread unsupported"))?,
+                        )?;
+                        continue;
+                    }
                     self.expression(
                         argument
                             .as_expression()
@@ -745,6 +1009,26 @@ impl Validation {
             Expression::Identifier(identifier) => {
                 self.numeric_names.contains(identifier.name.as_str())
             }
+            Expression::StaticMemberExpression(member) => match &member.object {
+                Expression::Identifier(id) if id.name == "engine" => matches!(
+                    member.property.name.as_str(),
+                    "frametime" | "runtime" | "AUDIO_RESOLUTION_16" | "AUDIO_RESOLUTION_64"
+                ),
+                Expression::Identifier(id) if id.name == "scriptProperties" => self
+                    .numeric_script_fields
+                    .contains(member.property.name.as_str()),
+                _ => false,
+            },
+            Expression::ComputedMemberExpression(member) => {
+                matches!(&member.object,Expression::StaticMemberExpression(buffer) if matches!(&buffer.object,Expression::Identifier(id) if self.audio_names.contains(id.name.as_str())) && matches!(buffer.property.name.as_str(),"average"|"left"|"right"))
+            }
+            Expression::CallExpression(call) => {
+                matches!(&call.callee,Expression::StaticMemberExpression(member) if matches!(&member.object,Expression::Identifier(id) if id.name=="Math"))
+                    && call.arguments.iter().all(|arg| {
+                        arg.as_expression()
+                            .is_some_and(|value| self.numeric_expression(value))
+                    })
+            }
             Expression::UnaryExpression(expression) => {
                 matches!(expression.operator.as_str(), "+" | "-")
                     && self.numeric_expression(&expression.argument)
@@ -752,7 +1036,7 @@ impl Validation {
             Expression::BinaryExpression(expression) => {
                 matches!(
                     expression.operator.as_str(),
-                    "+" | "-" | "*" | "/" | "%" | "**"
+                    "+" | "-" | "*" | "/" | "%" | "**" | "|"
                 ) && self.numeric_expression(&expression.left)
                     && self.numeric_expression(&expression.right)
             }
@@ -771,9 +1055,17 @@ const HOST: &str = r#"
 (() => {
     'use strict';
     const functionPrototype = Function.prototype;
+    const hasOwn = (object,key) => Object.prototype.hasOwnProperty.call(object,key);
     Object.defineProperty(functionPrototype, 'constructor', {value: undefined, writable: false, configurable: false});
     Object.defineProperty(globalThis, 'eval', {value: undefined, writable: false, configurable: false});
     Object.defineProperty(globalThis, 'Function', {value: undefined, writable: false, configurable: false});
+    for (const method of ['push','unshift']) {
+        const original = Array.prototype[method];
+        Object.defineProperty(Array.prototype, method, {value:function(...values) {
+            if (this.length + values.length > 128) throw new RangeError('bounded script array exceeded');
+            return original.apply(this, values);
+        }, writable:false, configurable:false});
+    }
     for (const prototype of [Object.prototype, Array.prototype, Map.prototype, Number.prototype, String.prototype, functionPrototype,
         Float32Array.prototype, Object.getPrototypeOf(Float32Array.prototype)]) Object.freeze(prototype);
     Object.freeze(Math);
@@ -783,9 +1075,14 @@ const HOST: &str = r#"
     let initializing = false;
     let usesAudio = false;
     let registration = false;
-    const average = new Float32Array(64);
-    Object.preventExtensions(average);
-    const audio = Object.freeze({average});
+    let runtimeTime=0, frameTime=0;
+    let scriptOverrides={}, builderFinished=false, builderCount=0;
+    const audioBuffers = new Map();
+    for (const count of [16,64]) {
+        const item={left:new Float32Array(count),right:new Float32Array(count),average:new Float32Array(count)};
+        for (const array of Object.values(item)) Object.preventExtensions(array);
+        audioBuffers.set(count,Object.freeze(item));
+    }
     const finite = v => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 3.4028234663852886e38;
     class Vec3 {
         constructor(x, y, z) {
@@ -805,13 +1102,14 @@ const HOST: &str = r#"
     const copy = v => new Vec3(v[0], v[1], v[2]);
     const makeLayer = state => {
         const layer = {};
+        const authoredXY=[state.angles[0],state.angles[1]];
         for (const key of ['origin', 'scale', 'angles', 'color']) {
             Object.defineProperty(layer, key, {
                 enumerable: true,
                 get: () => copy(state[key]),
                 set: value => {
                     const parsed = vector(value);
-                    if (key === 'angles' && (parsed[0] !== 0 || parsed[1] !== 0)) throw new TypeError('3D layer rotation unsupported');
+                    if (key === 'angles' && (parsed[0] !== authoredXY[0] || parsed[1] !== authoredXY[1])) throw new TypeError('changing authored planar rotation unsupported');
                     state[key] = parsed;
                 }
             });
@@ -824,17 +1122,47 @@ const HOST: &str = r#"
             enumerable: true, get: () => state.alpha,
             set: value => { if (!finite(value) || value < 0 || value > 1) throw new TypeError('invalid layer alpha'); state.alpha = value; }
         });
+        if (typeof state.text === 'string') Object.defineProperty(layer, 'text', {
+            enumerable:true, get:()=>state.text,
+            set:value=>{ if(typeof value!=='string' || value.length>4096 || [...value].length>256) throw new TypeError('invalid bounded layer text'); state.text=value; }
+        });
         Object.preventExtensions(layer);
         layers.set(state.handle, {state, layer});
         nextHandle = Math.max(nextHandle, state.handle + 1);
         return layer;
     };
-    const engine = Object.freeze({registerAudioBuffers: count => {
-        if (!registration) throw new TypeError('audio registration is only supported at module global scope');
-        if (count !== 64) throw new TypeError('only 64 audio bands are supported');
-        usesAudio = true;
-        return Object.freeze(audio);
-    }});
+    const engine = Object.freeze({
+        get frametime(){return frameTime;}, get runtime(){return runtimeTime;},
+        AUDIO_RESOLUTION_16:16, AUDIO_RESOLUTION_64:64,
+        registerAudioBuffers: count => {
+            if (!registration) throw new TypeError('audio registration is only supported at module global scope');
+            if (!audioBuffers.has(count)) throw new TypeError('only 16/64 audio bands are supported');
+            usesAudio = true;
+            return audioBuffers.get(count);
+        }
+    });
+    const createScriptProperties=()=>{
+        if (!registration || ++builderCount>32) throw new TypeError('bounded builders require module scope');
+        const values={};
+        let done=false;
+        const add=(spec,slider)=>{
+            if(done || !spec || typeof spec!=='object' || Array.isArray(spec) || Object.keys(values).length>=32) throw new TypeError('invalid builder state');
+            const allowed=slider?['name','label','value','min','max','integer']:['name','label','value'];
+            if(Object.keys(spec).some(k=>!allowed.includes(k)) || typeof spec.name!=='string' || !spec.name || spec.name.length>256 || ['constructor','prototype','__proto__'].includes(spec.name) || spec.name.startsWith('__lwe') || hasOwn(values,spec.name) || typeof spec.label!=='string' || spec.label.length>4096) throw new TypeError('invalid property metadata');
+            const selected=hasOwn(scriptOverrides,spec.name)?scriptOverrides[spec.name]:spec.value;
+            if(slider){
+                if(!finite(spec.min)||!finite(spec.max)||spec.min>spec.max||typeof spec.integer!=='boolean'||!finite(spec.value)||spec.value<spec.min||spec.value>spec.max||!finite(selected)||selected<spec.min||selected>spec.max||(spec.integer && (!Number.isInteger(spec.value)||!Number.isInteger(selected)))) throw new TypeError('invalid slider value/range');
+            }else if(typeof spec.value!=='boolean'||typeof selected!=='boolean') throw new TypeError('invalid checkbox value');
+            values[spec.name]=selected;
+            return builder;
+        };
+        const builder=Object.freeze({addSlider:spec=>add(spec,true),addCheckbox:spec=>add(spec,false),finish:()=>{
+            if(done || Object.keys(scriptOverrides).some(key=>!hasOwn(values,key))) throw new TypeError('invalid builder overrides');
+            done=true; builderFinished=true; return Object.freeze(values);
+        }});
+        return builder;
+    };
+    Object.defineProperty(globalThis,'createScriptProperties',{value:createScriptProperties});
     const thisScene = Object.freeze({createLayer: path => {
         if (!initializing) throw new TypeError('layer creation is only supported during init');
         if (typeof path !== 'string' || path.length === 0 || path.length > 1024 || !path.startsWith('models/') || !path.endsWith('.json')
@@ -857,11 +1185,16 @@ const HOST: &str = r#"
             globalThis.thisLayer = item.layer;
         },
         initialize: value => { initializing = value; },
+        configure: values => { scriptOverrides=values; builderFinished=false; },
         register: value => { registration = value; },
-        frame: values => {
-            registration = false;
-            for (let i=0; i<64; ++i) {
-                average[i] = values[i];
+        finishModule: () => { if(Object.keys(scriptOverrides).length && !builderFinished) throw new TypeError('overrides require a finished builder'); },
+        frame: (time,delta,values) => {
+            registration = false; runtimeTime=time; frameTime=delta;
+            for (const count of [16,64]) {
+                const item=audioBuffers.get(count);
+                const left=count===16?values.left:values.script_left;
+                const right=count===16?values.right:values.script_right;
+                for(let i=0;i<count;++i){item.left[i]=left[i];item.right[i]=right[i];item.average[i]=count===16?(left[i]+right[i])*0.5:values.script_average[i];}
             }
         },
         input: (handle, property) => layers.get(handle).layer[property],
@@ -895,6 +1228,7 @@ struct Vm {
     deadline: Rc<Cell<Instant>>,
     bindings: Vec<Binding>,
     base_handles: BTreeSet<usize>,
+    last_time: f64,
 }
 
 impl Vm {
@@ -943,6 +1277,10 @@ impl Vm {
             let mut modules = Vec::new();
             for (index, binding) in plan.bindings.iter().enumerate() {
                 owner.call::<_, ()>((binding.layer,))?;
+                let configure: Function = host.get("configure")?;
+                configure.call::<_, ()>((
+                    ctx.json_parse(serde_json::to_vec(&binding.script_properties)?)?,
+                ))?;
                 let declared = Module::declare(
                     ctx.clone(),
                     format!("lwe-layer-binding-{index}"),
@@ -957,11 +1295,18 @@ impl Vm {
                     blocked("dynamic script module initialization is not synchronous")
                 })?;
                 registration.call::<_, ()>((false,))?;
+                let finish: Function = host.get("finishModule")?;
+                finish
+                    .call::<_, ()>(())
+                    .map_err(|_| blocked("invalid script property builder overrides"))?;
                 let init: rquickjs::Value = module.get("init")?;
                 if let Some(init) = init.as_function() {
                     initialize.call::<_, ()>((true,))?;
+                    let input: Function = host.get("input")?;
+                    let current = input
+                        .call::<_, rquickjs::Value>((binding.layer, binding.property.as_str()))?;
                     let initial: rquickjs::Value = init
-                        .call(())
+                        .call((current,))
                         .map_err(|_| blocked("dynamic init failed or exceeded its limits"))?;
                     let output: Function = host.get("output")?;
                     output
@@ -993,17 +1338,39 @@ impl Vm {
                 deadline,
                 bindings: plan.bindings.clone(),
                 base_handles,
+                last_time: 0.0,
             },
             initialization,
         ))
     }
 
-    fn frame(&mut self, _time: f64, audio: [f32; 64]) -> Result<Vec<LayerState>> {
+    fn frame(&mut self, time: f64, audio: [f32; 64]) -> Result<Vec<LayerState>> {
+        self.frame_with_audio(
+            time,
+            super::spectrum::SpectrumSnapshot {
+                script_average: audio,
+                ..Default::default()
+            },
+        )
+    }
+
+    fn frame_with_audio(
+        &mut self,
+        time: f64,
+        audio: super::spectrum::SpectrumSnapshot,
+    ) -> Result<Vec<LayerState>> {
+        ensure!(
+            time.is_finite() && time >= self.last_time,
+            "Invalid or decreasing dynamic frame time"
+        );
+        let delta = time - self.last_time;
+        self.last_time = time;
         self.deadline.set(Instant::now() + FRAME_LIMIT);
         self.context.with(|ctx| -> Result<_> {
             let host = self.host.clone().restore(&ctx)?;
             let frame: Function = host.get("frame")?;
-            frame.call::<_, ()>((audio.to_vec(),))?;
+            let values=serde_json::json!({"left":audio.left.to_vec(),"right":audio.right.to_vec(),"script_left":audio.script_left.to_vec(),"script_right":audio.script_right.to_vec(),"script_average":audio.script_average.to_vec()});
+            frame.call::<_, ()>((time,delta,ctx.json_parse(serde_json::to_vec(&values)?)?))?;
             let owner: Function = host.get("owner")?;
             let input: Function = host.get("input")?;
             let output: Function = host.get("output")?;
@@ -1080,17 +1447,26 @@ fn read_snapshot(host: &Object<'_>, base_handles: &BTreeSet<usize>) -> Result<Sn
 }
 
 struct FrameInput {
+    seq: u64,
     time: f64,
-    audio: [f32; 64],
+    audio: super::spectrum::SpectrumSnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct FrameOutput {
+    pub seq: u64,
+    pub time: f64,
+    pub states: Vec<LayerState>,
 }
 
 #[derive(Default)]
 struct Mailbox {
     initialized: bool,
     input: Option<FrameInput>,
-    output: Option<Vec<LayerState>>,
+    output: Option<FrameOutput>,
     error: Option<String>,
-    last_submitted: Option<f64>,
+    last_submitted: Option<(u64, f64)>,
+    in_flight: bool,
 }
 
 pub(super) struct ScriptWorker {
@@ -1130,8 +1506,84 @@ impl ScriptWorker {
         })
     }
 
-    /// Overwrite the pending input and consume at most one complete snapshot.
-    /// Contention returns None, never a wait on author code or a worker lock.
+    /// Submit exactly one tagged tick. False means not ready/contention or an
+    /// already-submitted identical tick; no input or output is overwritten.
+    pub(super) fn submit_frame(
+        &self,
+        seq: u64,
+        time: f64,
+        audio: super::spectrum::SpectrumSnapshot,
+    ) -> Result<bool> {
+        ensure!(
+            time.is_finite()
+                && time >= 0.0
+                && audio
+                    .left
+                    .iter()
+                    .chain(&audio.right)
+                    .chain(&audio.script_left)
+                    .chain(&audio.script_right)
+                    .chain(&audio.script_average)
+                    .all(|v| v.is_finite() && (0.0..=1.0).contains(v)),
+            "Invalid dynamic SceneScript frame input"
+        );
+        let mut mailbox = match self.mailbox.try_lock() {
+            Ok(value) => value,
+            Err(TryLockError::WouldBlock) => return Ok(false),
+            Err(TryLockError::Poisoned(_)) => {
+                return Err(blocked("dynamic script mailbox is unavailable"));
+            }
+        };
+        if let Some(error) = &mailbox.error {
+            return Err(blocked(error.clone()));
+        }
+        if !mailbox.initialized {
+            return Ok(false);
+        }
+        if let Some((previous, previous_time)) = mailbox.last_submitted {
+            if (seq, time) == (previous, previous_time) {
+                return Ok(false);
+            }
+            ensure!(
+                seq > previous && time >= previous_time,
+                "Invalid or stale dynamic SceneScript tick"
+            );
+        }
+        if mailbox.in_flight || mailbox.output.is_some() {
+            return Ok(false);
+        }
+        mailbox.last_submitted = Some((seq, time));
+        mailbox.in_flight = true;
+        mailbox.input = Some(FrameInput { seq, time, audio });
+        if let Some(thread) = &self.thread {
+            thread.thread().unpark();
+        }
+        Ok(true)
+    }
+
+    /// Consume an output with its actual input tag; never relabel a late VM
+    /// result with a newer renderer time. Author code never runs under this lock.
+    pub(super) fn take_frame(&self) -> Result<Option<FrameOutput>> {
+        let mut mailbox = match self.mailbox.try_lock() {
+            Ok(value) => value,
+            Err(TryLockError::WouldBlock) => return Ok(None),
+            Err(TryLockError::Poisoned(_)) => {
+                return Err(blocked("dynamic script mailbox is unavailable"));
+            }
+        };
+        if let Some(error) = &mailbox.error {
+            return Err(blocked(error.clone()));
+        }
+        let output = mailbox.output.take();
+        if output.is_some() {
+            mailbox.in_flight = false;
+        }
+        Ok(output)
+    }
+
+    /// Compatibility adapter for the existing 64-average-only tests/callers.
+    /// Timed composition must use tagged submit/take rather than this adapter.
+    #[cfg(test)]
     pub(super) fn poll_frame(
         &self,
         time: f64,
@@ -1145,27 +1597,34 @@ impl ScriptWorker {
                     .all(|v| v.is_finite() && (0.0..=1.0).contains(v)),
             "Invalid dynamic SceneScript frame input"
         );
-        let mut mailbox = match self.mailbox.try_lock() {
-            Ok(mailbox) => mailbox,
-            Err(TryLockError::WouldBlock) => return Ok(None),
-            Err(TryLockError::Poisoned(_)) => {
-                return Err(blocked("dynamic script mailbox is unavailable"));
+        if let Some(output) = self.take_frame()? {
+            return Ok(Some(output.states));
+        }
+        let seq = {
+            let mailbox = match self.mailbox.try_lock() {
+                Ok(value) => value,
+                Err(TryLockError::WouldBlock) => return Ok(None),
+                Err(TryLockError::Poisoned(_)) => {
+                    return Err(blocked("dynamic script mailbox is unavailable"));
+                }
+            };
+            match mailbox.last_submitted {
+                Some((_, previous_time)) if previous_time == time => return Ok(None),
+                Some((seq, _)) => seq
+                    .checked_add(1)
+                    .ok_or_else(|| blocked("dynamic tick sequence overflow"))?,
+                None => return Ok(None),
             }
         };
-        if let Some(error) = &mailbox.error {
-            return Err(blocked(error.clone()));
-        }
-        if !mailbox.initialized {
-            return Ok(None);
-        }
-        if mailbox.last_submitted != Some(time) {
-            mailbox.last_submitted = Some(time);
-            mailbox.input = Some(FrameInput { time, audio });
-            if let Some(thread) = &self.thread {
-                thread.thread().unpark();
-            }
-        }
-        Ok(mailbox.output.take())
+        self.submit_frame(
+            seq,
+            time,
+            super::spectrum::SpectrumSnapshot {
+                script_average: audio,
+                ..Default::default()
+            },
+        )?;
+        Ok(None)
     }
 }
 
@@ -1189,9 +1648,13 @@ fn worker_run(
     let mut ready = mailbox
         .lock()
         .map_err(|_| blocked("dynamic script mailbox is unavailable"))?;
-    ready.output = Some(initial);
+    ready.output = Some(FrameOutput {
+        seq: 0,
+        time: 0.0,
+        states: initial,
+    });
     ready.initialized = true;
-    ready.last_submitted = Some(0.0);
+    ready.last_submitted = Some((0, 0.0));
     drop(ready);
     while !stop.load(Ordering::Acquire) {
         let input = mailbox
@@ -1200,7 +1663,12 @@ fn worker_run(
             .input
             .take();
         if let Some(input) = input {
-            let output = vm.frame(input.time, input.audio)?;
+            let states = vm.frame_with_audio(input.time, input.audio)?;
+            let output = FrameOutput {
+                seq: input.seq,
+                time: input.time,
+                states,
+            };
             mailbox
                 .lock()
                 .map_err(|_| blocked("dynamic script mailbox is unavailable"))?
@@ -1227,6 +1695,7 @@ impl Drop for ScriptWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::Digest;
 
     fn layer() -> LayerState {
         LayerState {
@@ -1237,6 +1706,7 @@ mod tests {
             color: [0.0; 3],
             alpha: 1.0,
             visible: true,
+            text: None,
         }
     }
 
@@ -1247,6 +1717,7 @@ mod tests {
                 property: "visible".to_owned(),
                 source: source.to_owned(),
                 input: Value::Bool(true),
+                script_properties: serde_json::json!({}),
             }],
             vec![layer()],
             serde_json::json!({"mode":"meter"}),
@@ -1312,8 +1783,6 @@ mod tests {
             "import x from 'x'; export function update(){}",
             "export function update(){ thisLayer.origin.constructor('return 1')(); }",
             "export function update(){ thisScene.createLayer('../x'); }",
-            "let a=engine.registerAudioBuffers(16); export function update(){}",
-            "let a=engine.registerAudioBuffers(64); export function update(){return a.left[0];}",
             "let a=engine.registerAudioBuffers(64); export function update(){a.average[0]=1;}",
             "let a=engine.registerAudioBuffers(64); let k='left'; export function update(){return a[k];}",
             "let a=engine.registerAudioBuffers(64); let k=0; export function update(){k='left';return a[k];}",
@@ -1382,18 +1851,20 @@ mod tests {
 
     #[test]
     fn contention_never_waits_and_later_faults_are_reported() {
-        let plan =
-            prepare("let n=0; export function update(){n+=1;if(n>1){while(true){}}}").unwrap();
+        let plan = prepare("let n=0; export function update(){n+=1;thisLayer.origin=new Vec3(n);if(n>1){while(true){}}}").unwrap();
         let worker = ScriptWorker::spawn(&plan).unwrap();
         let lock = worker.mailbox.lock().unwrap();
         let started = Instant::now();
-        assert!(worker.poll_frame(0.0, [0.0; 64]).unwrap().is_none());
+        assert!(worker.take_frame().unwrap().is_none());
         assert!(started.elapsed() < Duration::from_millis(100));
         drop(lock);
-        wait_snapshot(&worker, 0.0, [0.0; 64]);
+        let initial = wait_tagged(&worker);
+        assert_eq!((initial.seq, initial.time), (0, 0.0));
+        assert_eq!(initial.states[0].origin, [1.0; 3]);
+        assert!(worker.submit_frame(1, 1.0, Default::default()).unwrap());
         let started = Instant::now();
         loop {
-            if let Err(error) = worker.poll_frame(1.0, [0.0; 64]) {
+            if let Err(error) = worker.take_frame() {
                 assert_eq!(
                     super::super::unsupported_feature_code(&error),
                     Some("scenescript")
@@ -1403,6 +1874,13 @@ mod tests {
             assert!(started.elapsed() < Duration::from_secs(2));
             thread::sleep(Duration::from_millis(1));
         }
+        // The failed tick mutated the private heap/layer before interruption.
+        // Neither reading nor resubmitting can manufacture a recovered snapshot.
+        for _ in 0..3 {
+            assert!(worker.take_frame().is_err());
+            assert!(worker.submit_frame(2, 2.0, Default::default()).is_err());
+        }
+        assert!(worker.mailbox.lock().unwrap().output.is_none());
         let started = Instant::now();
         drop(worker);
         assert!(started.elapsed() < Duration::from_secs(1));
@@ -1417,6 +1895,253 @@ mod tests {
         assert!(first.frame(1.0, [0.0; 64]).unwrap()[0].visible);
         // An independent paused instance has no callback to advance its state.
         assert!(!second.frame(10.0, [0.0; 64]).unwrap()[0].visible);
+    }
+
+    fn prepare_bound(
+        source: &str,
+        property: &str,
+        input: Value,
+        overrides: Value,
+    ) -> Result<PreparedScripts> {
+        let mut owner = layer();
+        if property == "text" {
+            owner.text = Some(input.as_str().unwrap().to_owned());
+            owner.angles[1] = -0.79215;
+        }
+        PreparedScripts::prepare(
+            vec![Binding {
+                layer: 7,
+                property: property.to_owned(),
+                source: source.to_owned(),
+                input,
+                script_properties: overrides,
+            }],
+            vec![owner],
+            serde_json::json!({}),
+        )
+    }
+
+    const BUILDER_ALPHA: &str = r#"
+        export var scriptProperties=createScriptProperties()
+          .addSlider({name:'band',label:'Band',value:2,min:0,max:15,integer:true})
+          .addSlider({name:'response',label:'Response',value:1,min:0,max:10,integer:false})
+          .addCheckbox({name:'enabled',label:'Enabled',value:true}).finish();
+        const bands=engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_16);
+        let initial;
+        let amount=0;
+        export function init(value){initial=typeof value==='number'?value:value.x;}
+        export function update(){
+          const delta=bands.average[scriptProperties.band]-amount;
+          amount+=delta*Math.min(1,engine.frametime*scriptProperties.response);
+          return scriptProperties.enabled?initial*amount:0;
+        }
+    "#;
+
+    #[test]
+    fn builders_init_and_stereo_resolution_follow_frame_clock() {
+        let plan = prepare_bound(
+            BUILDER_ALPHA,
+            "alpha",
+            serde_json::json!(1),
+            serde_json::json!({"band":3,"response":2}),
+        )
+        .unwrap();
+        assert!(plan.uses_audio());
+        assert_eq!(plan.initial_states()[0].alpha, 0.0);
+        let (mut vm, _) = Vm::new(&plan, Arc::new(AtomicBool::new(false))).unwrap();
+        vm.frame_with_audio(0.0, Default::default()).unwrap();
+        let mut audio = super::super::spectrum::SpectrumSnapshot::default();
+        audio.left[3] = 0.8;
+        audio.right[3] = 0.2;
+        // Independent 64-band values cannot substitute for the 16-band source.
+        audio.script_average[3] = 1.0;
+        assert!((vm.frame_with_audio(0.25, audio).unwrap()[0].alpha - 0.25).abs() < 1e-6);
+        assert!((vm.frame_with_audio(0.5, audio).unwrap()[0].alpha - 0.375).abs() < 1e-6);
+        assert!(vm.frame_with_audio(0.4, audio).is_err());
+        for overrides in [
+            serde_json::json!({"band":16}),
+            serde_json::json!({"band":1.5}),
+            serde_json::json!({"enabled":1}),
+            serde_json::json!({"unknown":1}),
+        ] {
+            assert!(
+                prepare_bound(BUILDER_ALPHA, "alpha", serde_json::json!(1), overrides).is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn text_array_sum_and_fixed_authored_rotation_are_bounded() {
+        let source = r#"
+          export let __workshopId='inert-metadata';
+          export var scriptProperties=createScriptProperties()
+            .addCheckbox({name:'enabled',label:'Enabled',value:true}).finish();
+          let values=[];
+          export function init(value){return value;}
+          export function update(value){
+            if(!scriptProperties.enabled){return '';}
+            const rate=(1/engine.frametime)|0;
+            if(engine.frametime==0){return value;}
+            values.unshift(rate);
+            if(values.length>3){values.length=3;}
+            thisLayer.color=new Vec3(255,0,0);
+            return 'Rate '+((values.reduce((left,right)=>left+right,0)/values.length)|0);
+          }
+        "#;
+        let plan = prepare_bound(
+            source,
+            "text",
+            serde_json::json!("initial"),
+            serde_json::json!({}),
+        )
+        .unwrap();
+        assert_eq!(plan.initial_states()[0].text.as_deref(), Some("initial"));
+        let (mut vm, _) = Vm::new(&plan, Arc::new(AtomicBool::new(false))).unwrap();
+        vm.frame(0.0, [0.0; 64]).unwrap();
+        let state = vm.frame(0.25, [0.0; 64]).unwrap().remove(0);
+        assert_eq!(state.text.as_deref(), Some("Rate 4"));
+        assert_eq!(state.color, [255.0, 0.0, 0.0]);
+        assert_eq!(state.angles[1], -0.79215);
+        assert!(
+            prepare_bound(
+                "export function update(){thisLayer.angles=new Vec3(0);}",
+                "text",
+                serde_json::json!("x"),
+                serde_json::json!({})
+            )
+            .is_err()
+        );
+        assert!(prepare("export function update(){thisLayer.text='x';}").is_err());
+        assert!(
+            prepare(
+                "let list=[];export function update(){for(let i=0;i<129;i++){list.unshift(1);}}"
+            )
+            .is_err()
+        );
+        for source in [
+            "export var scriptProperties=createScriptProperties().finish();export function update(){scriptProperties={band:'__proto__'};}",
+            "export var scriptProperties=createScriptProperties().addSlider({name:'band',label:'',value:0,min:0,max:4,integer:true}).finish();export function update(scriptProperties){let list=[];return list[scriptProperties.band];}",
+            "export var scriptProperties=createScriptProperties();export function update(){}",
+            "let values=[];export function update(){values.reduce((a,b)=>thisLayer.alpha,0);}",
+            "const samples=engine.registerAudioBuffers(64);let key=0;export function update(){let samples={average:['__proto__']};key=samples.average[0];let list=[];return list[key];}",
+        ] {
+            assert!(prepare(source).is_err(), "accepted unsafe source {source}");
+        }
+    }
+
+    fn wait_tagged(worker: &ScriptWorker) -> FrameOutput {
+        let start = Instant::now();
+        loop {
+            if let Some(output) = worker.take_frame().unwrap() {
+                return output;
+            }
+            assert!(start.elapsed() < Duration::from_secs(2));
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    #[test]
+    fn tagged_ticks_never_overwrite_or_relabel_an_unconsumed_vm_result() {
+        let plan=prepare("let count=0;export function update(){count+=1;thisLayer.origin=new Vec3(engine.runtime,engine.frametime,count);}").unwrap();
+        let worker = ScriptWorker::spawn(&plan).unwrap();
+        let first = wait_tagged(&worker);
+        assert_eq!((first.seq, first.time), (0, 0.0));
+        assert_eq!(first.states[0].origin, [0.0, 0.0, 1.0]);
+        assert!(worker.submit_frame(7, 0.25, Default::default()).unwrap());
+        assert!(!worker.submit_frame(8, 0.5, Default::default()).unwrap());
+        let next = wait_tagged(&worker);
+        assert_eq!((next.seq, next.time), (7, 0.25));
+        assert_eq!(next.states[0].origin, [0.25, 0.25, 2.0]);
+        assert!(!worker.submit_frame(7, 0.25, Default::default()).unwrap());
+        assert!(worker.submit_frame(6, 0.5, Default::default()).is_err());
+        assert!(worker.submit_frame(8, 0.2, Default::default()).is_err());
+        // Forced paused draws do not submit a tick or mutate the VM.
+        assert!(worker.take_frame().unwrap().is_none());
+        assert!(worker.submit_frame(8, 0.25, Default::default()).unwrap());
+        let same_time = wait_tagged(&worker);
+        assert_eq!(same_time.states[0].origin, [0.25, 0.0, 3.0]);
+        let mut invalid = super::super::spectrum::SpectrumSnapshot::default();
+        invalid.script_left[63] = f32::NAN;
+        assert!(worker.submit_frame(9, 0.3, invalid).is_err());
+    }
+
+    #[test]
+    #[ignore = "requires private original script evidence and explicit CPU-only opt-in"]
+    fn original_five_modules_run_with_wrappers_and_true_resolution_inputs() {
+        assert_eq!(
+            std::env::var("LWE_ORIGINAL_SCRIPT_ORACLE").as_deref(),
+            Ok("1")
+        );
+        let path = std::path::PathBuf::from(
+            std::env::var_os("LWE_ORIGINAL_SCRIPT_BINDINGS").expect("private binding evidence"),
+        );
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(bytes.len() < 128 * 1024);
+        let evidence: Value = serde_json::from_slice(&bytes).unwrap();
+        let originals = evidence["scripts"].as_array().unwrap();
+        assert_eq!(originals.len(), 5);
+        let mut bindings = Vec::new();
+        let mut states = Vec::new();
+        let mut hashes = Vec::new();
+        for original in originals {
+            let path = original["path"].as_str().unwrap();
+            let parts: Vec<_> = path.split('/').collect();
+            let handle: usize = parts[2].parse().unwrap();
+            let wrapper = &original["wrapper"];
+            let property = parts[3];
+            let mut state = layer();
+            state.handle = handle;
+            state.scale = [1.0; 3];
+            state.color = [1.0; 3];
+            if property == "text" {
+                state.text = Some(wrapper["value"].as_str().unwrap().to_owned());
+                state.angles[1] = -0.79215;
+            } else {
+                state.alpha = wrapper["value"].as_f64().unwrap() as f32;
+            }
+            let source = wrapper["script"].as_str().unwrap().to_owned();
+            hashes.push(format!("{:x}", sha2::Sha256::digest(source.as_bytes())));
+            bindings.push(Binding {
+                layer: handle,
+                property: property.to_owned(),
+                source,
+                input: wrapper["value"].clone(),
+                script_properties: wrapper["scriptproperties"].clone(),
+            });
+            states.push(state);
+        }
+        let plan = PreparedScripts::prepare(bindings, states, serde_json::json!({})).unwrap();
+        assert!(plan.uses_audio());
+        assert!(plan.created_layers().is_empty());
+        assert_eq!(plan.initial_states()[0].text.as_deref(), Some("FPS"));
+        let (mut vm, _) = Vm::new(&plan, Arc::new(AtomicBool::new(false))).unwrap();
+        vm.frame(0.0, [0.0; 64]).unwrap();
+        let mut audio = super::super::spectrum::SpectrumSnapshot::default();
+        audio.script_average[0] = 0.4;
+        audio.script_average[1] = 1.0;
+        audio.script_average[63] = 0.8;
+        audio.left[7] = 0.8;
+        audio.right[7] = 0.2;
+        let first = vm.frame_with_audio(0.2, audio).unwrap();
+        for (handle, expected) in [(5, 0.0), (6, 0.26), (7, 0.519999984), (9, 0.574999995)] {
+            assert!(
+                (f64::from(first.iter().find(|s| s.handle == handle).unwrap().alpha) - expected)
+                    .abs()
+                    < 1e-6
+            );
+        }
+        let final_states = vm.frame_with_audio(0.4, audio).unwrap();
+        let text = final_states.iter().find(|s| s.handle == 3).unwrap();
+        assert_eq!(text.text.as_deref(), Some("FPS: 5\n Avg: 5"));
+        assert_eq!(text.color, [255.0, 0.0, 0.0]);
+        let report = serde_json::json!({"ok":true,"kind":"original_modules_cpu_vm_only","source_bindings_sha256":format!("{:x}",sha2::Sha256::digest(&bytes)),"module_sha256":hashes,"count":5,"times":[0.0,0.2,0.4],"initial":plan.initial_states(),"frame_0_2":first,"frame_0_4":final_states,"audio":"independent supplied 16 stereo / 64 average; not capture acceptance","limits":"no desktop, GPU, native Windows parity, or arbitrary QuickJS rollback"});
+        if let Some(path) = std::env::var_os("LWE_ORIGINAL_SCRIPT_REPORT") {
+            std::fs::write(path, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+        }
+        println!(
+            "Original 5 module CPU VM oracle passed; authored input SHA {}",
+            report["source_bindings_sha256"]
+        );
     }
 
     #[test]

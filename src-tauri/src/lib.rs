@@ -93,6 +93,7 @@ pub fn register_commands(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<
         commands::desktop::load_desktop_page,
         commands::desktop::apply_library_item_to_monitor,
         commands::desktop::load_scene_properties,
+        commands::desktop::choose_scene_image,
         commands::desktop::update_scene_properties,
         commands::desktop::clear_library_item_from_monitor,
         commands::diagnostics::load_diagnostics,
@@ -103,6 +104,7 @@ pub fn register_commands(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<
 
 pub fn builder() -> tauri::Builder<tauri::Wry> {
     register_commands(tauri::Builder::default())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app = app.app_handle();
             app.manage(QuitRequested(AtomicBool::new(false)));

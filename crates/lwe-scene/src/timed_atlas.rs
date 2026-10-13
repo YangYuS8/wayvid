@@ -168,6 +168,17 @@ impl AtlasMemoryBudget {
         }
     }
 
+    pub fn domain_id(&self) -> usize {
+        Arc::as_ptr(&self.state) as usize
+    }
+
+    /// Charge an allocation owned by another CPU resource. The owner must keep
+    /// this non-cloneable guard until after its buffer is released, and reconcile
+    /// the actual Vec capacity before publishing the resource.
+    pub fn reserve_bytes(&self, bytes: usize) -> Result<AtlasMemoryReservation> {
+        self.reserve(bytes).map(AtlasMemoryReservation)
+    }
+
     fn reserve(&self, bytes: usize) -> Result<MemoryLease> {
         let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
         let total = state.used.checked_add(bytes).ok_or_else(overflow)?;
@@ -193,6 +204,18 @@ impl AtlasMemoryBudget {
         }
         state.decoding = true;
         Ok(DecodeJob(self.clone()))
+    }
+}
+
+#[derive(Debug)]
+pub struct AtlasMemoryReservation(MemoryLease);
+
+impl AtlasMemoryReservation {
+    pub fn resize(&mut self, bytes: usize) -> Result<()> {
+        self.0.resize(bytes)
+    }
+    pub fn bytes(&self) -> usize {
+        self.0.bytes
     }
 }
 
@@ -323,6 +346,39 @@ impl TimedAtlasSource {
             inspection,
             budget,
         )
+    }
+
+    /// Consume the same sealed bytes used for preparation identity. A physical
+    /// owner and its non-cloneable reservation move together; no descriptor is
+    /// reopened and no uncharged encoded copy is created.
+    pub fn from_budgeted_bytes(
+        bytes: Vec<u8>,
+        reservation: AtlasMemoryReservation,
+        origin: ResourceOrigin,
+        inspection: &mut TextureInspectionBudget,
+        budget: &AtlasMemoryBudget,
+    ) -> Result<Self> {
+        let mut encoded = OwnedBytes {
+            bytes,
+            _lease: reservation.0,
+        };
+        if encoded._lease.budget.domain_id() != budget.domain_id() {
+            return Err(invalid(
+                "timed source reservation belongs to another CPU budget",
+            ));
+        }
+        if encoded.bytes.len() > MAX_TEXTURE_BYTES {
+            return Err(limit(
+                "timed atlas encoded source",
+                encoded.bytes.len() as u64,
+                MAX_TEXTURE_BYTES as u64,
+            ));
+        }
+        if encoded._lease.bytes < encoded.bytes.capacity() {
+            return Err(invalid("timed source capacity exceeds its reservation"));
+        }
+        encoded._lease.resize(encoded.bytes.capacity())?;
+        Self::from_owned(encoded, origin, inspection, budget)
     }
 
     fn from_owned(
@@ -509,6 +565,14 @@ impl TimedAtlasSource {
         self.encoded_capacity() + self.raw_capacity() + self.0._framing_lease.bytes
     }
 
+    pub fn allocation_id(&self) -> usize {
+        Arc::as_ptr(&self.0) as usize
+    }
+
+    pub fn memory_budget(&self) -> &AtlasMemoryBudget {
+        &self.0.budget
+    }
+
     /// Pure half-open [begin,end) timeline selection. The caller owns startup,
     /// pause/resume and transaction clock semantics; this API invents none.
     pub fn frame_at(&self, elapsed_seconds: f64) -> Result<usize> {
@@ -615,6 +679,10 @@ impl TimedAtlasRegion {
     }
     pub fn layout(&self) -> Bc3RegionLayout {
         self.0.layout
+    }
+
+    pub fn allocation_id(&self) -> usize {
+        Arc::as_ptr(&self.0) as usize
     }
 }
 

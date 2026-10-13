@@ -171,7 +171,14 @@ export type SceneProperty = ScenePropertyControl & (
   | { kind: 'slider'; value: number }
   | { kind: 'color'; value: [number, number, number] }
   | { kind: 'combo'; value: string; options: { label: string; value: string }[] }
+  | { kind: 'texture'; value: string | null }
 );
+
+export interface ImportedSceneImage {
+  token: string;
+  width: number;
+  height: number;
+}
 
 /** Author-ordered section headers. Groups never carry editable values. */
 export interface ScenePropertyGroup {

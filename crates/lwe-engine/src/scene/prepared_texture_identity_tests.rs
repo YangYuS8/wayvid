@@ -95,8 +95,8 @@ fn replacement_at_same_path_length_and_mtime_changes_prepared_identity() {
         std::fs::metadata(&path).unwrap().modified().unwrap(),
         previous.modified().unwrap()
     );
-    assert_eq!(first.textures[0].rgba, [255, 0, 0, 255]);
-    assert_eq!(second.textures[0].rgba, [0, 0, 255, 255]);
+    assert_eq!(first.textures[0].rgba(), [255, 0, 0, 255]);
+    assert_eq!(second.textures[0].rgba(), [0, 0, 255, 255]);
     assert_ne!(
         first.textures[0].fingerprint,
         second.textures[0].fingerprint
@@ -138,7 +138,7 @@ fn identity_uses_the_resolved_descriptor_bytes_after_path_replacement() {
         prepared.textures[0].fingerprint
     );
     let replacement = fixture.prepare(None);
-    assert_eq!(replacement.textures[0].rgba, [0, 255, 0, 255]);
+    assert_eq!(replacement.textures[0].rgba(), [0, 255, 0, 255]);
     assert_ne!(
         prepared.textures[0].fingerprint,
         replacement.textures[0].fingerprint
@@ -150,12 +150,12 @@ fn source_namespace_precedence_and_root_are_part_of_identity() {
     let project = Fixture::new();
     let builtins = Fixture::new();
     let project_scene = project.prepare(Some(&builtins.0));
-    assert_eq!(project_scene.textures[0].rgba, [255, 0, 0, 255]);
+    assert_eq!(project_scene.textures[0].rgba(), [255, 0, 0, 255]);
     std::fs::remove_file(project.0.join("materials/image.tex")).unwrap();
     let builtin_scene = project.prepare(Some(&builtins.0));
     assert_eq!(
-        builtin_scene.textures[0].rgba,
-        project_scene.textures[0].rgba
+        builtin_scene.textures[0].rgba(),
+        project_scene.textures[0].rgba()
     );
     assert_ne!(
         builtin_scene.textures[0].fingerprint,
@@ -175,7 +175,7 @@ fn source_namespace_precedence_and_root_are_part_of_identity() {
     project.write("scene.pkg", &package);
     project.write("materials/image.tex", &texture_bytes([0, 255, 0, 255]));
     let packaged_scene = project.prepare(Some(&builtins.0));
-    assert_eq!(packaged_scene.textures[0].rgba, [255, 0, 0, 255]);
+    assert_eq!(packaged_scene.textures[0].rgba(), [255, 0, 0, 255]);
     assert_ne!(
         packaged_scene.textures[0].fingerprint,
         project_scene.textures[0].fingerprint
@@ -351,12 +351,15 @@ fn plans_deduplicate_only_the_same_identity_and_fixed_sampling_variant() {
     ];
     let plan = scene.resource_plan_for_output(16, 16).unwrap();
     assert_eq!(plan.textures.len(), 2);
-    assert_eq!(plan.immutable_bytes().unwrap(), 8);
+    let work = plan.work.values().copied().sum::<u64>();
+    assert_eq!(plan.textures.values().copied().sum::<u64>(), 8);
+    assert_eq!(plan.immutable_bytes().unwrap(), 8 + work);
     assert!(plan.textures.keys().any(|key| key.repeat));
     assert!(plan.textures.keys().any(|key| !key.repeat));
     let mut retained = plan.clone();
     retained.merge(&plan).unwrap();
-    assert_eq!(retained.immutable_bytes().unwrap(), 8);
+    assert_eq!(retained.immutable_bytes().unwrap(), 8 + work);
+    assert_eq!(retained.work, plan.work);
     assert_eq!(retained.private_bytes, plan.private_bytes * 2);
     fixture.write("materials/image.tex", &texture_bytes([0, 0, 255, 255]));
     let other = fixture
@@ -365,7 +368,7 @@ fn plans_deduplicate_only_the_same_identity_and_fixed_sampling_variant() {
         .unwrap();
     retained.merge(&other).unwrap();
     assert_eq!(retained.textures.len(), 3);
-    assert_eq!(retained.immutable_bytes().unwrap(), 12);
+    assert_eq!(retained.immutable_bytes().unwrap(), 12 + work);
 }
 
 #[test]
@@ -381,11 +384,21 @@ fn decoded_cpu_payload_counts_capacity_without_identity_deduplication() {
         image_height: texture.image_height,
         source_format: texture.source_format,
         source_flags: texture.source_flags,
-        rgba: texture.rgba.clone(),
+        rgba: texture.rgba().to_vec(),
         animation: texture.animation.clone(),
+        timed: None,
+        static_source: None,
+        image: None,
+        text_frame: None,
+        _rgba_reservation: None,
     };
     duplicate.rgba.reserve(32);
-    let expected = scene.textures[0].rgba.capacity() as u64 + duplicate.rgba.capacity() as u64;
+    let expected = scene.textures[0]
+        .static_source
+        .as_ref()
+        .unwrap()
+        .capacity_bytes() as u64
+        + duplicate.rgba.capacity() as u64;
     scene.textures.push(duplicate);
     assert_eq!(scene.decoded_texture_bytes().unwrap(), expected);
     assert!(
@@ -393,7 +406,7 @@ fn decoded_cpu_payload_counts_capacity_without_identity_deduplication() {
             > scene
                 .textures
                 .iter()
-                .map(|texture| texture.rgba.len() as u64)
+                .map(|texture| texture.rgba().len() as u64)
                 .sum::<u64>()
     );
 }
@@ -420,5 +433,75 @@ fn resource_read_bounds_and_unsafe_paths_still_fail_closed() {
     assert!(matches!(
         error.downcast_ref::<lwe_scene::SceneAssetError>(),
         Some(lwe_scene::SceneAssetError::UnsafePath { .. })
+    ));
+}
+
+#[test]
+fn immutable_cpu_source_cache_reuses_only_live_identical_actual_reads() {
+    let fixture = Fixture::new();
+    let first = fixture.prepare(None);
+    let second = fixture.prepare(None);
+    let first_owner = first.textures[0].static_source.as_ref().unwrap();
+    let second_owner = second.textures[0].static_source.as_ref().unwrap();
+    assert!(Arc::ptr_eq(first_owner, second_owner));
+    let weak = Arc::downgrade(first_owner);
+    fixture.write("materials/image.tex", &texture_bytes([0, 0, 255, 255]));
+    let changed = fixture.prepare(None);
+    assert!(!Arc::ptr_eq(
+        first_owner,
+        changed.textures[0].static_source.as_ref().unwrap()
+    ));
+    assert_eq!(changed.textures[0].rgba(), [0, 0, 255, 255]);
+    drop(first);
+    drop(second);
+    assert!(
+        weak.upgrade().is_none(),
+        "weak cache must not pin old pixels or their reservation"
+    );
+}
+
+#[test]
+fn encoded_image_decodes_actual_first_mip_but_identity_covers_unused_mips() {
+    let fixture = Fixture::new();
+    let png = |width, height| {
+        let mut encoded = std::io::Cursor::new(Vec::new());
+        image::RgbaImage::from_pixel(width, height, image::Rgba([4, 5, 6, 7]))
+            .write_to(&mut encoded, image::ImageFormat::Png)
+            .unwrap();
+        encoded.into_inner()
+    };
+    let mut bytes = b"TEXV0005\0TEXI0001\0".to_vec();
+    // Container storage padding is not a decoded allocation. Only mip zero
+    // enters ImageReader, while the source identity includes the entire TEX.
+    for value in [0_u32, 3, 4, 4, 2, 2, 0] {
+        bytes.extend(value.to_le_bytes());
+    }
+    bytes.extend(b"TEXB0003\0");
+    for value in [1_u32, 13, 2] {
+        bytes.extend(value.to_le_bytes());
+    }
+    for size in [2_u32, 1] {
+        let encoded = png(size, size);
+        for value in [size, size, 0, 0, encoded.len() as u32] {
+            bytes.extend(value.to_le_bytes());
+        }
+        bytes.extend(encoded);
+    }
+    fixture.write("materials/image.tex", &bytes);
+    let first = fixture.prepare(None);
+    assert_eq!((first.textures[0].width, first.textures[0].height), (2, 2));
+    assert_eq!(first.textures[0].rgba(), [4, 5, 6, 7].repeat(4));
+    let last = bytes.last_mut().unwrap();
+    *last ^= 1;
+    fixture.write("materials/image.tex", &bytes);
+    let second = fixture.prepare(None);
+    assert_eq!(second.textures[0].rgba(), first.textures[0].rgba());
+    assert_ne!(
+        second.textures[0].fingerprint,
+        first.textures[0].fingerprint
+    );
+    assert!(!Arc::ptr_eq(
+        first.textures[0].static_source.as_ref().unwrap(),
+        second.textures[0].static_source.as_ref().unwrap()
     ));
 }

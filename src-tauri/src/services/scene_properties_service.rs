@@ -5,7 +5,9 @@ use crate::services::{
     desktop_persistence_service::DesktopPersistenceService, library_service::LibraryService,
     scene_service::SceneService,
 };
-use lwe_engine::scene::{apply_property_overrides, property_definitions, property_groups};
+use lwe_engine::scene::{
+    PropertyValue, apply_property_overrides, property_definitions, property_groups,
+};
 use lwe_library::WorkshopProjectType;
 use lwe_scene::SceneAssets;
 
@@ -49,10 +51,18 @@ fn snapshot_from_project(
     monitor_id: &str,
     item_id: &str,
 ) -> Result<ScenePropertiesSnapshot, String> {
-    if !values.is_empty() {
-        apply_property_overrides(&mut project, values).map_err(|error| error.to_string())?;
+    let (scalars, images) =
+        super::scene_resource_service::SceneResourceService::split_choices(&project, values)?;
+    if !scalars.is_empty() {
+        apply_property_overrides(&mut project, &scalars).map_err(|error| error.to_string())?;
     }
-    let properties = property_definitions(&project).map_err(|error| error.to_string())?;
+    let mut properties = property_definitions(&project).map_err(|error| error.to_string())?;
+    for property in &mut properties {
+        if images.contains_key(&property.name) {
+            property.value =
+                PropertyValue::Texture(values[&property.name].as_str().map(str::to_owned));
+        }
+    }
     let groups = property_groups(&project).map_err(|error| error.to_string())?;
     Ok(ScenePropertiesSnapshot {
         item_id: item_id.into(),

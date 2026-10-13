@@ -40,16 +40,19 @@ fn render_snapshot(
     snapshot: SpectrumSnapshot,
 ) -> Result<Vec<u8>> {
     bind_target(target);
+    // This probe intentionally changes uniforms/order outside a normal tick.
+    renderer.drawn = false;
     ensure!(
         renderer.render_internal(
             target.texture.width,
             target.texture.height,
             0.0,
-            true,
+            false,
             Some(snapshot),
         )?,
         "Forced acceptance frame did not render"
     );
+    renderer.report_presented();
     pixels(target)
 }
 
@@ -195,6 +198,13 @@ fn native_composite_pixels(
     // Independently chosen constant pixels make native modes 0/30/31 measurable
     // without copying any installed shader source into a fixture.
     let source = GpuTexture::upload(&PreparedTexture {
+        static_source: None,
+
+        timed: None,
+        image: None,
+        text_frame: None,
+        _rgba_reservation: None,
+
         fingerprint: [0; 32],
         width: 1,
         height: 1,
@@ -206,6 +216,13 @@ fn native_composite_pixels(
         rgba: vec![20, 50, 120, 128],
     })?;
     let background = GpuTexture::upload(&PreparedTexture {
+        static_source: None,
+
+        timed: None,
+        image: None,
+        text_frame: None,
+        _rgba_reservation: None,
+
         fingerprint: [0; 32],
         width: 1,
         height: 1,
@@ -264,9 +281,13 @@ fn acceptance(project: &Path, assets_root: &Path, report: &mut Report) -> Result
         estimated_gpu_bytes(&prepared)? == 202_180_100,
         "Original GPU logical payload changed"
     );
-    let layout = scratch_layout(&prepared.layers);
+    let layout = scratch_layout(
+        &prepared.layers,
+        prepared.canvas,
+        needs_full_frame(&prepared),
+    );
     ensure!(
-        layout == BTreeMap::from([((1920, 1080), 2), ((3840, 1080), 2)]),
+        layout == BTreeMap::from([((1920, 1080), 4), ((3840, 1080), 2)]),
         "Scratch FBO pooling changed: {layout:?}"
     );
     for layer in &prepared.layers {
@@ -283,7 +304,7 @@ fn acceptance(project: &Path, assets_root: &Path, report: &mut Report) -> Result
     }
     report.value["original_structure"] = json!({
         "properties":20,"layers":10,"effects":11,"passes":24,
-        "logical_gpu_payload_bytes":202_180_100,"shared_scratch_groups":2,"shared_scratch_targets":4,
+        "logical_gpu_payload_bytes":202_180_100,"shared_work_groups":2,"shared_work_targets":6,
     });
     let assets = lwe_scene::SceneAssets::open(project, Some(assets_root))?;
     let mut renderer = SceneRenderer::initialize(&prepared)?;
@@ -406,8 +427,10 @@ fn acceptance(project: &Path, assets_root: &Path, report: &mut Report) -> Result
     let small = RenderTarget::new(WIDTH / 2, HEIGHT / 2)?;
     bind_target(&small);
     renderer.render_forced(WIDTH / 2, HEIGHT / 2, 120.0)?;
+    renderer.report_presented();
     let resized = pixels(&small)?;
     renderer.render_forced(WIDTH / 2, HEIGHT / 2, 150.0)?;
+    renderer.report_presented();
     report.compare(
         "paused_resized_frames_are_identical",
         &resized,
@@ -416,6 +439,7 @@ fn acceptance(project: &Path, assets_root: &Path, report: &mut Report) -> Result
     )?;
     bind_target(&target);
     renderer.render_forced(WIDTH, HEIGHT, 180.0)?;
+    renderer.report_presented();
     report.compare(
         "paused_resize_back_retains_original_pixels",
         &baseline,

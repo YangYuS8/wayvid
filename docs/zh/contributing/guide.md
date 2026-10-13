@@ -273,7 +273,7 @@ LWE_REAL_DESKTOP_TESTS=1 cargo run --locked -p lwe-engine --example scene_resour
 
 JSON 记录 Rust 请求的活跃/峰值字节、glibc 已用/空闲/mmap 块、`/proc/self/smaps` RSS 分类、可用的 DRM fdinfo 内存字段、FD 和线程数。Rust 计数不含直接原生分配，其逻辑 realloc 峰值也不包含原生分配器临时保留的新旧缓冲。glibc 空闲块是分配器保留空间，不是活跃壁纸资源；mmap 与驱动分配需要分别解释。采样自身会临时分配 `/proc`/JSON 缓冲，并有固定预热开销。这些进程快照不是总 VRAM、帧耗时、功耗或全部原生分配无泄漏的证明。在全新子进程中设置 `MALLOC_ARENA_MAX=2` 只用于受控分配器诊断，不是生产设置或已验收的内存修复。
 
-`scripts/scene-ui-smoke.py` 使用原生 Tauri WebDriver DOM 操作与真实 IPC，以原生鼠标点击选择 Library 项目与显示器、应用、读取 Desktop 反馈与隔离会话、检查标题栏关闭隐藏但壁纸继续、重启自己的应用进程、确认恢复、清除，并可检查阻断项目。它输出 UI/桌面截图及 `report.json`。当前工具要求恰好一个物理输出、已有 shell 构建、`PATH` 中可用的 `tauri-driver` 和 `WebKitWebDriver`、`grim`、当前输出上未命名的空工作区，以及已获取的 Scene 内容。UI 显示器标签可与后端输出名不同，报告会同时记录。测试 debug shell 时，在另一终端运行 `pnpm dev`，并先执行 `cargo build --locked -p lwe-shell`：
+`scripts/scene-ui-smoke.py` 使用原生 Tauri WebDriver DOM 操作与真实 IPC，以原生鼠标点击选择 Library 项目与显示器、应用、读取 Desktop 反馈与隔离会话、检查标题栏关闭隐藏但壁纸继续、重启自己的应用进程、确认恢复、清除，并可检查阻断项目。它输出 UI/桌面截图及 `report.json`。当前工具要求目标 compositor 恰好一个输出、已有 shell 构建、`PATH` 中可用的 `tauri-driver` 和 `WebKitWebDriver`、`grim`、当前输出上未命名的空工作区，以及已获取的 Scene 内容。嵌套 compositor 的输出须标为嵌套范围，不能记为物理显示器验收。UI 显示器标签可与后端输出名不同，报告会同时记录。测试 debug shell 时，在另一终端运行 `pnpm dev`，并先执行 `cargo build --locked -p lwe-shell`：
 
 ```bash
 lwe_scene_project="$HOME/.local/share/Steam/steamapps/workshop/content/431960/3337606455"
@@ -294,6 +294,34 @@ LWE_REAL_DESKTOP_TESTS=1 python3 scripts/scene-ui-smoke.py \
 原生属性/失败/全屏验收应使用默认 `3659880761` 项目，追加 `--scene-properties --scene-properties-write-failure --long-occlusion`，可同时加 `--playback-settings`。`--scene-properties` 需要作者声明的 bool 和可修改 slider，保存编辑后验证重启的会话/控件恢复，并重置全部作者默认值。写入失败标志要求非 root 用户，仅更改工具自有隔离配置的权限，验证回滚/草稿保留后重试。`--long-occlusion` 只用自有 Tauri 全屏窗口覆盖至少十二秒，不使系统休眠/锁屏，也不测 callback 暂停。应复核真实壁纸、编辑器、回滚与恢复截图，自动业务断言本身不足以通过画面验收。
 
 控件较多的项目可添加 `--all-scene-properties`，它会启用属性流程并编辑全部声明控件。bool 和 slider 使用原生 WebDriver 鼠标/键盘操作；color 通过已渲染颜色输入的实际 input 事件修改，再走正常 Save/IPC 流程，不测试系统颜色选择器。原始 `2903458386` 的二十个控件使用此参数，并同时启用 `--scene-properties-write-failure --playback-settings --long-occlusion`。
+
+恰有一个图片资源控件的项目可在 `--all-scene-properties` 后添加 `--scene-image /absolute/path/to/static.png`，并将 `wtype` 放入测试 PATH。工具通过自有原生文件选择器取消/选择，仅删除复制出的选图来源，再验证内容 token 的持久恢复和作者图片重置。配置和数据目录均隔离，保留 `HOME` 供 Steam 发现。验收完整效果图时，为需要保持启用的作者选项重复添加 `--keep-scene-property NAME`，其余控件照常编辑。将全部 bool 取反可能关闭所有效果，不能作为完整渲染验收。这些参数不注入 IPC，不绕过候选/保存门控。
+
+原生选择器按键不能触发 GTK 按钮时，可添加 `--native-dialog-accessibility`。它依赖 Python GI/AT-SPI 与 GTK 无障碍桥接。工具自动且仅在自有子进程环境中设置 `GTK_MODULES=gail:atk-bridge`、`NO_AT_BRIDGE=0` 和 `LC_ALL=C.UTF-8`。`wtype` 仍输入复制出的来源路径；替代模式核对自有选择器窗口、PID 和焦点后，调用真实 Cancel/Open 按钮的 AT-SPI action，不调用业务 IPC，也不替换原生文件选择器。
+
+在 `--scene-image --playback-settings` 后添加 `--narrow-image-layout`，可在真实 380 像素原生视口中记录英/中文图片控件。工具通过 Settings 切换语言，检查图片控件及按钮无溢出，再恢复原生窗口尺寸。该检查覆盖图片编辑器布局，不代表整个 Library 的窄窗口布局验收。
+
+### Miku 扩展（2026-10-13） {#miku-extension-2026-10-13}
+
+共享有界路径现已实现空默认图片属性、实例材质、genericimage4/sprite 帧选择、原 motionblur 累积/复制/合并图与 CRT 合成别名、所需 SceneScript 帧/音频/属性形式及内置 Atami CFF 文字。作者隐藏层仍参与准备，实际选项决定可见性。默认图保留十一个声明、十个渲染层、五个效果及二十五个 pass，含四个全局 bloom pass。
+
+未修改的原版 `3420277613` 已在最终生产源码上通过完整 CPU 准备与软件 EGL 全图 oracle。两组八帧图集均在实际原脚本 VM 的受控非零音频下完成选择和可见绘制；三个独立历史、准确暂停画面、同项目候选、冻结旧画面的精确回滚、解冻与最终清理通过。保留的 CPU 计费为 255,616,293 字节，预留峰值为 525,312,699 字节（500.98 MiB）；已验收旧代/候选 GPU 并集为 525,624,984 字节（501.28 MiB）。两项峰值均低于各自 536,870,912 字节上限。冻结时将 79,833,600 字节私有历史移入封闭 CPU 快照；若旧历史留在 GPU，会需要 605,458,584 字节，按预算被拒绝。清理后 CPU 计费与共享上传均归零。这些生产分配/预留计数不包含测试专用 readback vector、分配器开销、RSS 或实测 VRAM。
+
+最终源码的独立 CPU 检查还通过了全部五个原始脚本模块与原版 Atami 字体，包括共享字体所有权及有界文字栅格化。2.5D Space 软件 EGL 回归的二十六项像素比较也全部通过。这些检查使用受控输入频谱，不能证明实时音频采集或桌面验收。
+
+独立 CPU 准备/worker 检查通过了原 Glitch OFF（`0`）和 POOF（`2`）分支，开启 Framerate 并保留默认效果。OFF 准备出十一个图层/五个效果/二十六个 pass，显示 Static50；POOF 为十/五/二十五，按作者条件有意隐藏角色。脚本控制的隐藏图层在 callback 后仍保持隐藏。这是 CPU 选项证据，不是这两个分支的原生像素验收。包中的 scheme-color 控件没有显式对象或脚本绑定，其 UI/持久化检查不能证明原引擎隐式配色行为。
+
+独立 `original-miku-private-capture.json` 在 AMD Radeon/radeonsi surfaceless EGL 上通过。自有 PCM 播放至私有静音 Pulse sink，再经生产默认采集进入已验收的十六/三十二/六十四频段频谱；十三份已验收帧快照匹配原十六/六十四频段 VM 不透明度响应，同时渲染完整默认图与三个历史。单独的因果 probe 固定输入、几何与时间，真实音频通过未修改的原 SimpleBars shader 及三十二频段立体声 uniform 改变了 1,468 个像素。暂停断开采集且精确保留已验收像素，恢复后重连，清理后采集与共享上传释放。该证据是真实私有采集加硬件离屏渲染，与原生桌面呈现分开记录。
+
+最终原生 engine-only probe 在 AMD 680M 的嵌套 niri 上以 1920×1080 渲染未修改的默认图。30 FPS 上限下，三十秒动画完成 136 次 swap（4.53 FPS）；三十秒暂停的 draw/swap/callback 均为零，恢复后三秒完成十三次 swap（4.33 FPS）。清除后输出指标移除，后端退出成功 join。所有效果与作者资源分辨率均保留。**该次运行未达到 30 FPS，不代表日用就绪。** 当前 GPU 计划 500,230,580 字节是逻辑并集，重叠的 pool/私有诊断视图不能相加。私有最终 manifest 记录 shell SHA-256 `09857b830cc0d2147c0ffb7ec32aaff0cbac6928d8a094a461d4a40b3de5355d` 及 probe SHA-256 `42ee6e3d9e04f5f20357107e52ad7e2ff72a42c4ac0a4d84dabf1460701fe29a`。
+
+真实原生布局检查通过了英/中文 380 像素视口，图片控件宽 230 像素，控件内部及按钮均无溢出。语言通过真实 Settings 流程切换，运行期间源码不变，未注入 DOM 样式，自有窗口/工作区清理通过。现有 catalog toolbar 溢出不在此图片编辑器检查范围内。
+
+该机器 Mesa 26.2.4/llvmpipe LLVM 23.1.1 的独立微型标量数组/tint 夹具出现像素错误，但 uniform 回读正确。纯 GL 独立复现确认软件驱动问题；四十二个相同 AMD Radeon/radeonsi 对照及 fresh-program A→B→A 检查通过。保留软件像素比较失败的事实，不降低期望值，也不由源码/数学检查推定原引擎一致性。
+
+最终 `native-full-effects-final3/report.json` 在同一嵌套环境中通过全部十七项原生步骤，无模拟 IPC 或清理错误。流程涵盖全部十四个值控件，保持 Glitch ON 与完整效果 bool 启用，修改 Framerate、scheme color、全部六个 CRT slider 和背景图片。两轮真实 GTK 文件选择器取消/选择使用自有无障碍按钮；导入后删除复制出的选图来源，内容 token 经原子保存与重启保留。PermissionDenied 保存失败保留原会话字节/inode、可编辑草稿和此前 Scene Running 状态，重试成功。Settings 将 FPS 上限从 15 改为 30，应用进程与分配保持不变；标题栏关闭隐藏同一进程，整个自有进程组退出 join 后，新进程恢复图片与选项。重置删除选项覆盖并恢复全部作者默认值，十二秒自有全屏遮挡后恢复，随后目标清除移除分配。该次流程还通过两种语言的 380 像素图片布局，并恢复原命名工作区。全屏遮挡不证明 callback 暂停或系统休眠。
+
+图片契约与边界见 [Scene 图片、动画帧与历史缓冲](./scene-miku-runtime.md)。按用户明确要求跳过物理休眠/恢复；真实多显示器、安装包、Windows A/B 及 Miku 长期运行验收仍未完成。
 
 ### 已记录的实验性 Scene 验收
 

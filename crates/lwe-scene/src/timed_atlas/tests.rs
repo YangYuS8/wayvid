@@ -808,3 +808,57 @@ fn assert_crop_eq(region: &[u8], full: &[u8], width: u32, rect: PixelRect) {
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
+
+#[test]
+fn handed_off_source_keeps_capacity_owner_and_rejects_wrong_budget() {
+    let frames = [(0.1, [0., 0., 2., 0., 0., 2.])];
+    let bytes = authored(&blocks(), false, &frames);
+    let budget = AtlasMemoryBudget::new(4 * 1024 * 1024).unwrap();
+    let reservation = budget.reserve_bytes(bytes.capacity()).unwrap();
+    let mut inspection = TextureInspectionBudget::default();
+    let source = TimedAtlasSource::from_budgeted_bytes(
+        bytes,
+        reservation,
+        ResourceOrigin::Project,
+        &mut inspection,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(
+        budget.usage().charged_bytes,
+        source.retained_capacity_bytes()
+    );
+    let region = source.decode_region(source.frames()[0].rect).unwrap();
+    drop(source);
+    assert_eq!(budget.usage().charged_bytes, region.capacity_bytes());
+    drop(region);
+    assert_eq!(budget.usage().charged_bytes, 0);
+    let bytes = authored(&blocks(), false, &frames);
+    let reservation = budget.reserve_bytes(bytes.capacity()).unwrap();
+    let other = AtlasMemoryBudget::new(4 * 1024 * 1024).unwrap();
+    assert!(
+        TimedAtlasSource::from_budgeted_bytes(
+            bytes,
+            reservation,
+            ResourceOrigin::Project,
+            &mut TextureInspectionBudget::default(),
+            &other
+        )
+        .is_err()
+    );
+    assert_eq!(budget.usage().charged_bytes, 0);
+    assert_eq!(other.usage().charged_bytes, 0);
+    let bytes = authored(&blocks(), false, &frames);
+    let reservation = budget.reserve_bytes(bytes.capacity() - 1).unwrap();
+    assert!(
+        TimedAtlasSource::from_budgeted_bytes(
+            bytes,
+            reservation,
+            ResourceOrigin::Project,
+            &mut TextureInspectionBudget::default(),
+            &budget
+        )
+        .is_err()
+    );
+    assert_eq!(budget.usage().charged_bytes, 0);
+}

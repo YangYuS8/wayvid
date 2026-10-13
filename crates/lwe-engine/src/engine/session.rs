@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -184,12 +183,18 @@ impl RendererInstance {
         }
     }
 
-    fn report_swap(&self) {
-        if let Self::Video(player) = self {
-            player.report_swap();
+    fn report_swap(&mut self) {
+        match self {
+            Self::Video(player) => player.report_swap(),
+            Self::Scene { renderer, .. } => renderer.report_presented(),
         }
     }
 
+    fn report_swap_failed(&mut self) {
+        if let Self::Scene { renderer, .. } = self {
+            renderer.report_present_failed();
+        }
+    }
     fn pause(&mut self) {
         match self {
             Self::Video(player) => {
@@ -258,7 +263,7 @@ impl RendererInstance {
         Ok(())
     }
 
-    fn freeze_for_rollback(&mut self) {
+    fn freeze_for_rollback(&mut self) -> Result<()> {
         match self {
             Self::Video(_) => {
                 self.volume(0.0);
@@ -267,10 +272,11 @@ impl RendererInstance {
             Self::Scene {
                 renderer, clock, ..
             } => {
+                renderer.freeze_for_rollback()?;
                 clock.pause();
-                renderer.pause();
             }
         }
+        Ok(())
     }
 
     fn rollback_audio_pause(&mut self, paused: bool) {
@@ -417,6 +423,23 @@ impl WallpaperSession {
         Ok(plan)
     }
 
+    pub(super) fn replacement_resource_plan(&self) -> Result<ResourcePlan> {
+        // An uncommitted pending candidate is discarded before allocation. The
+        // saved/current generation alone remains available for rollback.
+        let mut plan = ResourcePlan::default();
+        for renderer in self
+            .renderer
+            .iter()
+            .chain(self.rollback.iter().map(|(_, r)| r))
+        {
+            let measured = match renderer {
+                RendererInstance::Scene { renderer, .. } => renderer.frozen_allocation_plan()?,
+                RendererInstance::Video(_) => ResourcePlan::default(),
+            };
+            plan.merge(&measured)?;
+        }
+        Ok(plan)
+    }
     fn scene_payload_bytes(&self) -> u64 {
         self.resource_plan()
             .and_then(|plan| plan.total(0))
@@ -456,18 +479,27 @@ impl WallpaperSession {
     }
 
     pub(super) fn decoded_allocations(&self) -> Result<Vec<(usize, u64)>> {
-        std::iter::once(&self.source)
+        let mut allocations: Vec<_> = std::iter::once(&self.source)
             .chain(self.pending.as_ref().map(|(source, _)| source))
             .chain(self.rollback.as_ref().map(|(source, _)| source))
-            .filter_map(|source| match source {
-                WallpaperSource::Scene { prepared, .. } => Some(
-                    prepared
-                        .decoded_texture_bytes()
-                        .map(|bytes| (Arc::as_ptr(prepared) as usize, bytes)),
-                ),
-                WallpaperSource::Video { .. } => None,
+            .flat_map(|source| match source {
+                WallpaperSource::Scene { prepared, .. } => {
+                    prepared.cpu_allocations().collect::<Vec<_>>()
+                }
+                WallpaperSource::Video { .. } => Vec::new(),
             })
-            .collect()
+            .collect();
+        for renderer in self
+            .renderer
+            .iter()
+            .chain(self.pending.as_ref().map(|(_, r)| r))
+            .chain(self.rollback.as_ref().map(|(_, r)| r))
+        {
+            if let RendererInstance::Scene { renderer, .. } = renderer {
+                allocations.extend(renderer.retained_history_allocations());
+            }
+        }
+        Ok(allocations)
     }
 
     pub(super) fn poll_audio_health(&mut self) -> Result<()> {
@@ -579,7 +611,10 @@ impl WallpaperSession {
             self.redraw_needed,
         )? {
             self.metrics.draws = self.metrics.draws.saturating_add(1);
-            egl.swap_buffers(window)?;
+            if let Err(error) = egl.swap_buffers(window) {
+                renderer.report_swap_failed();
+                return Err(error);
+            }
             self.metrics.swaps = self.metrics.swaps.saturating_add(1);
             self.metrics.record_frame_duration(frame_started.elapsed());
             renderer.report_swap();
@@ -597,7 +632,14 @@ impl WallpaperSession {
             .as_ref()
             .context("Cannot replace uninitialized renderer")?;
         egl.make_current(window)?;
-        let mut candidate = RendererInstance::create(
+        self.pending = None;
+        if let Some(pool) = &self.texture_pool {
+            pool.drain_retired()?;
+        }
+        if let Some(previous) = &mut self.renderer {
+            previous.freeze_for_rollback()?;
+        }
+        let candidate = RendererInstance::create(
             &source,
             &self.video_config,
             &self.output_info,
@@ -607,7 +649,20 @@ impl WallpaperSession {
                     .as_ref()
                     .context("Scene texture domain unavailable")?,
             ),
-        )?;
+        );
+        let mut candidate = match candidate {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                if let Some(previous) = &mut self.renderer {
+                    if self.state == PlaybackState::Playing {
+                        previous.resume();
+                    } else if let RendererInstance::Scene { renderer, .. } = previous {
+                        renderer.thaw(true);
+                    }
+                }
+                return Err(error);
+            }
+        };
         candidate.volume(0.0);
         if self.state == PlaybackState::Paused {
             candidate.pause();
@@ -623,8 +678,7 @@ impl WallpaperSession {
         if let Some((source, mut renderer)) = self.pending.take() {
             renderer.volume(self.source_volume(&source));
             let previous_source = std::mem::replace(&mut self.source, source);
-            if let Some(mut previous) = self.renderer.replace(renderer) {
-                previous.freeze_for_rollback();
+            if let Some(previous) = self.renderer.replace(renderer) {
                 self.rollback = Some((previous_source, previous));
             }
         }
@@ -664,6 +718,14 @@ impl WallpaperSession {
             }
             self.source = source;
             self.renderer = Some(renderer);
+        }
+        if let Some(RendererInstance::Scene { renderer, .. }) = &mut self.renderer {
+            renderer.thaw(self.state == PlaybackState::Paused);
+        }
+        if self.state == PlaybackState::Playing
+            && let Some(renderer) = &mut self.renderer
+        {
+            renderer.resume();
         }
         self.redraw_needed = true;
         Ok(true)

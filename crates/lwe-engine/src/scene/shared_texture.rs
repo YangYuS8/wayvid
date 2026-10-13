@@ -1,4 +1,5 @@
-//! One engine/context owns readonly uploads; renderers own leases, never cache pins.
+//! One context owns readonly uploads and explicitly borrowed work storage.
+//! Renderers own leases; caches are weak and never pin pixels or work targets.
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
@@ -20,9 +21,17 @@ pub(crate) struct TextureKey {
     pub repeat: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct WorkKey {
+    pub width: i32,
+    pub height: i32,
+    pub slot: usize,
+}
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ResourcePlan {
     pub textures: BTreeMap<TextureKey, u64>,
+    pub work: BTreeMap<WorkKey, u64>,
     pub private_bytes: u64,
 }
 
@@ -40,6 +49,16 @@ impl ResourcePlan {
                 );
             }
         }
+        for (key, bytes) in &other.work {
+            if let Some(previous) = self.work.get(key) {
+                ensure!(
+                    *previous == *bytes,
+                    "Scene borrowed work allocation sizes disagree"
+                );
+            }
+        }
+        self.work
+            .extend(other.work.iter().map(|(key, bytes)| (*key, *bytes)));
         self.private_bytes = private_bytes;
         self.textures
             .extend(other.textures.iter().map(|(key, bytes)| (*key, *bytes)));
@@ -47,11 +66,14 @@ impl ResourcePlan {
     }
 
     pub fn immutable_bytes(&self) -> Result<u64> {
-        self.textures.values().try_fold(0_u64, |total, bytes| {
-            total
-                .checked_add(*bytes)
-                .context("Scene immutable allocation total overflow")
-        })
+        self.textures
+            .values()
+            .chain(self.work.values())
+            .try_fold(0_u64, |total, bytes| {
+                total
+                    .checked_add(*bytes)
+                    .context("Scene immutable allocation total overflow")
+            })
     }
 
     pub fn total(&self, retired: u64) -> Result<u64> {
@@ -63,7 +85,7 @@ impl ResourcePlan {
 
     pub fn preflight(&self, retired: u64, additional_private: u64) -> Result<u64> {
         ensure!(
-            self.textures.len() <= MAX_CACHE_ENTRIES,
+            self.textures.len() + self.work.len() <= MAX_CACHE_ENTRIES,
             "Scene readonly texture entry budget exhausted"
         );
         let total = self
@@ -114,6 +136,7 @@ pub(crate) struct TexturePool {
     closed: Cell<bool>,
     faulted: Cell<bool>,
     entries: RefCell<BTreeMap<TextureKey, Weak<SharedTexture>>>,
+    work_entries: RefCell<BTreeMap<WorkKey, Weak<SharedTexture>>>,
     ledger: Rc<RefCell<Ledger>>,
 }
 
@@ -144,6 +167,7 @@ impl TexturePool {
             closed: Cell::new(false),
             faulted: Cell::new(false),
             entries: RefCell::new(BTreeMap::new()),
+            work_entries: RefCell::new(BTreeMap::new()),
             ledger: Rc::new(RefCell::new(Ledger::default())),
         }))
     }
@@ -207,12 +231,33 @@ impl TexturePool {
         bytes: u64,
         upload: impl FnOnce() -> Result<GpuTexture>,
     ) -> Result<Rc<SharedTexture>> {
+        self.acquire_cached(&self.entries, key, bytes, upload)
+    }
+
+    /// Only sequential render attempts may borrow these mutable pixels. No
+    /// accepted frame/history is ever stored under a WorkKey.
+    pub(super) fn acquire_work(
+        &self,
+        key: WorkKey,
+        bytes: u64,
+        allocate: impl FnOnce() -> Result<GpuTexture>,
+    ) -> Result<Rc<SharedTexture>> {
+        self.acquire_cached(&self.work_entries, key, bytes, allocate)
+    }
+
+    fn acquire_cached<K: Ord + Copy>(
+        &self,
+        entries: &RefCell<BTreeMap<K, Weak<SharedTexture>>>,
+        key: K,
+        bytes: u64,
+        upload: impl FnOnce() -> Result<GpuTexture>,
+    ) -> Result<Rc<SharedTexture>> {
         self.ensure_current()?;
         self.drain_retired()?;
-        self.entries
+        entries
             .borrow_mut()
             .retain(|_, entry| entry.strong_count() != 0);
-        if let Some(texture) = self.entries.borrow().get(&key).and_then(Weak::upgrade) {
+        if let Some(texture) = entries.borrow().get(&key).and_then(Weak::upgrade) {
             ensure!(
                 self.ledger
                     .borrow()
@@ -224,7 +269,11 @@ impl TexturePool {
             return Ok(texture);
         }
         ensure!(
-            self.entries.borrow().len() < MAX_CACHE_ENTRIES,
+            self.entries
+                .borrow()
+                .len()
+                .checked_add(self.work_entries.borrow().len())
+                .is_some_and(|count| count < MAX_CACHE_ENTRIES),
             "Scene texture cache entry budget exhausted"
         );
         let resident = self.resident_bytes()?;
@@ -256,9 +305,7 @@ impl TexturePool {
             },
         );
         drop(ledger);
-        self.entries
-            .borrow_mut()
-            .insert(key, Rc::downgrade(&result));
+        entries.borrow_mut().insert(key, Rc::downgrade(&result));
         Ok(result)
     }
 
@@ -295,7 +342,13 @@ impl TexturePool {
             .borrow()
             .values()
             .map(|entry| entry.strong_count() as u64)
-            .sum()
+            .sum::<u64>()
+            + self
+                .work_entries
+                .borrow()
+                .values()
+                .map(|entry| entry.strong_count() as u64)
+                .sum::<u64>()
     }
 
     pub fn drain_retired(&self) -> Result<()> {
@@ -328,6 +381,9 @@ impl TexturePool {
         self.entries
             .borrow_mut()
             .retain(|_, entry| entry.strong_count() != 0);
+        self.work_entries
+            .borrow_mut()
+            .retain(|_, entry| entry.strong_count() != 0);
         Ok(())
     }
 
@@ -342,6 +398,7 @@ impl TexturePool {
         self.closed.set(true);
         if result.is_ok() {
             self.entries.borrow_mut().clear();
+            self.work_entries.borrow_mut().clear();
         }
         result
     }
@@ -376,6 +433,7 @@ mod tests {
                 bytes,
             )]),
             private_bytes: private,
+            ..ResourcePlan::default()
         }
     }
 

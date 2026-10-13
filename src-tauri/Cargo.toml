@@ -18,6 +18,8 @@ lwe-engine = { path = "../crates/lwe-engine" }
 lwe-library = { path = "../crates/lwe-library" }
 lwe-scene = { path = "../crates/lwe-scene" }
 tempfile = { workspace = true }
+tauri-plugin-dialog = "=2.8.2"
+libc = "0.2"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.1", features = [] }

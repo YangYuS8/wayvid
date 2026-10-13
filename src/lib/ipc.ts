@@ -5,6 +5,7 @@ import type {
   AppShellSnapshot,
   DesktopPageSnapshot,
   DiagnosticsSnapshot,
+  ImportedSceneImage,
   LibraryItemDetail,
   LibraryPageSnapshot,
   ScenePropertiesSnapshot,
@@ -55,6 +56,9 @@ export const applyLibraryItemToMonitor = (monitorId: string, itemId: string) =>
 
 export const loadSceneProperties = (monitorId: string, itemId: string) =>
   invokeCommand<ScenePropertiesSnapshot>('load_scene_properties', { monitorId, itemId });
+
+export const chooseSceneImage = (itemId: string, propertyName: string) =>
+  invokeCommand<ImportedSceneImage | null>('choose_scene_image', { itemId, propertyName });
 
 export const updateSceneProperties = (
   monitorId: string,
