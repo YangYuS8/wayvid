@@ -3,10 +3,38 @@ import { render } from 'svelte/server';
 
 import { resetPreferredLanguage, setPreferredLanguage } from '$lib/i18n';
 import LibraryDetailPanel from './LibraryDetailPanel.svelte';
+import { libraryDetail } from '$lib/testing/page-fixtures';
+import type { ItemType } from '$lib/types';
 
 describe('LibraryDetailPanel', () => {
   afterEach(() => {
     resetPreferredLanguage();
+  });
+
+  it.each([
+    ['scene', true, 'DP-1', true],
+    ['scene', false, 'DP-1', false],
+    ['scene', true, '', false],
+    ['video', true, 'DP-1', false],
+    ['web', false, 'DP-1', false]
+  ] as [ItemType, boolean, string, boolean][])('shows the property entry only for an applicable scene and selected monitor: %s/%s/%s', (itemType, applySupported, selectedMonitorId, visible) => {
+    const { body } = render(LibraryDetailPanel, {
+      props: { detail: { ...libraryDetail, itemType, applySupported }, selectedMonitorId, applyDisabled: false }
+    });
+    expect(body.includes('data-detail-section="scene-properties"')).toBe(visible);
+    if (visible) {
+      expect(body).toContain('aria-expanded="false"');
+      expect(body).not.toContain('Save and apply');
+    }
+  });
+
+  it.each(['applyDisabled', 'applying'] as const)('disables scene properties while %s', (flag) => {
+    const { body } = render(LibraryDetailPanel, {
+      props: { detail: { ...libraryDetail, itemType: 'scene' }, selectedMonitorId: 'DP-1', applyDisabled: false, [flag]: true }
+    });
+    const entry = body.match(/<button[^>]*aria-label="Scene properties"[^>]*>/)?.[0];
+    expect(entry).toBeDefined();
+    expect(entry).toContain('disabled');
   });
 
   it('surfaces desktop assignment degradation from the current detail payload', () => {
@@ -129,7 +157,7 @@ describe('LibraryDetailPanel', () => {
             reasonCode: 'recognized_but_runtime_unsupported',
             summaryCopy: 'Recognized, runtime pending',
             headline: 'Recognized, runtime pending',
-            detail: 'LWE recognizes this item for Library and compatibility reporting, but the current verified runtime path only applies video wallpapers.',
+            detail: 'LWE recognizes this item for Library and compatibility reporting, but its type or resources do not meet the current playback requirements.',
             nextStep: 'wait_for_future_support',
             nextStepCopy: 'This item needs future runtime support before it can be applied.'
           },
@@ -158,8 +186,45 @@ describe('LibraryDetailPanel', () => {
       }
     });
 
-    expect(body).toContain('current verified runtime can only apply video wallpapers');
+    expect(body).toContain('This Scene wallpaper cannot play with the current resources and features');
     expect(body).toContain('disabled');
+  });
+
+  it('enables an experimental Scene apply attempt only when the item is eligible', () => {
+    const { body } = render(LibraryDetailPanel, {
+      props: {
+        detail: {
+          id: 'scene-eligible', title: 'Eligible Scene', itemType: 'scene',
+          coverPath: null, source: 'workshop',
+          compatibility: {
+            badge: 'partially_supported', reasonCode: 'scene_experimental',
+            summaryCopy: 'Experimental Scene', headline: 'Experimental Scene',
+            detail: 'Assets validated', nextStep: 'none', nextStepCopy: null,
+            sceneAssessment: {
+              runnable: true,
+              summary: { layerCount: 1, effectCount: 0, passCount: 1, animated: false },
+              issues: []
+            }
+          },
+          applySupported: true, monitorsAvailable: true,
+          monitorDiscoveryIssue: null, desktopAssignmentIssue: null,
+          desktopAssignmentsAvailable: true, assignedMonitorLabels: [],
+          description: null, tags: []
+        },
+        monitors: [{
+          monitorId: 'DISPLAY-1', displayName: 'Primary', resolution: '1920x1080',
+          currentWallpaperTitle: null, currentCoverPath: null,
+          clearSupported: false, runtimeStatus: 'idle'
+        }],
+        selectedMonitorId: 'DISPLAY-1', applyDisabled: false
+      }
+    });
+    const buttons = [...body.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+    const applyButton = buttons.find(([, , content]) => content.replace(/<[^>]*>/g, '').trim() === 'Apply');
+    expect(applyButton).toBeDefined();
+    expect(applyButton?.[1]).not.toMatch(/\sdisabled(?:\s|=|$)/);
+    expect(body).toContain('Experimental Scene');
+    expect(body).not.toContain('This Scene wallpaper cannot play');
   });
 
   it('shows web runtime unsupported apply messaging for non-video items', () => {
@@ -177,7 +242,7 @@ describe('LibraryDetailPanel', () => {
             summaryCopy: 'Recognized for reporting only',
             headline: 'Runtime unsupported',
             detail:
-              'LWE recognizes this web item for Library and compatibility reporting, but the current verified runtime path only applies video wallpapers.',
+              'LWE recognizes this web item for Library and compatibility reporting, but its type or resources do not meet the current playback requirements.',
             nextStep: 'wait_for_future_support',
             nextStepCopy: 'This item needs future runtime support before it can be applied.'
           },
@@ -209,7 +274,7 @@ describe('LibraryDetailPanel', () => {
     expect(body).toContain('>Web<');
     expect(body).toContain('Runtime unsupported');
     expect(body).toContain('compatibility reporting');
-    expect(body).toContain('current verified runtime can only apply video wallpapers');
+    expect(body).toContain('type or resources do not meet the current playback requirements');
     expect(body).toContain('disabled');
     expect(body).not.toContain('recognized_but_runtime_unsupported');
   });

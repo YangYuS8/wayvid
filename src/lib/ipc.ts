@@ -7,6 +7,8 @@ import type {
   DiagnosticsSnapshot,
   LibraryItemDetail,
   LibraryPageSnapshot,
+  ScenePropertiesSnapshot,
+  ScenePropertyValue,
   SettingsPageSnapshot,
   SettingsUpdateInput,
   WorkshopItemDetail,
@@ -50,6 +52,15 @@ export const loadDiagnostics = () => invokeCommand<DiagnosticsSnapshot>('load_di
 
 export const applyLibraryItemToMonitor = (monitorId: string, itemId: string) =>
   invokeCommand<ActionOutcome<null>>('apply_library_item_to_monitor', { monitorId, itemId });
+
+export const loadSceneProperties = (monitorId: string, itemId: string) =>
+  invokeCommand<ScenePropertiesSnapshot>('load_scene_properties', { monitorId, itemId });
+
+export const updateSceneProperties = (
+  monitorId: string,
+  itemId: string,
+  values: Record<string, ScenePropertyValue>
+) => invokeCommand<ActionOutcome<null>>('update_scene_properties', { monitorId, itemId, values });
 
 export const clearLibraryItemFromMonitor = (monitorId: string) =>
   invokeCommand<ActionOutcome<null>>('clear_library_item_from_monitor', { monitorId });

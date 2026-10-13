@@ -40,6 +40,8 @@ test_results/
 tests/
 !scripts/tests/
 !scripts/tests/test_*.py
+!crates/lwe-scene/tests/
+!crates/lwe-scene/tests/*.rs
 __pycache__/
 *.py[cod]
 

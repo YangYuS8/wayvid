@@ -1,6 +1,6 @@
 use crate::action_outcome::{ActionOutcome, InvalidatedPage};
 use crate::assembly::settings_page::assemble_settings_page;
-use crate::commands::background::run_blocking;
+use crate::commands::background::run_desktop_blocking;
 use crate::models::{SettingsPageSnapshot, SettingsUpdateInput};
 use crate::services::settings_service::SettingsService;
 use std::sync::Mutex;
@@ -17,7 +17,7 @@ fn serialize_settings_update<T>(update: impl FnOnce() -> Result<T, String>) -> R
 
 #[tauri::command]
 pub async fn load_settings_page() -> Result<SettingsPageSnapshot, String> {
-    run_blocking(|| SettingsService::load_page().map(assemble_settings_page)).await
+    run_desktop_blocking(|| SettingsService::load_page().map(assemble_settings_page)).await
 }
 
 #[tauri::command]
@@ -25,7 +25,7 @@ pub async fn update_settings(
     app: tauri::AppHandle,
     input: SettingsUpdateInput,
 ) -> Result<ActionOutcome<SettingsPageSnapshot>, String> {
-    run_blocking(move || {
+    run_desktop_blocking(move || {
         serialize_settings_update(|| {
             let requested_language = input.language.clone();
             let snapshot = assemble_settings_page(SettingsService::update_settings(input)?);
@@ -34,12 +34,19 @@ pub async fn update_settings(
                 crate::update_tray_menu_language(&app, &language);
             }
 
+            let issue = snapshot.playback_settings_issue.clone();
+            let message = match &issue {
+                Some(reason) => format!(
+                    "Settings were saved, but playback settings could not be applied: {reason}"
+                ),
+                None => "Settings updated".to_string(),
+            };
             Ok(ActionOutcome {
-                ok: true,
-                message: Some("Settings updated".to_string()),
+                ok: issue.is_none(),
+                message: Some(message),
                 shell_patch: None,
                 current_update: Some(snapshot),
-                invalidations: vec![InvalidatedPage::Settings],
+                invalidations: vec![InvalidatedPage::Settings, InvalidatedPage::Desktop],
             })
         })
     })

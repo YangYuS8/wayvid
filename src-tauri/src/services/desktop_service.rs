@@ -1,11 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use lwe_engine::{EngineCommand, EngineConfig, EngineEvent, EngineHandle, spawn_engine};
+use lwe_engine::{
+    EngineCommand, EngineConfig, EngineEvent, EngineHandle, PlaybackSettings, WallpaperSource,
+    spawn_engine,
+};
 use lwe_library::{WeProject, WorkshopProjectType};
 
 use crate::results::desktop::{
@@ -17,6 +20,7 @@ use crate::results::monitor_discovery::MonitorDiscoveryResult;
 use crate::services::desktop_persistence_service::DesktopPersistenceService;
 use crate::services::library_service::LibraryService;
 use crate::services::monitor_service::MonitorService;
+use crate::services::scene_service::SceneService;
 use crate::services::wayland_capability_service::WaylandCapabilityService;
 
 pub(crate) const LIBRARY_RESOLUTION_ISSUE_PREFIX: &str =
@@ -30,6 +34,9 @@ const BACKEND_NOT_RUNNING_CLEAR_WARNING: &str =
 struct RunningDesktopApplyBackend {
     handle: EngineHandle,
     events: Receiver<EngineEvent>,
+    stopped_reason: Option<String>,
+    playback_settings: PlaybackSettings,
+    playback_settings_issue: Option<String>,
 }
 
 static DESKTOP_APPLY_BACKEND: OnceLock<Mutex<Option<RunningDesktopApplyBackend>>> = OnceLock::new();
@@ -84,6 +91,73 @@ pub(crate) fn real_desktop_flow_test_guard() -> std::sync::MutexGuard<'static, (
 pub struct DesktopService;
 
 impl DesktopService {
+    pub(crate) fn playback_settings_issue(
+        settings: PlaybackSettings,
+    ) -> Result<Option<String>, String> {
+        settings.validate()?;
+        with_desktop_action(|| {
+            let backend = desktop_apply_backend_slot()
+                .lock()
+                .map_err(|_| "Desktop apply backend lock was poisoned".to_string())?;
+            let Some(backend) = backend
+                .as_ref()
+                .filter(|backend| backend.handle.is_running())
+            else {
+                return Ok(None);
+            };
+            let issue = backend.playback_settings_issue.clone().or_else(|| {
+                (backend.playback_settings != settings).then(|| {
+                    "Saved playback settings have not been applied to the running wallpaper"
+                        .to_string()
+                })
+            });
+            Ok(issue)
+        })
+    }
+
+    pub(crate) fn update_playback_settings(settings: PlaybackSettings) -> Result<(), String> {
+        settings.validate()?;
+        with_desktop_action(|| {
+            let mut backend = desktop_apply_backend_slot()
+                .lock()
+                .map_err(|_| "Desktop apply backend lock was poisoned".to_string())?;
+            let Some(backend) = backend
+                .as_mut()
+                .filter(|backend| backend.handle.is_running())
+            else {
+                // Browse-only sessions need no runtime; the next startup reads the saved preference.
+                return Ok(());
+            };
+            if backend.playback_settings == settings && backend.playback_settings_issue.is_none() {
+                return Ok(());
+            }
+            let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+            let (reply, received) = std::sync::mpsc::channel();
+            let result = backend.handle.send(EngineCommand::UpdatePlaybackSettings {
+                settings, deadline, reply,
+            }).map_err(|error| {
+                format!("Failed to send playback settings to {REAL_APPLY_BACKEND}: {error}")
+            }).and_then(|()| {
+                received.recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                    .map_err(|error| match error {
+                        RecvTimeoutError::Timeout => format!("Timed out waiting for {REAL_APPLY_BACKEND} to acknowledge playback settings"),
+                        RecvTimeoutError::Disconnected => format!("{REAL_APPLY_BACKEND} stopped before acknowledging playback settings"),
+                    })?
+            });
+            match result {
+                Ok(()) => {
+                    backend.playback_settings = settings;
+                    backend.playback_settings_issue = None;
+                    Ok(())
+                }
+                Err(reason) => {
+                    backend.playback_settings_issue = Some(reason.clone());
+                    Err(reason)
+                }
+            }
+        })
+    }
+
     pub(crate) fn library_resolution_issue(reason: &str) -> String {
         format!("{LIBRARY_RESOLUTION_ISSUE_PREFIX} {reason}")
     }
@@ -111,7 +185,9 @@ impl DesktopService {
             MonitorService::list_monitors_uncached(),
         )?;
         let issues = Self::restore_saved_assignments_with(&page, |monitor, item_id| {
-            Self::apply_with_real_backend(monitor, item_id)
+            let request_id = Self::apply_with_real_backend(monitor, item_id)?;
+            Self::finalize_real_apply(monitor, request_id);
+            Ok(())
         });
 
         for issue in &issues {
@@ -360,22 +436,24 @@ impl DesktopService {
 
     fn runtime_running_outputs() -> (BTreeSet<String>, Option<String>) {
         match Self::runtime_running_outputs_result() {
-            Ok(outputs) => (outputs, None),
+            Ok(status) => status,
             Err(reason) => (BTreeSet::new(), Some(reason)),
         }
     }
 
-    fn runtime_running_outputs_result() -> Result<BTreeSet<String>, String> {
+    fn runtime_running_outputs_result() -> Result<(BTreeSet<String>, Option<String>), String> {
         let mut backend_guard = desktop_apply_backend_slot()
             .lock()
             .map_err(|_| "Desktop apply backend lock was poisoned".to_string())?;
         let Some(backend) = backend_guard.as_mut() else {
-            return Ok(BTreeSet::new());
+            return Ok((BTreeSet::new(), None));
         };
 
         if !backend.handle.is_running() {
-            *backend_guard = None;
-            return Ok(BTreeSet::new());
+            return Err(Self::stopped_backend_reason(
+                &backend.events,
+                &mut backend.stopped_reason,
+            ));
         }
 
         backend
@@ -388,17 +466,33 @@ impl DesktopService {
 
     fn wait_for_status(
         backend: &mut RunningDesktopApplyBackend,
-    ) -> Result<BTreeSet<String>, String> {
+    ) -> Result<(BTreeSet<String>, Option<String>), String> {
         let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
 
         loop {
             match Self::recv_backend_event(&backend.events, deadline)? {
                 Some(EngineEvent::Status(status)) => {
-                    return Ok(status
-                        .active_wallpapers
-                        .into_iter()
-                        .filter_map(|(output, path)| path.map(|_| output))
-                        .collect());
+                    let issue = if status.output_errors.is_empty() {
+                        None
+                    } else {
+                        let mut errors: Vec<_> = status.output_errors.into_iter().collect();
+                        errors.sort_by(|a, b| a.0.cmp(&b.0));
+                        Some(
+                            errors
+                                .into_iter()
+                                .map(|(output, reason)| format!("{output}: {reason}"))
+                                .collect::<Vec<_>>()
+                                .join("; "),
+                        )
+                    };
+                    return Ok((
+                        status
+                            .active_wallpapers
+                            .into_iter()
+                            .filter_map(|(output, path)| path.map(|_| output))
+                            .collect(),
+                        issue,
+                    ));
                 }
                 Some(EngineEvent::Error(reason)) => {
                     return Err(format!(
@@ -413,6 +507,26 @@ impl DesktopService {
                 }
             }
         }
+    }
+
+    fn stopped_backend_reason(
+        events: &Receiver<EngineEvent>,
+        stored: &mut Option<String>,
+    ) -> String {
+        if stored.is_none() {
+            let reason = events.try_iter().find_map(|event| match event {
+                EngineEvent::Error(reason) => Some(reason),
+                EngineEvent::OutputError { output, reason } => Some(format!("{output}: {reason}")),
+                _ => None,
+            });
+            *stored = Some(format!(
+                "{REAL_APPLY_BACKEND} stopped: {}",
+                reason.unwrap_or_else(|| "the runtime thread exited unexpectedly".to_string())
+            ));
+        }
+        stored
+            .clone()
+            .expect("stopped runtime reason was initialized")
     }
 
     pub(crate) fn restore_saved_assignments_with<F>(
@@ -457,6 +571,29 @@ impl DesktopService {
         monitor_id: &str,
         item_id: &str,
     ) -> Result<DesktopApplyResult, String> {
+        Self::apply_properties_to_monitor_unlocked(monitor_id, item_id, None)
+    }
+
+    pub fn update_scene_properties(
+        monitor_id: &str,
+        item_id: &str,
+        values: &crate::results::session_persistence::ScenePropertyValues,
+    ) -> Result<DesktopApplyResult, String> {
+        with_desktop_action(|| {
+            if LibraryService::inspect_item(item_id)?.entry.project_type
+                != WorkshopProjectType::Scene
+            {
+                return Err("Properties can only be applied to Scene wallpapers".into());
+            }
+            Self::apply_properties_to_monitor_unlocked(monitor_id, item_id, Some(values))
+        })
+    }
+
+    fn apply_properties_to_monitor_unlocked(
+        monitor_id: &str,
+        item_id: &str,
+        values: Option<&crate::results::session_persistence::ScenePropertyValues>,
+    ) -> Result<DesktopApplyResult, String> {
         if let Some(result) = Self::unsupported_apply_result(item_id)? {
             return Ok(result);
         }
@@ -475,30 +612,52 @@ impl DesktopService {
                     .next()
                     .ok_or_else(|| format!("Monitor {monitor_id} unexpectedly resolved empty"))?;
 
-                if let Err(reason) = Self::apply_with_real_backend(&monitor, item_id) {
-                    return Ok(DesktopApplyResult::BackendUnavailable { reason });
-                }
+                let request_result = match values {
+                    Some(values) => Self::apply_with_real_backend_values(&monitor, item_id, values),
+                    None => Self::apply_with_real_backend(&monitor, item_id),
+                };
+                let request_id = match request_result {
+                    Ok(request_id) => request_id,
+                    Err(reason) => return Ok(DesktopApplyResult::BackendUnavailable { reason }),
+                };
 
                 let persistence = match DesktopPersistenceService::for_user_path() {
                     Ok(service) => service,
                     Err(reason) => {
+                        let reason =
+                            Self::rollback_persistence_failure(&monitor, request_id, reason);
                         return Ok(DesktopApplyResult::PersistenceUnavailable { reason });
                     }
                 };
 
-                match persistence.save_assignment(monitor_id, item_id) {
-                    DesktopPersistenceWrite::Saved => Ok(DesktopApplyResult::AppliedWithBackend {
-                        monitor_id: monitor_id.to_string(),
-                        item_id: item_id.to_string(),
-                        backend: REAL_APPLY_BACKEND.to_string(),
-                    }),
+                let write = match values {
+                    Some(values) => {
+                        persistence.save_assignment_with_properties(monitor_id, item_id, values)
+                    }
+                    None => persistence.save_assignment(monitor_id, item_id),
+                };
+                match write {
+                    DesktopPersistenceWrite::Saved => {
+                        Self::finalize_real_apply(&monitor, request_id);
+                        Ok(DesktopApplyResult::AppliedWithBackend {
+                            monitor_id: monitor_id.to_string(),
+                            item_id: item_id.to_string(),
+                            backend: REAL_APPLY_BACKEND.to_string(),
+                        })
+                    }
                     DesktopPersistenceWrite::Cleared => {
                         Ok(DesktopApplyResult::PersistenceUnavailable {
-                            reason: "Desktop persistence returned a clear result while saving"
-                                .to_string(),
+                            reason: Self::rollback_persistence_failure(
+                                &monitor,
+                                request_id,
+                                "Desktop persistence returned a clear result while saving"
+                                    .to_string(),
+                            ),
                         })
                     }
                     DesktopPersistenceWrite::Unavailable { reason } => {
+                        let reason =
+                            Self::rollback_persistence_failure(&monitor, request_id, reason);
                         Ok(DesktopApplyResult::PersistenceUnavailable { reason })
                     }
                 }
@@ -516,6 +675,21 @@ impl DesktopService {
 
         if entry.entry.project_type == WorkshopProjectType::Video {
             return Ok(None);
+        }
+        if entry.entry.project_type == WorkshopProjectType::Scene {
+            let assessment = SceneService::assess_project(&entry.entry.project_dir);
+            if assessment.runnable {
+                return Ok(None);
+            }
+            return Ok(Some(DesktopApplyResult::UnsupportedItem {
+                item_id: item_id.to_owned(),
+                reason: assessment
+                    .issues
+                    .into_iter()
+                    .map(|issue| issue.detail)
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            }));
         }
 
         Ok(Self::unsupported_apply_result_for_project_type(
@@ -544,10 +718,24 @@ impl DesktopService {
     fn apply_with_real_backend(
         monitor: &crate::services::monitor_service::MonitorDescriptor,
         item_id: &str,
-    ) -> Result<(), String> {
+    ) -> Result<u64, String> {
+        let values = DesktopPersistenceService::load_scene_properties(&monitor.id, item_id)?;
+        Self::apply_with_real_backend_values(monitor, item_id, &values)
+    }
+
+    fn apply_with_real_backend_values(
+        monitor: &crate::services::monitor_service::MonitorDescriptor,
+        item_id: &str,
+        values: &crate::results::session_persistence::ScenePropertyValues,
+    ) -> Result<u64, String> {
         Self::ensure_real_backend_supported()?;
 
-        let path = Self::resolve_real_apply_path(item_id)?;
+        let source = if values.is_empty() {
+            Self::resolve_real_apply_source(item_id)?
+        } else {
+            Self::resolve_real_apply_source_with_properties(item_id, values)?
+        };
+        let path = source.path().to_path_buf();
         let mut backend_guard = Self::ensure_running_apply_backend()?;
         let backend = backend_guard
             .as_mut()
@@ -561,7 +749,7 @@ impl DesktopService {
             .send(EngineCommand::ApplyWallpaper {
                 request_id,
                 deadline,
-                path: path.clone(),
+                source,
                 output: Some(monitor.backend_output_id.clone()),
             })
             .map_err(|error| format!("Failed to send real desktop apply command: {error}"))?;
@@ -580,7 +768,121 @@ impl DesktopService {
                     })
                     .map_err(|error| format!("Failed to send apply cancellation: {error}"))
             },
+        )?;
+        let committed = backend
+            .handle
+            .send(EngineCommand::CommitApply {
+                request_id,
+                output: monitor.backend_output_id.clone(),
+            })
+            .map_err(|error| format!("Failed to commit wallpaper presentation: {error}"))
+            .and_then(|_| {
+                Self::wait_for_commit(
+                    &backend.events,
+                    request_id,
+                    &monitor.backend_output_id,
+                    Instant::now() + REAL_APPLY_BACKEND_TIMEOUT,
+                )
+            });
+        if let Err(reason) = committed {
+            return Err(Self::cancel_backend_apply(
+                backend,
+                request_id,
+                &monitor.backend_output_id,
+            )
+            .err()
+            .map(|error| format!("{reason} Cancellation failed: {error}"))
+            .unwrap_or(reason));
+        }
+        Ok(request_id)
+    }
+
+    fn wait_for_commit(
+        events: &Receiver<EngineEvent>,
+        request_id: u64,
+        output: &str,
+        deadline: Instant,
+    ) -> Result<(), String> {
+        loop {
+            match Self::recv_backend_event(events, deadline)? {
+                Some(EngineEvent::ApplyCommitted {
+                    request_id: id,
+                    output: name,
+                    result,
+                }) if id == request_id && name == output => return result,
+                Some(EngineEvent::ApplyFailed {
+                    request_id: id,
+                    output: name,
+                    reason,
+                }) if id == request_id && name == output => return Err(reason),
+                Some(EngineEvent::Error(reason)) => return Err(reason),
+                Some(_) => {}
+                None => {
+                    return Err(format!(
+                        "Timed out waiting for {REAL_APPLY_BACKEND} presentation commit"
+                    ));
+                }
+            }
+        }
+    }
+
+    fn cancel_backend_apply(
+        backend: &RunningDesktopApplyBackend,
+        request_id: u64,
+        output: &str,
+    ) -> Result<(), String> {
+        backend
+            .handle
+            .send(EngineCommand::CancelApply {
+                request_id,
+                output: output.to_owned(),
+            })
+            .map_err(|error| format!("Failed to send apply cancellation: {error}"))?;
+        Self::wait_for_apply_cancellation(
+            &backend.events,
+            request_id,
+            output,
+            Instant::now() + APPLY_CANCELLATION_TIMEOUT,
         )
+    }
+
+    fn rollback_persistence_failure(
+        monitor: &crate::services::monitor_service::MonitorDescriptor,
+        request_id: u64,
+        reason: String,
+    ) -> String {
+        let result = desktop_apply_backend_slot()
+            .lock()
+            .map_err(|_| "Desktop backend lock was poisoned".to_string())
+            .and_then(|backend| {
+                backend
+                    .as_ref()
+                    .ok_or_else(|| "Desktop backend stopped before rollback".to_string())
+                    .and_then(|backend| {
+                        Self::cancel_backend_apply(backend, request_id, &monitor.backend_output_id)
+                    })
+            });
+        result
+            .err()
+            .map(|error| format!("{reason} Runtime rollback failed: {error}"))
+            .unwrap_or(reason)
+    }
+
+    fn finalize_real_apply(
+        monitor: &crate::services::monitor_service::MonitorDescriptor,
+        request_id: u64,
+    ) {
+        // Finalization frees rollback resources. Its failure cannot invalidate
+        // an already confirmed presentation and successfully saved assignment.
+        if let Ok(backend) = desktop_apply_backend_slot().lock()
+            && let Some(backend) = backend.as_ref()
+            && let Err(error) = backend.handle.send(EngineCommand::FinalizeApply {
+                request_id,
+                output: monitor.backend_output_id.clone(),
+            })
+        {
+            eprintln!("desktop apply rollback cleanup deferred: {error}");
+        }
     }
 
     fn wait_for_apply_or_cancel(
@@ -624,16 +926,35 @@ impl DesktopService {
             })
     }
 
-    fn resolve_real_apply_path(item_id: &str) -> Result<PathBuf, String> {
+    fn resolve_real_apply_source(item_id: &str) -> Result<WallpaperSource, String> {
+        Self::resolve_real_apply_source_with_properties(item_id, &BTreeMap::new())
+    }
+
+    fn resolve_real_apply_source_with_properties(
+        item_id: &str,
+        values: &crate::results::session_persistence::ScenePropertyValues,
+    ) -> Result<WallpaperSource, String> {
         let entry = LibraryService::inspect_item(item_id).map_err(|reason| {
             format!("Library item {item_id} is unavailable for real desktop apply: {reason}")
         })?;
 
+        if entry.entry.project_type == WorkshopProjectType::Scene {
+            return Ok(WallpaperSource::Scene {
+                path: entry.entry.project_dir.clone(),
+                prepared: Arc::new(SceneService::prepare_project_with_properties(
+                    &entry.entry.project_dir,
+                    values,
+                )?),
+            });
+        }
         if entry.entry.project_type != WorkshopProjectType::Video {
             return Err(format!(
                 "Library item {item_id} uses {:?}, but the current real desktop apply path only supports synced video items on this machine",
                 entry.entry.project_type
             ));
+        }
+        if !values.is_empty() {
+            return Err("Properties can only be applied to Scene wallpapers".into());
         }
 
         let project = WeProject::load(&entry.entry.project_dir).map_err(|error| {
@@ -654,7 +975,7 @@ impl DesktopService {
             ));
         }
 
-        Ok(path)
+        Ok(WallpaperSource::Video { path })
     }
 
     fn ensure_running_apply_backend()
@@ -675,9 +996,25 @@ impl DesktopService {
     }
 
     fn start_apply_backend() -> Result<RunningDesktopApplyBackend, String> {
-        let (handle, events) = spawn_engine(EngineConfig::default())
+        let settings = match crate::services::settings_persistence_service::SettingsPersistenceService::for_user_path()?.load_settings() {
+            crate::results::settings_persistence::SettingsPersistenceLoad::Loaded(settings) => settings.playback_settings(),
+            crate::results::settings_persistence::SettingsPersistenceLoad::Unavailable { reason } => return Err(reason),
+        };
+        settings.validate()?;
+        let config = EngineConfig {
+            fps_limit: settings.fps_limit,
+            pause_on_battery: settings.pause_on_battery,
+            ..EngineConfig::default()
+        };
+        let (handle, events) = spawn_engine(config)
             .map_err(|error| format!("Failed to start {REAL_APPLY_BACKEND}: {error}"))?;
-        let mut backend = RunningDesktopApplyBackend { handle, events };
+        let mut backend = RunningDesktopApplyBackend {
+            handle,
+            events,
+            stopped_reason: None,
+            playback_settings: settings,
+            playback_settings_issue: None,
+        };
 
         Self::wait_for_backend_start(&mut backend)?;
 
@@ -976,6 +1313,10 @@ impl DesktopService {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "desktop_reliability_tests.rs"]
+mod reliability_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1288,6 +1629,21 @@ mod tests {
     }
 
     impl EnvGuard {
+        fn set_desktop_config_root(config_root: &Path) -> Self {
+            let lock = crate::test_env::env_lock();
+            let xdg_config_home = std::env::var_os("XDG_CONFIG_HOME");
+            let home = std::env::var_os("HOME");
+            assert!(home.is_some(), "Real desktop discovery requires HOME");
+            unsafe {
+                std::env::set_var("XDG_CONFIG_HOME", config_root);
+            }
+            Self {
+                xdg_config_home,
+                home,
+                _lock: lock,
+            }
+        }
+
         fn set_config_root(config_root: &Path) -> Self {
             let lock = crate::test_env::env_lock();
             let xdg_config_home = std::env::var_os("XDG_CONFIG_HOME");
@@ -1891,6 +2247,542 @@ mod tests {
                 );
             } else {
                 backend_identity = Some(identity);
+            }
+        }
+    }
+
+    #[test]
+    fn commit_confirmation_matches_generation_and_rejects_expired_ack() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(EngineEvent::ApplyCommitted {
+            request_id: 7,
+            output: "eDP-1".to_string(),
+            result: Ok(()),
+        })
+        .unwrap();
+        tx.send(EngineEvent::ApplyCommitted {
+            request_id: 8,
+            output: "eDP-1".to_string(),
+            result: Ok(()),
+        })
+        .unwrap();
+        DesktopService::wait_for_commit(&rx, 8, "eDP-1", Instant::now() + Duration::from_secs(1))
+            .unwrap();
+        tx.send(EngineEvent::ApplyCommitted {
+            request_id: 9,
+            output: "eDP-1".to_string(),
+            result: Ok(()),
+        })
+        .unwrap();
+        assert!(DesktopService::wait_for_commit(&rx, 9, "eDP-1", Instant::now()).is_err());
+    }
+
+    #[test]
+    fn runtime_failure_is_retained_after_its_event_is_consumed() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(EngineEvent::Error("Wayland connection lost".to_string()))
+            .unwrap();
+        tx.send(EngineEvent::Stopped).unwrap();
+        let mut stored = None;
+        let first = DesktopService::stopped_backend_reason(&rx, &mut stored);
+        assert!(first.contains("Wayland connection lost"));
+        assert_eq!(
+            DesktopService::stopped_backend_reason(&rx, &mut stored),
+            first
+        );
+    }
+
+    #[test]
+    fn desktop_settings_live_updates_preserve_assignments_and_backend() {
+        if !real_desktop_tests_enabled() {
+            eprintln!(
+                "skipping real Settings desktop test; set LWE_REAL_DESKTOP_TESTS=1 to enable"
+            );
+            return;
+        }
+        let _desktop_guard = real_desktop_flow_test_guard();
+        assert!(
+            desktop_apply_backend_slot().lock().unwrap().is_none(),
+            "Settings test requires its own fresh backend"
+        );
+        let isolated = tempfile::tempdir().unwrap();
+        let _env_guard = EnvGuard::set_desktop_config_root(isolated.path());
+        let monitor = known_monitor().expect("expected a real monitor");
+        struct OwnedRuntimeCleanup(String);
+        impl Drop for OwnedRuntimeCleanup {
+            fn drop(&mut self) {
+                let _ = DesktopService::clear_monitor(&self.0);
+                if let Some(backend) = desktop_apply_backend_slot()
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .take()
+                {
+                    backend.handle.request_shutdown();
+                    let _ = backend.handle.join();
+                }
+            }
+        }
+        let _cleanup = OwnedRuntimeCleanup(monitor.id.clone());
+        let projection = LibraryService::load_projection().expect("expected local Library");
+        let item = projection
+            .entries
+            .into_iter()
+            .find(|entry| {
+                entry
+                    .entry
+                    .project_dir
+                    .file_name()
+                    .is_some_and(|name| name == "3337606455")
+                    && entry
+                        .project_metadata
+                        .scene_assessment
+                        .as_ref()
+                        .is_some_and(|assessment| assessment.runnable)
+            })
+            .expect("expected validated animated Shine sample 3337606455");
+        let item_id = item.entry.library_item_id.unwrap();
+        assert!(matches!(
+            DesktopService::apply_to_monitor(&monitor.id, &item_id).unwrap(),
+            DesktopApplyResult::AppliedWithBackend { .. }
+        ));
+        let session_path = isolated.path().join("lwe/session.toml");
+        let original_assignment = fs::read(&session_path).unwrap();
+        let identity = desktop_apply_backend_slot()
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .handle
+            .shutdown_flag();
+
+        fn status() -> lwe_engine::EngineStatus {
+            let mut guard = desktop_apply_backend_slot().lock().unwrap();
+            let backend = guard.as_mut().unwrap();
+            backend.handle.send(EngineCommand::GetStatus).unwrap();
+            let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+            loop {
+                match DesktopService::recv_backend_event(&backend.events, deadline).unwrap() {
+                    Some(EngineEvent::Status(status)) => return status,
+                    Some(EngineEvent::Error(reason)) => {
+                        panic!("real Settings backend error: {reason}")
+                    }
+                    Some(_) => {}
+                    None => panic!("real Settings status timed out"),
+                }
+            }
+        }
+        let mut rates = Vec::new();
+        for fps in [15, 30] {
+            let saved = crate::services::settings_service::SettingsService::update_settings(
+                crate::models::SettingsUpdateInput {
+                    fps_limit: Some(fps),
+                    pause_on_battery: Some(false),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(saved.fps_limit, Some(fps));
+            assert!(
+                saved.playback_settings_issue.is_none(),
+                "{:?}",
+                saved.playback_settings_issue
+            );
+            let first = status();
+            assert_eq!(first.playback_settings.fps_limit, Some(fps));
+            let start = Instant::now();
+            let mut requests = 0;
+            while start.elapsed() < Duration::from_secs(10) {
+                let current = status();
+                assert!(current.running && current.output_errors.is_empty());
+                assert_eq!(current.playback_settings.fps_limit, Some(fps));
+                requests += 1;
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            let last = status();
+            let seconds = start.elapsed().as_secs_f64();
+            let swaps = last.render_metrics[&monitor.backend_output_id].swaps
+                - first.render_metrics[&monitor.backend_output_id].swaps;
+            let draws = last.render_metrics[&monitor.backend_output_id].draws
+                - first.render_metrics[&monitor.backend_output_id].draws;
+            let rate = swaps as f64 / seconds;
+            assert!(
+                swaps as f64 <= f64::from(fps) * seconds + 2.0,
+                "FPS cap bypassed: {rate}"
+            );
+            assert!(
+                rate >= f64::from(fps) * 0.7,
+                "insufficient animated completed swaps: {rate}"
+            );
+            rates.push(rate);
+            assert_eq!(fs::read(&session_path).unwrap(), original_assignment);
+            assert!(Arc::ptr_eq(
+                &identity,
+                &desktop_apply_backend_slot()
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .handle
+                    .shutdown_flag()
+            ));
+            let loaded = crate::services::settings_persistence_service::SettingsPersistenceService::for_user_path().unwrap().load_settings();
+            assert!(
+                matches!(loaded, crate::results::settings_persistence::SettingsPersistenceLoad::Loaded(settings) if settings.fps_limit == Some(fps))
+            );
+            eprintln!(
+                "settings_live_sample {}",
+                serde_json::json!({ "fps_limit": fps, "elapsed_seconds": seconds, "draws": draws, "completed_swaps": swaps, "completed_swaps_per_second": rate, "status_requests": requests, "same_backend": true, "assignment_unchanged": true, "saved_preference_verified": true })
+            );
+        }
+        assert!(
+            rates[1] > rates[0] * 1.4,
+            "live FPS update did not measurably change cadence: {rates:?}"
+        );
+        let saved = crate::services::settings_service::SettingsService::update_settings(
+            crate::models::SettingsUpdateInput {
+                pause_on_battery: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(saved.pause_on_battery && saved.playback_settings_issue.is_none());
+        let actual = status();
+        assert!(actual.playback_settings.pause_on_battery);
+        assert_eq!(actual.power_paused, actual.on_battery);
+        eprintln!(
+            "settings_live_power {}",
+            serde_json::json!({ "pause_on_battery": true, "on_battery": actual.on_battery, "power_paused": actual.power_paused, "hardware_transition_tested": false })
+        );
+        assert_eq!(fs::read(&session_path).unwrap(), original_assignment);
+        assert!(matches!(
+            DesktopService::clear_monitor(&monitor.id).unwrap(),
+            DesktopApplyResult::Cleared { .. }
+        ));
+        let backend = desktop_apply_backend_slot().lock().unwrap().take().unwrap();
+        backend.handle.request_shutdown();
+        backend
+            .handle
+            .join()
+            .expect("Settings backend shutdown must join");
+        eprintln!(
+            "settings_live_complete {{\"clear_succeeded\":true,\"backend_shutdown_joined\":true,\"user_config_isolated\":true}}"
+        );
+    }
+
+    #[test]
+    fn desktop_apply_flow_scene_video_switch_clear_and_restore() {
+        if !real_desktop_tests_enabled() {
+            eprintln!(
+                "skipping real Scene desktop test; set LWE_REAL_DESKTOP_TESTS=1 with isolated XDG_CONFIG_HOME"
+            );
+            return;
+        }
+        let _guard = real_desktop_flow_test_guard();
+        let monitor = known_monitor().expect("expected a real monitor");
+        let monitor_id = monitor.id.clone();
+        let projection = LibraryService::load_projection().expect("expected local Library");
+        for entry in &projection.entries {
+            if entry.entry.project_type == WorkshopProjectType::Scene {
+                eprintln!(
+                    "Scene assessment {}: {:?}",
+                    entry.entry.project_dir.display(),
+                    entry.project_metadata.scene_assessment
+                );
+            }
+        }
+        let scenes: Vec<_> = projection
+            .entries
+            .into_iter()
+            .filter(|entry| {
+                entry.entry.project_type == WorkshopProjectType::Scene
+                    && entry
+                        .project_metadata
+                        .scene_assessment
+                        .as_ref()
+                        .is_some_and(|assessment| assessment.runnable)
+            })
+            .filter_map(|entry| entry.entry.library_item_id)
+            .collect();
+        assert!(!scenes.is_empty(), "expected a validated native 2D Scene");
+        let video = real_supported_library_item_id()
+            .expect("expected a video for mixed renderer acceptance");
+        let mut backend_identity = None;
+        let cycles = std::env::var("LWE_REAL_DESKTOP_SCENE_CYCLES")
+            .map(|value| {
+                let cycles: usize = value.parse().expect("Scene cycles must be an integer");
+                assert!(
+                    (1..=1000).contains(&cycles),
+                    "Scene cycles must be 1..=1000"
+                );
+                cycles
+            })
+            .unwrap_or(3);
+        for cycle in 0..cycles {
+            let item_id = &scenes[cycle % scenes.len()];
+            eprintln!(
+                "Scene desktop cycle {cycle}: {}",
+                LibraryService::inspect_item(item_id)
+                    .unwrap()
+                    .entry
+                    .project_dir
+                    .display()
+            );
+            let result = DesktopService::apply_to_monitor(&monitor_id, item_id).unwrap();
+            assert!(
+                matches!(result, DesktopApplyResult::AppliedWithBackend { .. }),
+                "Scene cycle {cycle}: {result:?}"
+            );
+            {
+                let backend = desktop_apply_backend_slot().lock().unwrap();
+                let identity = backend.as_ref().unwrap().handle.shutdown_flag();
+                if let Some(expected) = &backend_identity {
+                    assert!(
+                        Arc::ptr_eq(expected, &identity),
+                        "mixed renderer cycle restarted the backend"
+                    );
+                } else {
+                    backend_identity = Some(identity);
+                }
+            }
+            let page = DesktopService::load_page().unwrap();
+            assert!(
+                page.running_outputs.contains(&monitor.backend_output_id),
+                "running={:?}, issue={:?}",
+                page.running_outputs,
+                page.runtime_issue
+            );
+            assert_eq!(page.assignments.get(&monitor_id), Some(item_id));
+            if let Some(directory) = std::env::var_os("LWE_REAL_DESKTOP_CAPTURE_DIR") {
+                let path = PathBuf::from(directory).join(format!("scene-desktop-{cycle}.png"));
+                std::thread::sleep(Duration::from_secs(1));
+                let layers = std::process::Command::new("niri")
+                    .args(["msg", "--json", "layers"])
+                    .output()
+                    .unwrap();
+                fs::write(path.with_extension("layers.json"), layers.stdout).unwrap();
+                let status = std::process::Command::new("niri")
+                    .args([
+                        "msg",
+                        "action",
+                        "screenshot-screen",
+                        "--show-pointer",
+                        "false",
+                        "--path",
+                    ])
+                    .arg(path)
+                    .status()
+                    .expect("niri screenshot command");
+                assert!(status.success(), "Scene visible acceptance capture failed");
+                std::thread::sleep(Duration::from_millis(300));
+            }
+            let result = DesktopService::apply_to_monitor(&monitor_id, &video).unwrap();
+            assert!(
+                matches!(result, DesktopApplyResult::AppliedWithBackend { .. }),
+                "Video switch: {result:?}"
+            );
+            let result = DesktopService::apply_to_monitor(&monitor_id, item_id).unwrap();
+            assert!(
+                matches!(result, DesktopApplyResult::AppliedWithBackend { .. }),
+                "Scene switch: {result:?}"
+            );
+            let result = DesktopService::clear_monitor(&monitor_id).unwrap();
+            assert!(
+                matches!(result, DesktopApplyResult::Cleared { .. }),
+                "clear: {result:?}"
+            );
+            assert!(
+                !DesktopService::load_page()
+                    .unwrap()
+                    .assignments
+                    .contains_key(&monitor_id)
+            );
+        }
+        let backend_identity = backend_identity.expect("Scene backend identity");
+        let item_id = &scenes[0];
+        assert!(matches!(
+            DesktopService::apply_to_monitor(&monitor_id, item_id).unwrap(),
+            DesktopApplyResult::AppliedWithBackend { .. }
+        ));
+        let previous_path = LibraryService::inspect_item(item_id)
+            .unwrap()
+            .entry
+            .project_dir;
+
+        // A presented and committed replacement remains reversible until the
+        // atomic assignment write succeeds. Use an isolated failing file path.
+        let candidate = DesktopService::apply_with_real_backend(&monitor, &video).unwrap();
+        let fixture = tempfile::tempdir().unwrap();
+        let blocker = fixture.path().join("not-a-directory");
+        fs::write(&blocker, "block").unwrap();
+        let persistence = DesktopPersistenceService::for_path(blocker.join("session.toml"));
+        let reason = match persistence.save_assignment(&monitor_id, &video) {
+            DesktopPersistenceWrite::Unavailable { reason } => reason,
+            other => panic!("expected isolated persistence failure: {other:?}"),
+        };
+        let reason = DesktopService::rollback_persistence_failure(&monitor, candidate, reason);
+        assert!(!reason.contains("Runtime rollback failed"), "{reason}");
+        assert_eq!(
+            real_active_wallpaper_path(&monitor.backend_output_id),
+            Some(previous_path.clone())
+        );
+        assert_eq!(
+            DesktopService::load_page()
+                .unwrap()
+                .assignments
+                .get(&monitor_id),
+            Some(item_id)
+        );
+
+        // A late commit ACK also rolls back after presentation, retaining the
+        // old renderer until the receiver confirms success.
+        let source = DesktopService::resolve_real_apply_source(&video).unwrap();
+        let candidate = next_apply_request_id().unwrap();
+        let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+        {
+            let mut backend = desktop_apply_backend_slot().lock().unwrap();
+            let backend = backend.as_mut().unwrap();
+            let path = source.path().to_path_buf();
+            backend
+                .handle
+                .send(EngineCommand::ApplyWallpaper {
+                    request_id: candidate,
+                    deadline,
+                    source,
+                    output: Some(monitor.backend_output_id.clone()),
+                })
+                .unwrap();
+            DesktopService::wait_for_apply(
+                &backend.events,
+                candidate,
+                &monitor.backend_output_id,
+                &path,
+                deadline,
+            )
+            .unwrap();
+            backend
+                .handle
+                .send(EngineCommand::CommitApply {
+                    request_id: candidate,
+                    output: monitor.backend_output_id.clone(),
+                })
+                .unwrap();
+            backend.handle.send(EngineCommand::GetStatus).unwrap();
+            // Receiving Status proves the preceding commit command was handled.
+            DesktopService::wait_for_status(backend).unwrap();
+        }
+        // Cancellation is still reversible even though the commit was handled.
+        {
+            let backend = desktop_apply_backend_slot().lock().unwrap();
+            DesktopService::cancel_backend_apply(
+                backend.as_ref().unwrap(),
+                candidate,
+                &monitor.backend_output_id,
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            real_active_wallpaper_path(&monitor.backend_output_id),
+            Some(previous_path.clone())
+        );
+        {
+            let mut backend = desktop_apply_backend_slot().lock().unwrap();
+            let old = backend.take().unwrap();
+            old.handle.request_shutdown();
+            old.handle.join().expect("engine shutdown");
+        }
+        DesktopService::restore_saved_assignments().unwrap();
+        let page = DesktopService::load_page().unwrap();
+        assert_eq!(page.assignments.get(&monitor_id), Some(item_id));
+        assert!(
+            page.running_outputs.contains(&monitor.backend_output_id),
+            "restore issues: {:?}",
+            page.restore_issues
+        );
+        let saved_generation = DesktopService::apply_with_real_backend(&monitor, item_id).unwrap();
+        DesktopService::finalize_real_apply(&monitor, saved_generation);
+        assert_eq!(
+            real_active_wallpaper_path(&monitor.backend_output_id),
+            Some(previous_path.clone())
+        );
+        {
+            let backend = desktop_apply_backend_slot().lock().unwrap();
+            DesktopService::cancel_backend_apply(
+                backend.as_ref().unwrap(),
+                saved_generation,
+                &monitor.backend_output_id,
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            real_active_wallpaper_path(&monitor.backend_output_id),
+            Some(previous_path.clone())
+        );
+
+        // First-frame presentation without a timely host commit expires and
+        // restores the old picture even if the receiver never accepts its ACK.
+        let source = DesktopService::resolve_real_apply_source(&video).unwrap();
+        let candidate = next_apply_request_id().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        {
+            let backend = desktop_apply_backend_slot().lock().unwrap();
+            let backend = backend.as_ref().unwrap();
+            let path = source.path().to_path_buf();
+            backend
+                .handle
+                .send(EngineCommand::ApplyWallpaper {
+                    request_id: candidate,
+                    deadline,
+                    source,
+                    output: Some(monitor.backend_output_id.clone()),
+                })
+                .unwrap();
+            DesktopService::wait_for_apply(
+                &backend.events,
+                candidate,
+                &monitor.backend_output_id,
+                &path,
+                deadline,
+            )
+            .unwrap();
+            std::thread::sleep(
+                (deadline + Duration::from_millis(50)).saturating_duration_since(Instant::now()),
+            );
+            DesktopService::cancel_backend_apply(backend, candidate, &monitor.backend_output_id)
+                .unwrap();
+        }
+        assert_eq!(
+            real_active_wallpaper_path(&monitor.backend_output_id),
+            Some(previous_path)
+        );
+        {
+            let backend = desktop_apply_backend_slot().lock().unwrap();
+            assert!(!Arc::ptr_eq(
+                &backend_identity,
+                &backend.as_ref().unwrap().handle.shutdown_flag()
+            ));
+        }
+        for output in DesktopService::load_page().unwrap().assignments.keys() {
+            let result = DesktopService::clear_monitor(output).unwrap();
+            assert!(
+                matches!(result, DesktopApplyResult::Cleared { .. }),
+                "clear all: {result:?}"
+            );
+        }
+        assert!(DesktopService::load_page().unwrap().assignments.is_empty());
+    }
+
+    fn real_active_wallpaper_path(output: &str) -> Option<PathBuf> {
+        let backend = desktop_apply_backend_slot().lock().unwrap();
+        let backend = backend.as_ref().unwrap();
+        backend.handle.send(EngineCommand::GetStatus).unwrap();
+        let deadline = Instant::now() + REAL_APPLY_BACKEND_TIMEOUT;
+        loop {
+            match DesktopService::recv_backend_event(&backend.events, deadline).unwrap() {
+                Some(EngineEvent::Status(status)) => {
+                    return status.active_wallpapers.get(output).cloned().flatten();
+                }
+                Some(_) => {}
+                None => panic!("runtime status timeout"),
             }
         }
     }

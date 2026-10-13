@@ -2,10 +2,10 @@ use crate::assembly::card_cover::card_cover_path;
 use crate::assembly::compatibility::compatibility_summary;
 use crate::models::LibraryPageSnapshot;
 use crate::models::{ItemType, LibraryItemSummary, LibrarySource, WorkshopAgeRating};
-use crate::policies::shared::support_policy::supports_first_release;
 use crate::results::desktop::DesktopPageResult;
 use crate::results::library::LibraryProjection;
 use crate::results::workshop::AssessedWorkshopCatalogEntry;
+use crate::services::compatibility_service::CompatibilityService;
 use crate::services::library_service::LibraryService;
 use lwe_library::WorkshopProjectType;
 
@@ -39,7 +39,7 @@ fn assemble_library_summary(entry: AssessedWorkshopCatalogEntry) -> LibraryItemS
         age_rating,
         source: LibrarySource::Workshop,
         compatibility: compatibility_summary(&entry.compatibility),
-        apply_supported: supports_first_release(entry.entry.project_type),
+        apply_supported: CompatibilityService::supports_runtime(&entry),
         favorite: false,
         assigned_monitor_labels: Vec::new(),
     }

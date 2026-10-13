@@ -720,3 +720,558 @@ impl Drop for MpvPlayer {
         }
     }
 }
+
+/// A separate libmpv core for a prepared Scene sound. It has no video output,
+/// render context or EGL dependency. The descriptor stays alive until the core
+/// and all of its internal workers have synchronously terminated.
+pub(crate) struct MpvAudioPlayer {
+    handle: *mut libmpv_sys::mpv_handle,
+    _source: Arc<std::fs::File>,
+    loaded: bool,
+    failure: Option<String>,
+}
+
+// The private handle has one owner; libmpv's client API permits cross-thread use.
+unsafe impl Send for MpvAudioPlayer {}
+
+impl MpvAudioPlayer {
+    pub(crate) fn new(source: Arc<std::fs::File>) -> Result<Self> {
+        Self::create(source, false, None)
+    }
+
+    fn create(
+        source: Arc<std::fs::File>,
+        null_output: bool,
+        private_device: Option<&str>,
+    ) -> Result<Self> {
+        use std::os::fd::AsRawFd;
+        let handle = unsafe { libmpv_sys::mpv_create() };
+        anyhow::ensure!(!handle.is_null(), "Failed to create Scene audio player");
+        let mut player = Self {
+            handle,
+            _source: source,
+            loaded: false,
+            failure: None,
+        };
+        for (name, value) in [
+            ("config", "no"),
+            ("terminal", "no"),
+            ("load-scripts", "no"),
+            ("ytdl", "no"),
+            ("input-terminal", "no"),
+            ("msg-level", "all=error"),
+            ("vid", "no"),
+            ("sid", "no"),
+            ("audio-display", "no"),
+            ("vo", "null"),
+            ("idle", "yes"),
+            ("pause", "yes"),
+            ("mute", "yes"),
+            ("volume", "0"),
+            ("loop-file", "inf"),
+            ("keep-open", "no"),
+            ("cache", "no"),
+            ("replaygain", "no"),
+            ("demuxer-max-bytes", "8388608"),
+            ("demuxer-readahead-secs", "0"),
+            ("audio-client-name", "LWE Scene audio"),
+        ] {
+            player.set_option(name, value)?;
+        }
+        if null_output {
+            player.set_option("ao", "null")?;
+        }
+        if let Some(device) = private_device {
+            // Used only by the opt-in acceptance test, which owns this sink.
+            player.set_option("audio-device", device)?;
+            player.set_option(
+                "audio-client-name",
+                &format!("LWE Scene audio acceptance {}", std::process::id()),
+            )?;
+        }
+        let result = unsafe { libmpv_sys::mpv_initialize(handle) };
+        anyhow::ensure!(
+            result >= 0,
+            "Failed to initialize Scene audio: error {result}"
+        );
+        let path = format!("/proc/self/fd/{}", player._source.as_raw_fd());
+        let args = [
+            CString::new("loadfile")?,
+            CString::new(path)?,
+            CString::new("replace")?,
+        ];
+        let mut pointers = args
+            .iter()
+            .map(|value| value.as_ptr())
+            .chain(std::iter::once(ptr::null()))
+            .collect::<Vec<_>>();
+        let result = unsafe { libmpv_sys::mpv_command(handle, pointers.as_mut_ptr()) };
+        anyhow::ensure!(
+            result >= 0,
+            "Failed to queue prepared Scene audio: error {result}"
+        );
+        // Decoder/resource loading belongs to libmpv's workers. The engine must
+        // poll readiness before accepting a candidate; this call never waits for
+        // FILE_LOADED and never unpauses or unmutes the new source.
+        player.poll_ready()?;
+        Ok(player)
+    }
+
+    fn set_option(&mut self, name: &str, value: &str) -> Result<()> {
+        let name = CString::new(name)?;
+        let value = CString::new(value)?;
+        let result = unsafe {
+            libmpv_sys::mpv_set_option_string(self.handle, name.as_ptr(), value.as_ptr())
+        };
+        anyhow::ensure!(
+            result >= 0,
+            "Failed to configure Scene audio option: error {result}"
+        );
+        Ok(())
+    }
+
+    pub(crate) fn poll_ready(&mut self) -> Result<bool> {
+        // Bound work even if the decoder is producing events continuously.
+        for _ in 0..64 {
+            let event = unsafe { libmpv_sys::mpv_wait_event(self.handle, 0.0) };
+            anyhow::ensure!(!event.is_null(), "Scene audio returned an invalid event");
+            let event = unsafe { &*event };
+            match event.event_id {
+                libmpv_sys::mpv_event_id_MPV_EVENT_NONE => break,
+                libmpv_sys::mpv_event_id_MPV_EVENT_FILE_LOADED => self.loaded = true,
+                libmpv_sys::mpv_event_id_MPV_EVENT_END_FILE => {
+                    if !event.data.is_null() {
+                        let end =
+                            unsafe { &*(event.data as *const libmpv_sys::mpv_event_end_file) };
+                        if end.reason
+                            == libmpv_sys::mpv_end_file_reason_MPV_END_FILE_REASON_ERROR as i32
+                        {
+                            self.failure = Some(format!(
+                                "Prepared Scene audio playback failed: error {}",
+                                end.error
+                            ));
+                        }
+                    }
+                }
+                libmpv_sys::mpv_event_id_MPV_EVENT_SHUTDOWN => {
+                    self.failure = Some("Scene audio stopped unexpectedly".to_string())
+                }
+                _ => {}
+            }
+        }
+        if let Some(reason) = &self.failure {
+            return Err(anyhow!(reason.clone()));
+        }
+        Ok(self.loaded)
+    }
+
+    pub(crate) fn set_policy(&mut self, active: bool, paused: bool, volume: f64) -> Result<()> {
+        anyhow::ensure!(
+            volume.is_finite() && (0.0..=1.0).contains(&volume),
+            "Invalid Scene audio volume"
+        );
+        // Fail closed during every transition: unmute is the final operation.
+        self.set_flag("mute", true)?;
+        let name = CString::new("volume")?;
+        let mut percent = volume * 100.0;
+        let result = unsafe {
+            libmpv_sys::mpv_set_property(
+                self.handle,
+                name.as_ptr(),
+                libmpv_sys::mpv_format_MPV_FORMAT_DOUBLE,
+                (&mut percent as *mut f64).cast(),
+            )
+        };
+        anyhow::ensure!(
+            result >= 0,
+            "Failed to set Scene audio volume: error {result}"
+        );
+        self.set_flag("pause", !active || paused)?;
+        self.set_flag("mute", !active || volume == 0.0)
+    }
+
+    fn set_flag(&mut self, name: &str, value: bool) -> Result<()> {
+        let name = CString::new(name)?;
+        let mut flag = i32::from(value);
+        let result = unsafe {
+            libmpv_sys::mpv_set_property(
+                self.handle,
+                name.as_ptr(),
+                libmpv_sys::mpv_format_MPV_FORMAT_FLAG,
+                (&mut flag as *mut i32).cast(),
+            )
+        };
+        anyhow::ensure!(
+            result >= 0,
+            "Failed to update Scene audio playback: error {result}"
+        );
+        Ok(())
+    }
+
+    #[cfg(test)]
+    fn property(&self, name: &str) -> Option<String> {
+        let name = CString::new(name).unwrap();
+        let value = unsafe { libmpv_sys::mpv_get_property_string(self.handle, name.as_ptr()) };
+        if value.is_null() {
+            return None;
+        }
+        let result = unsafe { std::ffi::CStr::from_ptr(value) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe {
+            libmpv_sys::mpv_free(value.cast());
+        }
+        Some(result)
+    }
+}
+
+impl Drop for MpvAudioPlayer {
+    fn drop(&mut self) {
+        if !self.handle.is_null() {
+            unsafe {
+                libmpv_sys::mpv_terminate_destroy(self.handle);
+            }
+            self.handle = ptr::null_mut();
+        }
+    }
+}
+
+#[cfg(test)]
+mod audio_tests {
+    use super::MpvAudioPlayer;
+    use std::fs::File;
+    use std::io::{Read, Seek, SeekFrom, Write};
+    use std::os::fd::{AsRawFd, FromRawFd};
+    use std::process::{Child, ChildStdout, Command, Stdio};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    fn authored_pcm() -> Arc<File> {
+        let descriptor =
+            unsafe { libc::memfd_create(c"lwe-authored-pcm".as_ptr(), libc::MFD_CLOEXEC) };
+        assert!(descriptor >= 0);
+        let mut source = unsafe { File::from_raw_fd(descriptor) };
+        let samples = 8_000_u32;
+        let bytes = samples * 2;
+        let mut wav = Vec::new();
+        wav.extend(b"RIFF");
+        wav.extend((bytes + 36).to_le_bytes());
+        wav.extend(b"WAVEfmt ");
+        wav.extend(16_u32.to_le_bytes());
+        wav.extend(1_u16.to_le_bytes());
+        wav.extend(1_u16.to_le_bytes());
+        wav.extend(8_000_u32.to_le_bytes());
+        wav.extend(16_000_u32.to_le_bytes());
+        wav.extend(2_u16.to_le_bytes());
+        wav.extend(16_u16.to_le_bytes());
+        wav.extend(b"data");
+        wav.extend(bytes.to_le_bytes());
+        for sample in 0..samples {
+            let value = (8_000.0
+                * (2.0 * std::f64::consts::PI * 440.0 * f64::from(sample) / 8_000.0).sin())
+                as i16;
+            wav.extend(value.to_le_bytes());
+        }
+        source.write_all(&wav).unwrap();
+        source.seek(SeekFrom::Start(0)).unwrap();
+        Arc::new(source)
+    }
+
+    #[test]
+    fn null_output_decoder_keeps_candidates_silent_and_releases_owned_descriptor() {
+        // This exercises libmpv decoding/policy with ao=null. It is deliberately
+        // separate from physical audio output or desktop acceptance.
+        let source = authored_pcm();
+        let weak = Arc::downgrade(&source);
+        let mut player = MpvAudioPlayer::create(source, true, None).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !player.poll_ready().unwrap() {
+            assert!(
+                Instant::now() < deadline,
+                "authored PCM decoder did not load"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(player.property("pause").as_deref(), Some("yes"));
+        assert_eq!(player.property("mute").as_deref(), Some("yes"));
+        assert_eq!(player.property("loop-file").as_deref(), Some("inf"));
+        assert_eq!(player.property("vo").as_deref(), Some("null"));
+        player.set_policy(false, false, 1.0).unwrap();
+        assert_eq!(player.property("pause").as_deref(), Some("yes"));
+        assert_eq!(player.property("mute").as_deref(), Some("yes"));
+        player.set_policy(true, true, 0.5).unwrap();
+        assert_eq!(player.property("pause").as_deref(), Some("yes"));
+        assert_eq!(player.property("mute").as_deref(), Some("no"));
+        assert_eq!(player.property("volume").as_deref(), Some("50.000000"));
+        player.set_policy(true, false, 0.0).unwrap();
+        assert_eq!(player.property("pause").as_deref(), Some("no"));
+        assert_eq!(player.property("mute").as_deref(), Some("yes"));
+        assert!(player.set_policy(true, false, f64::NAN).is_err());
+        assert!(weak.upgrade().is_some());
+        drop(player);
+        assert!(
+            weak.upgrade().is_none(),
+            "source survived private core termination"
+        );
+    }
+
+    fn pactl(args: &[&str]) -> String {
+        let result = Command::new("pactl")
+            .args(args)
+            .output()
+            .expect("pactl is required for the opt-in private-sink test");
+        assert!(
+            result.status.success(),
+            "Private audio pactl action failed: {}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        String::from_utf8(result.stdout).unwrap().trim().to_string()
+    }
+
+    struct OwnedSink {
+        name: String,
+        module: Option<String>,
+    }
+    impl OwnedSink {
+        fn new() -> Self {
+            let unique = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let name = format!("lwe_audio_acceptance_{}_{unique}", std::process::id());
+            let module = pactl(&[
+                "load-module",
+                "module-null-sink",
+                &format!("sink_name={name}"),
+                "rate=48000",
+                "channels=2",
+                "sink_properties=device.description=LWE_Audio_Acceptance",
+            ]);
+            assert!(
+                module.parse::<u32>().is_ok(),
+                "private sink did not return its module identity"
+            );
+            Self {
+                name,
+                module: Some(module),
+            }
+        }
+        fn unload(mut self) {
+            pactl(&["unload-module", self.module.as_ref().unwrap()]);
+            self.module = None;
+        }
+    }
+    impl Drop for OwnedSink {
+        fn drop(&mut self) {
+            if let Some(module) = self.module.take() {
+                let result = Command::new("pactl")
+                    .args(["unload-module", &module])
+                    .output();
+                if !result.is_ok_and(|result| result.status.success()) {
+                    eprintln!("private Scene audio sink cleanup failed");
+                }
+            }
+        }
+    }
+
+    struct OwnedMonitor {
+        child: Child,
+        output: ChildStdout,
+    }
+    impl OwnedMonitor {
+        fn new(sink: &OwnedSink) -> Self {
+            let mut child = Command::new("parec")
+                .args([
+                    "--raw",
+                    "--format=s16le",
+                    "--rate=48000",
+                    "--channels=2",
+                    "--latency-msec=20",
+                    "--process-time-msec=20",
+                    &format!("--device={}.monitor", sink.name),
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .expect("parec is required for private-sink PCM acceptance");
+            let output = child.stdout.take().unwrap();
+            let flags = unsafe { libc::fcntl(output.as_raw_fd(), libc::F_GETFL) };
+            assert!(flags >= 0);
+            assert!(
+                unsafe { libc::fcntl(output.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
+                    >= 0
+            );
+            Self { child, output }
+        }
+        fn read_pcm(&mut self, milliseconds: usize) -> Vec<i16> {
+            let count = milliseconds * 48 * 2 * 2;
+            let mut bytes = vec![0_u8; count];
+            let mut read = 0;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while read < count {
+                assert!(
+                    Instant::now() < deadline,
+                    "private monitor PCM read timed out"
+                );
+                match self.output.read(&mut bytes[read..]) {
+                    Ok(0) => panic!("private monitor ended before PCM acceptance"),
+                    Ok(count) => read += count,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        let mut descriptor = libc::pollfd {
+                            fd: self.output.as_raw_fd(),
+                            events: libc::POLLIN,
+                            revents: 0,
+                        };
+                        assert!(unsafe { libc::poll(&mut descriptor, 1, 100) } >= 0);
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                    Err(error) => panic!("private monitor read failed: {error}"),
+                }
+            }
+            bytes
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|sample| i16::from_le_bytes([sample[0], sample[1]]))
+                .collect()
+        }
+        fn settled_rms(&mut self, phase: &str) -> f64 {
+            // Consume capture buffers continuously instead of sleeping while
+            // old samples accumulate in the child pipe.
+            let _ = self.read_pcm(1000);
+            let samples = self.read_pcm(300);
+            let rms = (samples
+                .iter()
+                .map(|sample| f64::from(*sample).powi(2))
+                .sum::<f64>()
+                / samples.len() as f64)
+                .sqrt();
+            eprintln!(
+                "scene_audio_pcm {}",
+                serde_json::json!({"phase":phase,"rms_s16":rms,"samples":samples.len(),"private_monitor":true})
+            );
+            rms
+        }
+    }
+    impl Drop for OwnedMonitor {
+        fn drop(&mut self) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+
+    #[test]
+    fn private_pulse_sink_observes_candidate_activation_pause_mute_and_drop() {
+        if std::env::var("LWE_REAL_SCENE_AUDIO_TESTS").as_deref() != Ok("1") {
+            eprintln!("skipping private-sink PCM acceptance; set LWE_REAL_SCENE_AUDIO_TESTS=1");
+            return;
+        }
+        let original_sink = pactl(&["get-default-sink"]);
+        let original_source = pactl(&["get-default-source"]);
+        let sink = OwnedSink::new();
+        assert_eq!(
+            pactl(&["get-default-sink"]),
+            original_sink,
+            "private test changed the default output"
+        );
+        assert_eq!(
+            pactl(&["get-default-source"]),
+            original_source,
+            "private test changed the default input"
+        );
+        let mut monitor = OwnedMonitor::new(&sink);
+        let source = authored_pcm();
+        let weak = Arc::downgrade(&source);
+        let device = format!("pulse/{}", sink.name);
+        let mut player = MpvAudioPlayer::create(source, false, Some(&device)).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !player.poll_ready().unwrap() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(
+            player.property("audio-device").as_deref(),
+            Some(device.as_str())
+        );
+        assert!(
+            monitor.settled_rms("candidate") <= 1.0,
+            "candidate produced PCM before activation"
+        );
+        // If an output backend initializes only after unpause, initialize it
+        // while mute+zero-volume remain in effect, then verify the actual sink.
+        player.set_policy(true, false, 0.0).unwrap();
+        let sinks: serde_json::Value =
+            serde_json::from_str(&pactl(&["--format=json", "list", "sinks"])).unwrap();
+        let private_index = sinks
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["name"].as_str() == Some(sink.name.as_str()))
+            .unwrap()["index"]
+            .as_u64()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            let inputs: serde_json::Value =
+                serde_json::from_str(&pactl(&["--format=json", "list", "sink-inputs"])).unwrap();
+            let own: Vec<_> = inputs
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|entry| {
+                    entry["properties"]["application.process.id"].as_str()
+                        == Some(std::process::id().to_string().as_str())
+                })
+                .collect();
+            if !own.is_empty() {
+                assert!(
+                    own.iter()
+                        .all(|entry| entry["sink"].as_u64() == Some(private_index)),
+                    "Scene audio stream escaped its private sink"
+                );
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "audio output did not attach to the private sink"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        player.set_policy(true, false, 0.8).unwrap();
+        eprintln!(
+            "scene_audio_activation_state {}",
+            serde_json::json!({"pause":player.property("pause"),"mute":player.property("mute"),"volume":player.property("volume"),"current_ao":player.property("current-ao"),"time_pos":player.property("time-pos")})
+        );
+        assert!(
+            monitor.settled_rms("activated") > 1000.0,
+            "activated audio had no sampled PCM"
+        );
+        player.set_policy(true, true, 0.8).unwrap();
+        assert!(
+            monitor.settled_rms("paused") <= 1.0,
+            "paused audio continued producing PCM"
+        );
+        player.set_policy(true, false, 0.0).unwrap();
+        assert!(
+            monitor.settled_rms("muted") <= 1.0,
+            "zero-volume audio produced PCM"
+        );
+        drop(player);
+        assert!(
+            weak.upgrade().is_none(),
+            "player did not release its prepared descriptor"
+        );
+        assert!(
+            monitor.settled_rms("dropped") <= 1.0,
+            "audio survived private core termination"
+        );
+        drop(monitor);
+        sink.unload();
+        assert_eq!(pactl(&["get-default-sink"]), original_sink);
+        assert_eq!(pactl(&["get-default-source"]), original_source);
+        eprintln!(
+            "scene_audio_pcm_complete {{\"default_output_unchanged\":true,\"default_input_unchanged\":true,\"owned_sink_unloaded\":true,\"owned_capture_joined\":true,\"owned_descriptor_released\":true}}"
+        );
+    }
+}

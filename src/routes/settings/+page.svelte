@@ -26,6 +26,8 @@
     language: string;
     theme: string;
     launchOnLogin: boolean;
+    fpsLimit: string;
+    pauseOnBattery: boolean;
     steamWebApiKey: string;
   };
 
@@ -45,6 +47,8 @@
     language: snapshot.language,
     theme: snapshot.theme,
     launchOnLogin: snapshot.launchOnLogin,
+    fpsLimit: String(snapshot.fpsLimit ?? 0),
+    pauseOnBattery: snapshot.pauseOnBattery,
     steamWebApiKey: snapshot.steamWebApiKey
   });
 
@@ -70,6 +74,9 @@
 
   const languageLabel = (value: string) => $copy.settings.languageOptions[value as 'en' | 'zh-CN' | 'system'] ?? value;
   const themeLabel = (value: string) => $copy.settings.themeOptions[value as 'system' | 'light' | 'dark'] ?? value;
+  const fpsLabel = (value: string | number | null) => Number(value) === 0
+    ? $copy.settings.compositorPacing
+    : formatCopy($copy.settings.fpsValue, { fps: String(value) });
 
   let loading = false;
   let saving = false;
@@ -86,6 +93,8 @@
     language: 'en',
     theme: 'system',
     launchOnLogin: false,
+    fpsLimit: '0',
+    pauseOnBattery: false,
     steamWebApiKey: ''
   };
 
@@ -100,6 +109,8 @@
     (draft.language !== snapshot.language ||
       draft.theme !== snapshot.theme ||
       draft.launchOnLogin !== snapshot.launchOnLogin ||
+      Number(draft.fpsLimit) !== (snapshot.fpsLimit ?? 0) ||
+      draft.pauseOnBattery !== snapshot.pauseOnBattery ||
       draft.steamWebApiKey !== snapshot.steamWebApiKey);
 
   const ensurePage = async () => {
@@ -133,8 +144,8 @@
     }
   };
 
-  const saveSettings = async () => {
-    if (saving || loading || !snapshot || !hasChanges) {
+  const saveSettings = async (retryPlayback = false) => {
+    if (saving || loading || !snapshot || (!hasChanges && !retryPlayback)) {
       return;
     }
 
@@ -149,16 +160,18 @@
         theme: draft.theme !== snapshot.theme ? draft.theme : null,
         launchOnLogin:
           draft.launchOnLogin !== snapshot.launchOnLogin ? draft.launchOnLogin : null,
+        fpsLimit: retryPlayback || Number(draft.fpsLimit) !== (snapshot.fpsLimit ?? 0) ? Number(draft.fpsLimit) : null,
+        pauseOnBattery: retryPlayback || draft.pauseOnBattery !== snapshot.pauseOnBattery ? draft.pauseOnBattery : null,
         steamWebApiKey:
           draft.steamWebApiKey !== snapshot.steamWebApiKey ? draft.steamWebApiKey : null
       });
 
       applyInvalidations(outcome.invalidations);
-      pageError = actionOutcomeError(outcome, $copy.actionFeedback.failed);
-      if (pageError) return;
       if (outcome.currentUpdate) {
         applySnapshot(outcome.currentUpdate);
       }
+      pageError = actionOutcomeError(outcome, $copy.actionFeedback.failed);
+      if (pageError) return;
 
       actionMessage = outcome.message ?? $copy.actionFeedback.completed;
       isEditing = false;
@@ -253,6 +266,12 @@
   {/if}
 
   {#if snapshot}
+    {#if snapshot.playbackSettingsIssue}
+      <div class="grid justify-items-start gap-2">
+        <p class="lwe-warning-banner" role="alert">{$copy.settings.playbackSettingsIssue} {snapshot.playbackSettingsIssue}</p>
+        <Button variant="outline" onclick={() => saveSettings(true)} disabled={saving || loading || hasChanges}>{$copy.settings.retryPlaybackSettings}</Button>
+      </div>
+    {/if}
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.9fr)] xl:items-start">
       <Card class="lwe-panel gap-5">
         <div class="grid gap-1.5">
@@ -303,6 +322,30 @@
               </Select.Root>
             </label>
 
+            <label class="grid gap-1.5">
+              <span class="lwe-eyebrow">{$copy.settings.fpsLimit}</span>
+              <Select.Root type="single" name="settingsFpsLimit" bind:value={draft.fpsLimit} disabled={saving}>
+                <Select.Trigger aria-label={$copy.settings.fpsLimit} class="min-w-[14rem]">{fpsLabel(draft.fpsLimit)}</Select.Trigger>
+                <Select.Content>
+                  {#each [0, 15, 30, 60, 120, 144, 240] as fps}
+                    <Select.Item value={String(fps)} label={fpsLabel(fps)}>{fpsLabel(fps)}</Select.Item>
+                  {/each}
+                  {#if ![0, 15, 30, 60, 120, 144, 240].includes(Number(draft.fpsLimit))}
+                    <Select.Item value={draft.fpsLimit} label={fpsLabel(draft.fpsLimit)}>{fpsLabel(draft.fpsLimit)}</Select.Item>
+                  {/if}
+                </Select.Content>
+              </Select.Root>
+              <span class="text-xs text-muted-foreground">{$copy.settings.fpsLimitHint}</span>
+            </label>
+
+            <label class="flex items-start gap-3 rounded-[1rem] border border-border/80 bg-muted/70 p-4">
+              <input type="checkbox" bind:checked={draft.pauseOnBattery} disabled={saving} aria-label={$copy.settings.pauseOnBattery} class="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-ring" />
+              <span class="grid gap-1.5">
+                <span class="lwe-eyebrow">{$copy.settings.pauseOnBattery}</span>
+                <span class="text-sm leading-6 text-foreground/85">{$copy.settings.pauseOnBatteryHint}</span>
+              </span>
+            </label>
+
             {#if snapshot.launchOnLoginAvailable}
               <label class="flex items-start gap-3 rounded-[1rem] border border-border/80 bg-muted/70 p-4">
                 <input
@@ -347,7 +390,7 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <Button onclick={saveSettings} disabled={!hasChanges || saving}>
+            <Button onclick={() => saveSettings()} disabled={!hasChanges || saving}>
               {saving ? $copy.settings.saving : $copy.settings.saveChanges}
             </Button>
             <Button onclick={cancelEditing} variant="outline" disabled={saving}>{$copy.settings.cancel}</Button>
@@ -360,6 +403,8 @@
           <div class="grid gap-4 rounded-[1rem] border border-border/80 bg-muted/60 p-4 text-sm leading-6 text-foreground/85">
             <p><span class="font-medium text-foreground">{$copy.settings.language}:</span> {languageLabel(snapshot.language)}</p>
             <p><span class="font-medium text-foreground">{$copy.settings.theme}:</span> {themeLabel(snapshot.theme)}</p>
+            <p><span class="font-medium text-foreground">{$copy.settings.fpsLimit}:</span> {fpsLabel(snapshot.fpsLimit)}</p>
+            <p><span class="font-medium text-foreground">{$copy.settings.pauseOnBattery}:</span> {snapshot.pauseOnBattery ? $copy.settings.enabled : $copy.settings.disabled}</p>
             <p><span class="font-medium text-foreground">{$copy.settings.steamWebApiKeySaved}</span> {maskApiKey(snapshot.steamWebApiKey)}</p>
             <p>
               <span class="font-medium text-foreground">

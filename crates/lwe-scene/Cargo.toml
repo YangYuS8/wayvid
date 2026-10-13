@@ -1,0 +1,21 @@
+[package]
+name = "lwe-scene"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bounded, independent Wallpaper Engine scene resource readers"
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "dds"] }
+libc = "0.2"
+lz4_flex = "0.13.1"
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

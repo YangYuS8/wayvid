@@ -1,9 +1,9 @@
 use crate::assembly::card_cover::detail_cover_path;
 use crate::assembly::compatibility::compatibility_explanation;
 use crate::models::{ItemType, LibraryItemDetail, LibrarySource};
-use crate::policies::shared::support_policy::supports_first_release;
 use crate::results::desktop::DesktopPageResult;
 use crate::results::workshop::AssessedWorkshopCatalogEntry;
+use crate::services::compatibility_service::CompatibilityService;
 use crate::services::library_service::LibraryService;
 use lwe_library::WorkshopProjectType;
 
@@ -30,8 +30,9 @@ pub fn assemble_library_detail(
     let description = entry.project_metadata.description.clone();
     let tags = entry.project_metadata.tags.clone();
     let assigned_monitor_labels = LibraryService::assigned_monitor_labels(desktop, &id);
-    let compatibility = compatibility_explanation(&entry.compatibility);
-    let apply_supported = supports_first_release(entry.entry.project_type);
+    let mut compatibility = compatibility_explanation(&entry.compatibility);
+    compatibility.scene_assessment = entry.project_metadata.scene_assessment.clone();
+    let apply_supported = CompatibilityService::supports_runtime(&entry);
 
     LibraryItemDetail {
         id,

@@ -65,7 +65,7 @@
     @apply m-0 h-full overflow-hidden bg-background font-sans text-foreground;
   }
 
-  body > div {
+  body > #lwe-app {
     @apply h-full overflow-hidden;
   }
 }

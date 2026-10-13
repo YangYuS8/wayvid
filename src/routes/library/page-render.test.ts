@@ -143,7 +143,7 @@ describe('library page render', () => {
     expect(body).toContain('Runnable video');
     expect(body).toContain('Forest Scene');
     expect(body).toContain('Recognized only');
-    expect(body).toContain('not runnable by the current video runtime');
+    expect(body).toContain('Review the compatibility report for missing resources');
   });
 
   it('renders thumbnail cover paths on Library cards without regressing missing-cover placeholders', () => {

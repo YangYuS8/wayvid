@@ -8,6 +8,8 @@ pub mod desktop_service;
 pub mod diagnostics_service;
 pub mod library_service;
 pub mod monitor_service;
+pub mod scene_properties_service;
+pub mod scene_service;
 pub mod settings_persistence_service;
 pub mod settings_service;
 pub(crate) mod startup_restore;

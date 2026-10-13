@@ -1,14 +1,21 @@
-use std::collections::BTreeMap;
 use std::fs;
-use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::io::{ErrorKind, Read};
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::results::desktop_persistence::{DesktopPersistenceLoad, DesktopPersistenceWrite};
-use crate::results::session_persistence::PersistedSessionState;
+use crate::results::session_persistence::{PersistedSessionState, ScenePropertyValues};
 use crate::services::atomic_file::atomic_write;
 
 static SESSION_WRITES: Mutex<()> = Mutex::new(());
+const MAX_SESSION_BYTES: usize = 1024 * 1024;
+const MAX_MONITORS: usize = 256;
+const MAX_ITEMS_PER_MONITOR: usize = 128;
+const MAX_PROPERTIES_PER_ITEM: usize = 256;
+const MAX_TOTAL_PROPERTIES: usize = 16_384;
+const MAX_ID_BYTES: usize = 512;
+const MAX_PROPERTY_NAME_BYTES: usize = 256;
+const MAX_PROPERTY_STRING_BYTES: usize = 256;
 
 pub struct DesktopPersistenceService;
 
@@ -27,6 +34,24 @@ impl DesktopPersistenceService {
     pub fn save_assignment(monitor_id: &str, item_id: &str) -> DesktopPersistenceWrite {
         match Self::for_user_path() {
             Ok(service) => service.save_assignment(monitor_id, item_id),
+            Err(reason) => DesktopPersistenceWrite::Unavailable { reason },
+        }
+    }
+
+    pub fn load_scene_properties(
+        monitor_id: &str,
+        item_id: &str,
+    ) -> Result<ScenePropertyValues, String> {
+        Self::for_user_path()?.load_scene_properties(monitor_id, item_id)
+    }
+
+    pub fn save_assignment_with_properties(
+        monitor_id: &str,
+        item_id: &str,
+        values: &ScenePropertyValues,
+    ) -> DesktopPersistenceWrite {
+        match Self::for_user_path() {
+            Ok(service) => service.save_assignment_with_properties(monitor_id, item_id, values),
             Err(reason) => DesktopPersistenceWrite::Unavailable { reason },
         }
     }
@@ -50,34 +75,83 @@ impl DesktopPersistenceService {
         Self::for_path(path)
     }
 
-    fn load_at_path(path: &std::path::Path) -> DesktopPersistenceLoad {
-        match fs::read_to_string(path) {
-            Ok(contents) => match toml::from_str::<PersistedSessionState>(&contents) {
-                Ok(state) => DesktopPersistenceLoad::Loaded(state.assignments),
-                Err(reason) => DesktopPersistenceLoad::Unavailable {
-                    reason: format!(
-                        "Failed to parse desktop assignments from {}: {reason}",
-                        path.display()
-                    ),
-                },
-            },
+    fn load_session_at_path(path: &Path) -> Result<PersistedSessionState, String> {
+        let file = match fs::File::open(path) {
+            Ok(file) => file,
             Err(error) if error.kind() == ErrorKind::NotFound => {
-                DesktopPersistenceLoad::Loaded(BTreeMap::new())
+                return Ok(PersistedSessionState::default());
             }
-            Err(error) => DesktopPersistenceLoad::Unavailable {
-                reason: format!(
-                    "Failed to read desktop assignments from {}: {error}",
+            Err(error) => {
+                return Err(format!(
+                    "Failed to read desktop session from {}: {error}",
                     path.display()
-                ),
-            },
+                ));
+            }
+        };
+        let metadata = file.metadata().map_err(|error| {
+            format!(
+                "Failed to inspect desktop session {}: {error}",
+                path.display()
+            )
+        })?;
+        if !metadata.is_file() || metadata.len() > MAX_SESSION_BYTES as u64 {
+            return Err(format!(
+                "Invalid desktop session size or file type at {}",
+                path.display()
+            ));
+        }
+        let mut contents = String::new();
+        file.take(MAX_SESSION_BYTES as u64 + 1)
+            .read_to_string(&mut contents)
+            .map_err(|error| {
+                format!(
+                    "Failed to read desktop session from {}: {error}",
+                    path.display()
+                )
+            })?;
+        if contents.len() > MAX_SESSION_BYTES {
+            return Err(format!(
+                "Desktop session exceeds size limit at {}",
+                path.display()
+            ));
+        }
+        // TOML diagnostics can include the offending source line and value.
+        let state = toml::from_str::<PersistedSessionState>(&contents)
+            .map_err(|_| format!("Failed to parse desktop session from {}", path.display()))?;
+        validate_session(&state)?;
+        Ok(state)
+    }
+
+    fn load_at_path(path: &Path) -> DesktopPersistenceLoad {
+        match Self::load_session_at_path(path) {
+            Ok(state) => DesktopPersistenceLoad::Loaded(state.assignments),
+            Err(reason) => DesktopPersistenceLoad::Unavailable { reason },
         }
     }
 
-    fn save_at_path(
-        path: &std::path::Path,
-        assignments: &BTreeMap<String, String>,
+    fn save_at_path_with(
+        path: &Path,
+        state: &PersistedSessionState,
+        write: impl FnOnce(&Path, &[u8]) -> std::io::Result<()>,
     ) -> DesktopPersistenceWrite {
+        if let Err(reason) = validate_session(state) {
+            return DesktopPersistenceWrite::Unavailable { reason };
+        }
+        let contents = match toml::to_string(state) {
+            Ok(contents) if contents.len() <= MAX_SESSION_BYTES => contents,
+            Ok(_) => {
+                return DesktopPersistenceWrite::Unavailable {
+                    reason: "Desktop session exceeds size limit".to_string(),
+                };
+            }
+            Err(_) => {
+                return DesktopPersistenceWrite::Unavailable {
+                    reason: format!("Failed to serialize desktop session for {}", path.display()),
+                };
+            }
+        };
         if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
             && let Err(error) = fs::create_dir_all(parent)
         {
             return DesktopPersistenceWrite::Unavailable {
@@ -88,21 +162,7 @@ impl DesktopPersistenceService {
             };
         }
 
-        let contents = match toml::to_string(&PersistedSessionState {
-            assignments: assignments.clone(),
-        }) {
-            Ok(contents) => contents,
-            Err(error) => {
-                return DesktopPersistenceWrite::Unavailable {
-                    reason: format!(
-                        "Failed to serialize desktop assignments for {}: {error}",
-                        path.display()
-                    ),
-                };
-            }
-        };
-
-        match atomic_write(path, contents.as_bytes()) {
+        match write(path, contents.as_bytes()) {
             Ok(()) => DesktopPersistenceWrite::Saved,
             Err(error) => DesktopPersistenceWrite::Unavailable {
                 reason: format!(
@@ -114,32 +174,70 @@ impl DesktopPersistenceService {
     }
 
     fn save_assignment_at_path(
-        path: &std::path::Path,
+        path: &Path,
         monitor_id: &str,
         item_id: &str,
+        values: Option<&ScenePropertyValues>,
     ) -> DesktopPersistenceWrite {
-        let mut assignments = match Self::load_at_path(path) {
-            DesktopPersistenceLoad::Loaded(assignments) => assignments,
-            DesktopPersistenceLoad::Unavailable { reason } => {
-                return DesktopPersistenceWrite::Unavailable { reason };
-            }
-        };
-
-        assignments.insert(monitor_id.to_string(), item_id.to_string());
-        Self::save_at_path(path, &assignments)
+        Self::save_assignment_at_path_with(path, monitor_id, item_id, values, atomic_write)
     }
 
-    fn clear_at_path(path: &std::path::Path, monitor_id: &str) -> DesktopPersistenceWrite {
-        let mut assignments = match Self::load_at_path(path) {
-            DesktopPersistenceLoad::Loaded(assignments) => assignments,
-            DesktopPersistenceLoad::Unavailable { reason } => {
+    fn save_assignment_at_path_with(
+        path: &Path,
+        monitor_id: &str,
+        item_id: &str,
+        values: Option<&ScenePropertyValues>,
+        write: impl FnOnce(&Path, &[u8]) -> std::io::Result<()>,
+    ) -> DesktopPersistenceWrite {
+        if let Err(reason) = validate_identity(monitor_id, item_id)
+            .and_then(|()| values.map_or(Ok(()), validate_choices))
+        {
+            return DesktopPersistenceWrite::Unavailable { reason };
+        }
+        let mut state = match Self::load_session_at_path(path) {
+            Ok(state) => state,
+            Err(reason) => {
+                return DesktopPersistenceWrite::Unavailable { reason };
+            }
+        };
+        state
+            .assignments
+            .insert(monitor_id.to_string(), item_id.to_string());
+        if let Some(values) = values {
+            if values.is_empty() {
+                if let Some(items) = state.scene_properties.get_mut(monitor_id) {
+                    items.remove(item_id);
+                    if items.is_empty() {
+                        state.scene_properties.remove(monitor_id);
+                    }
+                }
+            } else {
+                state
+                    .scene_properties
+                    .entry(monitor_id.to_string())
+                    .or_default()
+                    .insert(item_id.to_string(), values.clone());
+            }
+        }
+        Self::save_at_path_with(path, &state, write)
+    }
+
+    fn clear_at_path(path: &Path, monitor_id: &str) -> DesktopPersistenceWrite {
+        if !valid_key(monitor_id, MAX_ID_BYTES) {
+            return DesktopPersistenceWrite::Unavailable {
+                reason: "Invalid desktop monitor identity".to_string(),
+            };
+        }
+        let mut state = match Self::load_session_at_path(path) {
+            Ok(state) => state,
+            Err(reason) => {
                 return DesktopPersistenceWrite::Unavailable { reason };
             }
         };
 
-        assignments.remove(monitor_id);
+        state.assignments.remove(monitor_id);
 
-        let result = if assignments.is_empty() {
+        let result = if state.assignments.is_empty() && state.scene_properties.is_empty() {
             match fs::remove_file(path) {
                 Ok(()) => Ok(()),
                 Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
@@ -149,7 +247,7 @@ impl DesktopPersistenceService {
                 )),
             }
         } else {
-            match Self::save_at_path(path, &assignments) {
+            match Self::save_at_path_with(path, &state, atomic_write) {
                 DesktopPersistenceWrite::Saved => Ok(()),
                 DesktopPersistenceWrite::Cleared => Ok(()),
                 DesktopPersistenceWrite::Unavailable { reason } => Err(reason),
@@ -161,6 +259,75 @@ impl DesktopPersistenceService {
             Err(reason) => DesktopPersistenceWrite::Unavailable { reason },
         }
     }
+}
+
+fn valid_key(key: &str, max_bytes: usize) -> bool {
+    !key.is_empty() && key.len() <= max_bytes && !key.contains('\0')
+}
+
+fn validate_identity(monitor_id: &str, item_id: &str) -> Result<(), String> {
+    if valid_key(monitor_id, MAX_ID_BYTES) && valid_key(item_id, MAX_ID_BYTES) {
+        Ok(())
+    } else {
+        Err("Invalid desktop monitor or item identity".to_string())
+    }
+}
+
+fn normalized_channel(value: &serde_json::Value) -> bool {
+    value
+        .as_f64()
+        .is_some_and(|v| v.is_finite() && (0.0..=1.0).contains(&v))
+}
+
+fn valid_choice(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Bool(_) => true,
+        serde_json::Value::Number(number) => number.as_f64().is_some_and(f64::is_finite),
+        serde_json::Value::Array(channels) => {
+            channels.len() == 3 && channels.iter().all(normalized_channel)
+        }
+        // The project declaration validates RGB syntax and combo membership
+        // before apply. Persistence only preserves a bounded literal string.
+        serde_json::Value::String(value) => {
+            !value.is_empty() && value.len() <= MAX_PROPERTY_STRING_BYTES && !value.contains('\0')
+        }
+        _ => false,
+    }
+}
+
+fn validate_choices(values: &ScenePropertyValues) -> Result<(), String> {
+    if values.len() > MAX_PROPERTIES_PER_ITEM
+        || values
+            .iter()
+            .any(|(name, value)| !valid_key(name, MAX_PROPERTY_NAME_BYTES) || !valid_choice(value))
+    {
+        return Err("Invalid or oversized Scene property choices".to_string());
+    }
+    Ok(())
+}
+
+fn validate_session(state: &PersistedSessionState) -> Result<(), String> {
+    if state.assignments.len() > MAX_MONITORS || state.scene_properties.len() > MAX_MONITORS {
+        return Err("Desktop session monitor count exceeds limit".to_string());
+    }
+    for (monitor, item) in &state.assignments {
+        validate_identity(monitor, item)?;
+    }
+    let mut total_properties = 0;
+    for (monitor, items) in &state.scene_properties {
+        if !valid_key(monitor, MAX_ID_BYTES) || items.len() > MAX_ITEMS_PER_MONITOR {
+            return Err("Invalid or oversized Scene property item selection".to_string());
+        }
+        for (item, choices) in items {
+            validate_identity(monitor, item)?;
+            validate_choices(choices)?;
+            total_properties += choices.len();
+            if total_properties > MAX_TOTAL_PROPERTIES {
+                return Err("Desktop session property count exceeds limit".to_string());
+            }
+        }
+    }
+    Ok(())
 }
 
 fn session_state_path_from_env(
@@ -204,7 +371,43 @@ impl ScopedDesktopPersistenceService {
                 reason: "Desktop assignment persistence lock was poisoned".to_string(),
             };
         };
-        DesktopPersistenceService::save_assignment_at_path(&self.path, monitor_id, item_id)
+        DesktopPersistenceService::save_assignment_at_path(&self.path, monitor_id, item_id, None)
+    }
+
+    pub fn load_scene_properties(
+        &self,
+        monitor_id: &str,
+        item_id: &str,
+    ) -> Result<ScenePropertyValues, String> {
+        validate_identity(monitor_id, item_id)?;
+        let state = DesktopPersistenceService::load_session_at_path(&self.path)?;
+        Ok(state
+            .scene_properties
+            .get(monitor_id)
+            .and_then(|items| items.get(item_id))
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    /// Save the assignment and this monitor/item's complete choice map in one
+    /// atomic session replacement. An empty map restores authored defaults.
+    pub fn save_assignment_with_properties(
+        &self,
+        monitor_id: &str,
+        item_id: &str,
+        values: &ScenePropertyValues,
+    ) -> DesktopPersistenceWrite {
+        let Ok(_write_guard) = SESSION_WRITES.lock() else {
+            return DesktopPersistenceWrite::Unavailable {
+                reason: "Desktop assignment persistence lock was poisoned".to_string(),
+            };
+        };
+        DesktopPersistenceService::save_assignment_at_path(
+            &self.path,
+            monitor_id,
+            item_id,
+            Some(values),
+        )
     }
 
     pub fn clear_assignment(&self, monitor_id: &str) -> DesktopPersistenceWrite {
@@ -226,6 +429,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::results::desktop_persistence::{DesktopPersistenceLoad, DesktopPersistenceWrite};
+    use crate::results::session_persistence::{PersistedSessionState, ScenePropertyValues};
+    use serde_json::json;
 
     use super::{DesktopPersistenceService, session_state_path_from_env};
 
@@ -508,5 +713,328 @@ mod tests {
             std::fs::read_to_string(home_root.join(".config/lwe/session.toml")).unwrap();
         let parsed: toml::Value = toml::from_str(&persisted).unwrap();
         assert_eq!(parsed["assignments"]["eDP-1"].as_str(), Some("item-1"));
+    }
+
+    fn choices() -> ScenePropertyValues {
+        BTreeMap::from([
+            ("enabled".to_string(), json!(true)),
+            ("speed".to_string(), json!(1.25)),
+            ("color".to_string(), json!([0.25, 0.5, 1.0])),
+            ("legacy_color".to_string(), json!("0.125 0.25 0.5")),
+            ("selection".to_string(), json!("second")),
+        ])
+    }
+
+    #[test]
+    fn legacy_assignments_load_with_empty_scene_properties() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        std::fs::write(&path, "[assignments]\neDP-1 = 'old-video'\n").unwrap();
+        let service = DesktopPersistenceService::for_path(path.clone());
+        assert!(
+            service
+                .load_scene_properties("eDP-1", "scene-1")
+                .unwrap()
+                .is_empty()
+        );
+        assert!(matches!(
+            service.save_assignment("HDMI-1", "other-video"),
+            DesktopPersistenceWrite::Saved
+        ));
+        let state: PersistedSessionState =
+            toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(state.assignments.len(), 2);
+        assert!(state.scene_properties.is_empty());
+        let missing = DesktopPersistenceService::for_path(directory.path().join("missing.toml"));
+        assert!(
+            missing
+                .load_scene_properties("eDP-1", "scene-1")
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn assignment_and_choices_round_trip_in_the_same_session_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        let values = choices();
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY-1", "scene-1", &values),
+            DesktopPersistenceWrite::Saved
+        ));
+        assert_eq!(
+            service
+                .load_scene_properties("DISPLAY-1", "scene-1")
+                .unwrap(),
+            values
+        );
+        let state: PersistedSessionState =
+            toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(state.assignments["DISPLAY-1"], "scene-1");
+        assert_eq!(state.scene_properties["DISPLAY-1"]["scene-1"], values);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn ordinary_assignment_save_and_last_clear_preserve_all_choices() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        let values = choices();
+        for (monitor, item) in [
+            ("DISPLAY-1", "scene-1"),
+            ("DISPLAY-1", "scene-2"),
+            ("DISPLAY-2", "scene-1"),
+        ] {
+            assert!(matches!(
+                service.save_assignment_with_properties(monitor, item, &values),
+                DesktopPersistenceWrite::Saved
+            ));
+        }
+        assert!(matches!(
+            service.save_assignment("DISPLAY-1", "video-1"),
+            DesktopPersistenceWrite::Saved
+        ));
+        assert!(matches!(
+            service.clear_assignment("DISPLAY-1"),
+            DesktopPersistenceWrite::Cleared
+        ));
+        assert!(matches!(
+            service.clear_assignment("DISPLAY-2"),
+            DesktopPersistenceWrite::Cleared
+        ));
+        assert!(path.is_file());
+        let state = DesktopPersistenceService::load_session_at_path(&path).unwrap();
+        assert!(state.assignments.is_empty());
+        for (monitor, item) in [
+            ("DISPLAY-1", "scene-1"),
+            ("DISPLAY-1", "scene-2"),
+            ("DISPLAY-2", "scene-1"),
+        ] {
+            assert_eq!(state.scene_properties[monitor][item], values);
+        }
+    }
+
+    #[test]
+    fn empty_choice_map_resets_only_the_selected_monitor_and_item() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        let values = choices();
+        for (monitor, item) in [
+            ("DISPLAY-1", "scene-1"),
+            ("DISPLAY-1", "scene-2"),
+            ("DISPLAY-2", "scene-1"),
+        ] {
+            assert!(matches!(
+                service.save_assignment_with_properties(monitor, item, &values),
+                DesktopPersistenceWrite::Saved
+            ));
+        }
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY-1", "scene-1", &BTreeMap::new()),
+            DesktopPersistenceWrite::Saved
+        ));
+        let state = DesktopPersistenceService::load_session_at_path(&path).unwrap();
+        assert!(!state.scene_properties["DISPLAY-1"].contains_key("scene-1"));
+        assert_eq!(state.scene_properties["DISPLAY-1"]["scene-2"], values);
+        assert_eq!(state.scene_properties["DISPLAY-2"]["scene-1"], values);
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY-1", "scene-2", &BTreeMap::new()),
+            DesktopPersistenceWrite::Saved
+        ));
+        let state = DesktopPersistenceService::load_session_at_path(&path).unwrap();
+        assert!(!state.scene_properties.contains_key("DISPLAY-1"));
+        assert_eq!(state.assignments["DISPLAY-1"], "scene-2");
+        assert_eq!(state.assignments["DISPLAY-2"], "scene-1");
+    }
+
+    #[test]
+    fn concurrent_save_and_clear_keep_other_assignments_and_property_selections() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        assert!(matches!(
+            service.save_assignment_with_properties("CLEAR", "scene-old", &choices()),
+            DesktopPersistenceWrite::Saved
+        ));
+        let barrier = std::sync::Barrier::new(13);
+        std::thread::scope(|scope| {
+            for index in 0..12 {
+                let path = &path;
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    barrier.wait();
+                    let service = DesktopPersistenceService::for_path(path.clone());
+                    assert!(matches!(
+                        service.save_assignment_with_properties(
+                            &format!("DISPLAY-{index}"),
+                            "scene",
+                            &choices()
+                        ),
+                        DesktopPersistenceWrite::Saved
+                    ));
+                    assert!(matches!(
+                        service.save_assignment(&format!("DISPLAY-{index}"), "video"),
+                        DesktopPersistenceWrite::Saved
+                    ));
+                });
+            }
+            let barrier = &barrier;
+            scope.spawn(|| {
+                barrier.wait();
+                assert!(matches!(
+                    service.clear_assignment("CLEAR"),
+                    DesktopPersistenceWrite::Cleared
+                ));
+            });
+        });
+        let state = DesktopPersistenceService::load_session_at_path(&path).unwrap();
+        assert_eq!(state.assignments.len(), 12);
+        assert!(!state.assignments.contains_key("CLEAR"));
+        assert_eq!(state.scene_properties.len(), 13);
+        for index in 0..12 {
+            let monitor = format!("DISPLAY-{index}");
+            assert_eq!(state.assignments[&monitor], "video");
+            assert_eq!(state.scene_properties[&monitor]["scene"], choices());
+        }
+        assert_eq!(state.scene_properties["CLEAR"]["scene-old"], choices());
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn corrupt_or_oversized_state_is_redacted_and_never_overwritten() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        for contents in [
+            "[assignments]\neDP-1 = 'DO-NOT-PRINT'.broken\n".to_string(),
+            "[scene_properties.DISPLAY.item]\nsecret = { nested = 'DO-NOT-PRINT' }\n".to_string(),
+            format!(
+                "[scene_properties.DISPLAY.item]\nsecret = 'DO-NOT-PRINT{}'\n",
+                "x".repeat(super::MAX_PROPERTY_STRING_BYTES)
+            ),
+            " ".repeat(super::MAX_SESSION_BYTES + 1),
+        ] {
+            std::fs::write(&path, &contents).unwrap();
+            let reason = service
+                .load_scene_properties("DISPLAY", "item")
+                .unwrap_err();
+            assert!(!reason.contains("DO-NOT-PRINT"));
+            assert!(matches!(
+                service.load_state(),
+                DesktopPersistenceLoad::Unavailable { .. }
+            ));
+            assert!(matches!(
+                service.save_assignment("DISPLAY", "video"),
+                DesktopPersistenceWrite::Unavailable { .. }
+            ));
+            assert!(matches!(
+                service.save_assignment_with_properties("DISPLAY", "scene", &choices()),
+                DesktopPersistenceWrite::Unavailable { .. }
+            ));
+            assert!(matches!(
+                service.clear_assignment("DISPLAY"),
+                DesktopPersistenceWrite::Unavailable { .. }
+            ));
+            assert_eq!(std::fs::read(&path).unwrap(), contents.as_bytes());
+        }
+    }
+
+    #[test]
+    fn invalid_choices_or_serialized_size_keep_previous_session_bytes() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY", "scene", &choices()),
+            DesktopPersistenceWrite::Saved
+        ));
+        let previous = std::fs::read(&path).unwrap();
+        for value in [
+            json!(null),
+            json!({"nested":true}),
+            json!([0.5, 0.5]),
+            json!([0.5, 0.5, 2.0]),
+            json!([0.5, true, 1.0]),
+            json!(""),
+            json!("x".repeat(super::MAX_PROPERTY_STRING_BYTES + 1)),
+            json!("invalid\0choice"),
+        ] {
+            let values = BTreeMap::from([("property".to_string(), value)]);
+            assert!(matches!(
+                service.save_assignment_with_properties("DISPLAY", "scene", &values),
+                DesktopPersistenceWrite::Unavailable { .. }
+            ));
+            assert_eq!(std::fs::read(&path).unwrap(), previous);
+        }
+        let too_many = (0..=super::MAX_PROPERTIES_PER_ITEM)
+            .map(|i| (format!("p{i}"), json!(true)))
+            .collect();
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY", "scene", &too_many),
+            DesktopPersistenceWrite::Unavailable { .. }
+        ));
+        let mut oversized = DesktopPersistenceService::load_session_at_path(&path).unwrap();
+        let values = (0..super::MAX_PROPERTIES_PER_ITEM)
+            .map(|i| (format!("{i:0256}"), json!("0.1 0.2 0.3")))
+            .collect::<ScenePropertyValues>();
+        for index in 0..16 {
+            oversized
+                .scene_properties
+                .entry("DISPLAY".to_string())
+                .or_default()
+                .insert(format!("scene-{index}"), values.clone());
+        }
+        assert!(matches!(
+            DesktopPersistenceService::save_at_path_with(
+                &path,
+                &oversized,
+                crate::services::atomic_file::atomic_write
+            ),
+            DesktopPersistenceWrite::Unavailable { .. }
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), previous);
+    }
+
+    #[test]
+    fn atomic_writer_failure_keeps_both_assignment_and_choices_previous_bytes() {
+        use std::io::Write;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY", "scene-old", &choices()),
+            DesktopPersistenceWrite::Saved
+        ));
+        let previous = std::fs::read(&path).unwrap();
+        let next = BTreeMap::from([("enabled".to_string(), json!(false))]);
+        let result = DesktopPersistenceService::save_assignment_at_path_with(
+            &path,
+            "DISPLAY",
+            "scene-new",
+            Some(&next),
+            |path, contents| {
+                let prepared: PersistedSessionState =
+                    toml::from_str(std::str::from_utf8(contents).unwrap()).unwrap();
+                assert_eq!(prepared.assignments["DISPLAY"], "scene-new");
+                assert_eq!(prepared.scene_properties["DISPLAY"]["scene-new"], next);
+                assert_eq!(prepared.scene_properties["DISPLAY"]["scene-old"], choices());
+                // Fault at the atomic-writer boundary after a private partial
+                // temporary write. Common atomic_file tests cover its writer
+                // and replacement failure paths with the real utility.
+                let mut temporary = tempfile::NamedTempFile::new_in(path.parent().unwrap())?;
+                temporary.write_all(&contents[..5])?;
+                Err(std::io::ErrorKind::StorageFull.into())
+            },
+        );
+        assert!(matches!(
+            result,
+            DesktopPersistenceWrite::Unavailable { .. }
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), previous);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
     }
 }

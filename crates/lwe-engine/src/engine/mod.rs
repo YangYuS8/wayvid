@@ -4,11 +4,19 @@
 //! within the GUI process. The engine runs in a dedicated thread and
 //! communicates with the GUI via channels.
 
+mod allocator;
 mod command;
+mod schedule;
 mod session;
 
-pub use command::{EngineCommand, EngineConfig, EngineEvent, EngineStatus};
+pub use command::{
+    EngineCommand, EngineConfig, EngineEvent, EngineRenderMetrics, EngineStatus, PlaybackSettings,
+    WallpaperSource,
+};
 pub use session::WallpaperSession;
+
+use schedule::{FrameSchedule, frame_interval};
+use session::FrameDemand;
 
 use std::collections::{BTreeSet, HashMap};
 use std::ffi::CString;
@@ -16,6 +24,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver as StdReceiver, Sender as StdSender};
 use std::thread::{self, JoinHandle};
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use calloop::EventLoop;
@@ -25,6 +34,7 @@ use tracing::{debug, error, info, warn};
 use wayland_client::protocol::wl_callback::{self, WlCallback};
 use wayland_client::protocol::wl_compositor::{self, WlCompositor};
 use wayland_client::protocol::wl_output::{self, WlOutput};
+use wayland_client::protocol::wl_region::{self, WlRegion};
 use wayland_client::protocol::wl_registry::{self, WlRegistry};
 use wayland_client::protocol::wl_surface::{self, WlSurface};
 use wayland_client::{Connection, Dispatch, QueueHandle};
@@ -35,6 +45,8 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
 
 use crate::egl::EglContext;
 use crate::wayland::OutputManager;
+
+const MAX_SCENE_ENGINE_PAYLOAD_BYTES: u64 = 512 * 1024 * 1024;
 
 /// Handle for controlling a running PlaybackEngine from another thread
 pub struct EngineHandle {
@@ -67,6 +79,7 @@ impl EngineHandle {
     /// Request the engine to shut down
     pub fn request_shutdown(&self) {
         self.shutdown.store(true, Ordering::SeqCst);
+        let _ = self.commands_tx.send(EngineCommand::Shutdown);
     }
 
     /// Wait for the engine thread to finish
@@ -92,6 +105,7 @@ impl Drop for EngineHandle {
     fn drop(&mut self) {
         // Signal shutdown
         self.shutdown.store(true, Ordering::SeqCst);
+        let _ = self.commands_tx.send(EngineCommand::Shutdown);
         // Don't join here to avoid blocking in destructor
     }
 }
@@ -107,6 +121,11 @@ impl Drop for EngineHandle {
 /// # Returns
 /// A tuple of (EngineHandle, Receiver<EngineEvent>)
 pub fn spawn_engine(config: EngineConfig) -> Result<(EngineHandle, StdReceiver<EngineEvent>)> {
+    frame_interval(config.fps_limit)?;
+    config
+        .playback_settings()
+        .validate()
+        .map_err(anyhow::Error::msg)?;
     // Create event channel (std mpsc, GUI side)
     let (events_tx, events_rx) = mpsc::channel::<EngineEvent>();
 
@@ -152,10 +171,14 @@ fn run_engine_thread(
     // Get display pointer for EGL
     let display_ptr = connection.backend().display_ptr() as *mut std::ffi::c_void;
 
+    let interval = frame_interval(config.fps_limit)?;
+    let on_battery = check_battery_status();
+    let power_paused = config.pause_on_battery && on_battery;
     // Create engine state
     let mut state = EngineState {
         outputs: OutputManager::new(),
         sessions: HashMap::new(),
+        output_errors: HashMap::new(),
         events_tx: events_tx.clone(),
         config,
         running: true,
@@ -165,9 +188,10 @@ fn run_engine_thread(
         egl_context: None,
         layer_surfaces: HashMap::new(),
         queue_handle: None,
-        on_battery: check_battery_status(),
-        power_paused: false,
+        on_battery,
+        power_paused,
         last_battery_check: std::time::Instant::now(),
+        frame_interval: interval,
     };
 
     // Create event loop
@@ -254,54 +278,46 @@ fn run_engine_thread(
 
     // Main event loop with power management
     let battery_check_interval = std::time::Duration::from_secs(10);
+    let mut loop_result = Ok(());
 
-    while !shutdown.load(Ordering::Relaxed) {
+    while state.running && !shutdown.load(Ordering::Relaxed) {
         // Periodically check battery status
         if state.last_battery_check.elapsed() >= battery_check_interval {
             state.on_battery = check_battery_status();
             state.last_battery_check = std::time::Instant::now();
 
-            // Handle pause on battery
-            if state.config.pause_on_battery {
-                if state.on_battery && !state.power_paused {
-                    info!("On battery power, pausing playback for power saving");
-                    for session in state.sessions.values_mut() {
-                        session.pause();
-                    }
-                    state.power_paused = true;
-                } else if !state.on_battery && state.power_paused {
-                    info!("On AC power, resuming playback");
-                    for session in state.sessions.values_mut() {
-                        session.resume();
-                    }
-                    state.power_paused = false;
-                }
-            }
+            synchronize_power_policy(&mut state);
         }
 
-        // Calculate frame duration based on power state
-        let frame_duration = if state.power_paused {
-            // When paused, use longer sleep to save power
-            std::time::Duration::from_millis(100)
-        } else {
-            state
-                .config
-                .fps_limit
-                .map(|fps| std::time::Duration::from_micros(1_000_000 / fps as u64))
-                .unwrap_or(std::time::Duration::from_millis(16)) // Default 60fps
-        };
-
-        event_loop
-            .dispatch(frame_duration, &mut state)
-            .context("Event loop dispatch failed")?;
+        let wait = next_dispatch_wait(&state, std::time::Instant::now());
+        if let Err(error) = event_loop.dispatch(wait, &mut state) {
+            let reason = format!("Event loop dispatch failed: {error}");
+            let _ = events_tx.send(EngineEvent::Error(reason.clone()));
+            loop_result = Err(anyhow::anyhow!(reason));
+            break;
+        }
+        if !state.running || shutdown.load(Ordering::Relaxed) {
+            break;
+        }
 
         // Expire requests even before configure or while playback is power-paused.
         expire_pending_applies(&mut state, std::time::Instant::now());
 
-        // Render frames for configured layer surfaces (skip if power paused)
-        if !state.power_paused {
-            render_all_surfaces(&mut state);
+        for (output, session) in &mut state.sessions {
+            if let Err(error) = session.poll_audio_health() {
+                let reason = format!("Wallpaper audio failed for {output}: {error:#}");
+                if state.output_errors.get(output) != Some(&reason) {
+                    state.output_errors.insert(output.clone(), reason.clone());
+                    let _ = events_tx.send(EngineEvent::OutputError {
+                        output: output.clone(),
+                        reason,
+                    });
+                }
+            }
         }
+
+        // First-frame, resize and rollback remain presentable while power-paused.
+        render_all_surfaces(&mut state);
     }
 
     info!("PlaybackEngine shutting down");
@@ -318,7 +334,70 @@ fn run_engine_thread(
     state.running = false;
     let _ = events_tx.send(EngineEvent::Stopped);
 
-    Ok(())
+    loop_result
+}
+
+fn output_demand(
+    state: &EngineState,
+    info: &LayerSurfaceInfo,
+    session: &WallpaperSession,
+) -> FrameDemand {
+    let demand = session.render_demand(
+        info.width as i32,
+        info.height as i32,
+        info.apply_request.pending,
+    );
+    effective_demand(state.power_paused, demand)
+}
+
+fn effective_demand(power_paused: bool, demand: FrameDemand) -> FrameDemand {
+    if power_paused && demand != FrameDemand::Urgent {
+        FrameDemand::Idle
+    } else {
+        demand
+    }
+}
+
+fn should_request_callback(
+    presented: bool,
+    demand: FrameDemand,
+    pending: bool,
+    outstanding: bool,
+) -> bool {
+    presented && demand == FrameDemand::Continuous && !pending && !outstanding
+}
+
+fn next_dispatch_wait(state: &EngineState, now: std::time::Instant) -> std::time::Duration {
+    // Commands wake calloop directly; this bound also services cooperative flags
+    // and battery polling without the old 60Hz idle timer.
+    let mut wait = std::time::Duration::from_secs(1);
+    for (output, info) in &state.layer_surfaces {
+        if info.apply_request.pending || info.apply_request.awaiting_commit {
+            wait = wait.min(info.apply_request.deadline.saturating_duration_since(now));
+        }
+        if !info.configured {
+            continue;
+        }
+        if let Some(session) = state.sessions.get(output) {
+            let demand = output_demand(state, info, session);
+            if demand != FrameDemand::Idle
+                && (info.frame_pending
+                    || info.apply_request.pending
+                    || demand == FrameDemand::Urgent)
+            {
+                wait = wait.min(info.schedule.delay(now));
+            }
+        }
+    }
+    wait
+}
+
+fn wake_outputs(state: &mut EngineState, output: Option<&str>) {
+    for (name, info) in &mut state.layer_surfaces {
+        if output.is_none_or(|output| output == name) {
+            info.wake();
+        }
+    }
 }
 
 /// Render all configured surfaces
@@ -333,12 +412,41 @@ fn render_all_surfaces(state: &mut EngineState) {
     let outputs: Vec<String> = state
         .layer_surfaces
         .iter()
-        .filter(|(_, info)| info.configured && (info.frame_pending || info.apply_request.pending))
+        .filter(|(output, info)| {
+            info.configured
+                && state.sessions.get(*output).is_some_and(|session| {
+                    let demand = output_demand(state, info, session);
+                    demand != FrameDemand::Idle
+                        && (info.frame_pending
+                            || info.apply_request.pending
+                            || demand == FrameDemand::Urgent)
+                        && info.schedule.ready(std::time::Instant::now())
+                })
+        })
         .map(|(name, _)| name.clone())
         .collect();
     let mut failed_outputs = Vec::new();
 
     for output_name in outputs {
+        let budget_result = (|| {
+            let existing = state.sessions.values().try_fold(0_u64, |bytes, session| {
+                bytes
+                    .checked_add(session.reserved_scene_payload_bytes()?)
+                    .context("Scene GPU allocation total overflow")
+            })?;
+            let info = state
+                .layer_surfaces
+                .get(&output_name)
+                .context("Output surface unavailable")?;
+            let session = state
+                .sessions
+                .get(&output_name)
+                .context("Output session unavailable")?;
+            check_scene_payload_budget(
+                existing,
+                session.additional_scene_payload_bytes(info.width as i32, info.height as i32)?,
+            )
+        })();
         // Get layer surface info
         let surface_info = match state.layer_surfaces.get_mut(&output_name) {
             Some(info) => info,
@@ -356,15 +464,26 @@ fn render_all_surfaces(state: &mut EngineState) {
 
         let is_waiting_for_first_frame = surface_info.apply_request.pending;
 
-        // Render frame
-        match session.render_frame_to_surface(
-            egl_context,
-            &surface_info.wl_surface,
-            surface_info.width as i32,
-            surface_info.height as i32,
-            is_waiting_for_first_frame,
-        ) {
+        // Render frame. Only a successful swap starts the next presentation
+        // interval; command/compositor wakeups cannot shorten it.
+        let result = budget_result.and_then(|()| {
+            session.render_frame_to_surface(
+                egl_context,
+                &surface_info.wl_surface,
+                surface_info.width as i32,
+                surface_info.height as i32,
+                is_waiting_for_first_frame,
+            )
+        });
+        let presented = matches!(&result, Ok(true));
+        surface_info
+            .schedule
+            .attempted(std::time::Instant::now(), presented, state.frame_interval);
+        match result {
             Ok(true) => {
+                if state.power_paused {
+                    session.set_power_paused(true);
+                }
                 if let Some(event) = surface_info
                     .apply_request
                     .complete(&output_name, std::time::Instant::now())
@@ -376,13 +495,21 @@ fn render_all_surfaces(state: &mut EngineState) {
                         failed_outputs.push(output_name);
                         continue;
                     }
+                    // Retain the previous renderer until the caller accepts this
+                    // ACK. A delayed receiver may still cancel the candidate.
                 }
             }
-            Ok(false) => {}
+            Ok(false) => {
+                // Keep readiness for a timed mpv update retry, without emitting
+                // a callback/commit for a buffer which did not change.
+                surface_info.frame_pending = true;
+            }
             Err(e) => {
                 warn!("Frame render error for {}: {:#}", output_name, e);
-                if surface_info.apply_request.pending {
+                if surface_info.apply_request.pending || surface_info.apply_request.awaiting_commit
+                {
                     surface_info.apply_request.pending = false;
+                    surface_info.apply_request.awaiting_commit = false;
                     let _ = state.events_tx.send(EngineEvent::ApplyFailed {
                         request_id: surface_info.apply_request.request_id,
                         output: output_name.clone(),
@@ -391,28 +518,47 @@ fn render_all_surfaces(state: &mut EngineState) {
                     failed_outputs.push(output_name);
                     continue;
                 }
+                let reason = format!("Wallpaper rendering failed for {output_name}: {e:#}");
+                state
+                    .output_errors
+                    .insert(output_name.clone(), reason.clone());
+                let _ = state.events_tx.send(EngineEvent::OutputError {
+                    output: output_name.clone(),
+                    reason,
+                });
+                failed_outputs.push(output_name);
+                continue;
             }
         }
 
         // The first buffer must be swapped before relying on compositor callbacks.
         // Pending apply is polled above, without accumulating callbacks while decoding.
-        if !surface_info.apply_request.pending
-            && !surface_info.frame_callback_requested
-            && let Some(qh) = state.queue_handle.as_ref()
+        if should_request_callback(
+            presented,
+            effective_demand(
+                state.power_paused,
+                session.render_demand(surface_info.width as i32, surface_info.height as i32, false),
+            ),
+            surface_info.apply_request.pending,
+            surface_info.frame_callback_requested,
+        ) && let Some(qh) = state.queue_handle.as_ref()
         {
             let _callback = surface_info.wl_surface.frame(
                 qh,
                 FrameCallbackData {
                     output_name: output_name.clone(),
                     surface: surface_info.wl_surface.clone(),
+                    epoch: surface_info.callback_epoch,
                 },
             );
             surface_info.frame_callback_requested = true;
+            surface_info.metrics.callbacks_requested =
+                surface_info.metrics.callbacks_requested.saturating_add(1);
             surface_info.wl_surface.commit();
         }
     }
     for output in failed_outputs {
-        if let Err(error) = release_output_resources(state, &output) {
+        if let Err(error) = reject_output_candidate(state, &output) {
             warn!(
                 "Failed to release output {} after apply error: {:#}",
                 output, error
@@ -427,6 +573,7 @@ struct EngineState {
     outputs: OutputManager,
     /// Active wallpaper sessions per output
     sessions: HashMap<String, WallpaperSession>,
+    output_errors: HashMap<String, String>,
     /// Event sender to GUI (std mpsc for cross-thread compatibility)
     events_tx: StdSender<EngineEvent>,
     /// Engine configuration
@@ -451,6 +598,7 @@ struct EngineState {
     power_paused: bool,
     /// Last battery check time
     last_battery_check: std::time::Instant,
+    frame_interval: Option<std::time::Duration>,
 }
 
 /// Layer surface state for an output
@@ -469,42 +617,84 @@ struct LayerSurfaceInfo {
     frame_pending: bool,
     /// A compositor frame callback has been requested and has not fired yet
     frame_callback_requested: bool,
+    schedule: FrameSchedule,
+    metrics: EngineRenderMetrics,
+    callback_epoch: u64,
     /// Current generation remains recorded after its first-frame acknowledgement
     apply_request: ApplyRequest,
+    /// Retained until the caller confirms presentation and saves the assignment.
+    previous_request: Option<ApplyRequest>,
+}
+
+impl LayerSurfaceInfo {
+    fn wake(&mut self) {
+        self.frame_pending = true;
+        self.frame_callback_requested = false;
+        self.callback_epoch = self.callback_epoch.wrapping_add(1);
+        self.schedule.wake();
+    }
 }
 
 #[derive(Debug, Clone)]
 struct ApplyRequest {
     request_id: u64,
     path: std::path::PathBuf,
+    source: WallpaperSource,
     deadline: std::time::Instant,
     pending: bool,
+    awaiting_commit: bool,
+    committed: bool,
+    finalized: bool,
 }
 
 impl ApplyRequest {
+    #[cfg(test)]
     fn new(request_id: u64, path: std::path::PathBuf, deadline: std::time::Instant) -> Self {
+        Self::from_source(request_id, WallpaperSource::Video { path }, deadline)
+    }
+
+    fn from_source(request_id: u64, source: WallpaperSource, deadline: std::time::Instant) -> Self {
         Self {
             request_id,
-            path,
+            path: source.path().to_path_buf(),
+            source,
             deadline,
             pending: true,
+            awaiting_commit: false,
+            committed: false,
+            finalized: false,
         }
     }
 
     fn expired(&self, now: std::time::Instant) -> bool {
-        self.pending && now >= self.deadline
+        (self.pending || self.awaiting_commit) && now >= self.deadline
     }
 
     fn owns(&self, request_id: u64) -> bool {
         self.request_id == request_id
     }
 
+    fn cancellable(&self, request_id: u64) -> bool {
+        self.owns(request_id) && !self.finalized
+    }
+
+    /// A committed generation still owns its rollback until persistence either
+    /// finalizes it or cancels it. Check before replacing any output resources.
+    fn ensure_supersedable(&self) -> Result<()> {
+        anyhow::ensure!(
+            !self.committed || self.finalized,
+            "The output has a committed wallpaper awaiting persistence finalization"
+        );
+        Ok(())
+    }
+
     fn complete(&mut self, output: &str, now: std::time::Instant) -> Option<EngineEvent> {
-        if !self.pending {
+        if !self.pending && !self.expired(now) {
             return None;
         }
         let expired = self.expired(now);
         self.pending = false;
+        self.awaiting_commit = !expired;
         Some(if expired {
             EngineEvent::ApplyFailed {
                 request_id: self.request_id,
@@ -521,11 +711,31 @@ impl ApplyRequest {
             }
         })
     }
+
+    fn commit(&mut self, now: std::time::Instant) -> Result<(), String> {
+        if self.committed {
+            return Ok(());
+        }
+        if self.expired(now) {
+            return Err(
+                "Wallpaper application expired before its presentation was committed".to_string(),
+            );
+        }
+        if self.pending || !self.awaiting_commit {
+            return Err(
+                "Wallpaper application has no uncommitted first-frame acknowledgement".to_string(),
+            );
+        }
+        self.awaiting_commit = false;
+        self.committed = true;
+        Ok(())
+    }
 }
 
 struct FrameCallbackData {
     output_name: String,
     surface: WlSurface,
+    epoch: u64,
 }
 
 fn expire_pending_applies(state: &mut EngineState, now: std::time::Instant) {
@@ -543,7 +753,7 @@ fn expire_pending_applies(state: &mut EngineState, now: std::time::Instant) {
         {
             let _ = state.events_tx.send(event);
         }
-        if let Err(error) = release_output_resources(state, &output) {
+        if let Err(error) = reject_output_candidate(state, &output) {
             warn!("Failed to release expired application for {output}: {error:#}");
         }
     }
@@ -578,10 +788,10 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
         EngineCommand::ApplyWallpaper {
             request_id,
             deadline,
-            path,
+            source,
             output,
         } => {
-            debug!("ApplyWallpaper: {:?} to {:?}", path, output);
+            debug!("ApplyWallpaper: {:?} to {:?}", source.path(), output);
 
             let outputs_to_apply: Vec<String> = match output {
                 Some(name) => vec![name],
@@ -605,7 +815,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             };
 
             for output_name in outputs_to_apply {
-                let request = ApplyRequest::new(request_id, path.clone(), deadline);
+                let request = ApplyRequest::from_source(request_id, source.clone(), deadline);
                 if request.expired(std::time::Instant::now()) {
                     let _ = state.events_tx.send(EngineEvent::ApplyFailed {
                         request_id,
@@ -639,15 +849,81 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             }
         }
 
+        EngineCommand::CommitApply { request_id, output } => {
+            let result = match state.layer_surfaces.get_mut(&output) {
+                Some(info) if info.apply_request.owns(request_id) => {
+                    info.apply_request.commit(std::time::Instant::now())
+                }
+                _ => Err("Wallpaper application no longer owns this output".to_string()),
+            };
+            if result.is_ok() {
+                if let Some(session) = state.sessions.get_mut(&output) {
+                    session.accept_pending();
+                }
+                state.output_errors.remove(&output);
+            } else if state
+                .layer_surfaces
+                .get(&output)
+                .is_some_and(|info| info.apply_request.owns(request_id))
+                && let Err(error) = reject_output_candidate(state, &output)
+            {
+                warn!("Failed to roll back rejected commit for {output}: {error:#}");
+            }
+            let _ = state.events_tx.send(EngineEvent::ApplyCommitted {
+                request_id,
+                output,
+                result,
+            });
+        }
+
+        EngineCommand::FinalizeApply { request_id, output } => {
+            if state.layer_surfaces.get(&output).is_some_and(|info| {
+                info.apply_request.owns(request_id) && info.apply_request.committed
+            }) && let (Some(session), Some(egl)) =
+                (state.sessions.get_mut(&output), state.egl_context.as_ref())
+            {
+                // The host has already saved this generation. Even if GL
+                // resource cleanup fails, a delayed cancellation cannot undo it.
+                if let Some(info) = state.layer_surfaces.get_mut(&output) {
+                    info.apply_request.finalized = true;
+                }
+                match session.finalize_pending(egl) {
+                    Ok(()) => {
+                        let mut released_rollback = false;
+                        if let Some(info) = state.layer_surfaces.get_mut(&output) {
+                            released_rollback = info.previous_request.is_some();
+                            info.previous_request = None;
+                        }
+                        if released_rollback {
+                            allocator::reclaim_released_pages("finalized_rollback");
+                        }
+                    }
+                    Err(error) => {
+                        let reason = format!(
+                            "Failed to finalize wallpaper resources or audio for {output}: {error:#}"
+                        );
+                        state.output_errors.insert(output.clone(), reason.clone());
+                        let _ = state.events_tx.send(EngineEvent::OutputError {
+                            output: output.clone(),
+                            reason,
+                        });
+                        warn!(
+                            "Failed to release finalized rollback resources for {output}: {error:#}"
+                        );
+                    }
+                }
+            }
+        }
+
         EngineCommand::CancelApply { request_id, output } => {
             // Include acknowledged generations: the receiver may have timed out
             // before observing their ACK. A stale cancellation cannot remove a retry.
             let result = if state
                 .layer_surfaces
                 .get(&output)
-                .is_some_and(|info| info.apply_request.owns(request_id))
+                .is_some_and(|info| info.apply_request.cancellable(request_id))
             {
-                release_output_resources(state, &output)
+                reject_output_candidate(state, &output)
                     .map(|_| ())
                     .map_err(|error| format!("Failed to cancel wallpaper application: {error:#}"))
             } else {
@@ -672,6 +948,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             for output_name in outputs_to_clear {
                 match release_output_resources(state, &output_name) {
                     Ok(cleared) if cleared || explicit_output => {
+                        state.output_errors.remove(&output_name);
                         let _ = state.events_tx.send(EngineEvent::WallpaperCleared {
                             output: output_name,
                         });
@@ -716,6 +993,16 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             for session in sessions {
                 session.resume();
             }
+            wake_outputs(state, output.as_deref());
+        }
+
+        EngineCommand::UpdatePlaybackSettings {
+            settings,
+            deadline,
+            reply,
+        } => {
+            let result = update_playback_settings(state, settings, deadline);
+            let _ = reply.send(result);
         }
 
         EngineCommand::GetOutputs => {
@@ -748,17 +1035,71 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
                 .collect();
             let status = EngineStatus {
                 running: state.running,
+                playback_settings: state.config.playback_settings(),
+                on_battery: state.on_battery,
+                power_paused: state.power_paused,
                 outputs,
                 active_wallpapers,
+                output_errors: state.output_errors.clone(),
+                render_metrics: state
+                    .sessions
+                    .iter()
+                    .map(|(output, session)| {
+                        let mut metrics = session.metrics();
+                        if let Some(info) = state.layer_surfaces.get(output) {
+                            metrics.callbacks_requested = info.metrics.callbacks_requested;
+                            metrics.callbacks_received = info.metrics.callbacks_received;
+                        }
+                        (output.clone(), metrics)
+                    })
+                    .collect(),
             };
             let _ = state.events_tx.send(EngineEvent::Status(status));
         }
 
         EngineCommand::Shutdown => {
             debug!("Shutdown requested");
-            // Shutdown is handled by the shutdown flag, not here
+            state.running = false;
         }
     }
+}
+
+fn synchronize_power_policy(state: &mut EngineState) {
+    let paused = state.config.pause_on_battery && state.on_battery;
+    if paused == state.power_paused {
+        return;
+    }
+    for session in state.sessions.values_mut() {
+        session.set_power_paused(paused);
+    }
+    state.power_paused = paused;
+    if !paused {
+        wake_outputs(state, None);
+    }
+}
+
+fn update_playback_settings(
+    state: &mut EngineState,
+    settings: PlaybackSettings,
+    deadline: Instant,
+) -> std::result::Result<(), String> {
+    settings.validate()?;
+    if Instant::now() >= deadline {
+        return Err("Playback settings request expired before it could be applied".to_string());
+    }
+    let interval = frame_interval(settings.fps_limit).map_err(|error| error.to_string())?;
+    if state.frame_interval != interval {
+        for surface in state.layer_surfaces.values_mut() {
+            surface.schedule.set_interval(interval);
+        }
+        state.frame_interval = interval;
+    }
+    state.config.fps_limit = settings.fps_limit;
+    state.config.pause_on_battery = settings.pause_on_battery;
+    state.on_battery = check_battery_status();
+    state.last_battery_check = Instant::now();
+    synchronize_power_policy(state);
+    Ok(())
 }
 
 fn outputs_with_resources(state: &EngineState) -> Vec<String> {
@@ -770,6 +1111,31 @@ fn outputs_with_resources(state: &EngineState) -> Vec<String> {
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect()
+}
+
+/// Release render resources before their underlying Wayland protocol objects.
+fn reject_output_candidate(state: &mut EngineState, output_name: &str) -> Result<bool> {
+    if state
+        .layer_surfaces
+        .get(output_name)
+        .is_some_and(|info| info.apply_request.finalized)
+    {
+        return release_output_resources(state, output_name);
+    }
+    if let (Some(session), Some(egl)) = (
+        state.sessions.get_mut(output_name),
+        state.egl_context.as_ref(),
+    ) && session.discard_pending(egl)?
+        && let Some(info) = state.layer_surfaces.get_mut(output_name)
+        && let Some(previous) = info.previous_request.take()
+    {
+        info.apply_request = previous;
+        info.frame_pending = true;
+        info.wake();
+        allocator::reclaim_released_pages("discarded_candidate");
+        return Ok(true);
+    }
+    release_output_resources(state, output_name)
 }
 
 /// Release render resources before their underlying Wayland protocol objects.
@@ -787,7 +1153,11 @@ fn release_output_resources(state: &mut EngineState, output_name: &str) -> Resul
     } else {
         false
     };
-    Ok(session_removed || surface_removed)
+    let released = session_removed || surface_removed;
+    if released {
+        allocator::reclaim_released_pages("released_output");
+    }
+    Ok(released)
 }
 
 /// Apply wallpaper to a specific output
@@ -797,19 +1167,75 @@ fn apply_wallpaper_to_output(
     output_name: &str,
     qh: &QueueHandle<EngineState>,
 ) -> Result<()> {
+    if let Some(info) = state.layer_surfaces.get(output_name) {
+        info.apply_request.ensure_supersedable()?;
+    }
+    let reuse = state
+        .layer_surfaces
+        .get(output_name)
+        .is_some_and(|info| info.configured)
+        && state
+            .sessions
+            .get(output_name)
+            .is_some_and(WallpaperSession::can_reuse_resources);
+    if let WallpaperSource::Scene { prepared, .. } = &request.source {
+        let existing = prospective_retained_scene_payload(
+            state
+                .sessions
+                .iter()
+                .map(|(name, session)| (name.as_str(), session)),
+            output_name,
+            reuse,
+            WallpaperSession::reserved_scene_payload_bytes,
+        )?;
+        let [width, height] = state
+            .layer_surfaces
+            .get(output_name)
+            .filter(|info| info.configured)
+            .map(|info| [info.width as i32, info.height as i32])
+            .or_else(|| {
+                state
+                    .outputs
+                    .get(output_name)
+                    .map(|output| [output.info.width, output.info.height])
+            })
+            .context("Output not found")?;
+        check_scene_payload_budget(
+            existing,
+            prepared.estimated_gpu_bytes_for_output(width, height)?,
+        )?;
+        let mut audio = state
+            .sessions
+            .iter()
+            .filter(|(name, _)| reuse || name.as_str() != output_name)
+            .flat_map(|(_, session)| session.audio_allocations())
+            .collect::<std::collections::BTreeMap<_, _>>();
+        audio.extend(prepared.audio_allocations());
+        check_audio_payload_budget(audio.values().copied())?;
+    }
     // Check if we can reuse existing layer surface (hot-swap optimization)
     if let (Some(surface_info), Some(session)) = (
         state.layer_surfaces.get_mut(output_name),
         state.sessions.get_mut(output_name),
-    ) && surface_info.configured
-        && session.can_reuse_resources()
+    ) && reuse
     {
         info!(
             "Hot-swapping wallpaper for {} (reusing surface)",
             output_name
         );
+        session.load_source(
+            request.source.clone(),
+            state
+                .egl_context
+                .as_ref()
+                .context("EGL context unavailable")?,
+        )?;
+        if surface_info.previous_request.is_none() || surface_info.apply_request.committed {
+            surface_info.previous_request = Some(surface_info.apply_request.clone());
+        }
         surface_info.apply_request = request;
-        session.load_new_wallpaper(&surface_info.apply_request.path)?;
+        surface_info.frame_pending = true;
+        surface_info.wake();
         return Ok(());
     }
 
@@ -830,6 +1256,10 @@ fn apply_wallpaper_to_output(
         .cloned()
         .context("Layer shell not available")?;
 
+    let manual_paused = state
+        .sessions
+        .get(output_name)
+        .is_some_and(WallpaperSession::is_manual_paused);
     release_output_resources(state, output_name)?;
 
     info!(
@@ -839,6 +1269,11 @@ fn apply_wallpaper_to_output(
 
     // Create wl_surface
     let wl_surface = compositor.create_surface(qh, output_name.to_string());
+    // The current runtime has no interactive Scene input capability. Leave
+    // desktop pointer/touch input to the surfaces below the wallpaper.
+    let input_region = compositor.create_region(qh, ());
+    wl_surface.set_input_region(Some(&input_region));
+    input_region.destroy();
 
     // Create layer surface on background layer
     let layer_surface = layer_shell.get_layer_surface(
@@ -873,17 +1308,70 @@ fn apply_wallpaper_to_output(
             configured: false,
             frame_pending: false,
             frame_callback_requested: false,
+            schedule: FrameSchedule::default(),
+            metrics: EngineRenderMetrics::default(),
+            callback_epoch: 0,
             apply_request: request.clone(),
+            previous_request: None,
         },
     );
 
     // Create wallpaper session
-    let session = WallpaperSession::new(request.path, output_info, state.config.video.clone())?;
+    let mut session =
+        WallpaperSession::from_source(request.source, output_info, state.config.video.clone())?;
+    session.set_power_paused(state.power_paused);
+    if manual_paused {
+        session.pause();
+    }
     state.sessions.insert(output_name.to_string(), session);
 
     info!("Wallpaper session created for {}", output_name);
 
     Ok(())
+}
+
+fn check_audio_payload_budget(bytes: impl IntoIterator<Item = u64>) -> Result<()> {
+    let total = bytes.into_iter().try_fold(0_u64, |total, bytes| {
+        total
+            .checked_add(bytes)
+            .context("Scene prepared audio allocation overflow")
+    })?;
+    anyhow::ensure!(
+        total <= 256 * 1024 * 1024,
+        "Scene prepared audio exceeds the active and rollback memory budget"
+    );
+    Ok(())
+}
+
+fn check_scene_payload_budget(existing: u64, candidate: u64) -> Result<()> {
+    anyhow::ensure!(
+        existing
+            .checked_add(candidate)
+            .is_some_and(|total| total <= MAX_SCENE_ENGINE_PAYLOAD_BYTES),
+        "Scene candidate and retained output resources exceed the engine's 512 MiB logical texture/framebuffer budget"
+    );
+    Ok(())
+}
+
+/// Reuse creates a candidate before dropping anything, so all resident and
+/// reserved resources contribute to the peak. A fresh surface releases its old
+/// output first, while reservations belonging to other outputs remain live.
+fn prospective_retained_scene_payload<'a, T>(
+    sessions: impl IntoIterator<Item = (&'a str, T)>,
+    output: &str,
+    reuse: bool,
+    mut measure: impl FnMut(T) -> Result<u64>,
+) -> Result<u64> {
+    sessions
+        .into_iter()
+        .try_fold(0_u64, |total, (name, session)| {
+            if !reuse && name == output {
+                return Ok(total);
+            }
+            total
+                .checked_add(measure(session)?)
+                .context("Scene engine reservation total overflow")
+        })
 }
 
 // Wayland dispatch implementation for wl_registry
@@ -1077,6 +1565,18 @@ impl Dispatch<WlSurface, String> for EngineState {
     }
 }
 
+impl Dispatch<WlRegion, ()> for EngineState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlRegion,
+        _event: wl_region::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
 // Dispatch for zwlr_layer_shell_v1 (no events)
 impl Dispatch<ZwlrLayerShellV1, ()> for EngineState {
     fn event(
@@ -1126,6 +1626,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, String> for EngineState {
                     info.height = height;
                     info.configured = true;
                     info.frame_pending = true;
+                    info.wake();
                 }
 
                 // Acknowledge the configure
@@ -1144,14 +1645,24 @@ impl Dispatch<ZwlrLayerSurfaceV1, String> for EngineState {
             zwlr_layer_surface_v1::Event::Closed => {
                 info!("Layer surface closed for {}", output_name);
                 if let Some(info) = state.layer_surfaces.get_mut(output_name)
-                    && info.apply_request.pending
+                    && (info.apply_request.pending || info.apply_request.awaiting_commit)
                 {
                     info.apply_request.pending = false;
+                    info.apply_request.awaiting_commit = false;
                     let _ = state.events_tx.send(EngineEvent::ApplyFailed {
                         request_id: info.apply_request.request_id,
                         output: output_name.clone(),
                         reason: "Wallpaper layer surface closed before application completed"
                             .to_string(),
+                    });
+                } else {
+                    let reason = format!("Wallpaper layer surface closed for {output_name}");
+                    state
+                        .output_errors
+                        .insert(output_name.clone(), reason.clone());
+                    let _ = state.events_tx.send(EngineEvent::OutputError {
+                        output: output_name.clone(),
+                        reason,
                     });
                 }
                 if let Err(error) = release_output_resources(state, output_name) {
@@ -1181,8 +1692,11 @@ impl Dispatch<WlCallback, FrameCallbackData> for EngineState {
             if let Some(info) = state.layer_surfaces.get_mut(&data.output_name)
                 && info.wl_surface == data.surface
             {
-                info.frame_callback_requested = false;
-                info.frame_pending = true;
+                info.metrics.callbacks_received = info.metrics.callbacks_received.saturating_add(1);
+                if info.callback_epoch == data.epoch {
+                    info.frame_callback_requested = false;
+                    info.frame_pending = true;
+                }
             }
         }
     }
@@ -1224,6 +1738,253 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
 
+    fn policy_test_state() -> EngineState {
+        let (events_tx, _) = mpsc::channel();
+        EngineState {
+            outputs: OutputManager::new(),
+            sessions: HashMap::new(),
+            output_errors: HashMap::new(),
+            events_tx,
+            config: EngineConfig::default(),
+            running: true,
+            pending_outputs: HashMap::new(),
+            compositor: None,
+            layer_shell: None,
+            egl_context: None,
+            layer_surfaces: HashMap::new(),
+            queue_handle: None,
+            on_battery: false,
+            power_paused: false,
+            last_battery_check: Instant::now(),
+            frame_interval: None,
+        }
+    }
+
+    #[test]
+    fn invalid_and_expired_live_updates_leave_the_running_policy_unchanged() {
+        let mut state = policy_test_state();
+        let previous = state.config.playback_settings();
+        for (settings, deadline) in [
+            (
+                PlaybackSettings {
+                    fps_limit: Some(0),
+                    pause_on_battery: true,
+                },
+                Instant::now() + Duration::from_secs(1),
+            ),
+            (
+                PlaybackSettings {
+                    fps_limit: Some(30),
+                    pause_on_battery: true,
+                },
+                Instant::now(),
+            ),
+        ] {
+            let (reply, received) = mpsc::channel();
+            handle_command(
+                EngineCommand::UpdatePlaybackSettings {
+                    settings,
+                    deadline,
+                    reply,
+                },
+                &mut state,
+            );
+            assert!(received.recv().unwrap().is_err());
+            assert_eq!(state.config.playback_settings(), previous);
+            assert_eq!(state.frame_interval, None);
+        }
+    }
+
+    #[test]
+    fn live_update_is_acknowledged_without_replacing_output_state() {
+        let mut state = policy_test_state();
+        state
+            .output_errors
+            .insert("existing-output".to_string(), "existing error".to_string());
+        let requested = PlaybackSettings {
+            fps_limit: Some(30),
+            pause_on_battery: true,
+        };
+        let (reply, received) = mpsc::channel();
+        handle_command(
+            EngineCommand::UpdatePlaybackSettings {
+                settings: requested,
+                deadline: Instant::now() + Duration::from_secs(1),
+                reply,
+            },
+            &mut state,
+        );
+        assert_eq!(received.recv().unwrap(), Ok(()));
+        assert_eq!(state.config.playback_settings(), requested);
+        assert_eq!(state.frame_interval, frame_interval(Some(30)).unwrap());
+        assert!(state.running);
+        assert_eq!(state.output_errors["existing-output"], "existing error");
+    }
+
+    #[test]
+    fn disabling_battery_pause_releases_power_pause_but_keeps_manual_pause() {
+        let mut state = policy_test_state();
+        let mut session = WallpaperSession::new(
+            "/authored/video.mp4".into(),
+            lwe_core::OutputInfo {
+                name: "authored-output".to_string(),
+                width: 32,
+                height: 32,
+                scale: 1.0,
+                position: (0, 0),
+                active: true,
+                hdr_capabilities: Default::default(),
+            },
+            crate::mpv::VideoConfig::default(),
+        )
+        .unwrap();
+        session.pause();
+        state.sessions.insert("authored-output".into(), session);
+        state.on_battery = true;
+        state.config.pause_on_battery = true;
+        synchronize_power_policy(&mut state);
+        assert!(state.power_paused);
+        state.config.pause_on_battery = false;
+        synchronize_power_policy(&mut state);
+        assert!(!state.power_paused);
+        let session = &state.sessions["authored-output"];
+        assert!(session.is_manual_paused());
+        assert_eq!(session.state(), session::PlaybackState::Paused);
+        assert_eq!(session.wallpaper_path(), Some("/authored/video.mp4"));
+    }
+
+    #[test]
+    fn static_paused_and_empty_frames_do_not_request_more_callbacks() {
+        assert!(!should_request_callback(
+            true,
+            FrameDemand::Idle,
+            false,
+            false
+        ));
+        assert!(!should_request_callback(
+            false,
+            FrameDemand::Continuous,
+            false,
+            false
+        ));
+        assert!(!should_request_callback(
+            true,
+            FrameDemand::Continuous,
+            true,
+            false
+        ));
+        assert!(!should_request_callback(
+            true,
+            FrameDemand::Continuous,
+            false,
+            true
+        ));
+        assert!(should_request_callback(
+            true,
+            FrameDemand::Continuous,
+            false,
+            false
+        ));
+    }
+
+    #[test]
+    fn power_pause_preserves_first_frame_resize_and_rollback_demands() {
+        assert_eq!(
+            effective_demand(true, FrameDemand::Urgent),
+            FrameDemand::Urgent
+        );
+        assert_eq!(
+            effective_demand(true, FrameDemand::Continuous),
+            FrameDemand::Idle
+        );
+        assert_eq!(
+            effective_demand(false, FrameDemand::Continuous),
+            FrameDemand::Continuous
+        );
+    }
+
+    #[test]
+    fn engine_scene_budget_counts_retained_resources_and_rejects_overflow() {
+        assert!(check_scene_payload_budget(300 * 1024 * 1024, 212 * 1024 * 1024).is_ok());
+        assert!(check_scene_payload_budget(300 * 1024 * 1024, 213 * 1024 * 1024).is_err());
+        assert!(check_scene_payload_budget(u64::MAX, 1).is_err());
+    }
+
+    #[test]
+    fn audio_payload_budget_checks_total_and_overflow_separately_from_gpu() {
+        let mib = 1024 * 1024;
+        assert!(check_audio_payload_budget([128 * mib, 128 * mib]).is_ok());
+        assert!(check_audio_payload_budget([128 * mib, 128 * mib, 1]).is_err());
+        assert!(check_audio_payload_budget([u64::MAX, 1]).is_err());
+    }
+
+    #[test]
+    fn fresh_output_replacement_discards_only_its_previous_reservation() {
+        let mib = 1024 * 1024;
+        let retained =
+            prospective_retained_scene_payload([("eDP-1", 400 * mib)], "eDP-1", false, Ok).unwrap();
+        assert_eq!(retained, 0);
+        assert!(check_scene_payload_budget(retained, 400 * mib).is_ok());
+        let retained = prospective_retained_scene_payload(
+            [("eDP-1", 400 * mib), ("DP-1", 120 * mib)],
+            "eDP-1",
+            false,
+            Ok,
+        )
+        .unwrap();
+        assert_eq!(retained, 120 * mib);
+        assert!(check_scene_payload_budget(retained, 400 * mib).is_err());
+        // The discarded reservation must not even be evaluated.
+        assert!(
+            prospective_retained_scene_payload([("eDP-1", ())], "eDP-1", false, |_| anyhow::bail!(
+                "discarded estimate"
+            ),)
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn reused_outputs_include_current_pending_and_rollback_reservations() {
+        let mib = 1024 * 1024;
+        let retained = prospective_retained_scene_payload(
+            [
+                ("eDP-1", [200 * mib, 60 * mib, 80 * mib]),
+                ("DP-1", [100 * mib, 0, 0]),
+            ],
+            "eDP-1",
+            true,
+            |parts| Ok(parts.into_iter().sum()),
+        )
+        .unwrap();
+        assert_eq!(retained, 440 * mib);
+        assert!(check_scene_payload_budget(retained, 72 * mib).is_ok());
+        assert!(check_scene_payload_budget(retained, 73 * mib).is_err());
+        assert!(
+            prospective_retained_scene_payload(
+                [("eDP-1", u64::MAX), ("DP-1", 1)],
+                "eDP-1",
+                true,
+                Ok,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn invalid_fps_is_rejected_before_starting_a_wayland_thread() {
+        let config = EngineConfig {
+            fps_limit: Some(0),
+            ..EngineConfig::default()
+        };
+        assert!(
+            spawn_engine(config)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("greater than zero")
+        );
+    }
+
     #[test]
     fn expired_first_frame_reports_failure_for_its_generation() {
         let deadline = Instant::now();
@@ -1247,8 +2008,125 @@ mod tests {
                 if output == "eDP-1" && applied_path == path
         ));
         assert!(request.complete("eDP-1", now).is_none());
-        assert!(!request.expired(deadline));
+        assert!(request.expired(deadline));
         assert!(request.owns(7));
+    }
+
+    #[test]
+    fn unaccepted_ack_expires_but_committed_presentation_does_not() {
+        let now = Instant::now();
+        let deadline = now + Duration::from_secs(1);
+        let mut request = ApplyRequest::new(7, PathBuf::from("/tmp/video.mp4"), deadline);
+        assert!(request.commit(now).is_err());
+        request.complete("eDP-1", now).unwrap();
+        assert!(request.awaiting_commit);
+        assert!(request.expired(deadline));
+        assert!(request.commit(deadline).is_err());
+        assert!(matches!(
+            request.complete("eDP-1", deadline),
+            Some(EngineEvent::ApplyFailed { .. })
+        ));
+
+        let mut request = ApplyRequest::new(8, PathBuf::from("/tmp/video.mp4"), deadline);
+        request.complete("eDP-1", now).unwrap();
+        request.commit(now).unwrap();
+        request.commit(now).unwrap();
+        assert!(!request.expired(deadline));
+        assert!(request.committed);
+    }
+
+    #[test]
+    fn failed_candidate_cannot_commit_or_replace_rollback_identity() {
+        let mut request = ApplyRequest::new(
+            9,
+            PathBuf::from("/tmp/video.mp4"),
+            Instant::now() + Duration::from_secs(1),
+        );
+        request.pending = false;
+        request.awaiting_commit = false;
+        assert!(!request.committed);
+        assert!(request.commit(Instant::now()).is_err());
+    }
+
+    #[test]
+    fn committed_unfinalized_request_rejects_superseding_and_retains_rollback_ownership() {
+        let now = Instant::now();
+        let deadline = now + Duration::from_secs(1);
+        let mut saved = ApplyRequest::new(6, "/authored/saved.mp4".into(), deadline);
+        saved.complete("eDP-1", now).unwrap();
+        saved.commit(now).unwrap();
+        saved.finalized = true;
+        let previous_request = Some(saved);
+
+        let mut current = ApplyRequest::new(7, "/authored/committed.mp4".into(), deadline);
+        current.complete("eDP-1", now).unwrap();
+        current.commit(now).unwrap();
+        let rejected = ApplyRequest::new(8, "/authored/rejected.mp4".into(), deadline);
+        let error = current.ensure_supersedable().unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("awaiting persistence finalization")
+        );
+
+        // Rejection must leave the committed generation cancellable, so a save
+        // failure can still restore the exact retained previous generation.
+        assert!(current.owns(7));
+        assert!(!current.owns(rejected.request_id));
+        assert!(current.cancellable(7));
+        assert!(current.committed && !current.finalized);
+        assert_eq!(current.path, PathBuf::from("/authored/committed.mp4"));
+        assert_eq!(current.source.path(), current.path);
+        let retained = previous_request.as_ref().unwrap();
+        assert!(retained.owns(6));
+        assert!(retained.finalized);
+        assert_eq!(retained.path, PathBuf::from("/authored/saved.mp4"));
+        assert_eq!(retained.source.path(), retained.path);
+
+        // Finalizing releases the exclusivity; the retained request is not
+        // consumed by the read-only guard itself.
+        current.finalized = true;
+        current.ensure_supersedable().unwrap();
+        assert!(!current.cancellable(7));
+        assert!(previous_request.as_ref().unwrap().owns(6));
+    }
+
+    #[test]
+    fn uncommitted_and_finalized_requests_allow_superseding() {
+        let now = Instant::now();
+        let deadline = now + Duration::from_secs(1);
+        let pending = ApplyRequest::new(10, "/authored/pending.mp4".into(), deadline);
+        assert!(pending.pending);
+        pending.ensure_supersedable().unwrap();
+
+        let mut acknowledged = ApplyRequest::new(11, "/authored/acknowledged.mp4".into(), deadline);
+        acknowledged.complete("eDP-1", now).unwrap();
+        assert!(acknowledged.awaiting_commit && !acknowledged.committed);
+        acknowledged.ensure_supersedable().unwrap();
+
+        acknowledged.commit(now).unwrap();
+        assert!(acknowledged.ensure_supersedable().is_err());
+        acknowledged.finalized = true;
+        acknowledged.ensure_supersedable().unwrap();
+        assert!(acknowledged.committed && acknowledged.finalized);
+        assert!(acknowledged.owns(11));
+    }
+
+    #[test]
+    fn delayed_cancel_cannot_remove_a_saved_finalized_generation() {
+        let now = Instant::now();
+        let mut request = ApplyRequest::new(
+            10,
+            PathBuf::from("/tmp/video.mp4"),
+            now + Duration::from_secs(1),
+        );
+        request.complete("eDP-1", now).unwrap();
+        request.commit(now).unwrap();
+        assert!(request.cancellable(10));
+        request.finalized = true;
+        assert!(!request.cancellable(10));
+        request.commit(now).unwrap();
+        assert!(!request.cancellable(10));
     }
 
     #[test]

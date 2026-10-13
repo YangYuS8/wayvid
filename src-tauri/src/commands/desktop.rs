@@ -35,6 +35,37 @@ pub async fn clear_library_item_from_monitor(
     .await
 }
 
+#[tauri::command]
+pub async fn load_scene_properties(
+    monitor_id: String,
+    item_id: String,
+) -> Result<crate::models::ScenePropertiesSnapshot, String> {
+    run_desktop_blocking(move || {
+        crate::services::scene_properties_service::ScenePropertiesService::load(
+            &monitor_id,
+            &item_id,
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn update_scene_properties(
+    monitor_id: String,
+    item_id: String,
+    values: crate::results::session_persistence::ScenePropertyValues,
+) -> Result<ActionOutcome<()>, String> {
+    run_desktop_blocking(move || {
+        crate::services::scene_properties_service::ScenePropertiesService::validate_values_shape(
+            &values,
+        )?;
+        Ok(assemble_desktop_apply_outcome(
+            DesktopService::update_scene_properties(&monitor_id, &item_id, &values)?,
+        ))
+    })
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

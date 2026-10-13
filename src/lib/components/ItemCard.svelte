@@ -15,7 +15,9 @@ export let selectLabel: string | null = null;
 export let onSelect: (() => void) | undefined = undefined;
 
 $: runtimeCopy = applySupported
-  ? $copy.components.itemCard.runtimeRunnable
+  ? itemType === 'scene'
+    ? $copy.components.itemCard.runtimeExperimentalScene
+    : $copy.components.itemCard.runtimeRunnable
   : $copy.components.itemCard.runtimeUnavailable;
 </script>
 

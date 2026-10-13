@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { invoke } = vi.hoisted(() => ({
   invoke: vi.fn().mockResolvedValue({ ok: false, message: 'unavailable' })
@@ -12,7 +12,9 @@ import {
   applyLibraryItemToMonitor,
   clearLibraryItemFromMonitor,
   loadLibraryPage,
+  loadSceneProperties,
   searchWorkshopOnline,
+  updateSceneProperties,
   updateSettings
 } from './ipc';
 
@@ -45,6 +47,22 @@ describe('ipc request errors', () => {
     const failure = new Error('IPC transport unavailable');
     invoke.mockRejectedValueOnce(failure);
     await expect(loadLibraryPage()).rejects.toBe(failure);
+  });
+});
+
+describe('ipc scene properties bridge', () => {
+  beforeEach(() => { invoke.mockClear(); });
+  afterEach(() => { invoke.mockClear(); });
+
+  it('uses the monitor and item keys for loads, edits and restoring defaults', async () => {
+    await loadSceneProperties('DP-1', 'scene-1');
+    await updateSceneProperties('DP-1', 'scene-1', { enabled: true, intensity: 1.25, tint: [0.1, 0.2, 0.3] });
+    await updateSceneProperties('DP-1', 'scene-1', {});
+    expect(invoke).toHaveBeenNthCalledWith(1, 'load_scene_properties', { monitorId: 'DP-1', itemId: 'scene-1' });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'update_scene_properties', {
+      monitorId: 'DP-1', itemId: 'scene-1', values: { enabled: true, intensity: 1.25, tint: [0.1, 0.2, 0.3] }
+    });
+    expect(invoke).toHaveBeenNthCalledWith(3, 'update_scene_properties', { monitorId: 'DP-1', itemId: 'scene-1', values: {} });
   });
 });
 

@@ -116,7 +116,7 @@ describe('WorkshopDetailPanel', () => {
             summaryCopy: 'Recognized for reporting only',
             headline: 'Runtime unsupported',
             detail:
-              'LWE recognizes this web item for compatibility reporting, but the current verified runtime path only applies video wallpapers.',
+              'LWE recognizes this web item for compatibility reporting, but its type or resources do not meet the current playback requirements.',
             nextStep: 'wait_for_future_support',
             nextStepCopy: 'This item remains visible for reporting until web runtime support is available.'
           },

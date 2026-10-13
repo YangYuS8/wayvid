@@ -45,12 +45,17 @@ impl DiagnosticsService {
         ));
         lines.push(format!("desktop_session: {}", env_hint("DESKTOP_SESSION")));
         lines.push(format!("wayland_display: {}", env_hint("WAYLAND_DISPLAY")));
-        lines.push("support_scope: video wallpapers on verified Wayland/niri are the current runtime focus; scene/web items are recognized for reporting, not runnable.".to_string());
+        lines.push("support_scope: video wallpapers on verified Wayland/niri; Scene playback is experimental and gated per item against the bounded 2D subset; Web playback is unavailable.".to_string());
         lines.push(String::new());
 
         lines.push("Settings".to_string());
         lines.push(format!("language: {}", settings.language));
         lines.push(format!("theme: {}", settings.theme));
+        lines.push(format!("fps_limit_preference: {}", settings.fps_limit));
+        lines.push(format!(
+            "pause_on_battery_preference: {}",
+            settings.pause_on_battery
+        ));
         lines.push(format!("steam_web_api_key: {}", settings.steam_key_state));
         lines.push(format!(
             "launch_on_login_preference: {}",
@@ -215,6 +220,8 @@ impl DiagnosticsService {
                 language: format!("unavailable ({reason})"),
                 theme: "unavailable".to_string(),
                 launch_on_login: "unavailable".to_string(),
+                fps_limit: "unavailable".to_string(),
+                pause_on_battery: "unavailable".to_string(),
                 steam_key_state: "unknown; value redacted".to_string(),
                 workshop_query: "unavailable".to_string(),
                 workshop_age_ratings: "unavailable".to_string(),
@@ -228,6 +235,8 @@ struct RedactedSettings {
     language: String,
     theme: String,
     launch_on_login: String,
+    fps_limit: String,
+    pause_on_battery: String,
     steam_key_state: String,
     workshop_query: String,
     workshop_age_ratings: String,
@@ -240,6 +249,11 @@ impl From<PersistedSettings> for RedactedSettings {
             language: settings.language,
             theme: settings.theme,
             launch_on_login: settings.launch_on_login.to_string(),
+            fps_limit: settings
+                .fps_limit
+                .map(|fps| fps.to_string())
+                .unwrap_or_else(|| "compositor pacing".to_string()),
+            pause_on_battery: settings.pause_on_battery.to_string(),
             steam_key_state: if settings.steam_web_api_key.trim().is_empty() {
                 "not set"
             } else {
@@ -353,6 +367,8 @@ mod tests {
             language: "en".to_string(),
             theme: "dark".to_string(),
             launch_on_login: true,
+            fps_limit: None,
+            pause_on_battery: false,
             steam_web_api_key: "secret-api-key".to_string(),
             workshop_query: "forest".to_string(),
             workshop_age_ratings: Vec::new(),

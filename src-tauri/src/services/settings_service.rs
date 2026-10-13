@@ -8,6 +8,7 @@ use crate::results::settings_persistence::{
     PersistedSettings, SettingsPersistenceLoad, SettingsPersistenceWrite,
 };
 use crate::services::autostart_service::{AutostartService, AutostartState};
+use crate::services::desktop_service::DesktopService;
 use crate::services::settings_persistence_service::SettingsPersistenceService;
 
 #[derive(Debug)]
@@ -16,6 +17,9 @@ pub(crate) struct SettingsPageData {
     pub theme: String,
     pub launch_on_login: bool,
     pub launch_on_login_available: bool,
+    pub fps_limit: Option<u32>,
+    pub pause_on_battery: bool,
+    pub playback_settings_issue: Option<String>,
     pub steam_web_api_key: String,
     pub workshop_query: String,
     pub workshop_age_ratings: Vec<crate::models::WorkshopAgeRating>,
@@ -45,7 +49,11 @@ impl SettingsService {
             Err(reason) => AutostartState::Unavailable { reason },
         };
 
-        Ok(Self::build_page_data(settings, autostart))
+        let issue = DesktopService::playback_settings_issue(settings.playback_settings())?;
+        let mut page = Self::build_page_data(settings, autostart);
+        page.stale |= issue.is_some();
+        page.playback_settings_issue = issue;
+        Ok(page)
     }
 
     pub(crate) fn update_settings(input: SettingsUpdateInput) -> Result<SettingsPageData, String> {
@@ -87,6 +95,8 @@ impl SettingsService {
             settings.workshop_item_types = workshop_item_types;
         }
 
+        apply_playback_input(&mut settings, input.fps_limit, input.pause_on_battery)?;
+
         match persistence.save_settings(&settings) {
             SettingsPersistenceWrite::Saved => {
                 if let Some(launch_on_login) = input.launch_on_login
@@ -95,7 +105,16 @@ impl SettingsService {
                     eprintln!("launch-on-login update unavailable: {reason}");
                 }
 
-                Self::load_page()
+                // Atomic persistence is authoritative. A failed live update is
+                // exposed separately, retaining the saved snapshot for the UI.
+                let runtime_error =
+                    DesktopService::update_playback_settings(settings.playback_settings()).err();
+                let mut page = Self::load_page()?;
+                if let Some(reason) = runtime_error {
+                    page.playback_settings_issue = Some(reason);
+                    page.stale = true;
+                }
+                Ok(page)
             }
             SettingsPersistenceWrite::Unavailable { reason } => Err(reason),
         }
@@ -128,6 +147,9 @@ impl SettingsService {
             theme: settings.theme,
             launch_on_login,
             launch_on_login_available,
+            fps_limit: settings.fps_limit,
+            pause_on_battery: settings.pause_on_battery,
+            playback_settings_issue: None,
             steam_web_api_key: settings.steam_web_api_key,
             workshop_query: settings.workshop_query,
             workshop_age_ratings: settings.workshop_age_ratings,
@@ -199,6 +221,8 @@ impl SettingsService {
             settings.workshop_item_types = workshop_item_types;
         }
 
+        apply_playback_input(&mut settings, input.fps_limit, input.pause_on_battery)?;
+
         match persistence.save_settings(&settings) {
             SettingsPersistenceWrite::Saved => {
                 if let Some(launch_on_login) = input.launch_on_login {
@@ -221,6 +245,20 @@ impl SettingsService {
             SettingsPersistenceWrite::Unavailable { reason } => Err(reason),
         }
     }
+}
+
+fn apply_playback_input(
+    settings: &mut PersistedSettings,
+    fps_limit: Option<u32>,
+    pause_on_battery: Option<bool>,
+) -> Result<(), String> {
+    if let Some(fps) = fps_limit {
+        settings.fps_limit = (fps != 0).then_some(fps);
+    }
+    if let Some(paused) = pause_on_battery {
+        settings.pause_on_battery = paused;
+    }
+    settings.playback_settings().validate()
 }
 
 pub(crate) fn steam_status_with_discovery(steam: Option<SteamLibrary>) -> (bool, String) {
@@ -323,6 +361,88 @@ mod tests {
     }
 
     #[test]
+    fn playback_preferences_round_trip_and_invalid_updates_preserve_previous_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("settings.toml");
+        let config = directory.path().join("config");
+        let saved = SettingsService::update_settings_for_test(
+            path.clone(),
+            config.clone(),
+            SettingsUpdateInput {
+                fps_limit: Some(30),
+                pause_on_battery: Some(true),
+                theme: Some("dark".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(saved.fps_limit, Some(30));
+        assert!(saved.pause_on_battery);
+        let previous = std::fs::read(&path).unwrap();
+        let invalid = SettingsService::update_settings_for_test(
+            path.clone(),
+            config.clone(),
+            SettingsUpdateInput {
+                fps_limit: Some(241),
+                theme: Some("light".to_string()),
+                ..Default::default()
+            },
+        );
+        assert!(invalid.unwrap_err().contains("between 1 and 240"));
+        assert_eq!(std::fs::read(&path).unwrap(), previous);
+        let unlimited = SettingsService::update_settings_for_test(
+            path.clone(),
+            config.clone(),
+            SettingsUpdateInput {
+                fps_limit: Some(0),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(unlimited.fps_limit, None);
+        assert!(unlimited.pause_on_battery);
+        let restored = SettingsService::load_page_for_test(path, config).unwrap();
+        assert_eq!(restored.fps_limit, None);
+        assert!(restored.pause_on_battery);
+        assert_eq!(restored.theme, "dark");
+    }
+
+    #[test]
+    fn concurrent_playback_and_appearance_updates_preserve_all_preferences() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("settings.toml");
+        let config = directory.path().join("config");
+        let barrier = std::sync::Barrier::new(3);
+        std::thread::scope(|scope| {
+            for input in [
+                SettingsUpdateInput {
+                    fps_limit: Some(60),
+                    ..Default::default()
+                },
+                SettingsUpdateInput {
+                    pause_on_battery: Some(true),
+                    ..Default::default()
+                },
+                SettingsUpdateInput {
+                    theme: Some("dark".to_string()),
+                    ..Default::default()
+                },
+            ] {
+                let (path, config, barrier) = (&path, &config, &barrier);
+                scope.spawn(move || {
+                    barrier.wait();
+                    SettingsService::update_settings_for_test(path.clone(), config.clone(), input)
+                        .unwrap();
+                });
+            }
+        });
+        let page = SettingsService::load_page_for_test(path, config).unwrap();
+        assert_eq!(page.fps_limit, Some(60));
+        assert!(page.pause_on_battery);
+        assert_eq!(page.theme, "dark");
+    }
+
+    #[test]
     fn concurrent_partial_settings_updates_preserve_both_fields() {
         let directory = tempfile::tempdir().unwrap();
         let settings_path = directory.path().join("settings.toml");
@@ -342,6 +462,8 @@ mod tests {
                             language: language.map(str::to_string),
                             theme: theme.map(str::to_string),
                             launch_on_login: None,
+                            fps_limit: None,
+                            pause_on_battery: None,
                             steam_web_api_key: None,
                             workshop_query: None,
                             workshop_age_ratings: None,
@@ -389,6 +511,8 @@ mod tests {
                 language: "system".to_string(),
                 theme: "system".to_string(),
                 launch_on_login: true,
+                fps_limit: None,
+                pause_on_battery: false,
                 steam_web_api_key: "api-key".to_string(),
                 workshop_query: "nature".to_string(),
                 workshop_age_ratings: vec![crate::models::WorkshopAgeRating::G],
@@ -470,6 +594,8 @@ mod tests {
                 language: Some("fr".to_string()),
                 theme: Some("dark".to_string()),
                 launch_on_login: Some(true),
+                fps_limit: None,
+                pause_on_battery: None,
                 steam_web_api_key: Some("test-key".to_string()),
                 workshop_query: Some("forest".to_string()),
                 workshop_age_ratings: Some(vec![
@@ -534,6 +660,8 @@ mod tests {
                 language: None,
                 theme: None,
                 launch_on_login: Some(true),
+                fps_limit: None,
+                pause_on_battery: None,
                 steam_web_api_key: None,
                 workshop_query: None,
                 workshop_age_ratings: None,
@@ -570,6 +698,8 @@ mod tests {
                 language: Some("fr".to_string()),
                 theme: None,
                 launch_on_login: Some(true),
+                fps_limit: None,
+                pause_on_battery: None,
                 steam_web_api_key: Some("new-key".to_string()),
                 workshop_query: Some("new-query".to_string()),
                 workshop_age_ratings: Some(vec![crate::models::WorkshopAgeRating::R18]),
