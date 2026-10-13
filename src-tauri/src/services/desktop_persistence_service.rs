@@ -778,6 +778,56 @@ mod tests {
     }
 
     #[test]
+    fn grouped_control_values_round_trip_without_persisting_headers() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("session.toml");
+        let service = DesktopPersistenceService::for_path(path.clone());
+        let project = json!({"general":{"properties":{
+            "sectionHeader":{"type":"group","text":"ELEMENTS","value":"","order":101},
+            "enabled":{"type":"bool","value":true,"order":102},
+            "opacity":{"type":"slider","value":0.25,"order":103}
+        }}});
+        let groups = lwe_engine::scene::property_groups(&project).unwrap();
+        let values: ScenePropertyValues = lwe_engine::scene::property_definitions(&project)
+            .unwrap()
+            .into_iter()
+            .map(|control| (control.name, serde_json::to_value(control.value).unwrap()))
+            .collect();
+        assert_eq!(values.len(), 2);
+        assert!(!values.contains_key("sectionHeader"));
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY", "scene", &values),
+            DesktopPersistenceWrite::Saved
+        ));
+        let bytes = std::fs::read_to_string(&path).unwrap();
+        assert!(!bytes.contains("sectionHeader"));
+        assert!(!bytes.contains("ELEMENTS"));
+        let saved = service.load_scene_properties("DISPLAY", "scene").unwrap();
+        assert_eq!(saved, values);
+        let mut restored = project.clone();
+        lwe_engine::scene::apply_property_overrides(&mut restored, &saved).unwrap();
+        assert_eq!(restored, project);
+        assert_eq!(
+            lwe_engine::scene::property_groups(&restored).unwrap(),
+            groups
+        );
+        assert!(matches!(
+            service.save_assignment_with_properties("DISPLAY", "scene", &BTreeMap::new()),
+            DesktopPersistenceWrite::Saved
+        ));
+        assert!(
+            service
+                .load_scene_properties("DISPLAY", "scene")
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            lwe_engine::scene::property_groups(&project).unwrap(),
+            groups
+        );
+    }
+
+    #[test]
     fn ordinary_assignment_save_and_last_clear_preserve_all_choices() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("session.toml");

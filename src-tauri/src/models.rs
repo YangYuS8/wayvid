@@ -652,4 +652,5 @@ pub struct ScenePropertiesSnapshot {
     pub item_id: String,
     pub monitor_id: String,
     pub properties: Vec<lwe_engine::scene::PropertyDefinition>,
+    pub groups: Vec<lwe_engine::scene::PropertyGroup>,
 }

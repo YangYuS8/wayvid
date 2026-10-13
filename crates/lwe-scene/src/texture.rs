@@ -93,6 +93,14 @@ impl Texture {
         parse_source(Source::Bytes(bytes))
     }
 
+    /// Inspect one sealed byte buffer with the caller's aggregate framing budget.
+    pub fn inspect_bounded(
+        bytes: &[u8],
+        budget: &mut TextureInspectionBudget,
+    ) -> Result<TextureMetadata> {
+        parse_source_bounded(Source::Bytes(bytes), budget)
+    }
+
     /// Inspect framing via small positional reads, skipping mip payloads. This
     /// does not decode pixels or validate compressed/image/video payloads.
     pub fn inspect_resource(resource: &SceneResource) -> Result<TextureMetadata> {
@@ -287,6 +295,11 @@ fn decode_bc3(bytes: &[u8], width: u32, height: u32) -> Result<Vec<u8>> {
     }
     rgba.truncate(width as usize * height as usize * 4);
     Ok(rgba)
+}
+
+#[cfg(test)]
+pub(crate) fn decode_bc3_oracle(bytes: &[u8], width: u32, height: u32) -> Result<Vec<u8>> {
+    decode_bc3(bytes, width, height)
 }
 
 fn parse(bytes: &[u8]) -> Result<TextureMetadata> {

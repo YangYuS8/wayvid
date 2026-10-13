@@ -112,6 +112,8 @@ Under the current RGBA8 allocation policy, the complete default graph predicts 4
 
 The first resource-ownership slice now shares immutable uploads within a live context, retains private generation targets, and separately bounds retained decoded CPU storage. Its identity, retirement, budget and verification contracts are documented in [Scene texture ownership and budgets](./scene-texture-sharing.md). Animated-frame residency and the complete default graph remain subsequent gates.
 
+The next resource slice provides an independent bounded TEXS0003/BC3 CPU source and direct region decoder, with retained allocation leases and author-duration frame selection. See [Timed atlas CPU resources](./scene-timed-atlas.md) for its accepted framing, ownership, oracle and limits. It does not yet connect animated regions to the renderer or admit this project. Declarative `group` headers now have a separate ordered metadata path through the property snapshot and collapsible English/Chinese editor; they never become saved values or script inputs. The remaining `scenetexture` declaration and full graph still block Miku.
+
 | Batch | Required result before advancing |
 | --- | --- |
 | Immutable resource ownership | Share read-only textures only within the same context generation, with complete source/decode/upload identities and fixed sampler variants. Preflight and diagnostics count unique allocations plus every private current/candidate/rollback resource, including replacement peaks and pending deletion. Preserve save-failure rollback and final release. |

@@ -173,10 +173,19 @@ export type SceneProperty = ScenePropertyControl & (
   | { kind: 'combo'; value: string; options: { label: string; value: string }[] }
 );
 
+/** Author-ordered section headers. Groups never carry editable values. */
+export interface ScenePropertyGroup {
+  name: string;
+  label: string;
+  order: number | null;
+  members: string[];
+}
+
 export interface ScenePropertiesSnapshot {
   itemId: string;
   monitorId: string;
   properties: SceneProperty[];
+  groups: ScenePropertyGroup[];
 }
 
 export interface DesktopMonitorSummary {
