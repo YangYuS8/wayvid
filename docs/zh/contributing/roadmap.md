@@ -138,6 +138,18 @@ workspace 检查通过：ordinary 559 项（含两项 doctest）、36 项 ignore
 
 下一步从当前完整默认 14.73 FPS 基线，在现有 query/内存预算内对二十五个 pass 轮转稀疏 GPU 采样，把 layer/stage/pass 关联 owner+序号+时间；确认 CRT、运动模糊或合成热点后，再结合 REA 原版 shader/material/editor 证据优化共用执行路径，保持全部效果/分辨率/预算。这些归因仍为计划。此前私有稀疏 GPU 诊断提示 aggregate draw/composite 约 61 ms，但不是本轮生产候选测时，也不是精确或等价阶段，仅用于选择后续受控量测。
 
+### Scene GPU pass 调查（2026-10-14）
+
+以已合并 `4cb9fe14dcea8534a84f4198f3871af56c0a7139` 为基线，有界私有 AMD query 归因已完成：四十六 catalog site、四十共同采样 site，原二十一 stage 加四 bloom logical pass 保留。Layer 8 material/composite 和原 Simple Audio Bars 稀疏均值约 4.98、4.61 ms；三个历史 copy site 约 1–2 ms，属于 GPU copy 区间而非 CPU readback。三十二 query/八 slot/512 records 保持有界，不同帧均值不能相加，CPU begin 分类也不是精确 GPU phase。A/P 的 15.0666 → 14.8500 FPS（−1.4381%）包含不同二进制临时 hook 和采样，不是优化收益。
+
+标量 material 尝试因无收益被拒（15.132597 → 14.833289 FPS，观察 −1.977906%），与更早较宽整数 Count=3 一像素 LSB 精度拒绝独立；两者均已恢复/归档，不交付，也不复用为 Blend 验收证据。
+
+本轮实现的共用编译路径仅匹配完整 canonical LWE 自有 image/text 源码及 metadata，把固定整数 Blend 0/1/2 编译为 typed 常量；其他模板/模式保留 uniform，原艺术公式/参数、ColorMode、prepared source/plan、资源/copy、效果/分辨率、运行时输入、worker/slot 及 512 MiB 上限不变。独立 release A–B–B–A 观察到 **14.783306 → 15.365691 FPS（+3.9395%）**，范围 14.7666–14.8000 → 15.1666–15.5647。每 variant 仅两轮三十秒且私有 tone/silence epoch 相位不同步，不代表稳定/普遍/显著收益；暂停/恢复/清除/join/身份门禁通过，不合并 CPU wall 与旧 GPU site 均值，也不加此前百分比。
+
+最终源码检查通过：ordinary 562 项（含两项 doctest）、37 项 ignored，另显式执行十六 GPU 测试（一个含十二内部 case 的新增 AMD 模板测试、六 ahead、六历史、两共享、一个完整原图软件 oracle）。八输出/二十四历史像素 hash 匹配 #110，CPU/GPU 上界和零清理保持；完整软件、小型 AMD fixture 与嵌套原生吞吐分别报告，独立原生 engine-only 暂停/恢复、暂停换静态源一次 draw/swap、idle/清除/join、1920×1080 截图及自有 helper/音频默认值/焦点恢复检查也通过。见独立 [GPU pass 记录](./guide.md#scene-gpu-passes-2026-10-14)。此前证据保持原样，不宣称 30 FPS/日用、物理/UI/安装包/Windows 或长时验收，物理休眠/恢复继续跳过。
+
+下一步优先评估历史复制复用 Named/History 来源的现有 FBO，保留 Input 回退路径、ownership 和 replay/rollback 行为；全帧 blit 已使用现有 FBO，其输入 liveness 单独评估后再改执行；Layer 8 ColorMode 28 与原 Simple Audio Bars 继续作为主线，保留艺术原公式、完整效果/分辨率及预算。此处是计划，不代表 copy 优化已完成。
+
 ### 实施顺序与阶段出口
 
 下表保留未来完整阶段的验收目标，其中物理休眠恢复已明确移出当前批次。有界 P0 inventory、首批 P1 运行时/设置、受限 P2 相机与可编辑属性持久化，以及默认混合项目 CPU/GPU 路径已实现。默认和属性编辑器原生 UI（包括真实保存失败/重试及十二秒自有全屏恢复）已通过，其他生命周期验收仍未完成，没有标记任何完整阶段或日用里程碑完成。不支持的行为仍门控，已实现路径仍需通过所列验收。

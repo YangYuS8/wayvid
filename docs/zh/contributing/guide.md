@@ -404,6 +404,40 @@ Rust workspace 检查全部通过，**ordinary 559 项 passed（含两项 doctes
 
 下一步从本轮完整默认 14.73 FPS 基线进行受控逐 pass GPU 归因：维持现有 query/内存预算，对二十五个 pass 轮转稀疏采样，把 layer/stage/pass 关联 owner+序号+时间，确认 CRT、运动模糊或合成热点后，再结合 REA 原版 shader/material/editor 证据优化共用执行路径。这些采样和归因仍为计划。此前私有 `85cc` 诊断的十个稀疏、匹配 ring 尾段样本中，aggregate draw/composite GPU elapsed 均值约 61.32 ms，upload 约 6.34 ms；它们仅是后续调查线索，不是候选 `39ed` 的 GPU 测时、精确稳定阶段或等价负载对比。不能合并 CPU/GPU 时钟及这些均值，或据此预测 FPS。
 
+### Scene GPU pass 调查（2026-10-14） {#scene-gpu-passes-2026-10-14}
+
+本次独立迭代以已合并 `4cb9fe14dcea8534a84f4198f3871af56c0a7139` 为起点，此前量测和源码身份保留为历史记录。临时 AMD GPU query 在 1920×1080、原默认配置、私有 PCM 和 30 FPS cap 下完成串行 A-off/P-on/P-on/A-off 诊断。A 为保留的生产 `39ed` release，P 为临时插桩 `3c135` release；合并吞吐 15.066639 → 14.849973 FPS，观察变化 −1.4381%。不同二进制包含 hook 与采样开销，这不是优化结果，也不代表同二进制或零开销；诊断 hook 为私有，不进入生产变更。
+
+目录包含四十六个 site：二十一个 stage site（十八 render、三历史 copy）、四 bloom，以及独立标注的 upload/composite/copy/canvas/present 区间。二十一加四对应原二十五 logical pass，附加区间不改变该图。四十个 site 在两轮动画 CPU 提交内窗均有样本，缺失 conditional/hidden site 不补零。每第四个序号轮转采样一个 site，加 upload batch，并关联 layer/stage/pass 与 owner、序号、时间。三十二个 query 已创建并删除，八 slot、固定 512 条记录上限；owner 仅进程内唯一，跨轮使用命名空间。
+
+| 诊断区间（零基索引） | 样本数 | GPU 区间均值 |
+| --- | ---: | ---: |
+| Layer 8 material/composite 到 scene | 4 | 4.983690 ms |
+| Layer 2 / stage 1 / pass 0：原 Simple Audio Bars | 4 | 4.606180 ms |
+| 三个历史 copy site | 6 / 6 / 5 | 1.993293 / 1.401640 / 1.219672 ms |
+| Bloom combine | 4 | 0.674490 ms |
+
+Layer 8 区间覆盖 material/composite，不能当作其独立 flat shader。copy 是 GPU blit/driver 区间，不是稳态 CPU readback；四个 bloom pass 及原尺寸/效果全部保留，不能据稀疏结果删除 pass 或降分辨率。189 个 upload-batch 样本混合 acquire、text、cached/no-op 与实际上传，不代表 189 次纯 atlas transfer。多数 site 只有四至六样本，来自不同帧、PCM 与 atlas 状态。GL completion interval 含 submission/driver 间隔，不是纯 shader busy，不能把不同均值相加当整帧 critical path 或 FPS 预测。CPU begin 时间仅分类有守卫的内窗，query available 轮询也不是 GPU 结束时间，不宣称精确 GPU phase，不做 CPU/GPU 时钟相减。
+
+两个标量 material 尝试均保留为被拒研究。较宽正整数源码在严格 AMD Count=3/frame0 比较出现一个像素 LSB 差异，失败记录保留；最终仅二次幂源码（`0e0b`）虽通过其已记录正确性检查，却为 15.132597 → 14.833289 FPS（观察 −1.977906%），因无性能收益归档并恢复。两者均不交付，其证据与下文 Blend 实现独立。
+
+本轮实现的共用编译路径仅匹配完整 canonical LWE 自有 image/text shader 模板，源码及 metadata 均须精确相同；在 program 编译时将当前 renderer generation 固定整数 `g_BlendMode` 0/1/2（Replace/Alpha/Add）替换为 typed GLSL 常量。其他模板或模式保留原 uniform 路径。原艺术/effect 公式和整数参数、ColorMode、prepared source/plan、资源/copy、效果/分辨率、运行时输入、worker/slot 及 512 MiB 预算不变，不做通用标量或艺术 shader 替换。
+
+独立最终 release A–B–B–A 比较保留的 #110 A（`39ed54ca0503401503c350e93ef16aea79922870e9428bf16da3595be97c5615`，十二个记录的源码 inventory 身份匹配已合并基线）与 Blend B（`0c893ccc5b9d9b713a14a6b817ee750d9a1ea16720e6834aeaff29c292c059fe`）。两者同完整原默认配置/资源/效果、已记录 1920×1080 嵌套 `niri`/AMD680M 环境、私有 PCM、30 FPS cap 与 2 ms 状态查询压力，私有 profiling 关闭；每轮为三十秒动画、三十秒暂停及三秒恢复。
+
+| Variant | 单轮 FPS 范围 | 成功 swap / 总动画秒数 | 合并 FPS |
+| --- | ---: | ---: | ---: |
+| A：已合并 #110 基线 | 14.7666–14.8000 | 887 / 60.000109578 | 14.7833063346 |
+| B：canonical Blend 模板 | 15.1666–15.5647 | 922 / 60.003809558 | 15.3656910585 |
+
+观察吞吐增加 **3.9395%**；每 variant 仅两轮短测，私有 tone/silence epoch 未同步相位，不代表稳定、普遍或统计显著收益，不与此前迭代百分比相加。两 variant 动画/恢复的空绘制尝试均为零，三十秒暂停计数/worker dispatch/render 统计保持零，恢复/清除/join/源码与输入身份、自有 probe/player 退出门禁均通过。成功 render+swap CPU wall 均值为 3.956879 → 3.835216 ms，不含 worker 等待或异步 GPU 时间；带标签 CPU 采样可能跨阶段边界，不将这些均值或旧私有 GPU site 均值合并成整帧时间或 FPS 预测。
+
+最终 Blend 源码通过 Rust workspace 检查：**ordinary 562 项（含两项 doctest）、37 项 ignored**；另显式执行十六项 opt-in GPU 测试：一个含十二内部 case 的新增 AMD 模板测试、六 ahead、六历史、两共享、一个完整原图软件测试。ignored 不算通过。小模板 fixture 验证精确 RGBA 与 sampler liveness，不替代完整 Miku 软件 EGL oracle：十图层、五特效、二十五 pass、两个八帧 atlas 可见、三历史及暂停/冻结回滚 replay 精确。八输出、二十四历史像素 hash 全部匹配 #110，CPU peak 525,312,699 B、GPU transition 并集 525,624,984 B 仍低于 536,870,912 B（512 MiB），CPU/pool 清理为零。ledger 不代表 allocator/RSS 或 driver VRAM，重叠原生 GPU 字段不相加；完整软件、小型 AMD 和原生吞吐各有独立证据范围。
+
+独立原生 engine-only 功能检查通过 Miku 暂停/恢复、暂停时换静态源（恰好一次 draw/swap）、三秒静态 idle、清除/join/退出，并保存 1920×1080 截图；三十一项功能及十五项清理检查全部通过。自有 helper 进程/窗口已退出，宿主音频默认值的最终 raw 前后快照一致，原焦点已恢复；不追溯声称每轮持续观察，也不作为 UI/会话保存验收。
+
+下一步优先评估历史复制复用 Named/History 来源的现有 FBO，保留 Input 来源的当前回退路径、ownership 和已验收 replay/rollback 行为；全帧 blit 已使用现有 FBO，其输入 liveness 单独评估；Layer 8 ColorMode 28 与原 Simple Audio Bars 仍为调查主线，原艺术公式及完整效果/分辨率保留。计划不代表已消除 copy 或进一步收益。本批不代表 30 FPS/日用、物理输出、新 UI/原子保存或安装包验收、Windows 一致性或长时行为；物理休眠/恢复继续跳过。
+
 ### 已记录的实验性 Scene 验收
 
 2026-10-09 的开发版本验收环境为 Wayland 与 `niri`、AMD Radeon 680M（`1002:1681`，`amdgpu`），仅一个 `eDP-1` 输出，2160×1440、缩放 1.25。场景样本 `3337606455` 使用默认零 X/Y 相机，包含一个图片图层与 Shine：5 个特效 pass、总计 6 个 pass。全分辨率截图确认 Shine 实际可见渲染。

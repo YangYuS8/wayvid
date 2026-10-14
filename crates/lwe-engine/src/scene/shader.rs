@@ -10,7 +10,7 @@ use serde_json::Value;
 const MAX_SHADER_BYTES: usize = 1024 * 1024;
 const MAX_INCLUDE_DEPTH: usize = 24;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Uniform {
     pub name: String,
     pub kind: String,
@@ -23,7 +23,7 @@ pub(crate) struct Uniform {
     pub material_range: Option<[f32; 2]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Shader {
     pub vertex: String,
     pub fragment: String,
@@ -1665,6 +1665,27 @@ pub(crate) fn image_material_variant(
 pub(crate) fn text_material() -> Result<Shader> {
     image_material_variant(&BTreeMap::from([("SPRITESHEET".into(), 1)]), true)
 }
+
+/// Only complete LWE-owned templates and their canonical metadata qualify.
+/// Keep authored effects and their integer uniforms unchanged.
+pub(crate) fn specialize_owned_image_blend(shader: &Shader, mode: i32) -> Option<Shader> {
+    if !(0..=2).contains(&mode)
+        || (shader != &image_material() && shader != &text_material().ok()?)
+    {
+        return None;
+    }
+    let mut variant = shader.clone();
+    variant.fragment = variant.fragment.replacen(
+        "uniform int g_BlendMode;",
+        &format!("const int g_BlendMode = {mode};"),
+        1,
+    );
+    Some(variant)
+}
+
+#[cfg(test)]
+#[path = "shader_owned_blend_tests.rs"]
+mod owned_blend_tests;
 
 #[cfg(test)]
 mod tests {
