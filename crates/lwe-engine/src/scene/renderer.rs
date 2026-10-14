@@ -2948,26 +2948,39 @@ fn resolve_binding<'a>(
             .context("Scene full-frame texture unavailable"),
     }
 }
-fn copy_texture(source: &GpuTexture, target: &RenderTarget) -> Result<()> {
+enum CopySource<'a> {
+    Texture(&'a GpuTexture),
+    Target(&'a RenderTarget),
+}
+
+fn copy_texture(source: CopySource<'_>, target: &RenderTarget) -> Result<()> {
+    let (source, mut read, temporary) = match source {
+        CopySource::Texture(texture) => (texture, 0, true),
+        CopySource::Target(target) => (&target.texture, target.fbo, false),
+    };
     ensure!(source.id != target.texture.id, "Scene copy feedback loop");
     ensure!(
         [source.width, source.height] == [target.texture.width, target.texture.height],
         "Scene copy dimensions disagree"
     );
-    let mut read = 0;
     unsafe {
-        gl::GenFramebuffers(1, &mut read);
-        gl::BindFramebuffer(gl::READ_FRAMEBUFFER, read);
-        gl::FramebufferTexture2D(
-            gl::READ_FRAMEBUFFER,
-            gl::COLOR_ATTACHMENT0,
-            gl::TEXTURE_2D,
-            source.id,
-            0,
-        );
-        if gl::CheckFramebufferStatus(gl::READ_FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
-            gl::DeleteFramebuffers(1, &read);
-            bail!("Scene copy input framebuffer incomplete");
+        if temporary {
+            gl::GenFramebuffers(1, &mut read);
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, read);
+            gl::FramebufferTexture2D(
+                gl::READ_FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                source.id,
+                0,
+            );
+            if gl::CheckFramebufferStatus(gl::READ_FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+                gl::DeleteFramebuffers(1, &read);
+                bail!("Scene copy input framebuffer incomplete");
+            }
+        } else {
+            // RenderTarget construction validated its immutable attachment.
+            gl::BindFramebuffer(gl::READ_FRAMEBUFFER, read);
         }
         gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, target.fbo);
         gl::BlitFramebuffer(
@@ -2982,7 +2995,9 @@ fn copy_texture(source: &GpuTexture, target: &RenderTarget) -> Result<()> {
             gl::COLOR_BUFFER_BIT,
             gl::NEAREST,
         );
-        gl::DeleteFramebuffers(1, &read);
+        if temporary {
+            gl::DeleteFramebuffers(1, &read);
+        }
     }
     check_gl("copying persistent Scene history")
 }
@@ -3141,7 +3156,7 @@ fn render_layer<'a>(
                     .skip(layer.work_offset)
                     .find(|t| !written.contains(&t.texture.id))
                     .context("Scene stage input has no free borrowed work image")?;
-                copy_texture(input, spare)?;
+                copy_texture(CopySource::Texture(input), spare)?;
                 stage_input = Some(&spare.texture);
             }
         }
@@ -3155,7 +3170,24 @@ fn render_layer<'a>(
                 if inputs.replay {
                     continue;
                 }
-                let source = resolve_binding(source, stage, input, inputs, &pass.label, 0)?;
+                let source = match source {
+                    TextureBinding::Named(name) | TextureBinding::History(name) => {
+                        CopySource::Target(
+                            stage
+                                .targets
+                                .get(name)
+                                .context("Scene named/history target unavailable")?,
+                        )
+                    }
+                    _ => CopySource::Texture(resolve_binding(
+                        source,
+                        stage,
+                        input,
+                        inputs,
+                        &pass.label,
+                        0,
+                    )?),
+                };
                 let target = stage
                     .targets
                     .get(pass.target.as_ref().context("Scene copy target missing")?)
@@ -3270,6 +3302,10 @@ mod sharing_tests;
 #[cfg(test)]
 #[path = "renderer_owned_blend_tests.rs"]
 mod owned_blend_tests;
+
+#[cfg(test)]
+#[path = "renderer_copy_fbo_tests.rs"]
+mod copy_fbo_tests;
 
 #[cfg(test)]
 mod tests {

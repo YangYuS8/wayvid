@@ -150,6 +150,16 @@ workspace 检查通过：ordinary 559 项（含两项 doctest）、36 项 ignore
 
 下一步优先评估历史复制复用 Named/History 来源的现有 FBO，保留 Input 回退路径、ownership 和 replay/rollback 行为；全帧 blit 已使用现有 FBO，其输入 liveness 单独评估后再改执行；Layer 8 ColorMode 28 与原 Simple Audio Bars 继续作为主线，保留艺术原公式、完整效果/分辨率及预算。此处是计划，不代表 copy 优化已完成。
 
+### Scene 历史 copy FBO 复用（2026-10-14）
+
+以已合并 #111 `5df7317b9cbe85608cc848b811c74a217d042b1a` 为基线，本轮仅对 Named/History copy 源借用经验证的已有 READ FBO；Input/alias-preservation 和其他来源保留临时 attachment，full-frame blit 原本已用现有 FBO。全部 blit、`NEAREST`、顺序、尺寸、资源/generation/history owner 和 512 MiB 上限保留。三项新增 opt-in 回归覆盖临时/复用及恢复像素精确一致、历史推进及暂停/resize/freeze-thaw/resume、修改 GL 前拒绝 feedback/尺寸不符。最终源码通过 workspace 562 ordinary（含两 doctest）、40 ignored，另显式执行十九 GPU（copy 三、自有模板一、ahead 六、历史六、共享二、完整原图软件一）；ignored 不算通过。完整原图软件保持 10/5/25、八输出/二十四历史 hash 严格同 #111/#110，CPU/GPU 上界低于 512 MiB，结束清理零。
+
+独立原生 release A–B–B–A 观察 **14.716643 → 15.233300 FPS（+3.5107%）**，范围 14.6000–14.8333 → 15.1666–15.3000，两 B 均高于两 A；每 variant 仅两轮三十秒、私有 tone/silence epoch 相位未同步，不代表稳定/普遍/显著收益，不加此前百分比。暂停/恢复/清除/join/身份门禁通过，CPU wall 不当 GPU elapsed，旧不同 site 均值不相加；原生吞吐、小型 AMD 与完整软件证明分别报告，B1 geometry 仅中途快照。所有像素 blit 仍执行，减少的是符合条件来源的临时 FBO 设置。
+
+独立原生 engine-only 暂停/恢复、暂停换静态源一次 draw/swap、idle/清除/join、1920×1080 截图复核及自有 helper 退出/宿主音频默认值/焦点恢复另通过三十一功能、十五清理检查；不作为 UI/会话保存或连续逐轮观察验收。
+
+新增原 PE REA 证据保留三十一条静态记录，观察通用 target-handle cache、named lookup 后才 create 和尺寸相关 resize；不证明原 History/view/copy 语义、OpenGL 行为或 GPU/FPS 成本，LWE 验证独立，原反编译源码不导入。见独立[历史 FBO 记录](./guide.md#scene-history-fbo-2026-10-14)。下一步继续以 Layer 8 ColorMode 28 与原 Simple Audio Bars 为主线做有界逐 pass 归因，保持原艺术公式、完整效果/分辨率、资源和预算，不预设进一步收益。此前证据保持原样，不宣称 30 FPS/日用、物理/UI/安装包/Windows 或长时验收，物理休眠/恢复继续跳过。
+
 ### 实施顺序与阶段出口
 
 下表保留未来完整阶段的验收目标，其中物理休眠恢复已明确移出当前批次。有界 P0 inventory、首批 P1 运行时/设置、受限 P2 相机与可编辑属性持久化，以及默认混合项目 CPU/GPU 路径已实现。默认和属性编辑器原生 UI（包括真实保存失败/重试及十二秒自有全屏恢复）已通过，其他生命周期验收仍未完成，没有标记任何完整阶段或日用里程碑完成。不支持的行为仍门控，已实现路径仍需通过所列验收。

@@ -438,6 +438,29 @@ Layer 8 区间覆盖 material/composite，不能当作其独立 flat shader。co
 
 下一步优先评估历史复制复用 Named/History 来源的现有 FBO，保留 Input 来源的当前回退路径、ownership 和已验收 replay/rollback 行为；全帧 blit 已使用现有 FBO，其输入 liveness 单独评估；Layer 8 ColorMode 28 与原 Simple Audio Bars 仍为调查主线，原艺术公式及完整效果/分辨率保留。计划不代表已消除 copy 或进一步收益。本批不代表 30 FPS/日用、物理输出、新 UI/原子保存或安装包验收、Windows 一致性或长时行为；物理休眠/恢复继续跳过。
 
+### Scene 历史 copy FBO 复用（2026-10-14） {#scene-history-fbo-2026-10-14}
+
+本次独立迭代以已合并 #111 `5df7317b9cbe85608cc848b811c74a217d042b1a` 为起点，此前量测、源码身份和被拒候选保留为历史记录。本轮实现仅对 Named/History copy 源借用已有 `RenderTarget.fbo` 作为 READ framebuffer，其不可变 texture attachment 已在构造时验证；Input、alias-preservation 和其他仅 texture 来源保留临时 create/attach/delete 路径。现有 full-frame blit 原本已复用目标 FBO，不算本次新增优化。
+
+copy 本身仍使用 `BlitFramebuffer`、相同边界、`COLOR_BUFFER_BIT`、`NEAREST` 和 pass 顺序，不移除、融合或延迟任何 copy/pass。资源、尺寸/分辨率、generation ownership、已验收历史/replay/rollback、worker/slot 与 512 MiB 核算保留；feedback 或尺寸不符在两条来源路径修改 GL binding 前拒绝。恢复的历史 target 仍须保留经验证 attachment 和 lifetime，这是源 FBO 复用，不是跨 generation 共享 texture/history 或移除 CPU readback。
+
+最终源码通过 Rust workspace 检查：**ordinary 562 项（含两项 doctest）、40 项 ignored**，另显式执行十九项 opt-in GPU 测试：三项新 copy、一个自有 Blend 模板、六 ahead、六历史、两共享、一个完整原图软件 oracle；ignored 不计为通过。新增三项验证临时/复用来源 FBO 与恢复 snapshot 的精确 RGBA 一致、Named/History copy 推进及暂停 resize/freeze-thaw/resume，以及两条路径修改 GL 前拒绝 feedback/尺寸不符。完整原 Miku 软件 EGL 另保持十图层/五特效/二十五 pass、两个八帧 atlas 可见、三历史及暂停/冻结回滚 replay 精确；八输出、二十四历史像素 hash 严格匹配 #111/#110。CPU peak 525,312,699 B、GPU transition 并集 525,624,984 B 均低于 536,870,912 B（512 MiB），结束 CPU/pool 为零。完整软件、小型 AMD 样本和原生吞吐分别报告，不作为 Windows 或原生像素等价证明。
+
+最终 release A–B–B–A 比较保留的 #111 A（`0c893ccc5b9d9b713a14a6b817ee750d9a1ea16720e6834aeaff29c292c059fe`；十五项记录的源码 inventory 身份含 probe/tests，匹配已合并基线，不称十五运行时模块或重新构建）与 B（`7114db88cc33f4f409b67d7169328ba4e2ae1d2cb709bf4755a2f482d87e4cac`）。两者同原完整默认配置/效果/资源、私有 PCM、1920×1080 嵌套 `niri`/AMD680M 环境、30 FPS cap 与 2 ms 状态查询压力，私有 profiling 关闭；每轮为三十秒动画、三十秒暂停及三秒恢复。
+
+| Variant | 单轮 FPS 范围 | 成功 swap / 总动画秒数 | 合并 FPS |
+| --- | ---: | ---: | ---: |
+| A：已合并 #111 基线 | 14.6000–14.8333 | 883 / 60.000098472 | 14.7166425137 |
+| B：Named/History READ FBO 复用 | 15.1666–15.3000 | 914 / 60.000132644 | 15.2332996566 |
+
+观察吞吐增加 **3.5107%**，两轮 B 均高于两轮 A，但每 variant 仅两轮短测且私有 tone/silence epoch 未同步，不代表稳定、普遍或统计显著收益，不与此前百分比相加。动画/恢复无空绘制，三十秒暂停 render/draw/swap/empty/callback 与 dispatch、CPU render 统计均为零，恢复/清除/join/身份/自有 probe/player 退出门禁通过。成功 render+swap CPU wall 均值 3.966114 → 3.823484 ms 不含 ahead worker 等待或异步 GPU，也不证明 GPU elapsed 下降；带标签 CPU 采样可能跨阶段边界，不能与旧 GPU site 均值合并预测 FPS。四轮各自直接记录 1920×1080 输出，宿主 geometry 仅 B1 中途快照，不代表 batch 起点或逐轮持续可见性/宿主音频监视。ledger 不是 allocator/RSS 或 driver VRAM，重叠字段不相加。
+
+独立原生 engine-only 检查通过原 Miku 暂停/恢复、暂停时换静态源（恰好一次 draw/swap）、三秒静态 idle、清除/join/退出；三十一项功能与十五项清理检查均通过，1920×1080 截图另经主任务视觉复核。三个自有 helper PID/窗口退出、两个 supervisor/session exit0、宿主音频默认值 raw 前后快照一致、原焦点恢复均已核对，不扩展为逐轮持续观察或 UI/会话保存验收。
+
+REA 独立静态检查原 x86-64 PE `wallpaper64.exe`（SHA-256 `bced836b83eaa078d212eb4781e4e7c4fc89ab04f84d6e85ac3c1ee6081c3e42`），未执行原程序，保留三十一条 Evidence。`FUN_1401598b0` 区分空 target handle 与已有 target resize 路径；`FUN_14017ab60` 对 named target 做 hash/compare 并返回保存指针；`FUN_1401abd20` 的 image-layer 路径 lookup、test，命中即跳过 create；`FUN_14013f7b0` 的尺寸相关 resize 另跳过未变尺寸。这些观察支持调查通用 render-target 持久复用，LWE 的实现及收益仍需独立验证。
+
+原 PE 的 `FUN_14010e2c0` 实际调用 D3D11 device create，因此静态缓存证据不证明 OpenGL FBO 复用、原 History API/view lifetime、copy 融合/延迟/删除、GPU 成本或 FPS。原 History dispatch/copy API、Windows 执行、device-loss 和长时行为仍未知，缺失 History 字符串不能确定实现；原反编译源码不复制进仓库。下一步优先继续对 Layer 8 ColorMode 28 与原 Simple Audio Bars 做有界逐 pass 归因，关联 owner/序号/时间并评估共用执行路径；原艺术公式、完整效果/分辨率、资源和预算保留，不预先宣称进一步收益。本批不代表 30 FPS/日用、物理输出、新 UI/会话保存或安装包验收、Windows 一致性或长时行为；物理休眠/恢复继续跳过。
+
 ### 已记录的实验性 Scene 验收
 
 2026-10-09 的开发版本验收环境为 Wayland 与 `niri`、AMD Radeon 680M（`1002:1681`，`amdgpu`），仅一个 `eDP-1` 输出，2160×1440、缩放 1.25。场景样本 `3337606455` 使用默认零 X/Y 相机，包含一个图片图层与 Shine：5 个特效 pass、总计 6 个 pass。全分辨率截图确认 Shine 实际可见渲染。
