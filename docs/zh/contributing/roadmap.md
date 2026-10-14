@@ -128,6 +128,16 @@ Predator 作为后续变形与资源目标：81 个对象、29 个布偶模型�
 
 下一步从当前实测 12.13 FPS 基线继续归因剩余帧时间，区分 worker packet 准备/消费、纹理上传及 GPU 执行。保持通用运行时、完整原默认图、资源分辨率和预算；仅完成到 dispatch 及 CPU wall 计数不能确定 GPU 成本。
 
+### Scene CPU 准备重叠（2026-10-14）
+
+以已合并的 `b092cbfc955887150bb869922eb8b6ece0553300` 为起点，新迭代使用现有 VM/timed worker 和资源上限，在 callback/FPS 等待期间重叠准备下一个 CPU packet；GPU view 安装与 packet/历史消费仍受门控。仅已呈现过的 active configured 输出可进入，排除暂停/idle、apply/commit/rollback、冻结/隔离及未确认 swap，序号/时间/PCM 绑定同一 epoch，seq0 resize 不再 rebase 已呈现时钟。
+
+Timed ahead 限制为单引擎 session；多个 session 使用 VM ahead 加原 gated timed decoder，并取消预备 timed 工作，避免 callback 被阻止时长期持有跨 session 的共享 producer permit。最终嵌套 AMD680M release A–B–B–A 在 1920×1080/完整默认配置/30 FPS cap/私有 PCM/2 ms 状态查询压力下观察到 **11.6833 → 14.7333 FPS（+26.1056%）**，单轮范围为 11.4333–11.9333 → 14.3000–15.1666。空绘制尝试从 2,527 次降为零，texture worker 采样 CPU 随吞吐上升，不能称为 CPU 占用下降。每 variant 仅两轮三十秒动画，暂停/恢复/清理/身份门禁通过，不代表稳定或长期收益。
+
+workspace 检查通过：ordinary 559 项（含两项 doctest）、36 项 ignored，另显式执行十四项 AMD 自建 GPU 检查（六 ahead、六历史、两共享）。完整原 Miku 另在软件 EGL 通过八帧/三历史/暂停/回滚/清理，八个输出及二十四个历史像素 hash 匹配已合并 #109 oracle，CPU/GPU 上界仍低于 512 MiB。原生 engine-only 暂停换源恰好一次 draw/swap，后续静态播放 idle、自有子进程全部退出。旧记录保持原样，原效果/分辨率、已验收 replay/历史与资源门控保留，不代表物理多屏、30 FPS/日用、新 UI/安装包/Windows 或长时验收。物理休眠/恢复继续跳过，独立[CPU 重叠记录](./guide.md#scene-cpu-ahead-2026-10-14)说明身份和证据范围。
+
+下一步从当前完整默认 14.73 FPS 基线，在现有 query/内存预算内对二十五个 pass 轮转稀疏 GPU 采样，把 layer/stage/pass 关联 owner+序号+时间；确认 CRT、运动模糊或合成热点后，再结合 REA 原版 shader/material/editor 证据优化共用执行路径，保持全部效果/分辨率/预算。这些归因仍为计划。此前私有稀疏 GPU 诊断提示 aggregate draw/composite 约 61 ms，但不是本轮生产候选测时，也不是精确或等价阶段，仅用于选择后续受控量测。
+
 ### 实施顺序与阶段出口
 
 下表保留未来完整阶段的验收目标，其中物理休眠恢复已明确移出当前批次。有界 P0 inventory、首批 P1 运行时/设置、受限 P2 相机与可编辑属性持久化，以及默认混合项目 CPU/GPU 路径已实现。默认和属性编辑器原生 UI（包括真实保存失败/重试及十二秒自有全屏恢复）已通过，其他生命周期验收仍未完成，没有标记任何完整阶段或日用里程碑完成。不支持的行为仍门控，已实现路径仍需通过所列验收。

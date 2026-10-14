@@ -330,7 +330,9 @@ fn run_engine_thread(
         }
 
         // First-frame, resize and rollback remain presentable while power-paused.
+        prepare_scene_cpu_frames(&mut state);
         render_all_surfaces(&mut state);
+        prepare_scene_cpu_frames(&mut state);
     }
 
     info!("PlaybackEngine shutting down");
@@ -420,6 +422,73 @@ fn scene_retry_wanted(configured: bool, pending: bool, demand: FrameDemand) -> b
     configured && pending && demand != FrameDemand::Idle
 }
 
+fn scene_ahead_wanted(configured: bool, transaction: bool, demand: FrameDemand) -> bool {
+    configured && !transaction && demand == FrameDemand::Continuous
+}
+
+/// CPU preparation does not grant presentation readiness or advance accepted state.
+/// A speculative timed result retains the global producer permit, so competing
+/// sessions use the original gated decoder policy and release any ahead result.
+fn prepare_scene_cpu_frames(state: &mut EngineState) {
+    let allow_timed = state.sessions.len() == 1;
+    let mut failures = Vec::new();
+    for (output, session) in &mut state.sessions {
+        let wanted = state.layer_surfaces.get(output).is_some_and(|info| {
+            scene_ahead_wanted(
+                info.configured,
+                info.apply_request.pending || info.apply_request.awaiting_commit,
+                effective_demand(
+                    state.power_paused,
+                    session.render_demand(
+                        info.width as i32,
+                        info.height as i32,
+                        info.apply_request.pending,
+                    ),
+                ),
+            )
+        });
+        if !wanted || !allow_timed {
+            session.cancel_scene_ahead();
+        }
+        if wanted && let Err(error) = session.prepare_scene_ahead(allow_timed) {
+            failures.push((output.clone(), error));
+        }
+    }
+    for (output, error) in failures {
+        fail_output_render(state, &output, error);
+    }
+}
+
+fn fail_output_render(state: &mut EngineState, output: &str, error: anyhow::Error) {
+    warn!("Frame render error for {}: {:#}", output, error);
+    if let Some(info) = state.layer_surfaces.get_mut(output)
+        && (info.apply_request.pending || info.apply_request.awaiting_commit)
+    {
+        info.apply_request.pending = false;
+        info.apply_request.awaiting_commit = false;
+        let _ = state.events_tx.send(EngineEvent::ApplyFailed {
+            request_id: info.apply_request.request_id,
+            output: output.to_owned(),
+            reason: format!("Failed to render first frame for {output}: {error:#}"),
+        });
+    } else {
+        let reason = format!("Wallpaper rendering failed for {output}: {error:#}");
+        state
+            .output_errors
+            .insert(output.to_owned(), reason.clone());
+        let _ = state.events_tx.send(EngineEvent::OutputError {
+            output: output.to_owned(),
+            reason,
+        });
+    }
+    if let Err(error) = reject_output_candidate(state, output) {
+        warn!(
+            "Failed to release output {} after apply error: {:#}",
+            output, error
+        );
+    }
+}
+
 fn scene_preparation_ready(state: &mut EngineState, now: Instant) {
     for (output, session) in &mut state.sessions {
         if session.take_worker_ready().is_none() {
@@ -445,10 +514,9 @@ fn scene_preparation_ready(state: &mut EngineState, now: Instant) {
 /// Render all configured surfaces
 fn render_all_surfaces(state: &mut EngineState) {
     // Get EGL context reference
-    let egl_context = match state.egl_context.as_ref() {
-        Some(ctx) => ctx,
-        None => return, // No EGL context, can't render
-    };
+    if state.egl_context.is_none() {
+        return; // No EGL context, can't render
+    }
 
     // Collect output names to avoid borrow issues
     let outputs: Vec<String> = state
@@ -470,6 +538,7 @@ fn render_all_surfaces(state: &mut EngineState) {
     let mut failed_outputs = Vec::new();
 
     for output_name in outputs {
+        let egl_context = state.egl_context.as_ref().expect("EGL context checked");
         let budget_result = (|| {
             let plan = combined_scene_plan(state, None)?;
             let info = state
@@ -547,28 +616,7 @@ fn render_all_surfaces(state: &mut EngineState) {
                 surface_info.frame_pending = true;
             }
             Err(e) => {
-                warn!("Frame render error for {}: {:#}", output_name, e);
-                if surface_info.apply_request.pending || surface_info.apply_request.awaiting_commit
-                {
-                    surface_info.apply_request.pending = false;
-                    surface_info.apply_request.awaiting_commit = false;
-                    let _ = state.events_tx.send(EngineEvent::ApplyFailed {
-                        request_id: surface_info.apply_request.request_id,
-                        output: output_name.clone(),
-                        reason: format!("Failed to render first frame for {output_name}: {e:#}"),
-                    });
-                    failed_outputs.push(output_name);
-                    continue;
-                }
-                let reason = format!("Wallpaper rendering failed for {output_name}: {e:#}");
-                state
-                    .output_errors
-                    .insert(output_name.clone(), reason.clone());
-                let _ = state.events_tx.send(EngineEvent::OutputError {
-                    output: output_name.clone(),
-                    reason,
-                });
-                failed_outputs.push(output_name);
+                fail_output_render(state, &output_name, e);
                 continue;
             }
         }
@@ -1902,6 +1950,27 @@ mod tests {
             true,
             true,
             effective_demand(true, FrameDemand::Urgent),
+        ));
+    }
+
+    #[test]
+    fn cpu_ahead_does_not_enter_unconfigured_transaction_or_idle_outputs() {
+        for demand in [
+            FrameDemand::Idle,
+            FrameDemand::Urgent,
+            FrameDemand::Continuous,
+        ] {
+            assert!(!scene_ahead_wanted(false, false, demand));
+            assert!(!scene_ahead_wanted(true, true, demand));
+            assert_eq!(
+                scene_ahead_wanted(true, false, demand),
+                demand == FrameDemand::Continuous
+            );
+        }
+        assert!(!scene_ahead_wanted(
+            true,
+            false,
+            effective_demand(true, FrameDemand::Continuous)
         ));
     }
 

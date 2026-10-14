@@ -103,6 +103,28 @@ enum RendererInstance {
 }
 
 impl RendererInstance {
+    fn prepare_scene_ahead(&mut self, allow_timed: bool) -> Result<()> {
+        if let Self::Scene {
+            renderer,
+            clock,
+            animated,
+            drawn,
+            audio,
+            ..
+        } = self
+            && *animated
+            && *drawn
+            && audio.poll_ready()?
+        {
+            renderer.prepare_ahead(clock.seconds(), allow_timed)?;
+        }
+        Ok(())
+    }
+    fn cancel_scene_ahead(&mut self) {
+        if let Self::Scene { renderer, .. } = self {
+            renderer.cancel_ahead_timed();
+        }
+    }
     fn allocation_plan(&self) -> Result<ResourcePlan> {
         match self {
             Self::Video(_) => Ok(ResourcePlan::default()),
@@ -438,6 +460,28 @@ impl WallpaperSession {
 
     pub(super) fn use_worker_ping(&mut self, ping: Ping) {
         self.worker_ping = Some(ping);
+    }
+
+    pub(super) fn prepare_scene_ahead(&mut self, allow_timed: bool) -> Result<()> {
+        if self.state == PlaybackState::Playing
+            && self.pending.is_none()
+            && self.rollback.is_none()
+            && let Some(renderer) = &mut self.renderer
+        {
+            renderer.prepare_scene_ahead(allow_timed)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn cancel_scene_ahead(&mut self) {
+        for renderer in self
+            .renderer
+            .iter_mut()
+            .chain(self.pending.iter_mut().map(|(_, r)| r))
+            .chain(self.rollback.iter_mut().map(|(_, r)| r))
+        {
+            renderer.cancel_scene_ahead();
+        }
     }
 
     pub(crate) fn use_texture_pool(&mut self, pool: Rc<TexturePool>) -> Result<()> {

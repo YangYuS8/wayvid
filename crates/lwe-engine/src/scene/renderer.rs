@@ -1529,6 +1529,7 @@ pub struct SceneRenderer {
     packet: Option<super::dynamic_script::FrameOutput>,
     saved_packet: Option<super::dynamic_script::FrameOutput>,
     job_requested: bool,
+    ahead_timed: bool,
     vm_requested: bool,
     next_seq: u64,
     accepted_seq: u64,
@@ -1660,6 +1661,7 @@ impl SceneRenderer {
             packet: None,
             saved_packet: None,
             job_requested: false,
+            ahead_timed: false,
             vm_requested: false,
             next_seq: 0,
             accepted_seq: 0,
@@ -1953,6 +1955,7 @@ impl SceneRenderer {
         }
         self.texture_worker = None;
         self.job_requested = false;
+        self.ahead_timed = false;
         // Reserve/read every history before releasing any of the old targets.
         // A failed budget or readback leaves its live histories and front intact.
         let mut snapshots = BTreeMap::new();
@@ -2010,12 +2013,13 @@ impl SceneRenderer {
     }
     pub(crate) fn report_presented(&mut self) {
         if self.awaiting_swap {
+            let first_frame = !self.cache_valid && self.previous_front.is_none();
             std::mem::swap(&mut self.front, &mut self.back);
             self.previous_front = None;
             self.cache_valid = true;
             self.awaiting_swap = false;
             self.drawn = true;
-            if self.accepted_seq == 0 {
+            if first_frame && self.accepted_seq == 0 {
                 self.time = 0.;
                 self.rebase_time = true;
             }
@@ -2054,6 +2058,7 @@ impl SceneRenderer {
         check_gl("presenting retained Scene pixels")
     }
     pub fn pause(&mut self) {
+        self.cancel_ahead_timed();
         self.paused = true;
         if let Some(spectrum) = &self.spectrum {
             spectrum.set_paused(true);
@@ -2253,16 +2258,54 @@ impl SceneRenderer {
         self.worker_wake.as_ref().and_then(|wake| wake.take())
     }
 
-    fn prepare_packet(&mut self, replay: bool) -> Result<bool> {
-        if replay
-            && self
-                .textures
-                .iter()
-                .filter(|v| v.timed)
-                .all(|v| v.clamp.is_some())
-        {
-            return Ok(true);
+    /// Prepare one next CPU epoch without touching GL or accepted state. The
+    /// output mailbox retains timed pixels and its permit until gated upload.
+    pub(crate) fn prepare_ahead(&mut self, time_seconds: f64, allow_timed: bool) -> Result<()> {
+        if !allow_timed {
+            self.cancel_ahead_timed();
         }
+        if self.paused
+            || self.frozen
+            || self.quarantined
+            || self.awaiting_swap
+            || !self.drawn
+            || !self.scripts_ready
+            || (self.scripts.is_none() && self.timed_sources.is_empty())
+        {
+            return Ok(());
+        }
+        let result = (|| {
+            if self.packet.is_none() && !self.vm_requested {
+                self.update(time_seconds)?;
+                if self.analysis_active {
+                    self.last_spectrum = self
+                        .spectrum
+                        .as_ref()
+                        .map(|s| s.snapshot())
+                        .unwrap_or_default();
+                }
+            }
+            self.poll_cpu_packet(false, allow_timed, true).map(|_| ())
+        })();
+        if result.is_err() {
+            self.quarantined = true;
+        }
+        result
+    }
+
+    /// Drop only speculative timed work. Its VM packet remains tagged for a
+    /// later gated request; normal presentation jobs keep their existing policy.
+    pub(crate) fn cancel_ahead_timed(&mut self) {
+        if self.ahead_timed {
+            self.texture_worker = None;
+            self.job_requested = false;
+            self.ahead_timed = false;
+        }
+    }
+
+    // True means a packet exists and any required timed job has been queued,
+    // not that its output is ready. Only prepare_packet consumes timed results.
+    fn poll_cpu_packet(&mut self, replay: bool, allow_timed: bool, ahead: bool) -> Result<bool> {
         if replay
             && self.packet.as_ref().is_some_and(|p| {
                 p.seq != self.accepted_seq || p.time.to_bits() != self.accepted_time.to_bits()
@@ -2305,6 +2348,9 @@ impl SceneRenderer {
                 });
             }
         }
+        if self.job_requested {
+            return Ok(true);
+        }
         let packet = self
             .packet
             .as_ref()
@@ -2332,19 +2378,51 @@ impl SceneRenderer {
                 texts.push(source);
             }
         }
-        if !sources.is_empty() || !texts.is_empty() || self.job_requested {
+        if !sources.is_empty() || !texts.is_empty() {
+            if !allow_timed {
+                return Ok(false);
+            }
             if self.texture_worker.is_none() {
                 self.texture_worker = Some(super::timed_runtime::TimedWorker::new_with_wake(
                     self.worker_wake.clone(),
                 )?);
             }
             let worker = self.texture_worker.as_mut().unwrap();
+            self.job_requested = worker.request(packet.seq, packet.time, &sources, texts)?;
             if !self.job_requested {
-                self.job_requested = worker.request(packet.seq, packet.time, &sources, texts)?;
-                if !self.job_requested {
-                    return Ok(false);
-                }
+                return Ok(false);
             }
+            self.ahead_timed = ahead;
+        }
+        Ok(true)
+    }
+
+    fn prepare_packet(&mut self, replay: bool) -> Result<bool> {
+        if replay
+            && self
+                .textures
+                .iter()
+                .filter(|v| v.timed)
+                .all(|v| v.clamp.is_some())
+        {
+            return Ok(true);
+        }
+        if replay {
+            // A reconstructed accepted frame cannot consume a next-epoch job.
+            self.cancel_ahead_timed();
+        }
+        if !self.poll_cpu_packet(replay, true, false)? {
+            return Ok(false);
+        }
+        if self.job_requested {
+            let packet = self
+                .packet
+                .as_ref()
+                .context("Scene frame packet unavailable")?;
+            let worker = self
+                .texture_worker
+                .as_mut()
+                .context("Scene texture worker unavailable")?;
             let Some(ready) = worker.take()? else {
                 return Ok(false);
             };
@@ -2386,6 +2464,7 @@ impl SceneRenderer {
                 self.accepted_text.insert(layer, value);
             }
             self.job_requested = false;
+            self.ahead_timed = false;
         }
         let packet = self.packet.take().unwrap();
         if !replay {
@@ -2695,6 +2774,8 @@ impl SceneRenderer {
     /// method or dropping it. Cleanup is idempotent and precedes EGL destruction.
     pub fn cleanup(&mut self) {
         self.texture_worker = None;
+        self.job_requested = false;
+        self.ahead_timed = false;
         self.packet = None;
         self.saved_packet = None;
         self.front = None;
@@ -3167,6 +3248,10 @@ mod miku_acceptance;
 #[cfg(test)]
 #[path = "renderer_history_tests.rs"]
 mod history_tests;
+
+#[cfg(test)]
+#[path = "renderer_ahead_tests.rs"]
+mod ahead_tests;
 
 #[cfg(test)]
 #[path = "renderer_sharing_tests.rs"]
