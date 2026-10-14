@@ -1169,7 +1169,13 @@ impl GpuPass {
         let program = pass
             .shader
             .as_ref()
-            .map(|shader| Program::compile(shader, &pass.label))
+            .map(|shader| {
+                let variant = super::shader::specialize_owned_image_blend(
+                    shader,
+                    shader_blend_mode(pass.blend),
+                );
+                Program::compile(variant.as_ref().unwrap_or(shader), &pass.label)
+            })
             .transpose()?;
         if let Some(program) = &program {
             ensure!(
@@ -2980,6 +2986,14 @@ fn copy_texture(source: &GpuTexture, target: &RenderTarget) -> Result<()> {
     }
     check_gl("copying persistent Scene history")
 }
+fn shader_blend_mode(blend: Blend) -> i32 {
+    match blend {
+        Blend::Replace => 0,
+        Blend::Alpha => 1,
+        Blend::Add => 2,
+    }
+}
+
 fn bind_pass(
     program: &Program,
     pass: &GpuPass,
@@ -3049,11 +3063,7 @@ fn bind_pass(
         );
         gl::Uniform1i(
             program.location("g_BlendMode"),
-            match pass.blend {
-                Blend::Replace => 0,
-                Blend::Alpha => 1,
-                Blend::Add => 2,
-            },
+            shader_blend_mode(pass.blend),
         );
         gl::Uniform4fv(program.location("g_Color4"), 1, tint.as_ptr());
     }
@@ -3256,6 +3266,10 @@ mod ahead_tests;
 #[cfg(test)]
 #[path = "renderer_sharing_tests.rs"]
 mod sharing_tests;
+
+#[cfg(test)]
+#[path = "renderer_owned_blend_tests.rs"]
+mod owned_blend_tests;
 
 #[cfg(test)]
 mod tests {
