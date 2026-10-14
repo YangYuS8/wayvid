@@ -16,6 +16,7 @@ pub(crate) mod shared_texture;
 mod spectrum;
 pub(crate) mod text;
 mod timed_runtime;
+pub(crate) mod worker_wake;
 pub use timed_runtime::scene_texture_memory_budget;
 
 #[cfg(test)]
@@ -2393,8 +2394,9 @@ impl PreparedScene {
     pub(crate) fn initialize_shared(
         &self,
         pool: Rc<shared_texture::TexturePool>,
+        worker_wake: Option<worker_wake::WorkerWake>,
     ) -> Result<SceneRenderer> {
-        SceneRenderer::initialize_shared(self, pool)
+        SceneRenderer::initialize_shared_with_wake(self, pool, worker_wake)
     }
 }
 

@@ -5,6 +5,7 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use calloop::ping::Ping;
 use lwe_core::OutputInfo;
 use wayland_client::protocol::wl_surface::WlSurface;
 
@@ -13,6 +14,7 @@ use super::{EngineRenderMetrics, WallpaperSource};
 use crate::egl::{EglContext, EglWindow};
 use crate::mpv::{MpvPlayer, VideoConfig};
 use crate::scene::shared_texture::{ResourcePlan, TexturePool};
+use crate::scene::worker_wake::WorkerWake;
 use crate::scene::{SceneAudio, SceneRenderer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +53,10 @@ fn frame_retry(source: &WallpaperSource, pending: Option<&WallpaperSource>) -> E
     } else {
         EmptyFrameRetry::Decoder
     }
+}
+
+fn presentation_renderer<'a, T>(current: Option<&'a T>, pending: Option<&'a T>) -> Option<&'a T> {
+    pending.or(current)
 }
 
 #[derive(Debug)]
@@ -124,6 +130,7 @@ impl RendererInstance {
         output: &OutputInfo,
         egl: &EglContext,
         texture_pool: Rc<TexturePool>,
+        worker_ping: Option<Ping>,
     ) -> Result<Self> {
         match source {
             WallpaperSource::Video { path } => {
@@ -135,7 +142,9 @@ impl RendererInstance {
                 Ok(Self::Video(player))
             }
             WallpaperSource::Scene { prepared, .. } => Ok(Self::Scene {
-                renderer: Box::new(prepared.initialize_shared(texture_pool)?),
+                renderer: Box::new(
+                    prepared.initialize_shared(texture_pool, worker_ping.map(WorkerWake::new))?,
+                ),
                 clock: SceneClock::new(),
                 animated: prepared.summary().animated,
                 drawn: false,
@@ -338,6 +347,7 @@ pub struct WallpaperSession {
     rollback: Option<(WallpaperSource, RendererInstance)>,
     egl_window: Option<EglWindow>,
     texture_pool: Option<Rc<TexturePool>>,
+    worker_ping: Option<Ping>,
     state: PlaybackState,
     manual_paused: bool,
     power_paused: bool,
@@ -368,6 +378,7 @@ impl WallpaperSession {
             rollback: None,
             egl_window: None,
             texture_pool: None,
+            worker_ping: None,
             state: PlaybackState::Stopped,
             manual_paused: false,
             power_paused: false,
@@ -384,11 +395,10 @@ impl WallpaperSession {
             .egl_window
             .as_ref()
             .is_some_and(|window| window.width() != width || window.height() != height);
-        let renderer = self
-            .pending
-            .as_ref()
-            .map(|(_, renderer)| renderer)
-            .or(self.renderer.as_ref());
+        let renderer = presentation_renderer(
+            self.renderer.as_ref(),
+            self.pending.as_ref().map(|(_, renderer)| renderer),
+        );
         frame_demand(
             self.state,
             first_frame,
@@ -409,6 +419,25 @@ impl WallpaperSession {
             &self.source,
             self.pending.as_ref().map(|(source, _)| source),
         )
+    }
+
+    /// Only the renderer currently selected for presentation may accelerate a
+    /// retry. A frozen rollback/cancelled candidate's late ping is irrelevant.
+    pub(super) fn take_worker_ready(&mut self) -> Option<Duration> {
+        let renderer = presentation_renderer(
+            self.renderer.as_ref(),
+            self.pending.as_ref().map(|(_, renderer)| renderer),
+        );
+        let latency = match renderer? {
+            RendererInstance::Scene { renderer, .. } => renderer.take_worker_ready()?,
+            RendererInstance::Video(_) => return None,
+        };
+        self.metrics.record_scene_worker_dispatch(latency);
+        Some(latency)
+    }
+
+    pub(super) fn use_worker_ping(&mut self, ping: Ping) {
+        self.worker_ping = Some(ping);
     }
 
     pub(crate) fn use_texture_pool(&mut self, pool: Rc<TexturePool>) -> Result<()> {
@@ -567,6 +596,7 @@ impl WallpaperSession {
                     .as_ref()
                     .expect("texture domain initialized"),
             ),
+            self.worker_ping.clone(),
         )?;
         renderer.volume(self.source_volume(&self.source));
         let paused = self.manual_paused || self.power_paused;
@@ -665,6 +695,7 @@ impl WallpaperSession {
                     .as_ref()
                     .context("Scene texture domain unavailable")?,
             ),
+            self.worker_ping.clone(),
         );
         let mut candidate = match candidate {
             Ok(candidate) => candidate,
@@ -855,7 +886,7 @@ impl WallpaperSession {
 mod tests {
     use super::{
         EmptyFrameRetry, FrameDemand, PlaybackState, SceneClock, WallpaperSession, WallpaperSource,
-        frame_demand, frame_retry,
+        frame_demand, frame_retry, presentation_renderer,
     };
 
     fn authored_session() -> WallpaperSession {
@@ -873,6 +904,41 @@ mod tests {
             crate::mpv::VideoConfig::default(),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn only_the_presented_generation_consumes_a_worker_notification() {
+        use crate::scene::worker_wake::WorkerWake;
+        let (ping, _source) = calloop::ping::make_ping().unwrap();
+        let current = WorkerWake::new(ping.clone());
+        let candidate = WorkerWake::new(ping);
+        current.notify();
+        assert!(
+            presentation_renderer(Some(&current), Some(&candidate))
+                .unwrap()
+                .take()
+                .is_none()
+        );
+        candidate.notify();
+        assert!(
+            presentation_renderer(Some(&current), Some(&candidate))
+                .unwrap()
+                .take()
+                .is_some()
+        );
+        // After accepting the candidate, the old renderer is rollback-only.
+        assert!(
+            presentation_renderer(Some(&candidate), None)
+                .unwrap()
+                .take()
+                .is_none()
+        );
+        assert!(current.take().is_some());
+        let late = candidate.clone();
+        drop(candidate);
+        late.notify();
+        assert!(presentation_renderer::<WorkerWake>(None, None).is_none());
+        assert!(current.take().is_none());
     }
 
     #[test]

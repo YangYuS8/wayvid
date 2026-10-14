@@ -273,9 +273,25 @@ pub struct EngineRenderMetrics {
     pub frame_duration_buckets: [u64; 32],
     pub frame_duration_total_micros: u64,
     pub frame_duration_max_micros: u64,
+    /// Coalesced result-ready hints consumed for the currently selected Scene
+    /// renderer. These do not count rendered frames or result/packet takes.
+    pub scene_worker_dispatches: u64,
+    /// Publication to engine notification dispatch; excludes subsequent FPS
+    /// wait, result consumption, uploads, drawing and swap. No per-event samples.
+    pub scene_worker_dispatch_total_micros: u64,
+    pub scene_worker_dispatch_max_micros: u64,
 }
 
 impl EngineRenderMetrics {
+    pub(crate) fn record_scene_worker_dispatch(&mut self, latency: std::time::Duration) {
+        let micros = u64::try_from(latency.as_micros()).unwrap_or(u64::MAX);
+        self.scene_worker_dispatches = self.scene_worker_dispatches.saturating_add(1);
+        self.scene_worker_dispatch_total_micros = self
+            .scene_worker_dispatch_total_micros
+            .saturating_add(micros);
+        self.scene_worker_dispatch_max_micros = self.scene_worker_dispatch_max_micros.max(micros);
+    }
+
     pub(crate) fn record_frame_duration(&mut self, duration: std::time::Duration) {
         let micros = u64::try_from(duration.as_micros()).unwrap_or(u64::MAX);
         let bucket = if micros <= 30_000 {
@@ -295,6 +311,24 @@ impl EngineRenderMetrics {
 mod metrics_tests {
     use super::EngineRenderMetrics;
     use std::time::Duration;
+
+    #[test]
+    fn worker_dispatch_measurements_are_bounded_and_do_not_count_draws() {
+        let mut metrics = EngineRenderMetrics {
+            scene_worker_dispatches: u64::MAX - 1,
+            scene_worker_dispatch_total_micros: u64::MAX - 1,
+            ..Default::default()
+        };
+        metrics.record_scene_worker_dispatch(Duration::from_micros(7));
+        metrics.record_scene_worker_dispatch(Duration::from_micros(2));
+        assert_eq!(metrics.scene_worker_dispatches, u64::MAX);
+        assert_eq!(metrics.scene_worker_dispatch_total_micros, u64::MAX);
+        assert_eq!(metrics.scene_worker_dispatch_max_micros, 7);
+        assert_eq!(
+            (metrics.render_attempts, metrics.draws, metrics.swaps),
+            (0, 0, 0)
+        );
+    }
 
     #[test]
     fn bounded_frame_histogram_distinguishes_the_30_fps_budget() {

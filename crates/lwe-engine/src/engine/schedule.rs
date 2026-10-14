@@ -61,6 +61,21 @@ impl FrameSchedule {
         self.update_deadline(interval);
     }
 
+    /// A completed Scene preparation can remove its poll delay, but cannot
+    /// replace the last successful swap as the presentation-limit origin.
+    pub(super) fn preparation_ready(&mut self, now: Instant, interval: Option<Duration>) -> bool {
+        if !matches!(
+            self.last_empty,
+            Some((_, EmptyFrameRetry::ScenePreparation))
+        ) {
+            return false;
+        }
+        self.last_empty = None;
+        self.update_deadline(interval);
+        self.next_attempt = Some(self.next_attempt.unwrap_or(now).max(now));
+        true
+    }
+
     pub(super) fn attempted(
         &mut self,
         now: Instant,
@@ -279,5 +294,47 @@ mod tests {
         assert_eq!(video.delay(now), interval.unwrap());
         video.set_interval(frame_interval(Some(15)).unwrap());
         assert_eq!(video.delay(now), frame_interval(Some(15)).unwrap().unwrap());
+    }
+
+    #[test]
+    fn preparation_notification_only_removes_scene_retry_delay() {
+        let now = Instant::now();
+        let mut scene = FrameSchedule::default();
+        assert!(!scene.preparation_ready(now, None));
+        scene.attempted(now, false, None, EmptyFrameRetry::ScenePreparation);
+        let ready = now + Duration::from_millis(2);
+        assert!(scene.preparation_ready(ready, None));
+        assert!(scene.ready(ready));
+        assert!(!scene.preparation_ready(ready, None));
+        scene.attempted(ready, false, None, EmptyFrameRetry::ScenePreparation);
+        assert_eq!(scene.delay(ready), SCENE_PREPARATION_INTERVAL);
+        let mut video = FrameSchedule::default();
+        video.attempted(now, false, None, EmptyFrameRetry::Decoder);
+        assert!(!video.preparation_ready(ready, None));
+        assert_eq!(video.delay(now), FRAME_POLL_INTERVAL);
+    }
+
+    #[test]
+    fn preparation_notification_keeps_swap_origin_across_live_limit_changes() {
+        let now = Instant::now();
+        let mut schedule = FrameSchedule::default();
+        let thirty = frame_interval(Some(30)).unwrap();
+        schedule.attempted(now, true, thirty, EmptyFrameRetry::ScenePreparation);
+        let submit = now + thirty.unwrap();
+        schedule.attempted(submit, false, thirty, EmptyFrameRetry::ScenePreparation);
+        let ready = submit + Duration::from_millis(1);
+        schedule.set_interval(frame_interval(Some(1)).unwrap());
+        assert!(schedule.preparation_ready(ready, frame_interval(Some(1)).unwrap()));
+        assert_eq!(schedule.delay(now), Duration::from_secs(1));
+        schedule.set_interval(frame_interval(Some(15)).unwrap());
+        assert_eq!(
+            schedule.delay(now),
+            frame_interval(Some(15)).unwrap().unwrap()
+        );
+        schedule.set_interval(frame_interval(Some(120)).unwrap());
+        assert!(schedule.ready(ready));
+        schedule.attempted(ready, true, thirty, EmptyFrameRetry::ScenePreparation);
+        assert!(!schedule.preparation_ready(ready, thirty));
+        assert!(!schedule.ready(ready));
     }
 }

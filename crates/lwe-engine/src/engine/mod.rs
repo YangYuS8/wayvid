@@ -30,6 +30,7 @@ use std::time::Instant;
 use anyhow::{Context, Result};
 use calloop::EventLoop;
 use calloop::channel::{Sender, channel};
+use calloop::ping::{Ping, make_ping};
 use calloop_wayland_source::WaylandSource;
 use tracing::{debug, error, info, warn};
 use wayland_client::protocol::wl_callback::{self, WlCallback};
@@ -174,6 +175,8 @@ fn run_engine_thread(
     let interval = frame_interval(config.fps_limit)?;
     let on_battery = check_battery_status();
     let power_paused = config.pause_on_battery && on_battery;
+    let (scene_worker_ping, scene_worker_source) =
+        make_ping().context("Failed to create Scene worker notification source")?;
     // Create engine state
     let mut state = EngineState {
         outputs: OutputManager::new(),
@@ -193,11 +196,19 @@ fn run_engine_thread(
         power_paused,
         last_battery_check: std::time::Instant::now(),
         frame_interval: interval,
+        scene_worker_ping,
     };
 
     // Create event loop
     let mut event_loop: EventLoop<'static, EngineState> =
         EventLoop::try_new().context("Failed to create event loop")?;
+
+    event_loop
+        .handle()
+        .insert_source(scene_worker_source, |(), _, state| {
+            scene_preparation_ready(state, Instant::now());
+        })
+        .map_err(|e| anyhow::anyhow!("Failed to register Scene worker notifications: {e:?}"))?;
 
     // Register command channel
     event_loop
@@ -405,6 +416,32 @@ fn wake_outputs(state: &mut EngineState, output: Option<&str>) {
     }
 }
 
+fn scene_retry_wanted(configured: bool, pending: bool, demand: FrameDemand) -> bool {
+    configured && pending && demand != FrameDemand::Idle
+}
+
+fn scene_preparation_ready(state: &mut EngineState, now: Instant) {
+    for (output, session) in &mut state.sessions {
+        if session.take_worker_ready().is_none() {
+            continue;
+        }
+        let Some(info) = state.layer_surfaces.get_mut(output) else {
+            continue;
+        };
+        let demand = effective_demand(
+            state.power_paused,
+            session.render_demand(
+                info.width as i32,
+                info.height as i32,
+                info.apply_request.pending,
+            ),
+        );
+        if scene_retry_wanted(info.configured, info.frame_pending, demand) {
+            info.schedule.preparation_ready(now, state.frame_interval);
+        }
+    }
+}
+
 /// Render all configured surfaces
 fn render_all_surfaces(state: &mut EngineState) {
     // Get EGL context reference
@@ -605,6 +642,7 @@ struct EngineState {
     /// Last battery check time
     last_battery_check: std::time::Instant,
     frame_interval: Option<std::time::Duration>,
+    scene_worker_ping: Ping,
 }
 
 /// Layer surface state for an output
@@ -1360,6 +1398,7 @@ fn apply_wallpaper_to_output(
     let mut session =
         WallpaperSession::from_source(request.source, output_info, state.config.video.clone())?;
     session.use_texture_pool(Rc::clone(&state.scene_textures))?;
+    session.use_worker_ping(state.scene_worker_ping.clone());
     session.set_power_paused(state.power_paused);
     if manual_paused {
         session.pause();
@@ -1836,7 +1875,34 @@ mod tests {
             power_paused: false,
             last_battery_check: Instant::now(),
             frame_interval: None,
+            scene_worker_ping: make_ping().unwrap().0,
         }
+    }
+
+    #[test]
+    fn scene_ready_does_not_create_frame_demand_for_idle_or_unconfigured_outputs() {
+        for demand in [
+            FrameDemand::Idle,
+            FrameDemand::Continuous,
+            FrameDemand::Urgent,
+        ] {
+            assert!(!scene_retry_wanted(false, true, demand));
+            assert!(!scene_retry_wanted(true, false, demand));
+            assert_eq!(
+                scene_retry_wanted(true, true, demand),
+                demand != FrameDemand::Idle
+            );
+        }
+        assert!(!scene_retry_wanted(
+            true,
+            true,
+            effective_demand(true, FrameDemand::Continuous),
+        ));
+        assert!(scene_retry_wanted(
+            true,
+            true,
+            effective_demand(true, FrameDemand::Urgent),
+        ));
     }
 
     #[test]

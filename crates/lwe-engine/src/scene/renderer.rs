@@ -1525,6 +1525,7 @@ pub struct SceneRenderer {
     timed_sources: Vec<super::timed_runtime::Source>,
     text_sources: Vec<super::timed_runtime::TextSource>,
     texture_worker: Option<super::timed_runtime::TimedWorker>,
+    worker_wake: Option<super::worker_wake::WorkerWake>,
     packet: Option<super::dynamic_script::FrameOutput>,
     saved_packet: Option<super::dynamic_script::FrameOutput>,
     job_requested: bool,
@@ -1556,6 +1557,14 @@ impl SceneRenderer {
     pub(crate) fn initialize_shared(
         scene: &PreparedScene,
         texture_pool: Rc<TexturePool>,
+    ) -> Result<Self> {
+        Self::initialize_shared_with_wake(scene, texture_pool, None)
+    }
+
+    pub(crate) fn initialize_shared_with_wake(
+        scene: &PreparedScene,
+        texture_pool: Rc<TexturePool>,
+        worker_wake: Option<super::worker_wake::WorkerWake>,
     ) -> Result<Self> {
         texture_pool.ensure_current()?;
         let plan = resource_plan(scene)?;
@@ -1601,7 +1610,9 @@ impl SceneRenderer {
             scripts: scene
                 .scripts
                 .as_ref()
-                .map(|plan| super::dynamic_script::ScriptWorker::spawn(plan))
+                .map(|plan| {
+                    super::dynamic_script::ScriptWorker::spawn_with_wake(plan, worker_wake.clone())
+                })
                 .transpose()?,
             script_layers: scene.script_layers.clone(),
             hidden_script_layers: std::collections::BTreeSet::new(),
@@ -1645,6 +1656,7 @@ impl SceneRenderer {
                 })
                 .collect(),
             texture_worker: None,
+            worker_wake,
             packet: None,
             saved_packet: None,
             job_requested: false,
@@ -2237,6 +2249,10 @@ impl SceneRenderer {
         result
     }
 
+    pub(crate) fn take_worker_ready(&self) -> Option<std::time::Duration> {
+        self.worker_wake.as_ref().and_then(|wake| wake.take())
+    }
+
     fn prepare_packet(&mut self, replay: bool) -> Result<bool> {
         if replay
             && self
@@ -2318,7 +2334,9 @@ impl SceneRenderer {
         }
         if !sources.is_empty() || !texts.is_empty() || self.job_requested {
             if self.texture_worker.is_none() {
-                self.texture_worker = Some(super::timed_runtime::TimedWorker::new()?);
+                self.texture_worker = Some(super::timed_runtime::TimedWorker::new_with_wake(
+                    self.worker_wake.clone(),
+                )?);
             }
             let worker = self.texture_worker.as_mut().unwrap();
             if !self.job_requested {

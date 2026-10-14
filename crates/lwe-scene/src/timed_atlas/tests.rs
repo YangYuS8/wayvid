@@ -150,6 +150,39 @@ fn all_block_phases_multiblock_rows_and_partial_edges_match_retained_dds() {
 }
 
 #[test]
+fn interior_and_clipped_block_rows_fully_overwrite_nonzero_output() {
+    // A 4x4 block grid has multiple interior rows and partial right/bottom mip
+    // edges. Nonuniform selectors exercise row/stride copies, not solid fills.
+    let raw: Vec<_> = blocks().into_iter().cycle().take(4 * 4 * 16).collect();
+    let oracle = crate::texture::decode_bc3_oracle(&raw, 14, 13).unwrap();
+    let mut rects = Vec::new();
+    for y in 0..4 {
+        for x in 0..4 {
+            rects.push(PixelRect {
+                x,
+                y,
+                width: 10,
+                height: 9,
+            });
+        }
+    }
+    for [x, y, width, height] in [[0, 0, 14, 13], [0, 0, 4, 4], [3, 3, 1, 1], [11, 9, 3, 4]] {
+        rects.push(PixelRect {
+            x,
+            y,
+            width,
+            height,
+        });
+    }
+    for rect in rects {
+        let layout = Bc3RegionLayout::checked(14, 13, rect).unwrap();
+        let mut rgba = vec![0xcd; layout.rgba_bytes()];
+        decode_region_into(&raw, &layout, &mut rgba).unwrap();
+        assert_eq!(rgba, crop(&oracle, 14, rect), "{rect:?}");
+    }
+}
+
+#[test]
 fn every_rgb565_endpoint_and_both_alpha_modes_match_dds_rounding() {
     // Endpoint expansion checks every 16-bit color, rather than assuming bit
     // replication matches the existing decoder. Alpha selectors cover all 8.

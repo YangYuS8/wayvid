@@ -1476,7 +1476,15 @@ pub(super) struct ScriptWorker {
 }
 
 impl ScriptWorker {
+    #[cfg(test)]
     pub(super) fn spawn(plan: &PreparedScripts) -> Result<Self> {
+        Self::spawn_with_wake(plan, None)
+    }
+
+    pub(super) fn spawn_with_wake(
+        plan: &PreparedScripts,
+        wake: Option<super::worker_wake::WorkerWake>,
+    ) -> Result<Self> {
         let plan = plan.clone();
         let stop = Arc::new(AtomicBool::new(false));
         let mailbox = Arc::new(Mutex::new(Mailbox::default()));
@@ -1486,7 +1494,12 @@ impl ScriptWorker {
             .name("lwe-scene-script".to_owned())
             .spawn(move || {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    worker_run(plan, &worker_mailbox, Arc::clone(&worker_stop))
+                    worker_run(
+                        plan,
+                        &worker_mailbox,
+                        Arc::clone(&worker_stop),
+                        wake.as_ref(),
+                    )
                 }))
                 .unwrap_or_else(|_| Err(blocked("dynamic script worker stopped unexpectedly")));
                 if !worker_stop.load(Ordering::Acquire)
@@ -1496,6 +1509,9 @@ impl ScriptWorker {
                         .lock()
                         .unwrap_or_else(|error| error.into_inner())
                         .error = Some(format!("{error:#}"));
+                    if let Some(wake) = &wake {
+                        wake.notify();
+                    }
                 }
             })
             .map_err(|_| blocked("cannot start dynamic SceneScript worker"))?;
@@ -1632,6 +1648,7 @@ fn worker_run(
     plan: PreparedScripts,
     mailbox: &Mutex<Mailbox>,
     stop: Arc<AtomicBool>,
+    wake: Option<&super::worker_wake::WorkerWake>,
 ) -> Result<()> {
     let (mut vm, initialization) = Vm::new(&plan, Arc::clone(&stop))?;
     if initialization.created != plan.created || initialization.audio != plan.audio {
@@ -1656,6 +1673,9 @@ fn worker_run(
     ready.initialized = true;
     ready.last_submitted = Some((0, 0.0));
     drop(ready);
+    if let Some(wake) = wake {
+        wake.notify();
+    }
     while !stop.load(Ordering::Acquire) {
         let input = mailbox
             .lock()
@@ -1673,6 +1693,9 @@ fn worker_run(
                 .lock()
                 .map_err(|_| blocked("dynamic script mailbox is unavailable"))?
                 .output = Some(output);
+            if let Some(wake) = wake {
+                wake.notify();
+            }
         } else {
             thread::park();
         }
@@ -2038,6 +2061,53 @@ mod tests {
             assert!(start.elapsed() < Duration::from_secs(2));
             thread::sleep(Duration::from_millis(1));
         }
+    }
+
+    fn wait_notification(
+        wake: &super::super::worker_wake::WorkerWake,
+        event_loop: &mut calloop::EventLoop<'_, ()>,
+    ) {
+        let start = Instant::now();
+        while wake.take().is_none() {
+            assert!(start.elapsed() < Duration::from_secs(2));
+            event_loop
+                .dispatch(Duration::from_millis(20), &mut ())
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn worker_notifications_publish_initial_tagged_output_and_fatal_errors_first() {
+        use super::super::worker_wake::WorkerWake;
+        let (ping, source) = calloop::ping::make_ping().unwrap();
+        let wake = WorkerWake::new(ping.clone());
+        let mut event_loop = calloop::EventLoop::<()>::try_new().unwrap();
+        event_loop
+            .handle()
+            .insert_source(source, |(), _, ()| {})
+            .unwrap();
+        let plan = prepare("let count=0;export function update(){count+=1;thisLayer.origin=new Vec3(engine.runtime,engine.frametime,count);}").unwrap();
+        let worker = ScriptWorker::spawn_with_wake(&plan, Some(wake.clone())).unwrap();
+        wait_notification(&wake, &mut event_loop);
+        let initial = worker.take_frame().unwrap().unwrap();
+        assert_eq!((initial.seq, initial.time), (0, 0.0));
+        assert_eq!(initial.states[0].origin, [0., 0., 1.]);
+        assert!(worker.submit_frame(7, 0.25, Default::default()).unwrap());
+        assert!(!worker.submit_frame(8, 0.5, Default::default()).unwrap());
+        wait_notification(&wake, &mut event_loop);
+        let output = worker.take_frame().unwrap().unwrap();
+        assert_eq!((output.seq, output.time), (7, 0.25));
+        assert_eq!(output.states[0].origin, [0.25, 0.25, 2.]);
+        assert!(worker.take_frame().unwrap().is_none());
+        drop(worker);
+        let failed_wake = WorkerWake::new(ping);
+        let mut inconsistent = plan;
+        inconsistent.initial[0].origin = [999.; 3];
+        let failed =
+            ScriptWorker::spawn_with_wake(&inconsistent, Some(failed_wake.clone())).unwrap();
+        wait_notification(&failed_wake, &mut event_loop);
+        assert!(failed.take_frame().is_err());
+        assert!(failed.mailbox.lock().unwrap().output.is_none());
     }
 
     #[test]
