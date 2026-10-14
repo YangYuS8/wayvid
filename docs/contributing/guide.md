@@ -354,6 +354,33 @@ The final-source `final-miku-gpu-oracle.json` passed on software EGL/llvmpipe wi
 
 Throughput remains below the 30 FPS cap and does not establish daily-use readiness or a long soak. This iteration did not repeat the native UI save/restore or installed-package flows from the earlier record, and the finite nested engine runs do not establish physical-output acceptance or Windows parity. Physical suspend/resume continues skipped by explicit user instruction.
 
+### Miku worker notifications and codec (2026-10-14) {#miku-worker-wake-2026-10-14}
+
+This is a separate iteration from merged baseline `9278023`, which already includes the earlier scheduling and sealed region-key work. The preceding 2026-10-13 and 2026-10-14 source identities, measurements and proof scopes remain unchanged. Here A is that baseline, C adds only the CPU codec row-copy change, and D adds renderer-owned worker notifications to C. Overall throughput is evaluated separately through the final A–D–D–A release comparison; percentages from the short stages are not added together.
+
+The BC3 change hoists validated row geometry, iterates fixed sixteen-byte blocks and copies complete interior rows directly, retaining clipped handling at ROI/mip edges. The checked private layout, source/output length checks, endian/rounding equations, full output writes, immutable ownership and fixed 84-byte codec scratch reservation remain. Twenty nonzero-sentinel ROI cases add all start phases, multiple interior rows, one-pixel corners and exact partial right/bottom edges. The final code's original-resource DDS oracle passed all sixteen frames and sixteen neighbor regions. An isolated CPU A–C–C–A comparison averaged 11,172.47 → 8,659.33 µs per decode (−22.49%), with 32 regions per run, unchanged 89,121,153-byte production peak and zero final charge. This measures warm CPU decoding, not GPU time or predicted FPS.
+
+Scene script/texture workers now publish their result or error before sending a coalesced event-loop hint owned by that renderer. Late notifications from another generation cannot mark the selected renderer ready. Handling a hint removes only an outstanding Scene-preparation retry delay, retains the last successful swap as the FPS deadline origin and preserves Video's decoder policy. Paused/idle outputs do not gain forced draws from a hint. The eight-millisecond polling policy remains a fallback; a completion notification does not acknowledge a first frame or bypass complete packet/draw/swap acceptance. Original effects, histories, resource resolutions and 512 MiB CPU/GPU gates are retained.
+
+The final codec-only short stage observed 9.5657 → 10.0000 FPS (about +4.54%), with sampled texture-worker activity 21.5655% → 18.0719% of one core. The baseline ranged from 9.20 to 9.93 FPS, so the small FPS difference is not a stable throughput claim. The separate notification stage observed C 8.9333 FPS (7.93–9.93) versus D 12.2000 FPS (12.13–12.27); variation in C prevents treating its approximately +36.57% as a stable isolated notification effect. CPU samples use one-second phase-start labels that may include settling/resume boundaries, not exact per-phase profiles. All short-stage pause/clear/join and identity checks passed.
+
+The notification stage recorded 682 selected-renderer dispatches and a mean 24.34 µs from first coalesced result publication to event-loop dispatch. This excludes decode, packet consumption, render, swap and GPU work. Older probes without that diagnostic are unmeasured, not zero.
+
+The final same-profile release primary comparison used four thirty-second animated runs in the same 1920×1080 nested niri/AMD 680M setup, with unchanged original defaults, private PCM and verified geometry/input/binary identities:
+
+| Run | Version | Swaps / attempts | FPS |
+| --- | --- | --- | --- |
+| A1 | Merged baseline | 297 / 1,480 | 9.90 |
+| D1 | Codec plus notifications | 361 / 1,627 | 12.03 |
+| D2 | Codec plus notifications | 367 / 1,651 | 12.23 |
+| A2 | Merged baseline | 301 / 1,494 | 10.03 |
+
+Aggregated swaps/time were A 598/60.000133134 seconds and D 728/60.000109441 seconds: 9.9666 → 12.1333 FPS (about +21.74%). Attempts rose from 49.57 to 54.63 per second. Sampled texture-worker activity fell 21.1669% → 16.8344% of one core (about −20.47%), while engine activity was 6.2985% → 6.4277% and all probe threads 29.7367% → 25.6624%. The CPU sample windows were about 62.08 seconds and include phase boundaries. Successful render-plus-swap CPU wall means were 5.2991 → 4.4352 ms, with the same 6 ms p95 histogram bucket; these are not GPU timer results. D recorded 1,350 selected-renderer dispatches averaging 25.38 µs publication-to-loop latency, with no equivalent measurement for A. All four pause/clear/resume/join, source/binary identity and cross-run consistency gates passed.
+
+The final source also passed the full-default software-EGL oracle with both visible eight-frame sources, three private histories, exact pause and candidate rollback. CPU peak 525,312,699 bytes and old/candidate GPU union 525,624,984 bytes remain below 536,870,912 bytes, with zero final charges and unchanged input hashes. Six AMD history and two sharing tests passed separately, as did the final original-source CPU DDS oracle. The ordinary workspace suite passed 558 tests and kept thirty opt-in tests ignored; the one original CPU plus nine GPU opt-ins actually run here are distinct evidence.
+
+The frozen candidate also passed a nested native engine-only replacement check: original Miku animated, paused for three seconds with zero attempts/draws/swaps/empty frames/callbacks/worker dispatches, then resumed. Replacing the paused source with a private static 16×16 Scene produced exactly one draw/swap; three seconds of static playback remained idle, and clear/shutdown joined without owned child processes. Binary and original project/package hashes remained unchanged, and the paused original-default image was visibly reviewed. This checks engine replacement/idle behavior, without repeating the UI save/restore flow. The iteration still does not establish 30 FPS, daily-use or long-soak readiness, new UI persistence/installed-package acceptance, physical-output behavior or Windows parity. Physical suspend/resume remains skipped by explicit instruction.
+
 ### Recorded experimental Scene acceptance
 
 Development acceptance on 2026-10-09 used Wayland with `niri`, AMD Radeon 680M (`1002:1681`, `amdgpu`), and one `eDP-1` output at 2160×1440 with scale 1.25. Scene sample `3337606455` uses the default zero-X/Y camera, one image layer, and Shine: five effect passes, six total passes. A full-resolution capture confirmed visible Shine rendering.

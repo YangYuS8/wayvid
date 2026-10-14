@@ -750,19 +750,46 @@ fn decode_region_into(raw: &[u8], layout: &Bc3RegionLayout, rgba: &mut [u8]) -> 
     }
     let mut scratch = Bc3Scratch::default();
     let rect = layout.rect;
+    let right = rect.x + rect.width;
+    let bottom = rect.y + rect.height;
+    let output_stride = rect.width as usize * 4;
+    let source_row_bytes = layout.block_width as usize * 16;
     for by in layout.block_y..layout.block_y + layout.block_height {
-        for bx in layout.block_x..layout.block_x + layout.block_width {
-            let offset = by as usize * layout.source_block_row_stride + bx as usize * 16;
-            decode_block(&raw[offset..offset + 16], &mut scratch);
-            let x0 = (bx * 4).max(rect.x);
-            let x1 = (bx * 4 + 4).min(rect.x + rect.width);
-            let y0 = (by * 4).max(rect.y);
-            let y1 = (by * 4 + 4).min(rect.y + rect.height);
-            for y in y0..y1 {
-                let from = ((y - by * 4) * 4 + x0 - bx * 4) as usize * 4;
-                let to = ((y - rect.y) as usize * rect.width as usize + (x0 - rect.x) as usize) * 4;
-                let length = (x1 - x0) as usize * 4;
-                rgba[to..to + length].copy_from_slice(&scratch.pixels[from..from + length]);
+        let top = by * 4;
+        let y0 = top.max(rect.y);
+        let rows = ((top + 4).min(bottom) - y0) as usize;
+        let source_pixel_row = (y0 - top) as usize * 16;
+        let output_row = (y0 - rect.y) as usize * output_stride;
+        let source_row =
+            by as usize * layout.source_block_row_stride + layout.block_x as usize * 16;
+        // The checked layout selects complete BC3 blocks, even at partial mip
+        // edges. Only pixel copies need clipping; the source row remains whole.
+        for (index, block) in raw[source_row..source_row + source_row_bytes]
+            .as_chunks::<16>()
+            .0
+            .iter()
+            .enumerate()
+        {
+            decode_block(block, &mut scratch);
+            let left = (layout.block_x + index as u32) * 4;
+            if rows == 4 && left >= rect.x && left + 4 <= right {
+                let output = output_row + (left - rect.x) as usize * 4;
+                // Internal blocks always copy four complete, fixed-size rows.
+                for row in 0..4 {
+                    let from = row * 16;
+                    let to = output + row * output_stride;
+                    rgba[to..to + 16].copy_from_slice(&scratch.pixels[from..from + 16]);
+                }
+            } else {
+                let x0 = left.max(rect.x);
+                let length = ((left + 4).min(right) - x0) as usize * 4;
+                let source = source_pixel_row + (x0 - left) as usize * 4;
+                let output = output_row + (x0 - rect.x) as usize * 4;
+                for row in 0..rows {
+                    let from = source + row * 16;
+                    let to = output + row * output_stride;
+                    rgba[to..to + length].copy_from_slice(&scratch.pixels[from..from + length]);
+                }
             }
         }
     }

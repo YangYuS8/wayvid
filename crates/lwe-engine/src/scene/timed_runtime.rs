@@ -94,17 +94,25 @@ pub(super) struct TimedWorker {
 }
 
 impl TimedWorker {
+    #[cfg(test)]
     pub fn new() -> Result<Self> {
+        Self::new_with_wake(None)
+    }
+    pub(super) fn new_with_wake(wake: Option<super::worker_wake::WorkerWake>) -> Result<Self> {
         Self::start(
+            wake,
             #[cfg(test)]
             None,
         )
     }
     #[cfg(test)]
     pub fn held(gate: Arc<AtomicBool>) -> Result<Self> {
-        Self::start(Some(gate))
+        Self::start(None, Some(gate))
     }
-    fn start(#[cfg(test)] gate: Option<Arc<AtomicBool>>) -> Result<Self> {
+    fn start(
+        wake: Option<super::worker_wake::WorkerWake>,
+        #[cfg(test)] gate: Option<Arc<AtomicBool>>,
+    ) -> Result<Self> {
         let (input, jobs) = mpsc::sync_channel::<Job>(1);
         let (results, output) = mpsc::sync_channel(1);
         let stopped = Arc::new(AtomicBool::new(false));
@@ -130,6 +138,9 @@ impl TimedWorker {
                     }
                     if results.send(result).is_err() {
                         break;
+                    }
+                    if let Some(wake) = &wake {
+                        wake.notify();
                     }
                 }
             })
@@ -434,6 +445,66 @@ mod tests {
         assert_eq!((second.seq, second.time), (2, 0.07));
         assert_eq!(second.regions[0].frame, frame);
         assert_eq!(second.regions[0].key, key);
+        Ok(())
+    }
+
+    fn request_with_notification(
+        worker: &mut TimedWorker,
+        source: &Source,
+        wake: &super::super::worker_wake::WorkerWake,
+        event_loop: &mut calloop::EventLoop<'_, ()>,
+        seq: u64,
+        time: f64,
+    ) -> Result<()> {
+        let started = std::time::Instant::now();
+        let mut requested = false;
+        loop {
+            if !requested {
+                requested = worker.request(seq, time, std::slice::from_ref(source), Vec::new())?;
+            }
+            if requested && wake.take().is_some() {
+                return Ok(());
+            }
+            ensure!(
+                started.elapsed() < std::time::Duration::from_secs(2),
+                "Timed worker did not publish its notification"
+            );
+            event_loop.dispatch(std::time::Duration::from_millis(20), &mut ())?;
+        }
+    }
+
+    #[test]
+    fn timed_notifications_follow_complete_result_and_budget_failure_publication() -> Result<()> {
+        use super::super::worker_wake::WorkerWake;
+        let source = source(&authored_bytes(0xf800, 0.1), [7; 32])?;
+        let (ping, ping_source) = calloop::ping::make_ping()?;
+        let wake = WorkerWake::new(ping);
+        let mut event_loop = calloop::EventLoop::<()>::try_new()?;
+        event_loop
+            .handle()
+            .insert_source(ping_source, |(), _, ()| {})
+            .unwrap();
+        let mut worker = TimedWorker::new_with_wake(Some(wake.clone()))?;
+        request_with_notification(&mut worker, &source, &wake, &mut event_loop, 3, 0.07)?;
+        let ready = worker
+            .take()?
+            .expect("notification published before result");
+        assert_eq!((ready.seq, ready.time), (3, 0.07));
+        assert_eq!(ready.regions[0].frame, 0);
+        drop(ready);
+        let budget = source.source.memory_budget();
+        let before = budget.usage();
+        let reservation = budget.reserve_bytes(before.limit_bytes - before.charged_bytes)?;
+        request_with_notification(&mut worker, &source, &wake, &mut event_loop, 4, 0.15)?;
+        assert!(worker.take().is_err());
+        assert!(!worker.pending);
+        drop(reservation);
+        assert_eq!(budget.usage().charged_bytes, before.charged_bytes);
+        // A failed job releases the producer permit; a later valid epoch remains usable.
+        request_with_notification(&mut worker, &source, &wake, &mut event_loop, 5, 0.15)?;
+        let ready = worker.take()?.expect("notification without ready frame");
+        assert_eq!((ready.seq, ready.time), (5, 0.15));
+        assert_eq!(ready.regions[0].frame, 1);
         Ok(())
     }
 }

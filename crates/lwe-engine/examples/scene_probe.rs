@@ -331,6 +331,14 @@ fn measure(
     let empty = delta(after.empty_frames, before.empty_frames)?;
     let requested = delta(after.callbacks_requested, before.callbacks_requested)?;
     let received = delta(after.callbacks_received, before.callbacks_received)?;
+    let worker_dispatches = delta(
+        after.scene_worker_dispatches,
+        before.scene_worker_dispatches,
+    )?;
+    let worker_dispatch_micros = delta(
+        after.scene_worker_dispatch_total_micros,
+        before.scene_worker_dispatch_total_micros,
+    )?;
     let render_swap_micros = delta(
         after.frame_duration_total_micros,
         before.frame_duration_total_micros,
@@ -374,6 +382,10 @@ fn measure(
         "render_swap_mean_millis": (swaps > 0).then(|| render_swap_micros as f64 / swaps as f64 / 1000.0),
         "render_swap_buckets": render_swap_buckets,
         "lifetime_render_swap_max_micros": after.frame_duration_max_micros,
+        "scene_worker_dispatches": worker_dispatches,
+        "scene_worker_dispatch_total_micros": worker_dispatch_micros,
+        "scene_worker_dispatch_mean_micros": (worker_dispatches > 0).then(|| worker_dispatch_micros as f64 / worker_dispatches as f64),
+        "lifetime_scene_worker_dispatch_max_micros": after.scene_worker_dispatch_max_micros,
         "callbacks_requested": requested, "callbacks_received": received,
         "scene_payload_bytes": after.scene_payload_bytes, "idle_expected": idle,
         "scene_gpu_budget":{"context_generation":budget.context_generation,
