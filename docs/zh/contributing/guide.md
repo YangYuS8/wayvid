@@ -381,6 +381,29 @@ Scene script/texture worker 现先发布结果或错误，再发送属于该 ren
 
 冻结候选还通过嵌套原生 engine-only 替换检查：原 Miku 动画、三秒暂停的尝试/draw/swap/empty frame/callback/worker dispatch 均为零，随后恢复。暂停时换成私有 16×16 静态 Scene 恰好产生一次 draw/swap，三秒静态播放保持 idle，清除/退出 join 后无自有子进程残留。二进制和原 project/package 哈希不变，暂停的原默认画面经过可见复核。该检查覆盖引擎替换/idle 行为，没有重跑 UI 保存/恢复流程。本轮仍不能证明 30 FPS、日用或长时稳定、新 UI 持久化/安装包验收、物理输出行为或 Windows 一致性；按明确要求继续跳过物理休眠/恢复。
 
+### Scene CPU 准备重叠（2026-10-14） {#scene-cpu-ahead-2026-10-14}
+
+本次独立迭代以已合并的 `b092cbfc955887150bb869922eb8b6ece0553300` 为起点，上文 Miku 量测和源码身份保留为历史记录。共用运行时可在等待 compositor callback 或 FPS 就绪期间，通过现有 SceneScript worker 与动画帧/文字 worker 准备下一个 CPU epoch；沿用原 packet slot、worker、不可变资源 owner 与 512 MiB CPU/GPU 门控。CPU 准备不安装 GPU view、不消费历史、不授予呈现就绪或确认首帧，完整 packet 消费/上传/render 仍走有门控的呈现路径。
+
+每个预备 packet 将序号、场景时间与捕获 PCM 频谱绑定，CPU-only 准备期间已验收序号/时间/音频、已呈现像素和历史不变。暂停/idle 或未配置输出、待 apply/commit/rollback 事务、首帧尚未呈现的启动阶段、冻结/隔离 renderer 及等待成功 swap 的帧均不接纳提前准备。暂停与需要 CPU 重构的 replay 只取消预备 timed 工作，带标签的 VM packet 可保留供后续门控消费；已验收重画/resize/回滚先使用已验收 epoch，再消费未来 packet。序号零的时钟 rebase 现仅用于真正的第一次成功呈现，已呈现 seq0 帧的 resize 不再重启时钟。
+
+只有 `state.sessions.len() == 1` 才启用 timed decode ahead。多个 session 时 VM 仍可重叠准备，但 timed decode 保留原有门控策略，并取消预备 timed 结果。timed 结果可能在门控消费前持有全局 producer permit，该守卫避免一个 session 的 callback 被阻止时饿死其他 session。取消后仍由现有 worker/reaper 完成前持有来源/capacity owner。这是保守多 session 策略，不代表物理多显示器验收或多输出通用 timed-ahead 吞吐承诺，Video decoder 与呈现策略保留。
+
+最终 release A–B–B–A 对比使用保留的 #109 基线 A 二进制（`25e1ca224b59bed394a6a88373bd806cada187189627f8d7be49dfb98de4c172`，十二个运行时源码身份与已合并基线一致）及候选 B（`39ed54ca0503401503c350e93ef16aea79922870e9428bf16da3595be97c5615`）。每轮均为 AMD680M 上 1920×1080 嵌套 `niri`、原完整默认配置/效果/历史/资源分辨率、30 FPS cap、自有私有 PCM 与 2 ms 状态查询压力，私有 profiling 关闭；包含三十秒动画、三十秒暂停及三秒恢复。每个 variant 仅两轮短测，不代表显著性或长时结论，百分比不与此前迭代相加。
+
+| Variant | 单轮 FPS 范围 | 成功 swap / 总动画秒数 | 合并 FPS |
+| --- | ---: | ---: | ---: |
+| A：已合并 #109 基线 | 11.4333–11.9333 | 701 / 60.000116463 | 11.6833106554 |
+| B：CPU 准备重叠 | 14.3000–15.1666 | 884 / 60.000078995 | 14.7333139357 |
+
+直接观察吞吐变化为 **+26.1056%**，空绘制尝试从 2,527 次降为零；暂停期间六项活动计数均为零，恢复/清除/join/源码身份门禁通过。texture worker 单核采样 CPU 随吞吐增加从 17.1868% 上升至 25.8182%，不能称为 CPU 占用下降。约 62.08 秒的带阶段标签 CPU 采样窗口可能包含阶段边界，不是精确三十秒阶段 profile。成功 render+swap 的 CPU wall 时间为 4.8431 → 4.8057 ms，不含 ahead worker 等待，也不是 GPU elapsed。
+
+Rust workspace 检查全部通过，**ordinary 559 项 passed（含两项 doctest）、36 项 ignored**；另显式执行十四项 opt-in AMD 自建离屏检查：六项新增 ahead、六项历史、两项共享。新增回归覆盖 ahead 不修改 GPU/已验收状态、序号/时间/音频标签、门控安装、暂停/resize/恢复 replay、冻结回滚、拓扑取消/全局 permit 释放及启动/未确认 swap/shader-only 动画的拒绝。ignored 不计为通过。完整原 Miku 另在软件 EGL 验证：十图层、五特效、二十五 pass、两个 timed 纹理各选中八原帧、三历史、暂停/冻结回滚 replay 精确，以及 candidate/resize/thaw 清理；八个输出像素 hash 与二十四个历史像素 hash 全部匹配已合并 #109 的软件 oracle。CPU peak 525,312,699 B、GPU 旧/候选并集 525,624,984 B 均低于 536,870,912 B（512 MiB），CPU/pool 清理为零。完整软件结果与 AMD 小型离屏样本、原生吞吐量测分别报告，像素相等不代表原生或 Windows 对比。
+
+独立原生 engine-only 检查通过 Miku 暂停/恢复、暂停时换私有 16×16 静态图片（恰好一次 draw/swap）、三秒静态 idle、清除/join 和自有子进程退出；1920×1080 原 Miku/CRT 截图经过视觉复核。自有 `niri`/音频子进程已退出，宿主音频默认值和焦点已恢复。本轮不重验 UI 持久化或安装包，不宣称 30 FPS、日用、物理输出、Windows 一致性或长时稳定，物理休眠/恢复按明确要求继续跳过。
+
+下一步从本轮完整默认 14.73 FPS 基线进行受控逐 pass GPU 归因：维持现有 query/内存预算，对二十五个 pass 轮转稀疏采样，把 layer/stage/pass 关联 owner+序号+时间，确认 CRT、运动模糊或合成热点后，再结合 REA 原版 shader/material/editor 证据优化共用执行路径。这些采样和归因仍为计划。此前私有 `85cc` 诊断的十个稀疏、匹配 ring 尾段样本中，aggregate draw/composite GPU elapsed 均值约 61.32 ms，upload 约 6.34 ms；它们仅是后续调查线索，不是候选 `39ed` 的 GPU 测时、精确稳定阶段或等价负载对比。不能合并 CPU/GPU 时钟及这些均值，或据此预测 FPS。
+
 ### 已记录的实验性 Scene 验收
 
 2026-10-09 的开发版本验收环境为 Wayland 与 `niri`、AMD Radeon 680M（`1002:1681`，`amdgpu`），仅一个 `eDP-1` 输出，2160×1440、缩放 1.25。场景样本 `3337606455` 使用默认零 X/Y 相机，包含一个图片图层与 Shine：5 个特效 pass、总计 6 个 pass。全分辨率截图确认 Shine 实际可见渲染。
