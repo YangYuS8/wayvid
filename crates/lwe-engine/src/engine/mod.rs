@@ -478,9 +478,12 @@ fn render_all_surfaces(state: &mut EngineState) {
             )
         });
         let presented = matches!(&result, Ok(true));
-        surface_info
-            .schedule
-            .attempted(std::time::Instant::now(), presented, state.frame_interval);
+        surface_info.schedule.attempted(
+            std::time::Instant::now(),
+            presented,
+            state.frame_interval,
+            session.empty_frame_retry(),
+        );
         match result {
             Ok(true) => {
                 if state.power_paused {
@@ -502,7 +505,7 @@ fn render_all_surfaces(state: &mut EngineState) {
                 }
             }
             Ok(false) => {
-                // Keep readiness for a timed mpv update retry, without emitting
+                // Keep readiness for bounded preparation/decoder retries, without emitting
                 // a callback/commit for a buffer which did not change.
                 surface_info.frame_pending = true;
             }
